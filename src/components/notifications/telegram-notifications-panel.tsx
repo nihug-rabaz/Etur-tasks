@@ -68,6 +68,21 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
   }, []);
 
   useEffect(() => {
+    void refreshStatus();
+    const timer = window.setInterval(() => {
+      void refreshStatus();
+    }, 30000);
+    const handleFocus = () => {
+      void refreshStatus();
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [refreshStatus]);
+
+  useEffect(() => {
     if (!open) return;
     setLoading(true);
     refreshStatus().finally(() => setLoading(false));
