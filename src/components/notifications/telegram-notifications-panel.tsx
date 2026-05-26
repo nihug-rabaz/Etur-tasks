@@ -3,19 +3,20 @@
 import {
   Bell,
   Check,
-  Copy,
   Globe,
   Link2,
   Loader2,
+  Monitor,
+  QrCode,
   RefreshCw,
   Send,
-  Smartphone,
   Sparkles,
   Unlink,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { QRCodeSVG } from "qrcode.react";
 
 interface LinkStatus {
   linked: boolean;
@@ -180,14 +181,6 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
     }
   };
 
-  const copyCode = async () => {
-    if (!linkCode) return;
-    try {
-      await navigator.clipboard.writeText(linkCode.code);
-      setBanner({ tone: "info", text: "הקוד הועתק" });
-    } catch {}
-  };
-
   const linkedAtLabel = status?.linkedAt
     ? new Date(status.linkedAt).toLocaleDateString("he-IL", {
         day: "2-digit",
@@ -268,7 +261,6 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
               ) : linkCode ? (
                 <PendingLinkView
                   linkCode={linkCode}
-                  onCopy={copyCode}
                   onCancel={() => setLinkCode(null)}
                   onRefresh={async () => {
                     await fetch("/api/telegram/poll", { method: "POST" });
@@ -334,18 +326,19 @@ function UnlinkedView({
   );
 }
 
+type PendingTab = "qr" | "app" | "web";
+
 function PendingLinkView({
   linkCode,
-  onCopy,
   onCancel,
   onRefresh,
 }: {
   linkCode: LinkCode;
-  onCopy: () => void;
   onCancel: () => void;
   onRefresh: () => Promise<void>;
 }) {
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<PendingTab>("qr");
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -356,48 +349,74 @@ function PendingLinkView({
     }
   };
 
+  const webLink = buildWebLink(linkCode.botUsername, linkCode.code);
+
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-border-weak bg-surface-2/60 p-3">
-        <p className="text-xs font-semibold text-text-muted">קוד חיבור חד-פעמי</p>
-        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-surface-1 px-3 py-2">
-          <code className="font-mono text-base font-bold tracking-widest text-accent-primary">
-            {linkCode.code}
-          </code>
-          <button
-            type="button"
-            onClick={onCopy}
-            aria-label="העתק"
-            className="rounded p-1 text-text-muted transition hover:bg-surface-2 hover:text-text-primary"
-          >
-            <Copy size={14} />
-          </button>
-        </div>
+      <div className="grid grid-cols-3 gap-2">
+        <TabButton active={tab === "qr"} onClick={() => setTab("qr")} icon={<QrCode size={14} />} label="סרוק QR" />
+        <TabButton active={tab === "web"} onClick={() => setTab("web")} icon={<Globe size={14} />} label="טלגרם ווב" />
+        <TabButton active={tab === "app"} onClick={() => setTab("app")} icon={<Monitor size={14} />} label="באפליקציה" />
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <a
-          href={linkCode.deepLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#229ED9] px-3 py-2.5 text-xs font-bold text-white shadow-lg shadow-sky-500/20 transition hover:bg-[#1f8ec5]"
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
         >
-          <Smartphone size={14} />
-          באפליקציה
-        </a>
-        <a
-          href={buildWebLink(linkCode.botUsername, linkCode.code)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#229ED9]/40 bg-[#229ED9]/10 px-3 py-2.5 text-xs font-bold text-[#229ED9] transition hover:bg-[#229ED9]/20 dark:text-sky-300"
-        >
-          <Globe size={14} />
-          בטלגרם ווב
-        </a>
-      </div>
+          {tab === "qr" && (
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-violet-300/60 bg-gradient-to-b from-white to-violet-50/60 p-3 dark:border-violet-400/30 dark:from-slate-900 dark:to-violet-500/10">
+              <div className="rounded-lg bg-white p-2 shadow-sm ring-1 ring-black/5">
+                <QRCodeSVG
+                  value={linkCode.deepLink}
+                  size={168}
+                  level="M"
+                  marginSize={0}
+                  bgColor="#ffffff"
+                  fgColor="#1e1b4b"
+                />
+              </div>
+              <p className="text-center text-[11px] leading-relaxed text-text-secondary">
+                סרוק עם מצלמת הטלפון כדי לפתוח צ&apos;אט עם הבוט
+                <br />
+                <span className="font-mono text-text-muted">@{linkCode.botUsername}</span>
+              </p>
+            </div>
+          )}
+
+          {tab === "web" && (
+            <a
+              href={webLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#229ED9]/40 bg-[#229ED9]/10 px-3 py-3 text-sm font-bold text-[#229ED9] transition hover:bg-[#229ED9]/20 dark:text-sky-300"
+            >
+              <Globe size={16} />
+              פתח ב-Telegram Web
+            </a>
+          )}
+
+          {tab === "app" && (
+            <a
+              href={linkCode.deepLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] px-3 py-3 text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition hover:bg-[#1f8ec5]"
+            >
+              <Monitor size={16} />
+              פתח באפליקציית טלגרם
+            </a>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
       <div className="rounded-xl border border-dashed border-border-weak bg-surface-2/40 p-3 text-xs text-text-secondary">
         <p className="font-semibold text-text-primary">איך זה עובד?</p>
         <ol className="mt-1.5 list-decimal space-y-1 pr-4">
-          <li>בחר &quot;באפליקציה&quot; או &quot;בטלגרם ווב&quot;</li>
+          <li>פתח בטלגרם דרך אחת מהאפשרויות (QR, ווב או אפליקציה)</li>
           <li>בצ&apos;אט שייפתח, לחץ Start / התחל</li>
           <li>החיבור יושלם אוטומטית תוך מספר שניות</li>
         </ol>
@@ -421,6 +440,34 @@ function PendingLinkView({
         </button>
       </div>
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-xs font-bold transition ${
+        active
+          ? "border-accent-primary/60 bg-accent-primary/10 text-accent-primary"
+          : "border-border-weak bg-surface-2 text-text-primary hover:border-accent-primary/40"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 

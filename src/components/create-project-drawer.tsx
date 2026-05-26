@@ -143,7 +143,7 @@ export function CreateProjectDrawer({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-l from-purple-600 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white transition hover:scale-[1.02]"
+        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-200 dark:border-slate-600 dark:bg-slate-500 dark:text-white dark:hover:bg-slate-400"
       >
         <Plus size={16} />
         {triggerLabel}

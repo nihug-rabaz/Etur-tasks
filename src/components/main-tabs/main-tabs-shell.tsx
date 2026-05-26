@@ -195,9 +195,6 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-text-primary">סקציות ופרויקטים</h2>
               <div className="flex items-center gap-2">
-                <span className="rounded-full border border-border-weak bg-white px-3 py-1 text-xs font-medium text-text-secondary dark:bg-[#182238]">
-                  {selected.sections.reduce((sum, section) => sum + section.projects.length, 0)} פרויקטים
-                </span>
                 <CreateProjectDrawer
                   triggerLabel="פרויקט חדש בטאב"
                   allowedDomainId={selected.id}

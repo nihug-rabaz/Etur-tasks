@@ -15,12 +15,7 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
   return (
     <section className={`flex h-fit w-full flex-col self-start overflow-hidden rounded-2xl border-2 ${domain.shell}`}>
       <div className={`flex items-center justify-between gap-2 px-4 py-3 ${domain.header}`}>
-        <div className="flex items-center gap-2">
-          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${domain.headerPill}`}>
-            {domain.label}
-          </span>
-          <h3 className="text-lg font-bold text-white">{section.name}</h3>
-        </div>
+        <h3 className="text-lg font-bold text-white">{section.name}</h3>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ${domain.headerPill}`}>
           {section.projects.length} פרויקטים
         </span>

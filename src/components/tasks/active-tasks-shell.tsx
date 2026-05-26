@@ -7,7 +7,6 @@ import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import {
   domainKeys,
-  domainMeta,
   groupTasksByDomain,
   type DomainKey,
 } from "@/lib/ui/domains";
@@ -57,45 +56,31 @@ export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
       ) : (
         <div className="space-y-6">
           {visibleDomains.map((key) => {
-            const meta = domainMeta[key];
             const domainTasks = grouped[key];
             if (activeDomain !== "all" && domainTasks.length === 0) {
               return (
                 <div
                   key={key}
-                  className={`overflow-hidden rounded-2xl border-2 ${meta.shell}`}
+                  className="rounded-2xl border-2 border-dashed border-border-weak px-4 py-8 text-center text-sm text-text-secondary"
                 >
-                  <div className={`px-4 py-3 ${meta.header}`}>
-                    <span className="text-sm font-bold text-white">{meta.label}</span>
-                  </div>
-                  <p className="bg-white px-4 py-8 text-center text-sm text-text-secondary dark:bg-[#10182b]">
-                    אין משימות בתחום זה.
-                  </p>
+                  אין משימות בתחום זה.
                 </div>
               );
             }
             if (domainTasks.length === 0) return null;
             return (
-              <section key={key} className={`overflow-hidden rounded-2xl border-2 ${meta.shell}`}>
-                <div className={`flex items-center justify-between gap-3 px-4 py-3 ${meta.header}`}>
-                  <span className="text-base font-bold text-white">{meta.label}</span>
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${meta.headerPill}`}>
-                    {domainTasks.length} משימות
-                  </span>
-                </div>
-                <div className={`grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3 ${meta.body}`}>
-                  {domainTasks.map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => setSelectedTask({ id: task.id, title: task.title })}
-                      className="cursor-pointer text-start"
-                    >
-                      <TaskCard task={task} />
-                    </button>
-                  ))}
-                </div>
-              </section>
+              <div key={key} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {domainTasks.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => setSelectedTask({ id: task.id, title: task.title })}
+                    className="cursor-pointer text-start"
+                  >
+                    <TaskCard task={task} />
+                  </button>
+                ))}
+              </div>
             );
           })}
         </div>
