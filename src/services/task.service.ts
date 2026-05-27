@@ -11,8 +11,6 @@ export class TaskService extends BaseService {
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (select task_id from task_assignees where user_id = ${access.userId})
-          or created_by = ${access.userId}
         )
       order by due_date asc nulls last
     `;
@@ -32,8 +30,6 @@ export class TaskService extends BaseService {
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (select task_id from task_assignees where user_id = ${access.userId})
-          or created_by = ${access.userId}
         )
       order by due_date asc
     `;
@@ -50,8 +46,6 @@ export class TaskService extends BaseService {
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (select task_id from task_assignees where user_id = ${access.userId})
-          or created_by = ${access.userId}
         )
       order by created_at desc
     `;
@@ -68,8 +62,6 @@ export class TaskService extends BaseService {
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (select task_id from task_assignees where user_id = ${access.userId})
-          or created_by = ${access.userId}
         )
       order by created_at desc
     `;
@@ -86,8 +78,6 @@ export class TaskService extends BaseService {
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (select task_id from task_assignees where user_id = ${access.userId})
-          or created_by = ${access.userId}
         )
       limit 1
     `;

@@ -6,9 +6,11 @@ import {
   Globe,
   Link2,
   Loader2,
+  Megaphone,
   Monitor,
   QrCode,
   RefreshCw,
+  Send,
   Sparkles,
   Unlink,
   X,
@@ -44,7 +46,6 @@ function buildWebLink(botUsername: string, code: string): string {
 }
 
 export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
-  void isAdmin;
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<LinkStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -173,11 +174,11 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-label="התראות"
-        className="relative rounded-xl border border-border-weak bg-surface-2/70 p-2 transition hover:border-accent-primary/50"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
       >
-        <Bell size={18} className="text-text-secondary" />
+        <Bell size={16} />
         {status?.linked && (
-          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_2px_var(--background)]" />
+          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_2px_#0a3a5e]" />
         )}
       </button>
 
@@ -250,11 +251,105 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
                   busy={busyAction === "link"}
                 />
               )}
+
+              {isAdmin ? <AdminBroadcastForm onResult={setBanner} /> : null}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function AdminBroadcastForm({ onResult }: { onResult: (banner: Banner) => void }) {
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (sendingRef.current) return;
+    const text = message.trim();
+    if (!text) return;
+    sendingRef.current = true;
+    setSending(true);
+    try {
+      const response = await fetch("/api/telegram/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        onResult({ tone: "error", text: data?.error ?? "שליחת ההודעה נכשלה" });
+        return;
+      }
+      setMessage("");
+      onResult({
+        tone: "success",
+        text: `נשלח ל-${data.sent ?? 0} מתוך ${data.total ?? 0} משתמשים`,
+      });
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  };
+
+  const canSend = !sending && message.trim().length > 0;
+
+  return (
+    <form
+      onSubmit={submit}
+      className="rounded-xl border p-3"
+      style={{
+        backgroundColor: "rgba(99, 102, 241, 0.08)",
+        borderColor: "rgba(99, 102, 241, 0.35)",
+      }}
+    >
+      <div className="mb-2 flex items-center gap-2">
+        <span
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full"
+          style={{ backgroundColor: "rgba(99, 102, 241, 0.18)", color: "#4f46e5" }}
+        >
+          <Megaphone size={14} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-bold" style={{ color: "#4338ca" }}>
+            שליחה לכל המשתמשים
+          </p>
+          <p className="text-[11px]" style={{ color: "#6366f1" }}>
+            ישלח כהודעה לכל מי שמחובר לטלגרם
+          </p>
+        </div>
+      </div>
+      <textarea
+        value={message}
+        onChange={(event) => setMessage(event.target.value)}
+        placeholder="הקלד את ההודעה כאן..."
+        rows={3}
+        maxLength={4000}
+        className="w-full resize-y rounded-lg border px-3 py-2 text-sm text-text-primary outline-none transition"
+        style={{
+          backgroundColor: "rgba(255,255,255,0.9)",
+          borderColor: "rgba(99, 102, 241, 0.35)",
+        }}
+      />
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-text-muted">{message.length} / 4000</span>
+        <button
+          type="submit"
+          disabled={!canSend}
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-white shadow-sm transition"
+          style={{
+            backgroundColor: canSend ? "#4f46e5" : "#a5b4fc",
+            cursor: canSend ? "pointer" : "not-allowed",
+          }}
+        >
+          {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+          שליחה
+        </button>
+      </div>
+    </form>
   );
 }
 

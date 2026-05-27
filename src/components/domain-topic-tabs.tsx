@@ -10,6 +10,12 @@ const domainIcons: Record<DomainKey, ComponentType<{ size?: number; className?: 
   general: BriefcaseBusiness,
 };
 
+const activeDomainStyle: Record<DomainKey, { backgroundColor: string; borderColor: string }> = {
+  recruitment: { backgroundColor: "#0ea5e9", borderColor: "#7dd3fc" },
+  positioning: { backgroundColor: "#fb7185", borderColor: "#fda4af" },
+  general: { backgroundColor: "#10b981", borderColor: "#6ee7b7" },
+};
+
 interface DomainTopicTabsProps {
   active: DomainKey | "all";
   counts?: Partial<Record<DomainKey, number>>;
@@ -46,6 +52,7 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(key)}
+            style={selected ? activeDomainStyle[key] : undefined}
             className={`flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-bold transition sm:min-w-[8.5rem] ${
               selected ? `${meta.tabActive} text-white shadow-lg` : meta.tabIdle
             }`}

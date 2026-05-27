@@ -14,17 +14,66 @@ export interface SideMenuItem {
   icon?: ReactNode;
 }
 
+export interface SideMenuState {
+  open: boolean;
+  toggle: () => void;
+  close: () => void;
+  setOpen: (next: boolean) => void;
+}
+
+export function useSideMenu(): SideMenuState {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const toggle = useCallback(() => setOpen((value) => !value), []);
+  return { open, toggle, close, setOpen };
+}
+
+interface SideMenuTriggerProps {
+  state: SideMenuState;
+  className?: string;
+}
+
+export function SideMenuTrigger({ state, className }: SideMenuTriggerProps) {
+  const baseClass =
+    "inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur transition hover:border-white/45 hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:px-4 sm:text-sm";
+  return (
+    <button
+      type="button"
+      onClick={state.toggle}
+      aria-expanded={state.open}
+      aria-controls="app-side-menu"
+      aria-label={state.open ? "סגירת תפריט" : "פתיחת תפריט"}
+      className={className ? `${baseClass} ${className}` : baseClass}
+    >
+      <span className="relative inline-flex h-4 w-4 items-center justify-center">
+        <Menu
+          size={16}
+          className={`absolute transition-all duration-300 ${
+            state.open ? "scale-0 -rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100"
+          }`}
+        />
+        <X
+          size={16}
+          className={`absolute transition-all duration-300 ${
+            state.open ? "scale-100 rotate-0 opacity-100" : "scale-0 rotate-90 opacity-0"
+          }`}
+        />
+      </span>
+      <span className="hidden tracking-wide sm:inline">{state.open ? "סגירה" : "תפריט"}</span>
+    </button>
+  );
+}
+
 interface SideMenuProps {
   items: SideMenuItem[];
   userLabel?: string | null;
   showLogout?: boolean;
+  state: SideMenuState;
 }
 
-export function SideMenu({ items, userLabel, showLogout = true }: SideMenuProps) {
+export function SideMenu({ items, userLabel, showLogout = true, state }: SideMenuProps) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-
-  const close = useCallback(() => setOpen(false), []);
+  const { open, close } = state;
 
   useEffect(() => {
     close();
@@ -46,30 +95,6 @@ export function SideMenu({ items, userLabel, showLogout = true }: SideMenuProps)
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-controls="app-side-menu"
-        className="fixed right-4 top-4 z-[70] inline-flex items-center gap-2 rounded-full border border-border-weak bg-surface-1/85 px-4 py-2 text-sm font-semibold text-text-primary shadow-[0_8px_22px_rgba(15,23,42,0.18)] backdrop-blur transition hover:-translate-y-0.5 hover:border-accent-primary/60 hover:shadow-[0_12px_28px_rgba(91,140,255,0.28)] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
-      >
-        <span className="relative inline-flex h-4 w-4 items-center justify-center">
-          <Menu
-            size={16}
-            className={`absolute transition-all duration-300 ${
-              open ? "scale-0 -rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100"
-            }`}
-          />
-          <X
-            size={16}
-            className={`absolute transition-all duration-300 ${
-              open ? "scale-100 rotate-0 opacity-100" : "scale-0 rotate-90 opacity-0"
-            }`}
-          />
-        </span>
-        <span className="tracking-wide">{open ? "סגירה" : "תפריט"}</span>
-      </button>
-
       <div
         role="presentation"
         onClick={close}

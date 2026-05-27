@@ -53,7 +53,7 @@ export function UpcomingTasksShell({
 
   return (
     <section className="space-y-5">
-      <div className="glow-ring rounded-3xl border border-border-weak bg-gradient-to-l from-surface-1 via-surface-1 to-surface-2/80 p-5 shadow-[0_16px_40px_rgba(2,6,23,0.15)]">
+      <div className="rounded-3xl border border-border-weak bg-surface-1 p-5 shadow-sm">
         <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">משימות קרובות</h1>
         <p className="mt-1 text-sm text-text-secondary">
           לוח שנה חי לפי תאריך יעד · {visibleCount} משימות מוצגות כרגע

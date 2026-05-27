@@ -89,17 +89,15 @@ export function UpcomingTasksCalendar({
     : `${format(rangeStart, "d בMMMM", { locale: he })} – ${format(rangeEnd, "d בMMMM yyyy", { locale: he })}`;
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border-weak bg-gradient-to-bl from-surface-1/95 via-surface-1/80 to-surface-2/60 shadow-[0_24px_60px_rgba(2,6,23,0.18)] dark:shadow-[0_24px_70px_rgba(0,0,0,0.45)]">
+    <div className="overflow-hidden rounded-3xl border border-border-weak bg-surface-1 shadow-sm">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden border-b border-border-weak/80 bg-gradient-to-l from-accent-primary/20 via-accent-secondary/10 to-accent-cyan/15 px-5 py-5 sm:px-6"
+        className="relative overflow-hidden border-b border-border-weak/80 bg-surface-2/50 px-5 py-5 sm:px-6"
       >
-        <div className="pointer-events-none absolute -left-8 top-0 h-32 w-32 rounded-full bg-accent-primary/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-10 right-0 h-36 w-36 rounded-full bg-accent-cyan/20 blur-3xl" />
         <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-surface-1/50 text-accent-primary shadow-[0_8px_24px_rgba(79,70,229,0.25)] backdrop-blur-sm">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border-weak bg-surface-1 text-accent-primary">
               <CalendarDays size={22} />
             </span>
             <div>
@@ -167,7 +165,7 @@ export function UpcomingTasksCalendar({
                         !inRange
                           ? "cursor-default border-transparent bg-surface-2/20 opacity-45"
                           : selected
-                            ? "cursor-pointer border-accent-primary/70 bg-gradient-to-bl from-accent-primary/20 to-accent-cyan/10 shadow-[0_0_20px_rgba(91,140,255,0.22)] ring-2 ring-accent-primary/30"
+                            ? "cursor-pointer border-accent-primary/70 bg-accent-primary/10 ring-2 ring-accent-primary/30"
                             : "cursor-pointer border-border-weak/60 bg-surface-1/50 hover:border-accent-primary/40 hover:bg-surface-1/80"
                       }`}
                     >

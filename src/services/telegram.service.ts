@@ -100,6 +100,29 @@ export class TelegramService extends BaseService {
     return true;
   }
 
+  public async broadcastToLinkedUsers(
+    text: string,
+    options?: TelegramSendOptions,
+  ): Promise<{ sent: number; failed: number; total: number }> {
+    const db = this.getDb();
+    const rows = await db<Array<{ telegram_id: string }>>`
+      select distinct telegram_id from profiles
+      where telegram_id is not null and is_approved = true
+    `;
+    let sent = 0;
+    let failed = 0;
+    for (const row of rows) {
+      try {
+        await this.sendMessage(row.telegram_id, text, options);
+        sent += 1;
+      } catch (error) {
+        console.error("[telegram-broadcast]", error);
+        failed += 1;
+      }
+    }
+    return { sent, failed, total: rows.length };
+  }
+
   public async generateLinkCode(userId: string): Promise<LinkCodeResult> {
     const bot = await this.getBotInfo();
     const db = this.getDb();

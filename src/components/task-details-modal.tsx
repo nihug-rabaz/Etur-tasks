@@ -287,11 +287,6 @@ export function TaskDetailsModal({
               aria-modal="true"
               aria-label="פרטי משימה"
             >
-              <span className="hud-corner hud-corner--tl" />
-              <span className="hud-corner hud-corner--tr" />
-              <span className="hud-corner hud-corner--bl" />
-              <span className="hud-corner hud-corner--br" />
-
               {loading || saving ? <span className="hud-loader" /> : null}
 
               <header className="relative px-6 pt-6 pb-5">

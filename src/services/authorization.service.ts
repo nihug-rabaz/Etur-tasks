@@ -70,36 +70,20 @@ export class AuthorizationService extends BaseService {
   }
 
   public async getTaskAccessContext(profile: Profile): Promise<TaskAccessContext> {
-    if (profile.role === "admin") {
-      return { unrestricted: true, userId: profile.id };
-    }
-    const restricted = await this.hasConfiguredPermissions(profile.id);
-    return { unrestricted: !restricted, userId: profile.id };
-  }
-
-  private async hasConfiguredPermissions(userId: string): Promise<boolean> {
-    const db = this.getDb();
-    const rows = await db<Array<{ exists: boolean }>>`
-      select exists(
-        select 1 from user_subtopic_permissions where user_id = ${userId}
-      ) as exists
-    `;
-    return rows[0]?.exists ?? false;
+    return {
+      unrestricted: profile.role === "admin",
+      userId: profile.id,
+    };
   }
 
   public async canAccessTask(profile: Profile, taskId: string): Promise<boolean> {
     if (profile.role === "admin") return true;
     const db = this.getDb();
-    const rows = await db<Array<{ subtopic_id: string; created_by: string }>>`
-      select subtopic_id, created_by from tasks where id = ${taskId} limit 1
+    const rows = await db<Array<{ subtopic_id: string }>>`
+      select subtopic_id from tasks where id = ${taskId} limit 1
     `;
     const task = rows[0];
     if (!task) return false;
-    if (task.created_by === profile.id) return true;
-    const assigneeRows = await db<Array<{ task_id: string }>>`
-      select task_id from task_assignees where task_id = ${taskId} and user_id = ${profile.id} limit 1
-    `;
-    if (assigneeRows.length > 0) return true;
     return this.canAccessSubtopic(profile.id, task.subtopic_id);
   }
 
@@ -109,10 +93,6 @@ export class AuthorizationService extends BaseService {
       select role from profiles where id = ${userId} limit 1
     `;
     if (profileRows[0]?.role === "admin") {
-      return true;
-    }
-    const restricted = await this.hasConfiguredPermissions(userId);
-    if (!restricted) {
       return true;
     }
     const rows = await db<Array<{ user_id: string }>>`
@@ -131,12 +111,6 @@ export class AuthorizationService extends BaseService {
         select id, name, domain_id from subtopics order by name
       `;
     }
-    const restricted = await this.hasConfiguredPermissions(profile.id);
-    if (!restricted) {
-      return db<Subtopic[]>`
-        select id, name, domain_id from subtopics order by name
-      `;
-    }
     return db<Subtopic[]>`
       select s.id, s.name, s.domain_id
       from subtopics s
@@ -149,15 +123,6 @@ export class AuthorizationService extends BaseService {
   public async getAccessibleSubtopicsInDomain(profile: Profile, domainId: string): Promise<Subtopic[]> {
     const db = this.getDb();
     if (profile.role === "admin") {
-      return db<Subtopic[]>`
-        select id, name, domain_id
-        from subtopics
-        where domain_id = ${domainId}
-        order by name
-      `;
-    }
-    const restricted = await this.hasConfiguredPermissions(profile.id);
-    if (!restricted) {
       return db<Subtopic[]>`
         select id, name, domain_id
         from subtopics

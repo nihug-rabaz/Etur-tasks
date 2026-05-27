@@ -9,14 +9,26 @@ interface SectionGroupProps {
   onTaskClick: (task: { id: string; title: string }) => void;
 }
 
+const domainHeaderColors: Record<DomainKey, string> = {
+  recruitment: "#0ea5e9",
+  positioning: "#fb7185",
+  general: "#10b981",
+};
+
 export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: SectionGroupProps) {
   const domain = domainMeta[domainSlug];
 
   return (
     <section className={`flex h-fit w-full flex-col self-start overflow-hidden rounded-2xl border-2 ${domain.shell}`}>
-      <div className={`flex items-center justify-between gap-2 px-4 py-3 ${domain.header}`}>
+      <div
+        className="flex items-center justify-between gap-2 px-4 py-3"
+        style={{ backgroundColor: domainHeaderColors[domainSlug] }}
+      >
         <h3 className="text-lg font-bold text-white">{section.name}</h3>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ${domain.headerPill}`}>
+        <span
+          className="rounded-full border px-3 py-1 text-xs font-bold text-white"
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.3)" }}
+        >
           {section.projects.length} פרויקטים
         </span>
       </div>

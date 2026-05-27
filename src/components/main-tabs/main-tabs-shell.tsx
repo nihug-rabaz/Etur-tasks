@@ -34,26 +34,23 @@ const tabMeta: Record<
   recruitment: {
     label: "איתור",
     icon: Radar,
-    tabClass: "from-blue-500/35 via-indigo-500/20 to-cyan-400/25",
-    contentClass: "border-blue-400/45",
-    panelBgClass:
-      "bg-gradient-to-bl from-blue-500/20 via-indigo-500/12 to-cyan-400/18 dark:from-blue-500/28 dark:via-indigo-500/18 dark:to-cyan-400/22",
+    tabClass: "bg-sky-100",
+    contentClass: "border-sky-200",
+    panelBgClass: "bg-sky-50 dark:bg-sky-950/40",
   },
   positioning: {
     label: "מיצוב",
     icon: Megaphone,
-    tabClass: "from-fuchsia-500/35 via-violet-500/20 to-pink-400/25",
-    contentClass: "border-fuchsia-400/45",
-    panelBgClass:
-      "bg-gradient-to-bl from-fuchsia-500/20 via-violet-500/12 to-pink-400/18 dark:from-fuchsia-500/28 dark:via-violet-500/18 dark:to-pink-400/22",
+    tabClass: "bg-rose-50",
+    contentClass: "border-rose-200",
+    panelBgClass: "bg-rose-50 dark:bg-rose-950/40",
   },
   general: {
     label: "כללי",
     icon: BriefcaseBusiness,
-    tabClass: "from-cyan-500/35 via-emerald-500/20 to-teal-400/25",
-    contentClass: "border-cyan-400/45",
-    panelBgClass:
-      "bg-gradient-to-bl from-cyan-500/20 via-emerald-500/12 to-teal-400/18 dark:from-cyan-500/28 dark:via-emerald-500/18 dark:to-teal-400/22",
+    tabClass: "bg-emerald-50",
+    contentClass: "border-emerald-200",
+    panelBgClass: "bg-emerald-50 dark:bg-emerald-950/40",
   },
 };
 

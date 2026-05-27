@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { RealtimeSync } from "@/components/realtime-sync";
-import { SideMenu, type SideMenuItem } from "@/components/side-menu";
+import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TelegramNotificationsPanel } from "@/components/notifications/telegram-notifications-panel";
 
@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
+  const sideMenu = useSideMenu();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,40 +52,51 @@ export function AppShell({ children }: { children: ReactNode }) {
   const userLabel = session?.user?.name || session?.user?.email || null;
 
   return (
-    <div className="relative min-h-screen bg-background text-text-primary transition-colors">
+    <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
       <RealtimeSync />
-      <SideMenu items={navItems} userLabel={userLabel} />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-screen-2xl flex-col px-4 pb-6 pt-5 sm:px-6 lg:px-8">
-        <header className="mb-4 shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="w-32 shrink-0" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center justify-start gap-2 text-sm">
-                <Link href="/dashboard" className="rounded-lg bg-surface-2/80 px-2 py-1 text-text-secondary hover:text-text-primary">
+      <SideMenu items={navItems} userLabel={userLabel} state={sideMenu} />
+      <header
+        className="topbar w-full px-3 py-3 shadow-sm sm:px-6 lg:px-8"
+        style={{ backgroundColor: "#0a3a5e" }}
+      >
+        <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 sm:gap-3">
+          <SideMenuTrigger state={sideMenu} className="shrink-0" />
+          <nav
+            aria-label="פירורי לחם"
+            className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <ol className="flex w-max items-center gap-1.5 whitespace-nowrap text-xs sm:gap-2 sm:text-sm">
+              <li>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center rounded-lg bg-white/15 px-2 py-1 font-medium text-white transition hover:bg-white/25"
+                >
                   דף הבית
                 </Link>
-                {segments.map((segment, index) => {
-                  const href = `/${segments.slice(0, index + 1).join("/")}`;
-                  return (
-                    <span key={href} className="inline-flex items-center gap-2">
-                      <span className="text-text-muted">/</span>
-                      <Link
-                        href={href}
-                        className="rounded-lg bg-surface-2/80 px-2 py-1 text-text-secondary hover:text-text-primary"
-                      >
-                        {routeLabel[segment] ?? segment}
-                      </Link>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <ThemeToggle />
-              <TelegramNotificationsPanel isAdmin={isAdmin} />
-            </div>
+              </li>
+              {segments.map((segment, index) => {
+                const href = `/${segments.slice(0, index + 1).join("/")}`;
+                return (
+                  <li key={href} className="inline-flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-white/40">/</span>
+                    <Link
+                      href={href}
+                      className="inline-flex items-center rounded-lg bg-white/15 px-2 py-1 font-medium text-white transition hover:bg-white/25"
+                    >
+                      {routeLabel[segment] ?? segment}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <ThemeToggle />
+            <TelegramNotificationsPanel isAdmin={isAdmin} />
           </div>
-        </header>
+        </div>
+      </header>
+      <div className="relative mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:px-8">
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
     </div>

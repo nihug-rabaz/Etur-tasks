@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DomainService } from "@/services/domain.service";
+import { AuthorizationService } from "@/services/authorization.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { TaskWithRelations } from "@/types/models";
 import { TaskCard } from "@/components/task-card";
@@ -11,8 +11,10 @@ interface DomainPageProps {
 
 export default async function DomainPage({ params }: DomainPageProps) {
   const { id } = await params;
-  const domainService = new DomainService();
-  const subtopics = await domainService.getSubtopicsByDomain(id);
+  const authorizationService = new AuthorizationService();
+  const profile = await authorizationService.ensureApproved();
+  const subtopics = await authorizationService.getAccessibleSubtopicsInDomain(profile, id);
+  const access = await authorizationService.getTaskAccessContext(profile);
   const db = NeonDatabase.createClient();
   const subtopicIds = subtopics.map((subtopic) => subtopic.id);
   const tasks =
@@ -21,6 +23,10 @@ export default async function DomainPage({ params }: DomainPageProps) {
           select *
           from task_details
           where subtopic_id = any(${subtopicIds})
+            and (
+              ${access.unrestricted}::boolean
+              or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+            )
           order by created_at desc
         `
       : [];

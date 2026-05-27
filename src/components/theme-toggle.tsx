@@ -26,15 +26,18 @@ export function ThemeToggle() {
   };
 
   const isDark = mode === "dark";
+  const label = isDark ? "מצב בהיר" : "מצב כהה";
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
-      className="group inline-flex items-center gap-2 rounded-xl border border-border-weak bg-surface-2/80 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-accent-primary/60 hover:text-text-primary"
+      aria-label={label}
+      title={label}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:h-auto sm:w-auto sm:gap-2 sm:rounded-full sm:px-3 sm:py-2 sm:text-xs sm:font-semibold"
     >
-      {isDark ? <Sun size={14} /> : <Moon size={14} />}
-      {isDark ? "בהיר" : "כהה"}
+      {isDark ? <Sun size={16} /> : <Moon size={16} />}
+      <span className="hidden sm:inline">{isDark ? "בהיר" : "כהה"}</span>
     </button>
   );
 }

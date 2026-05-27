@@ -133,8 +133,6 @@ export class DashboardService extends BaseService {
             and (
               ${access.unrestricted}::boolean
               or t.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-              or t.id in (select task_id from task_assignees where user_id = ${access.userId})
-              or t.created_by = ${access.userId}
             )
         )::int as active_tasks,
         count(t.id) filter (
@@ -142,8 +140,6 @@ export class DashboardService extends BaseService {
             and (
               ${access.unrestricted}::boolean
               or t.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-              or t.id in (select task_id from task_assignees where user_id = ${access.userId})
-              or t.created_by = ${access.userId}
             )
         )::int as completed_tasks,
         count(distinct p.id) filter (
@@ -193,8 +189,6 @@ export class DashboardService extends BaseService {
           and (
             ${access.unrestricted}::boolean
             or t.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-            or t.id in (select task_id from task_assignees where user_id = ${access.userId})
-            or t.created_by = ${access.userId}
           )
       )
       select domain_id, id, title, status, priority, due_date
@@ -250,8 +244,6 @@ export class DashboardService extends BaseService {
       where (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-        or id in (select task_id from task_assignees where user_id = ${access.userId})
-        or created_by = ${access.userId}
       )
     `;
 
@@ -273,8 +265,6 @@ export class DashboardService extends BaseService {
       where (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-        or id in (select task_id from task_assignees where user_id = ${access.userId})
-        or created_by = ${access.userId}
       )
       order by
         case status when 'in_progress' then 1 else 2 end,
@@ -345,8 +335,6 @@ export class DashboardService extends BaseService {
       where (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-        or id in (select task_id from task_assignees where user_id = ${access.userId})
-        or created_by = ${access.userId}
       )
       order by
         case status when 'in_progress' then 1 else 2 end,
@@ -424,8 +412,6 @@ export class DashboardService extends BaseService {
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (select task_id from task_assignees where user_id = ${access.userId})
-          or created_by = ${access.userId}
         )
       order by
         case status when 'in_progress' then 1 else 2 end,
@@ -501,8 +487,6 @@ export class DashboardService extends BaseService {
       where (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-        or id in (select task_id from task_assignees where user_id = ${access.userId})
-        or created_by = ${access.userId}
       )
       order by
         case status when 'in_progress' then 1 else 2 end,

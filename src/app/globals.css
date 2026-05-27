@@ -68,6 +68,14 @@ body {
   min-height: 100vh;
 }
 
+.topbar {
+  background-color: #0a3a5e !important;
+}
+
+.dark .topbar {
+  background-color: #06243d !important;
+}
+
 * {
   border-color: var(--border-weak);
 }
@@ -86,118 +94,31 @@ body {
 .dashboard-ambient-base {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse 90% 70% at 12% 8%, rgba(147, 197, 253, 0.55), transparent 58%),
-    radial-gradient(ellipse 75% 60% at 88% 15%, rgba(196, 181, 253, 0.5), transparent 55%),
-    radial-gradient(ellipse 80% 65% at 45% 95%, rgba(165, 243, 252, 0.45), transparent 60%),
-    linear-gradient(155deg, #eef2ff 0%, #f5f3ff 38%, #faf5ff 68%, #ecfeff 100%);
+  background: #f6f7fa;
 }
 
 .dashboard-ambient-base--recruitment {
-  background:
-    radial-gradient(ellipse 90% 70% at 12% 8%, rgba(96, 165, 250, 0.5), transparent 58%),
-    radial-gradient(ellipse 75% 60% at 88% 15%, rgba(129, 140, 248, 0.48), transparent 55%),
-    radial-gradient(ellipse 85% 70% at 50% 100%, rgba(103, 232, 249, 0.48), transparent 62%),
-    radial-gradient(ellipse 60% 50% at 80% 75%, rgba(196, 181, 253, 0.35), transparent 55%),
-    linear-gradient(180deg, #eff6ff 0%, #eef2ff 35%, #e0e7ff 70%, #ecfeff 100%);
+  background: #eff6ff;
 }
 
 .dashboard-ambient-base--positioning {
-  background:
-    radial-gradient(ellipse 90% 70% at 10% 12%, rgba(240, 171, 252, 0.52), transparent 58%),
-    radial-gradient(ellipse 75% 60% at 90% 18%, rgba(196, 181, 253, 0.48), transparent 55%),
-    radial-gradient(ellipse 85% 70% at 50% 100%, rgba(253, 164, 175, 0.45), transparent 62%),
-    radial-gradient(ellipse 60% 50% at 15% 80%, rgba(240, 171, 252, 0.32), transparent 55%),
-    linear-gradient(180deg, #fdf4ff 0%, #fae8ff 35%, #fce7f3 70%, #fff1f2 100%);
+  background: #fdf2f5;
 }
 
 .dashboard-ambient-base--general {
-  background:
-    radial-gradient(ellipse 90% 70% at 14% 10%, rgba(110, 231, 183, 0.45), transparent 58%),
-    radial-gradient(ellipse 75% 60% at 86% 16%, rgba(94, 234, 212, 0.42), transparent 55%),
-    radial-gradient(ellipse 85% 70% at 50% 100%, rgba(125, 211, 252, 0.42), transparent 62%),
-    radial-gradient(ellipse 60% 50% at 75% 78%, rgba(110, 231, 183, 0.3), transparent 55%),
-    linear-gradient(180deg, #ecfdf5 0%, #f0fdfa 35%, #e0f2fe 70%, #f0f9ff 100%);
+  background: #f1faf5;
 }
 
 .dark .dashboard-ambient-base--recruitment {
-  background:
-    radial-gradient(ellipse 85% 65% at 15% 10%, rgba(59, 130, 246, 0.35), transparent 58%),
-    radial-gradient(ellipse 70% 55% at 85% 20%, rgba(99, 102, 241, 0.32), transparent 55%),
-    radial-gradient(ellipse 75% 60% at 50% 100%, rgba(6, 182, 212, 0.28), transparent 60%),
-    linear-gradient(160deg, #060a14 0%, #0a1020 45%, #0c1428 100%);
+  background: #0a1830;
 }
 
 .dark .dashboard-ambient-base--positioning {
-  background:
-    radial-gradient(ellipse 85% 65% at 12% 12%, rgba(217, 70, 239, 0.32), transparent 58%),
-    radial-gradient(ellipse 70% 55% at 88% 18%, rgba(139, 92, 246, 0.3), transparent 55%),
-    radial-gradient(ellipse 75% 60% at 50% 100%, rgba(244, 63, 94, 0.22), transparent 60%),
-    linear-gradient(160deg, #0a0612 0%, #120a1c 45%, #0c1020 100%);
+  background: #18101a;
 }
 
 .dark .dashboard-ambient-base--general {
-  background:
-    radial-gradient(ellipse 85% 65% at 14% 10%, rgba(16, 185, 129, 0.3), transparent 58%),
-    radial-gradient(ellipse 70% 55% at 86% 16%, rgba(20, 184, 166, 0.28), transparent 55%),
-    radial-gradient(ellipse 75% 60% at 48% 100%, rgba(56, 189, 248, 0.22), transparent 60%),
-    linear-gradient(160deg, #060f0c 0%, #0a1410 45%, #0a1020 100%);
-}
-
-.dashboard-ambient-orb {
-  filter: blur(72px);
-  opacity: 0.38;
-  mix-blend-mode: multiply;
-}
-
-.dark .dashboard-ambient-orb {
-  opacity: 0.22;
-  mix-blend-mode: screen;
-}
-
-.dashboard-ambient-grid {
-  background-image:
-    linear-gradient(rgba(79, 70, 229, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 70, 229, 0.06) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 85% 75% at 50% 40%, black 20%, transparent 75%);
-  opacity: 0.65;
-}
-
-.dark .dashboard-ambient-grid {
-  background-image:
-    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
-  opacity: 0.45;
-}
-
-.dashboard-ambient-shimmer {
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.35) 48%,
-    transparent 66%
-  );
-  background-size: 220% 100%;
-  animation: dashboard-shimmer 12s ease-in-out infinite;
-}
-
-.dark .dashboard-ambient-shimmer {
-  background: linear-gradient(
-    115deg,
-    transparent 30%,
-    rgba(255, 255, 255, 0.06) 48%,
-    transparent 66%
-  );
-}
-
-@keyframes dashboard-shimmer {
-  0% {
-    background-position: 120% 0;
-  }
-  100% {
-    background-position: -80% 0;
-  }
+  background: #0c1614;
 }
 
 .dashboard-glass {
@@ -310,43 +231,6 @@ body {
     rgba(15, 23, 42, 0.025) 3px,
     rgba(15, 23, 42, 0) 4px
   );
-}
-
-.hud-corner {
-  position: absolute;
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(14, 165, 233, 0.95);
-  box-shadow: 0 0 10px rgba(14, 165, 233, 0.45), 0 0 2px rgba(14, 165, 233, 0.6);
-  pointer-events: none;
-}
-
-.hud-corner--tl {
-  top: -1px;
-  left: -1px;
-  border-right: none;
-  border-bottom: none;
-}
-
-.hud-corner--tr {
-  top: -1px;
-  right: -1px;
-  border-left: none;
-  border-bottom: none;
-}
-
-.hud-corner--bl {
-  bottom: -1px;
-  left: -1px;
-  border-right: none;
-  border-top: none;
-}
-
-.hud-corner--br {
-  bottom: -1px;
-  right: -1px;
-  border-left: none;
-  border-top: none;
 }
 
 .hud-loader {

@@ -1,11 +1,17 @@
 import { Calendar, Flag, UserRound, FolderKanban } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
-import { domainCardStyle } from "@/lib/ui/domains";
+import { domainCardStyle, domainKeyFromName, type DomainKey } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 
 interface TaskCardProps {
   task: TaskWithRelations;
 }
+
+const domainHeaderColors: Record<DomainKey, string> = {
+  recruitment: "#0ea5e9",
+  positioning: "#fb7185",
+  general: "#10b981",
+};
 
 const priorityStyle: Record<string, string> = {
   low: "border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-100",
@@ -31,13 +37,23 @@ const priorityLabel: Record<string, string> = {
 
 export function TaskCard({ task }: TaskCardProps) {
   const domain = domainCardStyle(task.domain_name);
+  const domainKey = domainKeyFromName(task.domain_name);
+  const headerBg = domainKey ? domainHeaderColors[domainKey] : "#64748b";
 
   return (
     <article className={`relative overflow-hidden rounded-2xl border-2 ${domain.shell}`}>
       <span className={`absolute inset-y-0 start-0 z-10 w-1.5 ${domain.accent}`} aria-hidden />
 
-      <div className={`flex items-center justify-between gap-2 px-4 py-3 ps-5 ${domain.header}`}>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ${domain.headerPill}`}>{domain.label}</span>
+      <div
+        className="flex items-center justify-between gap-2 px-4 py-3 ps-5"
+        style={{ backgroundColor: headerBg }}
+      >
+        <span
+          className="rounded-full border px-3 py-1 text-xs font-bold text-white"
+          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.3)" }}
+        >
+          {domain.label}
+        </span>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusOnHeader[task.status]}`}>
           {statusLabel[task.status]}
         </span>
