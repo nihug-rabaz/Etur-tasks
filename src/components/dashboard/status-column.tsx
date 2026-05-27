@@ -3,11 +3,10 @@ import { TaskWithRelations } from "@/types/models";
 interface StatusColumnProps {
   title: string;
   tasks: TaskWithRelations[];
-  tone: "open" | "progress" | "done";
+  tone: "progress" | "done";
 }
 
 const toneClassMap = {
-  open: "border-sky-500/35 bg-sky-500/10",
   progress: "border-violet-500/35 bg-violet-500/10",
   done: "border-emerald-500/35 bg-emerald-500/10",
 } as const;

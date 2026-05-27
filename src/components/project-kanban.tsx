@@ -9,16 +9,14 @@ interface ProjectKanbanProps {
   tasks: TaskWithRelations[];
 }
 
-type KanbanStatus = "open" | "in_progress" | "completed";
+type KanbanStatus = "in_progress" | "completed";
 
 const statusLabel: Record<KanbanStatus, string> = {
-  open: "פתוחות",
   in_progress: "בתהליך",
   completed: "הושלמו",
 };
 
 const laneTone: Record<KanbanStatus, string> = {
-  open: "border-sky-500/40 bg-sky-500/10",
   in_progress: "border-violet-500/40 bg-violet-500/10",
   completed: "border-emerald-500/40 bg-emerald-500/10",
 };
@@ -30,7 +28,6 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
 
   const lanes = useMemo(() => {
     return {
-      open: tasks.filter((task) => task.status === "open"),
       in_progress: tasks.filter((task) => task.status === "in_progress"),
       completed: tasks.filter((task) => task.status === "completed"),
     };
@@ -48,7 +45,7 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
   };
 
   return (
-    <section className="grid gap-4 xl:grid-cols-3">
+    <section className="grid gap-4 xl:grid-cols-2">
       {(Object.keys(lanes) as KanbanStatus[]).map((statusKey) => (
         <div
           key={statusKey}

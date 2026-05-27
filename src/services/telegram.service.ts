@@ -100,24 +100,6 @@ export class TelegramService extends BaseService {
     return true;
   }
 
-  public async broadcastToLinkedUsers(text: string, options?: TelegramSendOptions): Promise<number> {
-    const db = this.getDb();
-    const rows = await db<Array<{ telegram_id: string }>>`
-      select telegram_id from profiles
-      where telegram_id is not null and is_approved = true
-    `;
-    let count = 0;
-    for (const row of rows) {
-      try {
-        await this.sendMessage(row.telegram_id, text, options);
-        count += 1;
-      } catch {
-        continue;
-      }
-    }
-    return count;
-  }
-
   public async generateLinkCode(userId: string): Promise<LinkCodeResult> {
     const bot = await this.getBotInfo();
     const db = this.getDb();
@@ -269,19 +251,4 @@ export class TelegramService extends BaseService {
     }
   }
 
-  public async sendTaskAssigned(input: {
-    chatId: string;
-    title: string;
-    subtopic: string;
-    dueDate: string | null;
-    assignee: string;
-  }): Promise<void> {
-    const text =
-      "משימה חדשה שובצה\n" +
-      `כותרת: ${input.title}\n` +
-      `תת-נושא: ${input.subtopic}\n` +
-      `תאריך יעד: ${input.dueDate ?? "ללא תאריך"}\n` +
-      `משויך ל: ${input.assignee}`;
-    await this.sendMessage(input.chatId, text);
-  }
 }

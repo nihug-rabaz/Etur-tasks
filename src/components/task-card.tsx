@@ -14,13 +14,11 @@ const priorityStyle: Record<string, string> = {
 };
 
 const statusOnHeader: Record<string, string> = {
-  open: "border-white/40 bg-white/25 text-white",
   in_progress: "border-amber-200/60 bg-amber-400/90 text-amber-950",
   completed: "border-emerald-200/60 bg-emerald-400/90 text-emerald-950",
 };
 
 const statusLabel: Record<string, string> = {
-  open: "פתוחה",
   in_progress: "בתהליך",
   completed: "הושלמה",
 };

@@ -13,25 +13,12 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     return NextResponse.json({ error: "Awaiting admin approval" }, { status: 403 });
   }
 
+  const allowed = await authorizationService.canAccessTask(profile, id);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const db = NeonDatabase.createClient();
-  const rows = await db<Array<{ subtopic_id: string }>>`
-    select subtopic_id
-    from tasks
-    where id = ${id}
-    limit 1
-  `;
-  const task = rows[0];
-  if (!task) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  if (profile.role !== "admin") {
-    const allowed = await authorizationService.canAccessSubtopic(profile.id, task.subtopic_id);
-    if (!allowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-  }
-
   const details = await db<
     Array<{
       id: string;
@@ -42,7 +29,7 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
       assigned_to: string | null;
       created_by: string;
       priority: "low" | "medium" | "high";
-      status: "open" | "in_progress" | "completed";
+      status: "in_progress" | "completed";
       due_date: string | null;
       created_at: string;
       updated_at: string;

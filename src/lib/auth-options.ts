@@ -3,6 +3,7 @@ import type { JWT } from "next-auth/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { randomUUID } from "crypto";
 import { NeonDatabase } from "@/lib/db/neon";
+import { NotificationService } from "@/services/notification.service";
 
 async function ensureProfile(email: string, name: string) {
   const db = NeonDatabase.createClient();
@@ -25,6 +26,14 @@ async function ensureProfile(email: string, name: string) {
     insert into profiles (id, name, email, role, is_approved, approved_at)
     values (${userId}, ${name}, ${email}, ${role}, ${isApproved}, ${isApproved ? new Date().toISOString() : null})
   `;
+
+  if (!isApproved) {
+    try {
+      await new NotificationService().notifyPendingUser({ userId, name, email });
+    } catch (error) {
+      console.error("[auth] pending user notification failed:", error);
+    }
+  }
 
   return { id: userId, is_approved: isApproved };
 }

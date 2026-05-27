@@ -1,4 +1,5 @@
 import { BaseService } from "@/services/base.service";
+import { TaskAccessContext } from "@/services/authorization.service";
 import { TaskWithRelations } from "@/types/models";
 
 export interface DomainSummary {
@@ -14,21 +15,19 @@ export interface DomainSummary {
 export interface DomainPreviewTask {
   id: string;
   title: string;
-  status: "open" | "in_progress";
+  status: "in_progress";
   priority: "low" | "medium" | "high";
   dueDate: string | null;
 }
 
 export interface DashboardStats {
   totalTasks: number;
-  openTasks: number;
   inProgressTasks: number;
   completedTasks: number;
   overdueTasks: number;
 }
 
 export interface DashboardTaskColumns {
-  open: TaskWithRelations[];
   in_progress: TaskWithRelations[];
   completed: TaskWithRelations[];
 }
@@ -36,7 +35,7 @@ export interface DashboardTaskColumns {
 export interface HierarchyTaskNode {
   id: string;
   title: string;
-  status: "open" | "in_progress" | "completed";
+  status: "in_progress" | "completed";
   priority: "low" | "medium" | "high";
 }
 
@@ -85,7 +84,7 @@ export interface TabTaskAssignee {
 export interface TabTaskItem {
   id: string;
   title: string;
-  status: "open" | "in_progress" | "completed";
+  status: "in_progress" | "completed";
   priority: "low" | "medium" | "high";
   dueDate: string | null;
   assignees: TabTaskAssignee[];
@@ -113,7 +112,7 @@ export interface MainTabItem {
 }
 
 export class DashboardService extends BaseService {
-  public async getDomainSummaries(): Promise<DomainSummary[]> {
+  public async getDomainSummaries(access: TaskAccessContext): Promise<DomainSummary[]> {
     const db = this.getDb();
     const rows = await db<
       Array<{
@@ -129,9 +128,31 @@ export class DashboardService extends BaseService {
         d.id,
         d.name,
         d.slug,
-        count(t.id) filter (where t.status <> 'completed')::int as active_tasks,
-        count(t.id) filter (where t.status = 'completed')::int as completed_tasks,
-        count(distinct p.id) filter (where p.status = 'active')::int as active_projects
+        count(t.id) filter (
+          where t.status <> 'completed'
+            and (
+              ${access.unrestricted}::boolean
+              or t.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+              or t.id in (select task_id from task_assignees where user_id = ${access.userId})
+              or t.created_by = ${access.userId}
+            )
+        )::int as active_tasks,
+        count(t.id) filter (
+          where t.status = 'completed'
+            and (
+              ${access.unrestricted}::boolean
+              or t.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+              or t.id in (select task_id from task_assignees where user_id = ${access.userId})
+              or t.created_by = ${access.userId}
+            )
+        )::int as completed_tasks,
+        count(distinct p.id) filter (
+          where p.status = 'active'
+            and (
+              ${access.unrestricted}::boolean
+              or p.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+            )
+        )::int as active_projects
       from domains d
       left join subtopics s on s.domain_id = d.id
       left join tasks t on t.subtopic_id = s.id
@@ -145,7 +166,7 @@ export class DashboardService extends BaseService {
         domain_id: string;
         id: string;
         title: string;
-        status: "open" | "in_progress";
+        status: "in_progress";
         priority: "low" | "medium" | "high";
         due_date: string | null;
       }>
@@ -168,7 +189,13 @@ export class DashboardService extends BaseService {
         from domains d
         left join subtopics s on s.domain_id = d.id
         left join tasks t on t.subtopic_id = s.id
-        where t.status in ('open', 'in_progress')
+        where t.status = 'in_progress'
+          and (
+            ${access.unrestricted}::boolean
+            or t.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+            or t.id in (select task_id from task_assignees where user_id = ${access.userId})
+            or t.created_by = ${access.userId}
+          )
       )
       select domain_id, id, title, status, priority, due_date
       from ranked
@@ -204,12 +231,11 @@ export class DashboardService extends BaseService {
     });
   }
 
-  public async getDashboardStats(): Promise<DashboardStats> {
+  public async getDashboardStats(access: TaskAccessContext): Promise<DashboardStats> {
     const db = this.getDb();
     const [row] = await db<
       Array<{
         total_tasks: number;
-        open_tasks: number;
         in_progress_tasks: number;
         completed_tasks: number;
         overdue_tasks: number;
@@ -217,47 +243,52 @@ export class DashboardService extends BaseService {
     >`
       select
         count(*)::int as total_tasks,
-        count(*) filter (where status = 'open')::int as open_tasks,
         count(*) filter (where status = 'in_progress')::int as in_progress_tasks,
         count(*) filter (where status = 'completed')::int as completed_tasks,
         count(*) filter (where status <> 'completed' and due_date < now())::int as overdue_tasks
       from tasks
+      where (
+        ${access.unrestricted}::boolean
+        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or id in (select task_id from task_assignees where user_id = ${access.userId})
+        or created_by = ${access.userId}
+      )
     `;
 
     return {
       totalTasks: row?.total_tasks ?? 0,
-      openTasks: row?.open_tasks ?? 0,
       inProgressTasks: row?.in_progress_tasks ?? 0,
       completedTasks: row?.completed_tasks ?? 0,
       overdueTasks: row?.overdue_tasks ?? 0,
     };
   }
 
-  public async getTaskColumns(limitPerStatus = 6): Promise<DashboardTaskColumns> {
+  public async getTaskColumns(
+    access: TaskAccessContext,
+    limitPerStatus = 6,
+  ): Promise<DashboardTaskColumns> {
     const db = this.getDb();
     const rows = await db<TaskWithRelations[]>`
       select * from task_details
+      where (
+        ${access.unrestricted}::boolean
+        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or id in (select task_id from task_assignees where user_id = ${access.userId})
+        or created_by = ${access.userId}
+      )
       order by
-        case status
-          when 'in_progress' then 1
-          when 'open' then 2
-          else 3
-        end,
+        case status when 'in_progress' then 1 else 2 end,
         case when due_date is null then 1 else 0 end,
         due_date asc,
         updated_at desc
     `;
 
     const columns: DashboardTaskColumns = {
-      open: [],
       in_progress: [],
       completed: [],
     };
 
     for (const row of rows) {
-      if (row.status === "open" && columns.open.length < limitPerStatus) {
-        columns.open.push(row);
-      }
       if (row.status === "in_progress" && columns.in_progress.length < limitPerStatus) {
         columns.in_progress.push(row);
       }
@@ -269,28 +300,41 @@ export class DashboardService extends BaseService {
     return columns;
   }
 
-  public async getHierarchyExplorerData(): Promise<HierarchyCategoryNode[]> {
+  public async getHierarchyExplorerData(
+    access: TaskAccessContext,
+  ): Promise<HierarchyCategoryNode[]> {
     const db = this.getDb();
     const domains = await db<Array<{ id: string; name: string; slug: string }>>`
       select id, name, slug
       from domains
       order by name
     `;
-    const subtopics = await db<Array<{ id: string; name: string; domain_id: string }>>`
-      select id, name, domain_id
-      from subtopics
-      order by name
-    `;
+    const subtopics = access.unrestricted
+      ? await db<Array<{ id: string; name: string; domain_id: string }>>`
+          select id, name, domain_id
+          from subtopics
+          order by name
+        `
+      : await db<Array<{ id: string; name: string; domain_id: string }>>`
+          select id, name, domain_id
+          from subtopics
+          where id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          order by name
+        `;
     const projects = await db<Array<{ id: string; name: string; status: "active" | "completed" | "archived"; subtopic_id: string }>>`
       select id, name, status, subtopic_id
       from projects
+      where (
+        ${access.unrestricted}::boolean
+        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+      )
       order by name
     `;
     const tasks = await db<
       Array<{
         id: string;
         title: string;
-        status: "open" | "in_progress" | "completed";
+        status: "in_progress" | "completed";
         priority: "low" | "medium" | "high";
         subtopic_id: string;
         project_id: string | null;
@@ -298,8 +342,14 @@ export class DashboardService extends BaseService {
     >`
       select id, title, status, priority, subtopic_id, project_id
       from tasks
+      where (
+        ${access.unrestricted}::boolean
+        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or id in (select task_id from task_assignees where user_id = ${access.userId})
+        or created_by = ${access.userId}
+      )
       order by
-        case status when 'in_progress' then 1 when 'open' then 2 else 3 end,
+        case status when 'in_progress' then 1 else 2 end,
         updated_at desc
     `;
 
@@ -363,13 +413,22 @@ export class DashboardService extends BaseService {
     return Array.from(categoryMap.values());
   }
 
-  public async getMainTaskClusters(limit = 4): Promise<MainTaskCluster[]> {
+  public async getMainTaskClusters(
+    access: TaskAccessContext,
+    limit = 4,
+  ): Promise<MainTaskCluster[]> {
     const db = this.getDb();
     const rows = await db<TaskWithRelations[]>`
       select * from task_details
       where project_id is null
+        and (
+          ${access.unrestricted}::boolean
+          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          or id in (select task_id from task_assignees where user_id = ${access.userId})
+          or created_by = ${access.userId}
+        )
       order by
-        case status when 'in_progress' then 1 when 'open' then 2 else 3 end,
+        case status when 'in_progress' then 1 else 2 end,
         case when due_date is null then 1 else 0 end,
         due_date asc,
         updated_at desc
@@ -397,7 +456,7 @@ export class DashboardService extends BaseService {
     return Array.from(clusters.values());
   }
 
-  public async getTabbedMainScreenData(): Promise<MainTabItem[]> {
+  public async getTabbedMainScreenData(access: TaskAccessContext): Promise<MainTabItem[]> {
     const db = this.getDb();
     const domains = await db<Array<{ id: string; name: string; slug: "recruitment" | "positioning" | "general" }>>`
       select id, name, slug
@@ -405,21 +464,32 @@ export class DashboardService extends BaseService {
       where slug in ('recruitment', 'positioning', 'general')
       order by case slug when 'recruitment' then 1 when 'positioning' then 2 else 3 end
     `;
-    const subtopics = await db<Array<{ id: string; name: string; domain_id: string }>>`
-      select id, name, domain_id
-      from subtopics
-      order by name
-    `;
+    const subtopics = access.unrestricted
+      ? await db<Array<{ id: string; name: string; domain_id: string }>>`
+          select id, name, domain_id
+          from subtopics
+          order by name
+        `
+      : await db<Array<{ id: string; name: string; domain_id: string }>>`
+          select id, name, domain_id
+          from subtopics
+          where id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          order by name
+        `;
     const projects = await db<Array<{ id: string; name: string; status: "active" | "completed" | "archived"; subtopic_id: string }>>`
       select id, name, status, subtopic_id
       from projects
+      where (
+        ${access.unrestricted}::boolean
+        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+      )
       order by created_at desc
     `;
     const tasks = await db<
       Array<{
         id: string;
         title: string;
-        status: "open" | "in_progress" | "completed";
+        status: "in_progress" | "completed";
         priority: "low" | "medium" | "high";
         due_date: string | null;
         project_id: string | null;
@@ -428,8 +498,14 @@ export class DashboardService extends BaseService {
     >`
       select id, title, status, priority, due_date, project_id, assigned_to
       from tasks
+      where (
+        ${access.unrestricted}::boolean
+        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or id in (select task_id from task_assignees where user_id = ${access.userId})
+        or created_by = ${access.userId}
+      )
       order by
-        case status when 'in_progress' then 1 when 'open' then 2 else 3 end,
+        case status when 'in_progress' then 1 else 2 end,
         case when due_date is null then 1 else 0 end,
         due_date asc,
         updated_at desc

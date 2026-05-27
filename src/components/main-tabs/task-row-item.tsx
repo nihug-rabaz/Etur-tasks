@@ -5,7 +5,6 @@ import { TabTaskItem } from "@/services/dashboard.service";
 import { TaskAssigneeStack } from "@/components/main-tabs/task-assignee-stack";
 
 const statusLabel: Record<TabTaskItem["status"], string> = {
-  open: "פתוחה",
   in_progress: "בתהליך",
   completed: "הושלמה",
 };

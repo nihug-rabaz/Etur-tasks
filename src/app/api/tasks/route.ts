@@ -12,12 +12,12 @@ const taskSchema = z.object({
   dueDate: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
-  status: z.enum(["open", "in_progress", "completed"]).default("open"),
+  status: z.enum(["in_progress", "completed"]).default("in_progress"),
 });
 
 const taskPatchSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["open", "in_progress", "completed"]).optional(),
+  status: z.enum(["in_progress", "completed"]).optional(),
   title: z.string().min(1).optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
   description: z.string().nullable().optional(),
@@ -81,29 +81,18 @@ export async function POST(request: Request) {
     }
   }
 
-  if (payload.assignedToIds.length > 0) {
-    const subtopicRows = await db<Array<{ name: string }>>`
-      select name from subtopics where id = ${payload.subtopicId} limit 1
-    `;
-    const subtopicLabel = subtopicRows[0]?.name ?? "לא ידוע";
-    const notificationService = new NotificationService();
-    const notified = new Set<string>();
-    for (const userId of payload.assignedToIds) {
-      const assigneeRows = await db<Array<{ name: string; telegram_id: string | null }>>`
-        select name, telegram_id from profiles where id = ${userId} limit 1
-      `;
-      const assignee = assigneeRows[0];
-      if (!assignee?.telegram_id || notified.has(assignee.telegram_id)) continue;
-      notified.add(assignee.telegram_id);
-      await notificationService.sendTaskAssignedMessage({
-        telegramId: assignee.telegram_id,
-        title: payload.title,
-        subtopic: subtopicLabel,
-        dueDate: payload.dueDate ?? null,
-        assignee: assignee.name,
-      });
-    }
-  }
+  const subtopicRows = await db<Array<{ name: string }>>`
+    select name from subtopics where id = ${payload.subtopicId} limit 1
+  `;
+  const notificationService = new NotificationService();
+  await notificationService.notifyTaskOpened({
+    taskId,
+    title: payload.title,
+    subtopic: subtopicRows[0]?.name ?? "לא ידוע",
+    dueDate: payload.dueDate ?? null,
+    assigneeIds: payload.assignedToIds,
+    creatorId: profile.id,
+  });
 
   return NextResponse.json({ id: taskId });
 }
@@ -125,23 +114,11 @@ export async function PATCH(request: Request) {
   }
   const payload = parsed.data;
 
+  const allowed = await authorizationService.canAccessTask(profile, payload.id);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const db = NeonDatabase.createClient();
-  const rows = await db<Array<{ subtopic_id: string }>>`
-    select subtopic_id
-    from tasks
-    where id = ${payload.id}
-    limit 1
-  `;
-  const task = rows[0];
-  if (!task) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  if (profile.role !== "admin") {
-    const allowed = await authorizationService.canAccessSubtopic(profile.id, task.subtopic_id);
-    if (!allowed) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-  }
 
   if (payload.status !== undefined) {
     await db`

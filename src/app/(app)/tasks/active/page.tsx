@@ -1,4 +1,5 @@
 import { ActiveTasksShell } from "@/components/tasks/active-tasks-shell";
+import { AuthorizationService } from "@/services/authorization.service";
 import { TaskService } from "@/services/task.service";
 
 interface ActiveTasksPageProps {
@@ -7,8 +8,11 @@ interface ActiveTasksPageProps {
 
 export default async function ActiveTasksPage({ searchParams }: ActiveTasksPageProps) {
   const filters = await searchParams;
+  const authorizationService = new AuthorizationService();
+  const profile = await authorizationService.ensureApproved();
+  const access = await authorizationService.getTaskAccessContext(profile);
   const taskService = new TaskService();
-  let tasks = await taskService.getActiveTasks();
+  let tasks = await taskService.getActiveTasks(access);
 
   if (filters.status) {
     tasks = tasks.filter((task) => task.status === filters.status);

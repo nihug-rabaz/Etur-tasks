@@ -4,6 +4,7 @@ import {
   resolveTaskDateRange,
   toDateQueryValue,
 } from "@/lib/dates/task-date-range";
+import { AuthorizationService } from "@/services/authorization.service";
 import { TaskService } from "@/services/task.service";
 
 interface UpcomingTasksPageProps {
@@ -20,8 +21,11 @@ export default async function UpcomingTasksPage({ searchParams }: UpcomingTasksP
   );
   const bounds = dayBoundsForQuery(start, end);
 
+  const authorizationService = new AuthorizationService();
+  const profile = await authorizationService.ensureApproved();
+  const access = await authorizationService.getTaskAccessContext(profile);
   const taskService = new TaskService();
-  const tasks = await taskService.getTasksDueInRange(bounds.start, bounds.end);
+  const tasks = await taskService.getTasksDueInRange(access, bounds.start, bounds.end);
 
   return (
     <UpcomingTasksShell

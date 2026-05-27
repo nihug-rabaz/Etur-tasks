@@ -20,7 +20,7 @@ import { domainKeyFromName, domainMeta } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 
 type TaskPriority = "low" | "medium" | "high";
-type TaskStatus = "open" | "in_progress" | "completed";
+type TaskStatus = "in_progress" | "completed";
 
 interface TaskDetails {
   id: string;
@@ -39,7 +39,6 @@ interface TaskDetails {
 }
 
 const statusLabel: Record<TaskStatus, string> = {
-  open: "פתוחה",
   in_progress: "בתהליך",
   completed: "הושלמה",
 };
@@ -50,7 +49,7 @@ const priorityLabel: Record<TaskPriority, string> = {
   high: "גבוהה",
 };
 
-const statusOptions: TaskStatus[] = ["open", "in_progress", "completed"];
+const statusOptions: TaskStatus[] = ["in_progress", "completed"];
 const priorityOptions: TaskPriority[] = ["low", "medium", "high"];
 
 function formatDate(value: string | null): string {
@@ -70,8 +69,7 @@ function toDatetimeLocal(value: string | null): string {
 
 function statusBadgeClass(status: TaskStatus): string {
   if (status === "completed") return "hud-badge hud-badge--closed";
-  if (status === "in_progress") return "hud-badge hud-badge--progress hud-pulse";
-  return "hud-badge hud-badge--open hud-pulse";
+  return "hud-badge hud-badge--progress hud-pulse";
 }
 
 function domainLabel(name: string | null | undefined): string {
@@ -180,7 +178,7 @@ export function TaskDetailsModal({
   }, [open, onClose]);
 
   const title = task?.title ?? taskTitle;
-  const status: TaskStatus = task?.status ?? "open";
+  const status: TaskStatus = task?.status ?? "in_progress";
   const priority: TaskPriority = task?.priority ?? "medium";
 
   const initialDraft = useMemo<DraftState | null>(() => {

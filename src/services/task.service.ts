@@ -1,47 +1,97 @@
 import { BaseService } from "@/services/base.service";
+import { TaskAccessContext } from "@/services/authorization.service";
 import { TaskStatus, TaskWithRelations } from "@/types/models";
 
 export class TaskService extends BaseService {
-  public async getActiveTasks(): Promise<TaskWithRelations[]> {
+  public async getActiveTasks(access: TaskAccessContext): Promise<TaskWithRelations[]> {
     const db = this.getDb();
-    const data = await db<TaskWithRelations[]>`
+    return db<TaskWithRelations[]>`
       select * from task_details
       where status <> 'completed'
+        and (
+          ${access.unrestricted}::boolean
+          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          or id in (select task_id from task_assignees where user_id = ${access.userId})
+          or created_by = ${access.userId}
+        )
       order by due_date asc nulls last
     `;
-    return data;
   }
 
-  public async getTasksDueInRange(rangeStart: Date, rangeEnd: Date): Promise<TaskWithRelations[]> {
+  public async getTasksDueInRange(
+    access: TaskAccessContext,
+    rangeStart: Date,
+    rangeEnd: Date,
+  ): Promise<TaskWithRelations[]> {
     const db = this.getDb();
-    const data = await db<TaskWithRelations[]>`
+    return db<TaskWithRelations[]>`
       select * from task_details
       where due_date >= ${rangeStart.toISOString()}
-      and due_date <= ${rangeEnd.toISOString()}
-      and status <> 'completed'
+        and due_date <= ${rangeEnd.toISOString()}
+        and status <> 'completed'
+        and (
+          ${access.unrestricted}::boolean
+          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          or id in (select task_id from task_assignees where user_id = ${access.userId})
+          or created_by = ${access.userId}
+        )
       order by due_date asc
     `;
-    return data;
   }
 
-  public async getBySubtopic(subtopicId: string): Promise<TaskWithRelations[]> {
+  public async getBySubtopic(
+    access: TaskAccessContext,
+    subtopicId: string,
+  ): Promise<TaskWithRelations[]> {
     const db = this.getDb();
-    const data = await db<TaskWithRelations[]>`
+    return db<TaskWithRelations[]>`
       select * from task_details
       where subtopic_id = ${subtopicId}
+        and (
+          ${access.unrestricted}::boolean
+          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          or id in (select task_id from task_assignees where user_id = ${access.userId})
+          or created_by = ${access.userId}
+        )
       order by created_at desc
     `;
-    return data;
   }
 
-  public async getByProject(projectId: string): Promise<TaskWithRelations[]> {
+  public async getByProject(
+    access: TaskAccessContext,
+    projectId: string,
+  ): Promise<TaskWithRelations[]> {
     const db = this.getDb();
-    const data = await db<TaskWithRelations[]>`
+    return db<TaskWithRelations[]>`
       select * from task_details
       where project_id = ${projectId}
+        and (
+          ${access.unrestricted}::boolean
+          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          or id in (select task_id from task_assignees where user_id = ${access.userId})
+          or created_by = ${access.userId}
+        )
       order by created_at desc
     `;
-    return data;
+  }
+
+  public async getOne(
+    access: TaskAccessContext,
+    taskId: string,
+  ): Promise<TaskWithRelations | null> {
+    const db = this.getDb();
+    const rows = await db<TaskWithRelations[]>`
+      select * from task_details
+      where id = ${taskId}
+        and (
+          ${access.unrestricted}::boolean
+          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+          or id in (select task_id from task_assignees where user_id = ${access.userId})
+          or created_by = ${access.userId}
+        )
+      limit 1
+    `;
+    return rows[0] ?? null;
   }
 
   public async updateStatus(taskId: string, status: TaskStatus): Promise<void> {

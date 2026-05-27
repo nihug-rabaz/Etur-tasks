@@ -22,8 +22,9 @@ export default async function SubtopicPage({ params }: SubtopicPageProps) {
   }
   const projectService = new ProjectService();
   const taskService = new TaskService();
+  const access = await authorizationService.getTaskAccessContext(profile);
   const projects = await projectService.getBySubtopic(id);
-  const tasks = await taskService.getBySubtopic(id);
+  const tasks = await taskService.getBySubtopic(access, id);
   const tasksWithoutProject = tasks.filter((task) => !task.project_id);
 
   return (

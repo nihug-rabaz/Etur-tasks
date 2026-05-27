@@ -1,7 +1,7 @@
 export type UserRole = "admin" | "user";
 export type ProjectStatus = "active" | "completed" | "archived";
 export type TaskPriority = "low" | "medium" | "high";
-export type TaskStatus = "open" | "in_progress" | "completed";
+export type TaskStatus = "in_progress" | "completed";
 
 export interface Profile {
   id: string;

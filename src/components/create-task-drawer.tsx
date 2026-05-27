@@ -58,7 +58,6 @@ const PRIORITY_SEGMENTS = [
 ] as const;
 
 const STATUS_SEGMENTS = [
-  { value: "open", label: "פתוחה" },
   { value: "in_progress", label: "בתהליך" },
   { value: "completed", label: "הושלמה" },
 ] as const;
@@ -87,7 +86,7 @@ export function CreateTaskDrawer({
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [status, setStatus] = useState("open");
+  const [status, setStatus] = useState("in_progress");
 
   useEffect(() => {
     if (!open) return;
@@ -357,7 +356,7 @@ export function CreateTaskDrawer({
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 סטטוס
               </p>
-              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border-weak bg-surface-2/40 p-1.5">
+              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border-weak bg-surface-2/40 p-1.5">
                 {STATUS_SEGMENTS.map((item) => {
                   const active = status === item.value;
                   return (

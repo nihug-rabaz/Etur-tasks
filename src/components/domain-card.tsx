@@ -14,7 +14,6 @@ interface DomainCardProps {
 
 export function DomainCard(props: DomainCardProps) {
   const statusLabel = {
-    open: "פתוחה",
     in_progress: "בתהליך",
   } as const;
 

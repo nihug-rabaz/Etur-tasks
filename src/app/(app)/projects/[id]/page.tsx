@@ -25,7 +25,8 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
       redirect("/dashboard");
     }
   }
-  let tasks = await taskService.getByProject(id);
+  const access = await authorizationService.getTaskAccessContext(profile);
+  let tasks = await taskService.getByProject(access, id);
   if (filters.status) {
     tasks = tasks.filter((task) => task.status === filters.status);
   }

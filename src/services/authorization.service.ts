@@ -3,6 +3,11 @@ import { BaseService } from "@/services/base.service";
 import { Profile, Subtopic } from "@/types/models";
 import { redirect } from "next/navigation";
 
+export interface TaskAccessContext {
+  unrestricted: boolean;
+  userId: string;
+}
+
 export class AuthorizationService extends BaseService {
   private async ensureAnyAdminExists(currentUserId?: string): Promise<void> {
     const db = this.getDb();
@@ -64,6 +69,14 @@ export class AuthorizationService extends BaseService {
     return profile;
   }
 
+  public async getTaskAccessContext(profile: Profile): Promise<TaskAccessContext> {
+    if (profile.role === "admin") {
+      return { unrestricted: true, userId: profile.id };
+    }
+    const restricted = await this.hasConfiguredPermissions(profile.id);
+    return { unrestricted: !restricted, userId: profile.id };
+  }
+
   private async hasConfiguredPermissions(userId: string): Promise<boolean> {
     const db = this.getDb();
     const rows = await db<Array<{ exists: boolean }>>`
@@ -72,6 +85,22 @@ export class AuthorizationService extends BaseService {
       ) as exists
     `;
     return rows[0]?.exists ?? false;
+  }
+
+  public async canAccessTask(profile: Profile, taskId: string): Promise<boolean> {
+    if (profile.role === "admin") return true;
+    const db = this.getDb();
+    const rows = await db<Array<{ subtopic_id: string; created_by: string }>>`
+      select subtopic_id, created_by from tasks where id = ${taskId} limit 1
+    `;
+    const task = rows[0];
+    if (!task) return false;
+    if (task.created_by === profile.id) return true;
+    const assigneeRows = await db<Array<{ task_id: string }>>`
+      select task_id from task_assignees where task_id = ${taskId} and user_id = ${profile.id} limit 1
+    `;
+    if (assigneeRows.length > 0) return true;
+    return this.canAccessSubtopic(profile.id, task.subtopic_id);
   }
 
   public async canAccessSubtopic(userId: string, subtopicId: string): Promise<boolean> {

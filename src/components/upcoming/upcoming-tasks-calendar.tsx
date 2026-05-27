@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { format, isToday, isWeekend, parseISO } from "date-fns";
+import { format, isToday, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
 import { CalendarDays, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -13,7 +13,6 @@ import {
   buildCalendarCells,
   dueDateToDayKey,
   isFullMonthRange,
-  toDateQueryValue,
 } from "@/lib/dates/task-date-range";
 import { TaskWithRelations } from "@/types/models";
 
@@ -77,23 +76,13 @@ export function UpcomingTasksCalendar({
 
   const selectedDate = selectedDay ? parseISO(selectedDay) : null;
   const selectedTasks = selectedDay ? (tasksByDay.get(selectedDay) ?? []) : [];
-  const firstTaskDayKey = useMemo(() => {
-    for (const key of tasksByDay.keys()) {
-      if (inRangeDayKeys.has(key)) return key;
-    }
-    return null;
-  }, [tasksByDay, inRangeDayKeys]);
 
   useEffect(() => {
-    const todayKey = toDateQueryValue(new Date());
     setSelectedDay((current) => {
-      if (current && inRangeDayKeys.has(current)) {
-        return current;
-      }
-      if (firstTaskDayKey) return firstTaskDayKey;
-      return inRangeDayKeys.has(todayKey) ? todayKey : toDateQueryValue(rangeStart);
+      if (current && inRangeDayKeys.has(current)) return current;
+      return null;
     });
-  }, [firstTaskDayKey, inRangeDayKeys, rangeStart]);
+  }, [inRangeDayKeys]);
 
   const monthTitle = isFullMonthRange(rangeStart, rangeEnd)
     ? format(rangeStart, "MMMM yyyy", { locale: he })
@@ -155,12 +144,7 @@ export function UpcomingTasksCalendar({
                   const { date, key, inRange } = cell;
                   const dayTasks = inRange ? (tasksByDay.get(key) ?? []) : [];
                   const today = isToday(date);
-                  const weekend = isWeekend(date);
                   const selected = selectedDay === key;
-                  const dominantDomain = domainKeyFromName(dayTasks[0]?.domain_name);
-                  const dayGradient = dominantDomain
-                    ? domainMeta[dominantDomain].calendarDay
-                    : "from-surface-2/40 to-surface-1/20";
 
                   const handleSelect = () => {
                     if (inRange) setSelectedDay(key);
@@ -184,18 +168,14 @@ export function UpcomingTasksCalendar({
                           ? "cursor-default border-transparent bg-surface-2/20 opacity-45"
                           : selected
                             ? "cursor-pointer border-accent-primary/70 bg-gradient-to-bl from-accent-primary/20 to-accent-cyan/10 shadow-[0_0_20px_rgba(91,140,255,0.22)] ring-2 ring-accent-primary/30"
-                            : today
-                              ? "cursor-pointer border-accent-primary/40 bg-gradient-to-bl from-accent-primary/10 to-surface-1/90"
-                              : weekend
-                                ? "cursor-pointer border-border-weak/50 bg-surface-2/30 hover:border-accent-primary/30"
-                                : `cursor-pointer border-border-weak/70 bg-gradient-to-bl ${dayGradient} hover:border-accent-primary/35 hover:shadow-sm`
+                            : "cursor-pointer border-border-weak/60 bg-surface-1/50 hover:border-accent-primary/40 hover:bg-surface-1/80"
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-0.5">
                         <span
                           className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold sm:h-7 sm:w-7 sm:text-xs ${
                             today
-                              ? "bg-gradient-to-l from-accent-primary to-accent-cyan text-white"
+                              ? "ring-1 ring-accent-primary/60 bg-surface-1 text-accent-primary"
                               : "bg-surface-1/90 text-text-primary"
                           }`}
                         >
@@ -225,18 +205,22 @@ export function UpcomingTasksCalendar({
 
                       {dayTasks.length > 0 ? (
                         <div className="mt-auto flex gap-0.5 pt-0.5">
-                          {domainKeys.map((domainKey) => {
-                            const count = dayTasks.filter(
-                              (task) => domainKeyFromName(task.domain_name) === domainKey,
+                          {(() => {
+                            const segments: string[] = [];
+                            for (const domainKey of domainKeys) {
+                              const count = dayTasks.filter(
+                                (task) => domainKeyFromName(task.domain_name) === domainKey,
+                              ).length;
+                              if (count > 0) segments.push(domainMeta[domainKey].calendarAccent);
+                            }
+                            const otherCount = dayTasks.filter(
+                              (task) => domainKeyFromName(task.domain_name) === null,
                             ).length;
-                            if (count === 0) return null;
-                            return (
-                              <span
-                                key={domainKey}
-                                className={`h-0.5 flex-1 rounded-full ${domainMeta[domainKey].calendarAccent}`}
-                              />
-                            );
-                          })}
+                            if (otherCount > 0) segments.push("bg-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.45)]");
+                            return segments.map((cls, idx) => (
+                              <span key={`${cls}-${idx}`} className={`h-0.5 flex-1 rounded-full ${cls}`} />
+                            ));
+                          })()}
                         </div>
                       ) : null}
                     </div>
