@@ -76,6 +76,14 @@ body {
   background-color: #06243d !important;
 }
 
+.side-panel {
+  background-color: #0a3a5e !important;
+}
+
+.dark .side-panel {
+  background-color: #06243d !important;
+}
+
 * {
   border-color: var(--border-weak);
 }

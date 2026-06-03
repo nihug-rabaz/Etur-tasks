@@ -42,7 +42,6 @@ export async function GET(request: Request) {
     ok: true;
     israelHour: number;
     dayKey: string;
-    heartbeatSent: number;
     dueTomorrowSent: number;
     dailySummarySent: number;
     skipped: string[];
@@ -50,15 +49,12 @@ export async function GET(request: Request) {
     ok: true,
     israelHour: hour,
     dayKey,
-    heartbeatSent: 0,
     dueTomorrowSent: 0,
     dailySummarySent: 0,
     skipped: [],
   };
 
   const notificationService = new NotificationService();
-
-  result.heartbeatSent = await notificationService.sendCronHeartbeat({ dayKey, hour });
 
   if (isWithinWindow(hour, TOMORROW_REMINDER_HOURS)) {
     const tomorrowRows = await sql<

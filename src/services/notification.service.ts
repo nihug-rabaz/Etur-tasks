@@ -66,18 +66,6 @@ export class NotificationService extends BaseService {
     return this.sendToUsers([input.userId], text, (userId) => `daily-task-list:${input.dayKey}:${userId}`);
   }
 
-  // Test heartbeat: fires on every cron run to all linked users, no dedup or time window.
-  public async sendCronHeartbeat(info: { dayKey: string; hour: number }): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
-    const text =
-      "בדיקת קרון \u2705\n" +
-      "התקבלה הפעלה מהקרון ג'וב\n" +
-      `תאריך (ישראל): ${info.dayKey}\n` +
-      `שעה (ישראל): ${String(info.hour).padStart(2, "0")}:00`;
-    const result = await this.telegram.broadcastToLinkedUsers(text);
-    return result.sent;
-  }
-
   public async notifyPendingUser(input: PendingUserInput): Promise<number> {
     if (!this.telegram.hasToken()) return 0;
     const adminIds = await this.getAdminIds();

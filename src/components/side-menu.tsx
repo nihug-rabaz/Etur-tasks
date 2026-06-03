@@ -6,6 +6,15 @@ import { LogOut, Menu, X } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+// Build up to two uppercase initials from a name or email for the avatar badge.
+function getInitials(label: string): string {
+  const source = label.includes("@") ? label.split("@")[0] : label;
+  const words = source.trim().split(/[\s._-]+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  const letters = words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "");
+  return letters.join("") || "?";
+}
+
 export interface SideMenuItem {
   label: string;
   href: string;
@@ -106,19 +115,19 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
       <aside
         id="app-side-menu"
         aria-hidden={!open}
-        className={`fixed inset-y-0 right-0 z-[65] flex w-[min(420px,88vw)] flex-col overflow-hidden border-l border-border-weak bg-surface-1/95 shadow-[-30px_0_60px_-20px_rgba(2,6,23,0.55)] backdrop-blur-xl transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`side-panel fixed inset-y-0 right-0 z-[65] flex w-[min(420px,88vw)] flex-col overflow-hidden border-l border-white/10 text-white shadow-[-30px_0_60px_-20px_rgba(2,6,23,0.55)] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="pointer-events-none absolute inset-0 opacity-80">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-primary/25 blur-3xl" />
-          <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-accent-secondary/20 blur-3xl" />
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-sky-400/20 blur-3xl" />
+          <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-cyan-300/15 blur-3xl" />
         </div>
 
         <div className="relative flex h-full flex-col gap-6 px-7 pb-7 pt-20">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-text-muted">ניווט מהיר</p>
-            <h2 className="mt-2 text-3xl font-black leading-tight text-text-primary">לאן בא לנו לקפוץ?</h2>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/55">ניווט מהיר</p>
+            <h2 className="mt-2 text-3xl font-black leading-tight text-white">לאן בא לנו לקפוץ?</h2>
           </div>
 
           <nav className="flex-1 overflow-y-auto pr-1">
@@ -133,16 +142,16 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
                       aria-label={item.ariaLabel ?? item.label}
                       className={`group flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition ${
                         active
-                          ? "border-accent-primary/60 bg-accent-primary/12 text-text-primary shadow-[0_10px_25px_-12px_rgba(91,140,255,0.55)]"
-                          : "border-border-weak/70 bg-surface-2/55 text-text-secondary hover:-translate-y-0.5 hover:border-accent-primary/40 hover:bg-surface-2 hover:text-text-primary"
+                          ? "border-white/40 bg-white/15 text-white shadow-[0_10px_25px_-12px_rgba(0,0,0,0.5)]"
+                          : "border-white/10 bg-white/5 text-white/75 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/10 hover:text-white"
                       }`}
                     >
                       <span className="flex items-center gap-3">
                         <span
                           className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold tabular-nums ${
                             active
-                              ? "bg-accent-primary text-white"
-                              : "bg-surface-1 text-text-muted group-hover:text-accent-primary"
+                              ? "bg-white text-[#0a3a5e]"
+                              : "bg-white/10 text-white/70 group-hover:text-white"
                           }`}
                         >
                           {item.icon ?? String(index + 1).padStart(2, "0")}
@@ -150,13 +159,13 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
                         <span className="flex flex-col">
                           <span className="text-base font-bold leading-tight">{item.label}</span>
                           {item.description ? (
-                            <span className="text-xs text-text-muted">{item.description}</span>
+                            <span className="text-xs text-white/50">{item.description}</span>
                           ) : null}
                         </span>
                       </span>
                       <span
                         className={`text-lg transition-transform ${
-                          active ? "translate-x-0 text-accent-primary" : "-translate-x-1 text-text-muted group-hover:translate-x-0 group-hover:text-accent-primary"
+                          active ? "translate-x-0 text-white" : "-translate-x-1 text-white/50 group-hover:translate-x-0 group-hover:text-white"
                         }`}
                         aria-hidden
                       >
@@ -170,24 +179,27 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
           </nav>
 
           {userLabel || showLogout ? (
-            <div className="rounded-2xl border border-border-weak/70 bg-surface-2/70 p-4">
+            <div className="flex items-center gap-3 rounded-full border border-white/15 bg-white/10 py-2 pe-2 ps-3">
               {userLabel ? (
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(34,197,94,0.65)]" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-text-muted">מחובר</p>
-                    <p className="truncate text-sm font-bold text-text-primary">{userLabel}</p>
-                  </div>
-                </div>
-              ) : null}
+                <>
+                  <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#0a3a5e]">
+                    {getInitials(userLabel)}
+                    <span className="absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-[#0a3a5e] bg-emerald-400" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{userLabel}</span>
+                </>
+              ) : (
+                <span className="flex-1" />
+              )}
               {showLogout ? (
                 <button
                   type="button"
                   onClick={() => signOut({ callbackUrl: "/login" })}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-weak bg-surface-1 px-3 py-2 text-xs font-semibold text-text-secondary transition hover:border-rose-400/60 hover:bg-rose-500/10 hover:text-rose-500"
+                  aria-label="התנתקות"
+                  title="התנתקות"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-rose-500/20 hover:text-rose-200"
                 >
-                  <LogOut size={14} />
-                  התנתקות
+                  <LogOut size={16} />
                 </button>
               ) : null}
             </div>
