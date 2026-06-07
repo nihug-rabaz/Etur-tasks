@@ -101,7 +101,7 @@ export function TasksTable({ tasks, onSelect }: TasksTableProps) {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${domain.headerPill} ${domain.header}`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${domain.pillClass}`}>
                       {domain.label}
                     </span>
                   </td>

@@ -7,6 +7,7 @@ import { RealtimeSync } from "@/components/realtime-sync";
 import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TelegramNotificationsPanel } from "@/components/notifications/telegram-notifications-panel";
+import { AdminMessageComposer } from "@/components/notifications/admin-message-composer";
 
 const navItems: SideMenuItem[] = [
   { label: "ראשי", href: "/dashboard", description: "סקירה כללית של הכל" },
@@ -109,7 +110,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
-            <TelegramNotificationsPanel isAdmin={isAdmin} />
+            {isAdmin ? <AdminMessageComposer iconOnly /> : null}
+            <TelegramNotificationsPanel />
           </div>
         </div>
       </header>

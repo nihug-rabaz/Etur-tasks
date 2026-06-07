@@ -3,6 +3,7 @@ import { TaskService } from "@/services/task.service";
 import { AuthorizationService } from "@/services/authorization.service";
 import { redirect } from "next/navigation";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import { DeleteProjectButton } from "@/components/delete-project-button";
 import { ProjectKanban } from "@/components/project-kanban";
 import { CalendarClock, Layers } from "lucide-react";
 
@@ -58,12 +59,13 @@ export default async function ProjectPage({ params, searchParams }: ProjectPageP
           </div>
         </div>
       </div>
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
         <CreateTaskDrawer
           triggerLabel="הוספת משימה"
           defaultSubtopicId={project?.subtopic_id}
           defaultProjectId={project?.id}
         />
+        {project ? <DeleteProjectButton projectId={project.id} redirectTo="/dashboard" /> : null}
       </div>
       <ProjectKanban tasks={tasks} />
     </section>

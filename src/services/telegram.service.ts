@@ -100,6 +100,40 @@ export class TelegramService extends BaseService {
     return true;
   }
 
+  public async getDirectRecipients(): Promise<
+    Array<{ id: string; name: string; username: string | null; avatar: string | null; linkedAt: string | null }>
+  > {
+    const db = this.getDb();
+    return db<Array<{ id: string; name: string; username: string | null; avatar: string | null; linkedAt: string | null }>>`
+      select id, name, telegram_username as username, avatar, telegram_linked_at as "linkedAt"
+      from profiles
+      where telegram_id is not null and is_approved = true
+      order by name
+    `;
+  }
+
+  // Sends a private message to each selected user that is linked to Telegram.
+  public async sendDirectMessages(
+    userIds: string[],
+    text: string,
+    options?: TelegramSendOptions,
+  ): Promise<{ sent: number; failed: number; total: number }> {
+    const uniqueIds = [...new Set(userIds.filter(Boolean))];
+    let sent = 0;
+    let failed = 0;
+    for (const userId of uniqueIds) {
+      try {
+        const delivered = await this.sendToUser(userId, text, options);
+        if (delivered) sent += 1;
+        else failed += 1;
+      } catch (error) {
+        console.error("[telegram-direct]", error);
+        failed += 1;
+      }
+    }
+    return { sent, failed, total: uniqueIds.length };
+  }
+
   public async broadcastToLinkedUsers(
     text: string,
     options?: TelegramSendOptions,

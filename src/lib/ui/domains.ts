@@ -7,6 +7,7 @@ export interface DomainCardStyle {
   shell: string;
   header: string;
   headerPill: string;
+  pillClass: string;
   body: string;
   metaPanel: string;
   metaIcon: string;
@@ -95,6 +96,7 @@ const neutralCardStyle: DomainCardStyle = {
   shell: "shadow-sm",
   header: "bg-slate-400",
   headerPill: "bg-white/20 text-white",
+  pillClass: "bg-surface-2 text-text-secondary",
   body: "bg-surface-1",
   metaPanel: "bg-surface-2",
   metaIcon: "text-text-muted",
@@ -113,6 +115,7 @@ export function domainCardStyle(domainName?: string | null): DomainCardStyle {
     shell: meta.shell,
     header: meta.header,
     headerPill: meta.headerPill,
+    pillClass: meta.pillClass,
     body: meta.body,
     metaPanel: meta.metaPanel,
     metaIcon: meta.metaIcon,

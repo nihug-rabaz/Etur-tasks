@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { BriefcaseBusiness, LayoutGrid, Megaphone, Radar } from "lucide-react";
-import { ComponentType, useMemo, useState } from "react";
+import { ComponentType, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { MainTabItem } from "@/services/dashboard.service";
 import { DashboardSearch } from "@/components/main-tabs/dashboard-search";
 import { SectionGroup } from "@/components/main-tabs/section-group";
@@ -75,6 +76,17 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
   const initialTab = tabs[0]?.slug ?? "recruitment";
   const [activeTab, setActiveTab] = useState<TabSlug>(initialTab);
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
+  const searchParams = useSearchParams();
+
+  // Opens a task directly when arriving via a shared deep link (?task=<id>).
+  useEffect(() => {
+    const taskId = searchParams.get("task");
+    if (!taskId) return;
+    setSelectedTask({ id: taskId, title: "" });
+    const url = new URL(window.location.href);
+    url.searchParams.delete("task");
+    window.history.replaceState(null, "", url.toString());
+  }, [searchParams]);
 
   const normalizedTabs = useMemo(() => {
     return tabs.map((tab) => {
@@ -180,7 +192,14 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
             active={activeTab}
             showAll={false}
             counts={Object.fromEntries(
-              normalizedTabs.map((tab) => [tab.slug, tab.sections.length]),
+              normalizedTabs.map((tab) => [
+                tab.slug,
+                tab.sections.reduce(
+                  (sum, section) =>
+                    sum + section.projects.reduce((projectSum, project) => projectSum + project.tasks.length, 0),
+                  0,
+                ),
+              ]),
             ) as Partial<Record<DomainKey, number>>}
             onChange={(key) => {
               if (key !== "all") setActiveTab(key);

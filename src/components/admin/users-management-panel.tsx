@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
 import type { Profile } from "@/types/models";
 import { UserPermissionsEditor } from "@/components/admin/user-permissions-editor";
+import { AVATAR_PALETTE, initialsFrom, pickAvatarBg } from "@/lib/ui/avatar";
 
 type PermissionGroup = {
   domainSlug: string;
@@ -22,21 +23,6 @@ interface UsersManagementPanelProps {
   syncPermissionsAction: (formData: FormData) => Promise<void>;
   approveUserAction: (formData: FormData) => Promise<void>;
   setPendingAction: (formData: FormData) => Promise<void>;
-}
-
-const AVATAR_PALETTE = ["#65ba73", "#ff7575", "#cab641", "#ffb84d", "#7e57ff", "#0073ea", "#00c875", "#ff6900"];
-
-function pickAvatarBg(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i) * (i + 1)) % 997;
-  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
-}
-
-function initialsFrom(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function UsersManagementPanel({

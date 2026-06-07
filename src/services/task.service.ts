@@ -88,4 +88,10 @@ export class TaskService extends BaseService {
     const db = this.getDb();
     await db`update tasks set status = ${status}, updated_at = now() where id = ${taskId}`;
   }
+
+  // Deletes a task; assignee links are removed automatically via cascade.
+  public async delete(taskId: string): Promise<void> {
+    const db = this.getDb();
+    await db`delete from tasks where id = ${taskId}`;
+  }
 }

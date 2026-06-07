@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AuthorizationService } from "@/services/authorization.service";
 import { NeonDatabase } from "@/lib/db/neon";
+import { TaskService } from "@/services/task.service";
 
 export async function GET(_: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -64,5 +65,25 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
   `;
 
   return NextResponse.json({ task: details[0] ?? null });
+}
+
+export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+  const authorizationService = new AuthorizationService();
+  const profile = await authorizationService.getCurrentProfile();
+  if (!profile) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!profile.is_approved) {
+    return NextResponse.json({ error: "Awaiting admin approval" }, { status: 403 });
+  }
+
+  const allowed = await authorizationService.canAccessTask(profile, id);
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await new TaskService().delete(id);
+  return NextResponse.json({ ok: true });
 }
 

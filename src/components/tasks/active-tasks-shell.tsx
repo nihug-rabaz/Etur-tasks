@@ -22,7 +22,7 @@ interface ActiveTasksShellProps {
 
 export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
 
   const grouped = useMemo(() => groupTasksByDomain(tasks), [tasks]);

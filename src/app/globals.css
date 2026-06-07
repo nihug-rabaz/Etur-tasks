@@ -63,15 +63,20 @@
   --color-accent-cyan: var(--accent-cyan);
   --color-accent-purple: var(--accent-purple);
   --color-accent-orange: var(--accent-orange);
-  --font-sans: var(--font-assistant);
+  --font-sans: var(--font-secular);
+  --font-heading: var(--font-heebo);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--text-primary);
-  font-family: var(--font-assistant), Arial, Helvetica, sans-serif;
+  font-family: var(--font-secular), Arial, Helvetica, sans-serif;
   min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heebo), var(--font-secular), Arial, Helvetica, sans-serif;
 }
 
 .topbar {
@@ -213,7 +218,7 @@ body {
     0 0 60px rgba(56, 189, 248, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   color: #0f172a;
-  font-family: var(--font-assistant), "Inter", system-ui, sans-serif;
+  font-family: var(--font-secular), "Inter", system-ui, sans-serif;
 }
 
 .hud-modal::before {

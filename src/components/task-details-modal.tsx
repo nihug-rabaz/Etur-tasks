@@ -10,9 +10,11 @@ import {
   History,
   Pencil,
   Target,
+  Trash2,
   X,
   Zap,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AssigneeMultiSelect, type AssigneeOption } from "@/components/ui/assignee-select";
@@ -105,13 +107,16 @@ export function TaskDetailsModal({
   taskId,
   taskTitle,
   onUpdated,
+  onDeleted,
 }: {
   open: boolean;
   onClose: () => void;
   taskId: string;
   taskTitle: string;
   onUpdated?: () => void;
+  onDeleted?: () => void;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [task, setTask] = useState<TaskDetails | null>(null);
   const [error, setError] = useState("");
@@ -120,6 +125,8 @@ export function TaskDetailsModal({
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [users, setUsers] = useState<AssigneeOption[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -144,6 +151,7 @@ export function TaskDetailsModal({
   useEffect(() => {
     if (!open) return;
     setEditing(false);
+    setConfirmDelete(false);
     let cancelled = false;
     const load = async () => {
       setError("");
@@ -251,6 +259,25 @@ export function TaskDetailsModal({
     setDraft((current) => (current ? { ...current, [key]: value } : current));
   };
 
+  // Permanently removes the task and refreshes the underlying lists.
+  const handleDelete = async () => {
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error === "Forbidden" ? "אין לך הרשאה למחוק משימה זו." : "מחיקת המשימה נכשלה.");
+        return;
+      }
+      onDeleted?.();
+      onClose();
+      router.refresh();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (!mounted) return null;
 
   const headerStatus = editing && draft ? draft.status : status;
@@ -312,16 +339,28 @@ export function TaskDetailsModal({
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {!editing ? (
-                      <button
-                        type="button"
-                        onClick={startEdit}
-                        disabled={!task || loading}
-                        aria-label="עריכה"
-                        title="עריכה"
-                        className="hud-edit-btn"
-                      >
-                        <Pencil size={15} strokeWidth={2.5} />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={startEdit}
+                          disabled={!task || loading}
+                          aria-label="עריכה"
+                          title="עריכה"
+                          className="hud-edit-btn"
+                        >
+                          <Pencil size={15} strokeWidth={2.5} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(true)}
+                          disabled={!task || loading}
+                          aria-label="מחיקה"
+                          title="מחיקה"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          <Trash2 size={15} strokeWidth={2.5} />
+                        </button>
+                      </>
                     ) : (
                       <>
                         <button
@@ -375,6 +414,31 @@ export function TaskDetailsModal({
               <div className="hud-divider" />
 
               <div className="relative space-y-4 px-6 pb-6 pt-5">
+                {confirmDelete ? (
+                  <section className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                    <p className="text-sm font-bold text-rose-700">למחוק את המשימה?</p>
+                    <p className="mt-1 text-xs text-rose-600">פעולה זו אינה הפיכה והמשימה תוסר לצמיתות.</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-60"
+                      >
+                        <Trash2 size={14} />
+                        {deleting ? "מוחק…" : "מחיקה"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        disabled={deleting}
+                        className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+                      >
+                        ביטול
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
                 <section className="hud-glass-card p-4">
                   <div className="flex items-center gap-2">
                     <FileText size={13} className="text-sky-600" />

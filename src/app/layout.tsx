@@ -1,22 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Assistant, Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Heebo, Secular_One } from "next/font/google";
 import { Toaster } from "sonner";
 import { IntroSplash } from "@/components/intro-splash";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
-const assistant = Assistant({
-  variable: "--font-assistant",
+const secularOne = Secular_One({
+  variable: "--font-secular",
+  subsets: ["hebrew", "latin"],
+  weight: "400",
+});
+
+const heebo = Heebo({
+  variable: "--font-heebo",
   subsets: ["hebrew", "latin"],
 });
 
@@ -57,7 +58,7 @@ export default function RootLayout({
     <html
       lang="he"
       dir="rtl"
-      className={`${geistSans.variable} ${geistMono.variable} ${assistant.variable} h-full antialiased`}
+      className={`${geistMono.variable} ${secularOne.variable} ${heebo.variable} h-full antialiased`}
       style={{ colorScheme: "light" }}
     >
       <body className="min-h-full flex flex-col">

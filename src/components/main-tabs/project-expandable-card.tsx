@@ -6,6 +6,7 @@ import { ChevronDown, ExternalLink, FolderKanban } from "lucide-react";
 import { useState } from "react";
 import { TabProjectItem } from "@/services/dashboard.service";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import { DeleteProjectButton } from "@/components/delete-project-button";
 import { TaskRowItem } from "@/components/main-tabs/task-row-item";
 
 interface ProjectExpandableCardProps {
@@ -45,6 +46,7 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
             defaultProjectId={project.id}
             iconOnly
           />
+          <DeleteProjectButton projectId={project.id} iconOnly />
           <Link
             href={`/projects/${project.id}`}
             className="rounded-lg bg-accent-primary/12 px-2 py-1 text-xs font-semibold text-accent-primary transition hover:bg-accent-primary/20"

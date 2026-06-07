@@ -26,4 +26,15 @@ export class ProjectService extends BaseService {
     }
     return data[0];
   }
+
+  // Atomically deletes a project together with all of its tasks (assignees cascade).
+  public async delete(projectId: string): Promise<void> {
+    const db = this.getDb();
+    await db`
+      with deleted_tasks as (
+        delete from tasks where project_id = ${projectId}
+      )
+      delete from projects where id = ${projectId}
+    `;
+  }
 }
