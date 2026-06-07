@@ -69,7 +69,7 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
                 key={task.id}
                 draggable
                 onDragStart={() => setDragTaskId(task.id)}
-                className="rounded-2xl border border-border-weak bg-surface-1/85 p-3 shadow-[0_8px_28px_rgba(2,6,23,0.28)] transition hover:-translate-y-0.5 hover:border-accent-primary/40"
+                className="rounded-2xl bg-surface-1 p-3 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5"
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <input

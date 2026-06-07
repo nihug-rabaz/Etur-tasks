@@ -223,7 +223,7 @@ export function CreateProjectDrawer({
               type="button"
               disabled={loading}
               onClick={submit}
-              className="rounded-xl bg-gradient-to-l from-purple-600 to-fuchsia-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded-xl bg-gradient-to-l from-accent-purple to-accent-cyan px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               יצירת פרויקט
             </button>

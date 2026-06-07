@@ -30,21 +30,21 @@ export default async function SubtopicPage({ params }: SubtopicPageProps) {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">תת-נושא</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">תת-נושא</h1>
         <div className="flex items-center gap-2">
           <CreateProjectDrawer triggerLabel="פרויקט חדש" defaultSubtopicId={id} lockSubtopic />
           <CreateTaskDrawer triggerLabel="משימה חדשה" defaultSubtopicId={id} />
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-900">
-        <h2 className="mb-3 font-semibold">פרויקטים</h2>
+      <div className="surface-card p-4">
+        <h2 className="mb-3 font-semibold text-text-primary">פרויקטים</h2>
         <div className="space-y-2">
           {projects.map((project) => (
             <a
               key={project.id}
               href={`/projects/${project.id}`}
-              className="block rounded-xl border border-slate-200 px-3 py-2 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              className="block rounded-xl bg-surface-2 px-3 py-2 font-medium text-text-secondary transition hover:bg-accent-primary/10 hover:text-accent-primary"
             >
               {project.name}
             </a>
@@ -53,7 +53,7 @@ export default async function SubtopicPage({ params }: SubtopicPageProps) {
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold">משימות ללא פרויקט</h2>
+        <h2 className="mb-3 text-lg font-semibold text-text-primary">משימות ללא פרויקט</h2>
         <div className="grid gap-3 md:grid-cols-2">
           {tasksWithoutProject.map((task) => (
             <TaskCard key={task.id} task={task} />

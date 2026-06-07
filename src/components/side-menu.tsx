@@ -44,7 +44,7 @@ interface SideMenuTriggerProps {
 
 export function SideMenuTrigger({ state, className }: SideMenuTriggerProps) {
   const baseClass =
-    "inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-sm backdrop-blur transition hover:border-white/45 hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:px-4 sm:text-sm";
+    "inline-flex items-center gap-2 rounded-full bg-accent-primary px-3 py-2 text-xs font-semibold text-white shadow-[0_8px_20px_-6px_rgba(139,92,246,0.5)] transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 sm:px-4 sm:text-sm";
   return (
     <button
       type="button"
@@ -115,19 +115,19 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
       <aside
         id="app-side-menu"
         aria-hidden={!open}
-        className={`side-panel fixed inset-y-0 right-0 z-[65] flex w-[min(420px,88vw)] flex-col overflow-hidden border-l border-white/10 text-white shadow-[-30px_0_60px_-20px_rgba(2,6,23,0.55)] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`side-panel fixed inset-y-0 right-0 z-[65] flex w-[min(420px,88vw)] flex-col overflow-hidden text-text-primary shadow-[-30px_0_60px_-20px_rgba(22,24,29,0.25)] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="pointer-events-none absolute inset-0 opacity-80">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-sky-400/20 blur-3xl" />
-          <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-cyan-300/15 blur-3xl" />
+        <div className="pointer-events-none absolute inset-0 opacity-70">
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-accent-purple/15 blur-3xl" />
+          <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-accent-cyan/12 blur-3xl" />
         </div>
 
         <div className="relative flex h-full flex-col gap-6 px-7 pb-7 pt-20">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/55">ניווט מהיר</p>
-            <h2 className="mt-2 text-3xl font-black leading-tight text-white">לאן בא לנו לקפוץ?</h2>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-accent-primary">ניווט מהיר</p>
+            <h2 className="mt-2 text-3xl font-black leading-tight text-text-primary">לאן בא לנו לקפוץ?</h2>
           </div>
 
           <nav className="flex-1 overflow-y-auto pr-1">
@@ -140,18 +140,18 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
                       href={item.href}
                       onClick={close}
                       aria-label={item.ariaLabel ?? item.label}
-                      className={`group flex items-center justify-between gap-4 rounded-2xl border px-4 py-3 transition ${
+                      className={`group flex items-center justify-between gap-4 rounded-2xl px-4 py-3 transition ${
                         active
-                          ? "border-white/40 bg-white/15 text-white shadow-[0_10px_25px_-12px_rgba(0,0,0,0.5)]"
-                          : "border-white/10 bg-white/5 text-white/75 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/10 hover:text-white"
+                          ? "bg-accent-primary text-white shadow-[0_12px_28px_-12px_rgba(139,92,246,0.6)]"
+                          : "bg-surface-2 text-text-secondary hover:-translate-y-0.5 hover:bg-accent-primary/10 hover:text-accent-primary"
                       }`}
                     >
                       <span className="flex items-center gap-3">
                         <span
                           className={`flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold tabular-nums ${
                             active
-                              ? "bg-white text-[#0a3a5e]"
-                              : "bg-white/10 text-white/70 group-hover:text-white"
+                              ? "bg-white/20 text-white"
+                              : "bg-surface-1 text-text-muted group-hover:text-accent-primary"
                           }`}
                         >
                           {item.icon ?? String(index + 1).padStart(2, "0")}
@@ -159,13 +159,13 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
                         <span className="flex flex-col">
                           <span className="text-base font-bold leading-tight">{item.label}</span>
                           {item.description ? (
-                            <span className="text-xs text-white/50">{item.description}</span>
+                            <span className={`text-xs ${active ? "text-white/70" : "text-text-muted"}`}>{item.description}</span>
                           ) : null}
                         </span>
                       </span>
                       <span
                         className={`text-lg transition-transform ${
-                          active ? "translate-x-0 text-white" : "-translate-x-1 text-white/50 group-hover:translate-x-0 group-hover:text-white"
+                          active ? "translate-x-0 text-white" : "-translate-x-1 text-text-muted group-hover:translate-x-0 group-hover:text-accent-primary"
                         }`}
                         aria-hidden
                       >
@@ -179,14 +179,14 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
           </nav>
 
           {userLabel || showLogout ? (
-            <div className="flex items-center gap-3 rounded-full border border-white/15 bg-white/10 py-2 pe-2 ps-3">
+            <div className="flex items-center gap-3 rounded-full bg-surface-2 py-2 pe-2 ps-3">
               {userLabel ? (
                 <>
-                  <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#0a3a5e]">
+                  <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-sm font-bold text-white">
                     {getInitials(userLabel)}
-                    <span className="absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-[#0a3a5e] bg-emerald-400" />
+                    <span className="absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-surface-1 bg-emerald-500" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">{userLabel}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{userLabel}</span>
                 </>
               ) : (
                 <span className="flex-1" />
@@ -197,7 +197,7 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
                   onClick={() => signOut({ callbackUrl: "/login" })}
                   aria-label="התנתקות"
                   title="התנתקות"
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/70 transition hover:bg-rose-500/20 hover:text-rose-200"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-danger/15 hover:text-danger"
                 >
                   <LogOut size={16} />
                 </button>

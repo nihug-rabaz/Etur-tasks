@@ -10,32 +10,32 @@ interface SectionGroupProps {
 }
 
 const domainHeaderColors: Record<DomainKey, string> = {
-  recruitment: "#0ea5e9",
-  positioning: "#fb7185",
-  general: "#10b981",
+  recruitment: "#22b8cf",
+  positioning: "#fb923c",
+  general: "#8b5cf6",
 };
 
 export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: SectionGroupProps) {
   const domain = domainMeta[domainSlug];
 
   return (
-    <section className={`flex h-fit w-full flex-col self-start overflow-hidden rounded-2xl border-2 ${domain.shell}`}>
+    <section className="surface-card flex h-fit w-full flex-col self-start overflow-hidden">
       <div
         className="flex items-center justify-between gap-2 px-4 py-3"
         style={{ backgroundColor: domainHeaderColors[domainSlug] }}
       >
         <h3 className="text-lg font-bold text-white">{section.name}</h3>
         <span
-          className="rounded-full border px-3 py-1 text-xs font-bold text-white"
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.3)" }}
+          className="rounded-full px-3 py-1 text-xs font-bold text-white"
+          style={{ backgroundColor: "rgba(255,255,255,0.22)" }}
         >
           {section.projects.length} פרויקטים
         </span>
       </div>
 
-      <div className={`flex flex-1 flex-col gap-3 p-3 ${domain.body}`}>
+      <div className="flex flex-1 flex-col gap-3 p-3">
         {section.projects.length === 0 ? (
-          <p className={`rounded-xl border-2 px-4 py-6 text-center text-sm font-medium ${domain.metaPanel}`}>
+          <p className={`rounded-xl px-4 py-6 text-center text-sm font-medium ${domain.metaPanel}`}>
             אין פרויקטים להצגה בסקציה זו.
           </p>
         ) : (

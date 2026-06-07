@@ -1,9 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BriefcaseBusiness, Megaphone, Radar, Search } from "lucide-react";
+import { BriefcaseBusiness, LayoutGrid, Megaphone, Radar } from "lucide-react";
 import { ComponentType, useMemo, useState } from "react";
 import { MainTabItem } from "@/services/dashboard.service";
+import { DashboardSearch } from "@/components/main-tabs/dashboard-search";
 import { SectionGroup } from "@/components/main-tabs/section-group";
 import {
   DashboardAmbientBackground,
@@ -124,6 +125,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
     selected?.slug === "general"
       ? "grid grid-cols-1 items-start gap-4"
       : "grid items-start gap-4 xl:grid-cols-3";
+  const accentHex = domainMeta[(selected?.slug ?? "general") as DomainKey]?.accentHex ?? "#8b5cf6";
 
   if (!selected) {
     return (
@@ -134,40 +136,46 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
   }
 
   return (
-    <section className="relative isolate flex min-h-full flex-1 flex-col overflow-hidden rounded-[2rem] p-1 sm:p-2">
+    <section className="relative isolate flex min-h-full flex-1 flex-col">
       <DashboardAmbientBackground theme={selected.slug as DashboardAmbientTheme} />
 
-      <div className="relative z-10 flex min-h-full flex-1 flex-col gap-6">
-      <div className="dashboard-glass glow-ring shrink-0 rounded-3xl p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-5">
-          <div className="min-w-0 shrink-0 lg:max-w-[min(100%,22rem)]">
-            <h1 className="text-3xl font-bold tracking-tight text-text-primary">פרויקטים ומשימות</h1>
-          </div>
-          <div className="min-w-0 flex-1 lg:flex lg:justify-center">
-            <div className="relative flex w-full max-w-xl items-center lg:mx-auto">
-              <Search
-                size={18}
-                className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted"
-                aria-hidden
-              />
-              <input
-                type="search"
-                aria-label="חיפוש משימות, פרויקטים או משתמשים"
-                placeholder="חיפוש משימות, פרויקטים או משתמשים..."
-                className="w-full rounded-2xl border border-border-weak bg-white py-2.5 ps-10 pe-3 text-sm text-text-primary outline-none transition focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/30 dark:bg-[#182238]"
-              />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-28 h-[55%] w-[72%] -translate-x-1/2 rounded-full blur-[140px] transition-all duration-700"
+        style={{ background: `radial-gradient(circle, ${accentHex}, transparent 68%)`, opacity: 0.5 }}
+      />
+
+      <div className="relative z-10 mx-auto flex h-[calc(100vh-4rem)] min-h-[36rem] w-[94%] max-w-[2000px] flex-col gap-5 pb-5 pt-5">
+      <div className="flex flex-col gap-4 px-1 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <span
+              className="inline-flex shrink-0 items-center justify-center rounded-2xl text-white transition-all duration-500"
+              style={{ backgroundColor: accentHex, boxShadow: `0 14px 30px -8px ${accentHex}`, height: "3.25rem", width: "3.25rem" }}
+            >
+              <LayoutGrid size={24} />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-3xl font-black leading-tight tracking-tight text-text-primary sm:text-4xl">פרויקטים ומשימות</h1>
+              <p className="mt-0.5 text-sm font-medium text-text-secondary">ניהול כל הסקציות והפרויקטים במקום אחד</p>
             </div>
           </div>
-          <div className="shrink-0 self-start lg:self-auto">
-            <CreateTaskDrawer triggerLabel="יצירה מהירה" compact />
+          <div className="flex w-full items-center gap-3 lg:w-auto lg:flex-1 lg:max-w-2xl">
+            <DashboardSearch
+              accentHex={accentHex}
+              className="min-w-0 flex-1"
+              onSelectTask={(task) => setSelectedTask(task)}
+            />
+            <div className="shrink-0">
+              <CreateTaskDrawer triggerLabel="יצירה מהירה" compact accentHex={accentHex} />
+            </div>
           </div>
-        </div>
       </div>
 
       <motion.div
-        className={`dashboard-glass-board relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl ${tabMeta[selected.slug].contentClass}`}
+        className="dashboard-glass-board relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[2rem] transition-shadow duration-700"
+        style={{ boxShadow: `0 40px 90px -28px ${accentHex}80, 0 18px 55px -22px ${accentHex}59` }}
       >
-        <div className="dashboard-tabs-bar relative z-10 shrink-0 border-b p-3">
+        <div className="dashboard-tabs-bar relative z-10 shrink-0 px-4 pt-3 sm:px-6">
           <DomainTopicTabs
             active={activeTab}
             showAll={false}
@@ -187,7 +195,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="dashboard-board-content relative z-10 flex-1 p-5"
+            className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto p-5"
           >
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-text-primary">סקציות ופרויקטים</h2>

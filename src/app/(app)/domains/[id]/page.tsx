@@ -33,31 +33,28 @@ export default async function DomainPage({ params }: DomainPageProps) {
 
   return (
     <section>
-      <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">תתי-נושאים</h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      <h1 className="text-2xl font-semibold text-text-primary">תתי-נושאים</h1>
+      <p className="mt-1 text-sm text-text-secondary">
         בחר תת-נושא כדי לראות פרויקטים, והמשימות הקיימות מוצגות כאן מתחת לכל כותרת.
       </p>
       <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {subtopics.map((subtopic) => {
           const subtopicTasks = tasks.filter((task) => task.subtopic_id === subtopic.id);
           return (
-            <div
-              key={subtopic.id}
-              className="rounded-2xl bg-slate-100/70 p-4 dark:bg-slate-900/50"
-            >
+            <div key={subtopic.id} className="surface-card p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <h2 className="text-lg font-semibold text-text-primary">
                   {toHebrewSubtopicLabel(subtopic.name)}
                 </h2>
                 <Link
                   href={`/subtopics/${subtopic.id}`}
-                  className="rounded-xl border border-slate-300 px-3 py-1 text-sm text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="rounded-full bg-accent-primary/12 px-3 py-1 text-sm font-semibold text-accent-primary transition hover:bg-accent-primary/20"
                 >
                   מעבר לנושא
                 </Link>
               </div>
               {subtopicTasks.length === 0 ? (
-                <p className="rounded-xl bg-white px-3 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                <p className="rounded-xl bg-surface-2 px-3 py-3 text-sm text-text-muted">
                   עדיין אין משימות בתת-נושא הזה.
                 </p>
               ) : (

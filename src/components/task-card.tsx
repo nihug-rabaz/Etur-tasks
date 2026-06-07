@@ -8,9 +8,9 @@ interface TaskCardProps {
 }
 
 const domainHeaderColors: Record<DomainKey, string> = {
-  recruitment: "#0ea5e9",
-  positioning: "#fb7185",
-  general: "#10b981",
+  recruitment: "#22b8cf",
+  positioning: "#fb923c",
+  general: "#8b5cf6",
 };
 
 const priorityStyle: Record<string, string> = {
@@ -41,7 +41,7 @@ export function TaskCard({ task }: TaskCardProps) {
   const headerBg = domainKey ? domainHeaderColors[domainKey] : "#64748b";
 
   return (
-    <article className={`relative overflow-hidden rounded-2xl border-2 ${domain.shell}`}>
+    <article className="surface-card relative overflow-hidden">
       <span className={`absolute inset-y-0 start-0 z-10 w-1.5 ${domain.accent}`} aria-hidden />
 
       <div
@@ -49,8 +49,8 @@ export function TaskCard({ task }: TaskCardProps) {
         style={{ backgroundColor: headerBg }}
       >
         <span
-          className="rounded-full border px-3 py-1 text-xs font-bold text-white"
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderColor: "rgba(255,255,255,0.3)" }}
+          className="rounded-full px-3 py-1 text-xs font-bold text-white"
+          style={{ backgroundColor: "rgba(255,255,255,0.22)" }}
         >
           {domain.label}
         </span>

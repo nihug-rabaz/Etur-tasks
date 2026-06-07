@@ -15,6 +15,17 @@ const navItems: SideMenuItem[] = [
   { label: "משתמשים", href: "/admin/users", description: "ניהול חברי הצוות" },
 ];
 
+function getBreadcrumbHref(segments: string[], index: number): string | null {
+  const href = `/${segments.slice(0, index + 1).join("/")}`;
+  const exactRoutes = new Set(["/dashboard", "/tasks/active", "/tasks/upcoming", "/admin/users"]);
+  if (exactRoutes.has(href)) return href;
+
+  const [section] = segments;
+  const isDynamicDetails =
+    index === 1 && (section === "projects" || section === "domains" || section === "subtopics");
+  return isDynamicDetails ? href : null;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
@@ -50,15 +61,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const userLabel = session?.user?.name || session?.user?.email || null;
+  const isDashboard = pathname === "/dashboard";
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
       <RealtimeSync />
       <SideMenu items={navItems} userLabel={userLabel} state={sideMenu} />
-      <header
-        className="topbar w-full px-3 py-3 shadow-sm sm:px-6 lg:px-8"
-        style={{ backgroundColor: "#0a3a5e" }}
-      >
+      <header className="topbar w-full px-3 py-3 sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 sm:gap-3">
           <SideMenuTrigger state={sideMenu} className="shrink-0" />
           <nav
@@ -69,22 +78,30 @@ export function AppShell({ children }: { children: ReactNode }) {
               <li>
                 <Link
                   href="/dashboard"
-                  className="inline-flex items-center rounded-lg bg-white/15 px-2 py-1 font-medium text-white transition hover:bg-white/25"
+                  className="inline-flex items-center rounded-full bg-surface-2 px-3 py-1.5 font-semibold text-text-secondary transition hover:bg-accent-primary/12 hover:text-accent-primary"
                 >
                   דף הבית
                 </Link>
               </li>
               {segments.map((segment, index) => {
-                const href = `/${segments.slice(0, index + 1).join("/")}`;
+                if (segment === "dashboard") return null;
+                const href = getBreadcrumbHref(segments, index);
+                const label = routeLabel[segment] ?? segment;
                 return (
-                  <li key={href} className="inline-flex items-center gap-1.5 sm:gap-2">
-                    <span className="text-white/40">/</span>
-                    <Link
-                      href={href}
-                      className="inline-flex items-center rounded-lg bg-white/15 px-2 py-1 font-medium text-white transition hover:bg-white/25"
-                    >
-                      {routeLabel[segment] ?? segment}
-                    </Link>
+                  <li key={`${segment}-${index}`} className="inline-flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-text-muted/50">/</span>
+                    {href ? (
+                      <Link
+                        href={href}
+                        className="inline-flex items-center rounded-full bg-surface-2 px-3 py-1.5 font-semibold text-text-secondary transition hover:bg-accent-primary/12 hover:text-accent-primary"
+                      >
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-surface-2/60 px-3 py-1.5 font-semibold text-text-muted">
+                        {label}
+                      </span>
+                    )}
                   </li>
                 );
               })}
@@ -96,7 +113,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <div className="relative mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-5 sm:px-6 lg:px-8">
+      <div
+        className={`relative mx-auto flex w-full flex-1 flex-col ${
+          isDashboard ? "max-w-none px-0 pb-0 pt-0" : "max-w-screen-2xl px-4 pb-6 pt-5 sm:px-6 lg:px-8"
+        }`}
+      >
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
     </div>

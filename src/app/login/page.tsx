@@ -61,12 +61,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const callbackAlt = pairedLocalCallbackUrl(origin);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-amber-50/50 via-stone-50 to-sky-50/40 px-4 dark:bg-slate-950">
-      <div className="w-full max-w-md rounded-2xl border border-stone-200/80 bg-white/95 p-8 shadow-xl shadow-stone-300/30 backdrop-blur-sm dark:bg-slate-900">
-        <h1 className="text-2xl font-semibold text-stone-900 dark:text-slate-100">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
+      <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-accent-cyan/20 blur-3xl" aria-hidden />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-accent-purple/20 blur-3xl" aria-hidden />
+      <div className="pointer-events-none absolute left-1/3 top-1/3 h-64 w-64 rounded-full bg-accent-orange/15 blur-3xl" aria-hidden />
+      <div className="relative w-full max-w-md rounded-3xl bg-surface-1/95 p-8 shadow-[var(--shadow-soft)] backdrop-blur-sm">
+        <h1 className="text-2xl font-bold text-text-primary">
           ברוך הבא
         </h1>
-        <p className="mt-2 text-sm text-stone-600 dark:text-slate-400">
+        <p className="mt-2 text-sm text-text-secondary">
           התחבר כדי לנהל את משימות הצוות.
         </p>
         {authError && !spuriousGoogleError ? (

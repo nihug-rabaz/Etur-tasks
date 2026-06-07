@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Assistant, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { IntroSplash } from "@/components/intro-splash";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,12 +33,13 @@ export default function RootLayout({
     <html
       lang="he"
       dir="rtl"
-      className={`${geistSans.variable} ${geistMono.variable} ${assistant.variable} dark h-full antialiased`}
-      style={{ colorScheme: "dark" }}
+      className={`${geistSans.variable} ${geistMono.variable} ${assistant.variable} h-full antialiased`}
+      style={{ colorScheme: "light" }}
     >
       <body className="min-h-full flex flex-col">
+        <IntroSplash />
         {children}
-        <Toaster richColors theme="dark" />
+        <Toaster richColors theme="light" />
       </body>
     </html>
   );

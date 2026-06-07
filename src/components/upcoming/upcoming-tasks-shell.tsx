@@ -53,7 +53,7 @@ export function UpcomingTasksShell({
 
   return (
     <section className="space-y-5">
-      <div className="rounded-3xl border border-border-weak bg-surface-1 p-5 shadow-sm">
+      <div className="surface-card p-5">
         <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">משימות קרובות</h1>
         <p className="mt-1 text-sm text-text-secondary">
           לוח שנה חי לפי תאריך יעד · {visibleCount} משימות מוצגות כרגע
@@ -71,10 +71,10 @@ export function UpcomingTasksShell({
         <button
           type="button"
           onClick={() => toggleDomain("all")}
-          className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+          className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
             activeDomains.has("all")
-              ? "border-accent-primary/60 bg-accent-primary/15 text-accent-primary"
-              : "border-border-weak bg-surface-1/80 text-text-secondary hover:text-text-primary"
+              ? "bg-accent-primary/15 text-accent-primary"
+              : "bg-surface-2 text-text-secondary hover:text-text-primary"
           }`}
         >
           הכל
@@ -84,10 +84,10 @@ export function UpcomingTasksShell({
             key={key}
             type="button"
             onClick={() => toggleDomain(key)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+            className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
               activeDomains.has(key)
-                ? `border-accent-primary/50 ${domainMeta[key].pillClass}`
-                : "border-border-weak bg-surface-1/80 text-text-secondary hover:text-text-primary"
+                ? domainMeta[key].pillClass
+                : "bg-surface-2 text-text-secondary hover:text-text-primary"
             }`}
           >
             {domainMeta[key].label}

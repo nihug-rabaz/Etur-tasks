@@ -3,45 +3,49 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #e8edf8;
-  --foreground: #0f172a;
-  --surface-1: #f5f7fc;
-  --surface-2: #e2e8f5;
-  --surface-glass: rgba(245, 247, 252, 0.88);
-  --border-weak: #c8d2ea;
-  --border-strong: #9aaed4;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --accent-primary: #4f46e5;
-  --accent-secondary: #d946ef;
-  --accent-cyan: #0891b2;
+  --background: #f4f5f7;
+  --foreground: #16181d;
+  --surface-1: #ffffff;
+  --surface-2: #f0f1f4;
+  --surface-glass: rgba(255, 255, 255, 0.92);
+  --border-weak: transparent;
+  --border-strong: rgba(22, 24, 29, 0.06);
+  --text-primary: #16181d;
+  --text-secondary: #565a66;
+  --text-muted: #8b909c;
+  --accent-primary: #8b5cf6;
+  --accent-secondary: #fb923c;
+  --accent-cyan: #22b8cf;
+  --accent-purple: #8b5cf6;
+  --accent-orange: #fb923c;
   --success: #16a34a;
-  --warning: #d97706;
-  --danger: #e11d48;
-  --shadow-soft: 0 10px 35px rgba(37, 99, 235, 0.12);
-  --shadow-glow: 0 0 40px rgba(217, 70, 239, 0.18);
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --shadow-soft: 0 12px 32px rgba(22, 24, 29, 0.08);
+  --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.14);
 }
 
 .dark {
-  --background: #0b1020;
-  --foreground: #eaf1ff;
-  --surface-1: #121a2b;
-  --surface-2: #182238;
-  --surface-glass: rgba(26, 35, 56, 0.74);
-  --border-weak: #2a3651;
-  --border-strong: #3a4a6f;
-  --text-primary: #eaf1ff;
-  --text-secondary: #a8b6d8;
-  --text-muted: #8797bd;
-  --accent-primary: #5b8cff;
-  --accent-secondary: #d946ef;
-  --accent-cyan: #22d3ee;
+  --background: #0f1117;
+  --foreground: #f3f4f6;
+  --surface-1: #181a22;
+  --surface-2: #20232d;
+  --surface-glass: rgba(24, 26, 34, 0.82);
+  --border-weak: transparent;
+  --border-strong: rgba(255, 255, 255, 0.06);
+  --text-primary: #f3f4f6;
+  --text-secondary: #b6bac6;
+  --text-muted: #868c9c;
+  --accent-primary: #a78bfa;
+  --accent-secondary: #fdba74;
+  --accent-cyan: #4dd0e1;
+  --accent-purple: #a78bfa;
+  --accent-orange: #fdba74;
   --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #f43f5e;
-  --shadow-soft: 0 14px 40px rgba(2, 6, 23, 0.55);
-  --shadow-glow: 0 0 55px rgba(91, 140, 255, 0.28);
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --shadow-soft: 0 16px 44px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 55px rgba(167, 139, 250, 0.26);
 }
 
 @theme inline {
@@ -57,6 +61,8 @@
   --color-accent-primary: var(--accent-primary);
   --color-accent-secondary: var(--accent-secondary);
   --color-accent-cyan: var(--accent-cyan);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-orange: var(--accent-orange);
   --font-sans: var(--font-assistant);
   --font-mono: var(--font-geist-mono);
 }
@@ -69,28 +75,32 @@ body {
 }
 
 .topbar {
-  background-color: #0a3a5e !important;
+  background-color: var(--surface-1) !important;
+  box-shadow: 0 1px 0 rgba(22, 24, 29, 0.04), 0 8px 24px rgba(22, 24, 29, 0.05);
 }
 
 .dark .topbar {
-  background-color: #06243d !important;
+  background-color: #14161d !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 .side-panel {
-  background-color: #0a3a5e !important;
+  background-color: var(--surface-1) !important;
 }
 
 .dark .side-panel {
-  background-color: #06243d !important;
+  background-color: #14161d !important;
 }
 
-* {
-  border-color: var(--border-weak);
+/* Borderless layout: hide all hard borders, lean on fills + soft shadows. */
+*,
+::before,
+::after {
+  border-color: transparent !important;
 }
 
 .glass-panel {
   background: var(--surface-glass);
-  border: 1px solid var(--border-weak);
   backdrop-filter: blur(12px);
   box-shadow: var(--shadow-soft);
 }
@@ -99,87 +109,79 @@ body {
   box-shadow: var(--shadow-glow);
 }
 
+.surface-card {
+  background: var(--surface-1);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-soft);
+}
+
 .dashboard-ambient-base {
   position: absolute;
   inset: 0;
-  background: #f6f7fa;
+  background: var(--background);
 }
 
 .dashboard-ambient-base--recruitment {
-  background: #eff6ff;
+  background: #ecfbfd;
 }
 
 .dashboard-ambient-base--positioning {
-  background: #fdf2f5;
+  background: #fff5ec;
 }
 
 .dashboard-ambient-base--general {
-  background: #f1faf5;
+  background: #f6f1fe;
 }
 
 .dark .dashboard-ambient-base--recruitment {
-  background: #0a1830;
+  background: #0d181b;
 }
 
 .dark .dashboard-ambient-base--positioning {
-  background: #18101a;
+  background: #1a140d;
 }
 
 .dark .dashboard-ambient-base--general {
-  background: #0c1614;
+  background: #15111f;
 }
 
 .dashboard-glass {
-  background: #ffffff;
-  border: 1px solid var(--border-weak);
-  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.1);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-soft);
 }
 
 .dark .dashboard-glass {
-  background: #121a2e;
-  border: 1px solid var(--border-weak);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  background: #181a22;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.42);
 }
 
 .dashboard-glass-panel {
-  background: #ffffff;
-  border: 1px solid var(--border-weak);
-  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-soft);
 }
 
 .dark .dashboard-glass-panel {
-  background: #151d33;
-  border: 1px solid var(--border-weak);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  background: #181a22;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.38);
 }
 
 .dashboard-glass-board {
-  background: #f8fafc;
-  border: 1px solid var(--border-weak);
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-soft);
 }
 
 .dark .dashboard-glass-board {
-  background: #0f1628;
-  border: 1px solid var(--border-weak);
+  background: #181a22;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
 .dashboard-board-content {
-  background: #f8fafc;
-}
-
-.dark .dashboard-board-content {
-  background: #0f1628;
+  background: transparent;
 }
 
 .dashboard-tabs-bar {
-  background: #ffffff;
-  border-color: var(--border-weak);
-}
-
-.dark .dashboard-tabs-bar {
-  background: #121a2e;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--border-strong);
 }
 
 .upcoming-calendar-grid {

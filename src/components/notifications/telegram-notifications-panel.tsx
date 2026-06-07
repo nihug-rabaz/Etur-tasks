@@ -174,11 +174,11 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-label="התראות"
-        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-text-secondary transition hover:bg-accent-primary/12 hover:text-accent-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40"
       >
         <Bell size={16} />
         {status?.linked && (
-          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_2px_#0a3a5e]" />
+          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_2px_var(--surface-1)]" />
         )}
       </button>
 
@@ -191,7 +191,7 @@ export function TelegramNotificationsPanel({ isAdmin }: PanelProps) {
             transition={{ duration: 0.18, ease: "easeOut" }}
             className="absolute left-0 top-12 z-50 w-[22rem] max-w-[calc(100vw-2rem)] origin-top-left overflow-hidden rounded-2xl border border-border-weak bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 dark:ring-white/5"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-border-weak/60 bg-gradient-to-l from-indigo-500/10 to-cyan-500/10 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 bg-gradient-to-l from-accent-purple/12 to-accent-cyan/12 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Sparkles size={16} className="text-accent-primary" />
                 <div>
@@ -374,7 +374,7 @@ function UnlinkedView({
         type="button"
         onClick={onLink}
         disabled={busy}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-indigo-500 to-cyan-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:shadow-indigo-500/40 disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-accent-purple to-accent-cyan px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-accent-purple/20 transition hover:brightness-105 disabled:opacity-60"
       >
         {busy ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
         חבר לטלגרם

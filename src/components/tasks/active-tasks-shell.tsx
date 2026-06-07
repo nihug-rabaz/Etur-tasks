@@ -66,7 +66,7 @@ export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
       </div>
 
       {tasks.length === 0 ? (
-        <div className="rounded-3xl border-2 border-dashed border-border-strong bg-surface-2/60 p-10 text-center text-sm font-medium text-text-secondary">
+        <div className="rounded-3xl bg-surface-2/60 p-10 text-center text-sm font-medium text-text-secondary">
           אין משימות פעילות להצגה כרגע.
         </div>
       ) : viewMode === "table" ? (
@@ -79,7 +79,7 @@ export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
               return (
                 <div
                   key={key}
-                  className="rounded-2xl border-2 border-dashed border-border-weak px-4 py-8 text-center text-sm text-text-secondary"
+                  className="rounded-2xl bg-surface-2/60 px-4 py-8 text-center text-sm text-text-secondary"
                 >
                   אין משימות בתחום זה.
                 </div>
@@ -128,7 +128,7 @@ function ViewModeToggle({ value, onChange }: ViewModeToggleProps) {
   const idleClass = "text-text-secondary hover:text-text-primary";
 
   return (
-    <div className="inline-flex items-center gap-1 rounded-full border border-border-weak bg-surface-2/70 p-1">
+    <div className="inline-flex items-center gap-1 rounded-full bg-surface-2/70 p-1">
       <button
         type="button"
         onClick={() => onChange("cards")}

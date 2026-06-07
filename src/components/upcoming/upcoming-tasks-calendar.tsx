@@ -89,11 +89,11 @@ export function UpcomingTasksCalendar({
     : `${format(rangeStart, "d בMMMM", { locale: he })} – ${format(rangeEnd, "d בMMMM yyyy", { locale: he })}`;
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border-weak bg-surface-1 shadow-sm">
+    <div className="surface-card overflow-hidden">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden border-b border-border-weak/80 bg-surface-2/50 px-5 py-5 sm:px-6"
+        className="relative overflow-hidden bg-surface-2/50 px-5 py-5 sm:px-6"
       >
         <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export function UpcomingTasksCalendar({
 
       <div className="flex flex-col gap-5 p-4 sm:p-5 md:flex-row md:items-start">
         <div className="min-w-0 flex-1">
-          <div className="upcoming-calendar-scroll rounded-2xl border border-border-weak/70 bg-surface-1/40 p-2 sm:p-3">
+          <div className="upcoming-calendar-scroll rounded-2xl bg-surface-2/30 p-2 sm:p-3">
             <div className="upcoming-calendar-inner">
               <div className="upcoming-calendar-grid mb-0.5">
                 {weekdayLabels.map((label) => (
@@ -133,7 +133,7 @@ export function UpcomingTasksCalendar({
                     return (
                       <div
                         key={`empty-${index}`}
-                        className="min-h-[72px] rounded-xl border border-transparent bg-transparent sm:min-h-[96px]"
+                        className="min-h-[72px] rounded-2xl border border-transparent bg-transparent sm:min-h-[96px]"
                         aria-hidden
                       />
                     );
@@ -161,12 +161,12 @@ export function UpcomingTasksCalendar({
                           handleSelect();
                         }
                       }}
-                      className={`flex min-h-[72px] flex-col rounded-xl border p-1.5 text-start transition duration-200 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 sm:min-h-[96px] sm:p-2 ${
+                      className={`flex min-h-[72px] flex-col rounded-2xl p-2 text-start transition duration-200 outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50 sm:min-h-[96px] sm:p-2.5 ${
                         !inRange
-                          ? "cursor-default border-transparent bg-surface-2/20 opacity-45"
+                          ? "cursor-default bg-surface-2/20 opacity-45"
                           : selected
-                            ? "cursor-pointer border-accent-primary/70 bg-accent-primary/10 ring-2 ring-accent-primary/30"
-                            : "cursor-pointer border-border-weak/60 bg-surface-1/50 hover:border-accent-primary/40 hover:bg-surface-1/80"
+                            ? "cursor-pointer bg-accent-primary/10 ring-2 ring-accent-primary/30"
+                            : "cursor-pointer bg-surface-2/50 hover:bg-surface-2"
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-0.5">
@@ -229,7 +229,7 @@ export function UpcomingTasksCalendar({
           </div>
         </div>
 
-        <aside className="w-full shrink-0 rounded-2xl border border-border-weak bg-surface-1/70 p-3 backdrop-blur-sm md:w-56 lg:w-60 xl:w-64">
+        <aside className="w-full shrink-0 rounded-2xl bg-surface-2/40 p-3 md:w-56 lg:w-60 xl:w-64">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="truncate text-xs font-bold text-text-primary">
               {selectedDate

@@ -28,6 +28,7 @@ interface CreateTaskDrawerProps {
   compact?: boolean;
   floating?: boolean;
   iconOnly?: boolean;
+  accentHex?: string;
 }
 
 const fieldClass =
@@ -69,6 +70,7 @@ export function CreateTaskDrawer({
   compact = false,
   floating = false,
   iconOnly = false,
+  accentHex,
 }: CreateTaskDrawerProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -235,12 +237,17 @@ export function CreateTaskDrawer({
         <button
           type="button"
           onClick={() => openDrawer()}
+          style={
+            accentHex
+              ? { backgroundColor: accentHex, boxShadow: `0 12px 28px -8px ${accentHex}` }
+              : undefined
+          }
           className={
             floating
-              ? "fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full border border-accent-primary/50 bg-gradient-to-l from-accent-primary to-accent-cyan px-5 py-3 text-sm font-medium text-white shadow-[0_0_34px_rgba(91,140,255,0.45)] transition hover:scale-[1.03]"
+              ? `fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${accentHex ? "" : "bg-accent-orange"}`
               : compact
-                ? "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-l from-accent-primary to-accent-cyan px-5 py-2.5 text-sm font-medium text-white shadow-md shadow-accent-primary/30 transition hover:scale-[1.02]"
-                : "inline-flex items-center gap-2 rounded-xl bg-gradient-to-l from-accent-primary to-accent-cyan px-4 py-2 text-sm font-medium text-white shadow-md shadow-accent-primary/30 transition hover:scale-[1.02]"
+                ? `inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] ${accentHex ? "" : "bg-accent-orange"}`
+                : `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] ${accentHex ? "" : "bg-accent-orange"}`
           }
         >
           <Plus size={16} />

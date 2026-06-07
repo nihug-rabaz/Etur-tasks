@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { BriefcaseBusiness, Megaphone, Radar } from "lucide-react";
 import { ComponentType } from "react";
 import { domainKeys, domainMeta, type DomainKey } from "@/lib/ui/domains";
@@ -8,12 +9,6 @@ const domainIcons: Record<DomainKey, ComponentType<{ size?: number; className?: 
   recruitment: Radar,
   positioning: Megaphone,
   general: BriefcaseBusiness,
-};
-
-const activeDomainStyle: Record<DomainKey, { backgroundColor: string; borderColor: string }> = {
-  recruitment: { backgroundColor: "#0ea5e9", borderColor: "#7dd3fc" },
-  positioning: { backgroundColor: "#fb7185", borderColor: "#fda4af" },
-  general: { backgroundColor: "#10b981", borderColor: "#6ee7b7" },
 };
 
 interface DomainTopicTabsProps {
@@ -25,58 +20,87 @@ interface DomainTopicTabsProps {
 
 export function DomainTopicTabs({ active, counts, onChange, showAll = true }: DomainTopicTabsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="תחומים">
+    <div className="flex w-full items-stretch gap-3 sm:gap-5" role="tablist" aria-label="תחומים">
       {showAll ? (
-        <button
-          type="button"
-          role="tab"
-          aria-selected={active === "all"}
+        <Tab
+          label="הכל"
+          selected={active === "all"}
+          accentHex="var(--accent-primary)"
           onClick={() => onChange("all")}
-          className={`flex min-w-max items-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-bold transition ${
-            active === "all"
-              ? "border-accent-primary bg-accent-primary text-white shadow-[0_8px_24px_rgba(79,70,229,0.35)]"
-              : "border-border-weak bg-surface-1 text-text-secondary hover:border-accent-primary/40"
-          }`}
-        >
-          הכל
-        </button>
+          indicatorId="domain-tab-indicator"
+        />
       ) : null}
       {domainKeys.map((key) => {
         const meta = domainMeta[key];
         const Icon = domainIcons[key];
-        const selected = active === key;
         return (
-          <button
+          <Tab
             key={key}
-            type="button"
-            role="tab"
-            aria-selected={selected}
+            label={meta.label}
+            icon={<Icon size={18} />}
+            count={counts?.[key]}
+            selected={active === key}
+            accentHex={meta.accentHex}
             onClick={() => onChange(key)}
-            style={selected ? activeDomainStyle[key] : undefined}
-            className={`flex min-w-max flex-1 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2.5 text-sm font-bold transition sm:min-w-[8.5rem] ${
-              selected ? `${meta.tabActive} text-white shadow-lg` : meta.tabIdle
-            }`}
-          >
-            <span
-              className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${
-                selected ? "bg-white/20 text-white" : "bg-white/80 dark:bg-black/20"
-              }`}
-            >
-              <Icon size={15} />
-            </span>
-            <span>{meta.label}</span>
-            {counts?.[key] !== undefined ? (
-              <span
-                className={`rounded-full px-2 py-0.5 text-[11px] ${
-                  selected ? "bg-black/20 text-white" : "bg-surface-2 text-text-muted"
-                }`}
-              >
-                {counts[key]}
-              </span>
-            ) : null}
-          </button>
+            indicatorId="domain-tab-indicator"
+          />
         );
       })}
     </div>
+  );
+}
+
+interface TabProps {
+  label: string;
+  icon?: React.ReactNode;
+  count?: number;
+  selected: boolean;
+  accentHex: string;
+  onClick: () => void;
+  indicatorId: string;
+}
+
+function Tab({ label, icon, count, selected, accentHex, onClick, indicatorId }: TabProps) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onClick}
+      style={selected ? { color: accentHex } : undefined}
+      className={`relative flex flex-1 items-center justify-center gap-2.5 rounded-t-xl px-4 py-4 text-base font-bold transition sm:px-6 ${
+        selected ? "" : "text-text-muted hover:text-text-secondary"
+      }`}
+    >
+      {icon ? (
+        <span
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl transition"
+          style={selected ? { backgroundColor: `${accentHex}1f`, color: accentHex } : undefined}
+        >
+          {icon}
+        </span>
+      ) : null}
+      <span>{label}</span>
+      {count !== undefined ? (
+        <span
+          className="rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums"
+          style={
+            selected
+              ? { backgroundColor: `${accentHex}1f`, color: accentHex }
+              : { backgroundColor: "var(--surface-2)", color: "var(--text-muted)" }
+          }
+        >
+          {count}
+        </span>
+      ) : null}
+      {selected ? (
+        <motion.span
+          layoutId={indicatorId}
+          className="absolute inset-x-3 -bottom-px h-[3px] rounded-full"
+          style={{ backgroundColor: accentHex }}
+          transition={{ type: "spring", stiffness: 400, damping: 32 }}
+        />
+      ) : null}
+    </button>
   );
 }

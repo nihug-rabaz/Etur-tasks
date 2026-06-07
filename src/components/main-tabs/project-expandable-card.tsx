@@ -18,7 +18,7 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
   const [open, setOpen] = useState(false);
 
   return (
-    <article className={`rounded-2xl border border-border-weak bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-accent-primary/50 hover:shadow-md dark:bg-[#182238] ${toneClass}`}>
+    <article className={`overflow-hidden rounded-2xl bg-surface-2/60 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${toneClass}`}>
       <div className="flex w-full items-center justify-between gap-3 px-4 py-3.5">
         <button
           type="button"
@@ -47,7 +47,7 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
           />
           <Link
             href={`/projects/${project.id}`}
-            className="rounded-lg border border-accent-primary/50 bg-accent-primary/10 px-2 py-1 text-xs font-semibold text-accent-primary transition hover:bg-accent-primary/20"
+            className="rounded-lg bg-accent-primary/12 px-2 py-1 text-xs font-semibold text-accent-primary transition hover:bg-accent-primary/20"
           >
             מעבר לפרויקט
             <ExternalLink size={11} className="ms-1 inline" />
@@ -61,11 +61,11 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.24, ease: "easeOut" }}
-            className="border-t border-border-weak/80 bg-surface-2/35"
+            className="bg-surface-1/60"
           >
             <div className="space-y-2 p-3 ps-6">
               {project.tasks.length === 0 ? (
-                <p className="rounded-xl border border-border-weak bg-surface-2 px-3 py-2 text-sm text-text-muted dark:bg-[#121a2e]">
+                <p className="rounded-xl bg-surface-2 px-3 py-2 text-sm text-text-muted">
                   אין עדיין משימות בפרויקט הזה.
                 </p>
               ) : (

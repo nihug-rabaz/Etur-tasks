@@ -136,7 +136,7 @@ export function HierarchyExplorer({ categories }: HierarchyExplorerProps) {
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <span className="rounded-full border border-accent-primary/40 bg-accent-primary/10 px-2 py-0.5 text-accent-primary">סטטוס</span>
-              <span className="rounded-full border border-accent-secondary/40 bg-accent-secondary/10 px-2 py-0.5 text-fuchsia-300">עדיפות</span>
+              <span className="rounded-full border border-accent-secondary/40 bg-accent-secondary/10 px-2 py-0.5 text-accent-secondary">עדיפות</span>
               <span className="rounded-full border border-accent-cyan/40 bg-accent-cyan/10 px-2 py-0.5 text-accent-cyan">אחראי</span>
             </div>
           </div>

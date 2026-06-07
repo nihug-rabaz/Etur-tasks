@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 type ThemeMode = "dark" | "light";
 
 export function ThemeToggle() {
-  const [mode, setMode] = useState<ThemeMode>("dark");
+  const [mode, setMode] = useState<ThemeMode>("light");
 
   useEffect(() => {
     const saved = window.localStorage.getItem("taskflow-theme");
-    const initial: ThemeMode = saved === "light" ? "light" : "dark";
+    const initial: ThemeMode = saved === "dark" ? "dark" : "light";
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMode(initial);
     document.documentElement.classList.toggle("dark", initial === "dark");
@@ -34,7 +34,7 @@ export function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={label}
       title={label}
-      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white transition hover:border-white/45 hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:h-auto sm:w-auto sm:gap-2 sm:rounded-full sm:px-3 sm:py-2 sm:text-xs sm:font-semibold"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-text-secondary transition hover:bg-accent-primary/12 hover:text-accent-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/40 sm:h-auto sm:w-auto sm:gap-2 sm:rounded-full sm:px-3 sm:py-2 sm:text-xs sm:font-semibold"
     >
       {isDark ? <Sun size={16} /> : <Moon size={16} />}
       <span className="hidden sm:inline">{isDark ? "בהיר" : "כהה"}</span>
