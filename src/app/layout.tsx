@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Assistant, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { IntroSplash } from "@/components/intro-splash";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,6 +23,29 @@ const assistant = Assistant({
 export const metadata: Metadata = {
   title: "מערכת ניהול משימות",
   description: "ניהול משימות ידידותי ליחידה ארגונית.",
+  applicationName: "משימות",
+  appleWebApp: {
+    capable: true,
+    title: "משימות",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -39,6 +63,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <IntroSplash />
         {children}
+        <PwaInstallPrompt />
         <Toaster richColors theme="light" />
       </body>
     </html>

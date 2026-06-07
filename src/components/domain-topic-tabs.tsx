@@ -20,7 +20,7 @@ interface DomainTopicTabsProps {
 
 export function DomainTopicTabs({ active, counts, onChange, showAll = true }: DomainTopicTabsProps) {
   return (
-    <div className="flex w-full items-stretch gap-3 sm:gap-5" role="tablist" aria-label="תחומים">
+    <div className="flex w-full items-stretch gap-1 sm:gap-5" role="tablist" aria-label="תחומים">
       {showAll ? (
         <Tab
           label="הכל"
@@ -68,22 +68,22 @@ function Tab({ label, icon, count, selected, accentHex, onClick, indicatorId }: 
       aria-selected={selected}
       onClick={onClick}
       style={selected ? { color: accentHex } : undefined}
-      className={`relative flex flex-1 items-center justify-center gap-2.5 rounded-t-xl px-4 py-4 text-base font-bold transition sm:px-6 ${
+      className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-t-xl px-1.5 py-2.5 text-sm font-bold transition sm:gap-2.5 sm:px-6 sm:py-4 sm:text-base ${
         selected ? "" : "text-text-muted hover:text-text-secondary"
       }`}
     >
       {icon ? (
         <span
-          className="inline-flex h-9 w-9 items-center justify-center rounded-xl transition"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg transition sm:h-9 sm:w-9 sm:rounded-xl"
           style={selected ? { backgroundColor: `${accentHex}1f`, color: accentHex } : undefined}
         >
           {icon}
         </span>
       ) : null}
-      <span>{label}</span>
+      <span className="truncate">{label}</span>
       {count !== undefined ? (
         <span
-          className="rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums"
+          className="hidden rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums sm:inline-block sm:px-2.5 sm:text-xs"
           style={
             selected
               ? { backgroundColor: `${accentHex}1f`, color: accentHex }

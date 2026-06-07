@@ -246,12 +246,12 @@ export function CreateTaskDrawer({
             floating
               ? `fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${accentHex ? "" : "bg-accent-orange"}`
               : compact
-                ? `inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] ${accentHex ? "" : "bg-accent-orange"}`
+                ? `inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] sm:px-5 ${accentHex ? "" : "bg-accent-orange"}`
                 : `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] ${accentHex ? "" : "bg-accent-orange"}`
           }
         >
           <Plus size={16} />
-          {triggerLabel}
+          <span className={compact ? "hidden sm:inline" : undefined}>{triggerLabel}</span>
         </button>
       )}
 
