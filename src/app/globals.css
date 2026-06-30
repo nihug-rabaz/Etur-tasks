@@ -73,6 +73,7 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans), var(--font-heebo), Arial, Helvetica, sans-serif;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 input,

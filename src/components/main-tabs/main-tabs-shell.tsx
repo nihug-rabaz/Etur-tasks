@@ -170,7 +170,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
         style={{ background: `radial-gradient(circle, ${accentHex}, transparent 68%)`, opacity: 0.5 }}
       />
 
-      <div className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] min-h-[32rem] w-[94%] max-w-[2000px] flex-col gap-4 pb-4 pt-3 sm:gap-5 sm:pb-5 sm:pt-5">
+      <div className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] min-h-0 w-[94%] max-w-[2000px] flex-col gap-4 pb-4 pt-3 sm:gap-5 sm:pb-5 sm:pt-5">
       <div className="flex flex-col gap-3 px-1 sm:gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
           <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
             <span
