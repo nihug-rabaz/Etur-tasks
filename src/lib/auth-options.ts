@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { randomUUID } from "crypto";
 import { NeonDatabase } from "@/lib/db/neon";
 import { NotificationService } from "@/services/notification.service";
+import { ProfileService } from "@/services/profile.service";
 
 async function ensureProfile(email: string, name: string) {
   const db = NeonDatabase.createClient();
@@ -89,7 +90,7 @@ export const authOptions = {
     }: {
       token: JWT;
       account: { provider?: string | null } | null;
-      profile?: { email?: string | null; name?: string | null } | null;
+      profile?: { email?: string | null; name?: string | null; picture?: string | null } | null;
     }) {
       if (account?.provider === "google") {
         const email =
@@ -106,6 +107,13 @@ export const authOptions = {
           const ensured = await ensureProfile(email, profileName);
           token.userId = ensured.id;
           token.isApproved = ensured.is_approved;
+          const picture =
+            profile && typeof profile.picture === "string" && profile.picture.length > 0
+              ? profile.picture
+              : null;
+          if (picture) {
+            await new ProfileService().syncGoogleAvatarIfEmpty(ensured.id, picture);
+          }
         } catch (err) {
           console.error("[auth] ensureProfile failed:", err);
           throw err;

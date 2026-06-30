@@ -1,5 +1,6 @@
 import { TabSectionItem } from "@/services/dashboard.service";
 import { ProjectExpandableCard } from "@/components/main-tabs/project-expandable-card";
+import { StandaloneTasksCard } from "@/components/main-tabs/standalone-tasks-card";
 import { domainMeta, type DomainKey } from "@/lib/ui/domains";
 
 interface SectionGroupProps {
@@ -17,6 +18,7 @@ const domainHeaderColors: Record<DomainKey, string> = {
 
 export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: SectionGroupProps) {
   const domain = domainMeta[domainSlug];
+  const hasContent = section.projects.length > 0 || section.standaloneTasks.length > 0;
 
   return (
     <section className="surface-card flex h-fit w-full flex-col self-start overflow-hidden">
@@ -34,19 +36,29 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
       </div>
 
       <div className="flex flex-1 flex-col gap-3 p-3">
-        {section.projects.length === 0 ? (
+        {!hasContent ? (
           <p className={`rounded-xl px-4 py-6 text-center text-sm font-medium ${domain.metaPanel}`}>
-            אין פרויקטים להצגה בסקציה זו.
+            אין פרויקטים או משימות להצגה בסקציה זו.
           </p>
         ) : (
-          section.projects.map((project) => (
-            <ProjectExpandableCard
-              key={project.id}
-              project={project}
-              toneClass={toneClass}
-              onTaskClick={onTaskClick}
-            />
-          ))
+          <>
+            {section.standaloneTasks.length > 0 ? (
+              <StandaloneTasksCard
+                sectionId={section.id}
+                tasks={section.standaloneTasks}
+                toneClass={toneClass}
+                onTaskClick={onTaskClick}
+              />
+            ) : null}
+            {section.projects.map((project) => (
+              <ProjectExpandableCard
+                key={`${section.id}-${project.id}`}
+                project={project}
+                toneClass={toneClass}
+                onTaskClick={onTaskClick}
+              />
+            ))}
+          </>
         )}
       </div>
     </section>

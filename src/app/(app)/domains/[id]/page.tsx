@@ -23,6 +23,7 @@ export default async function DomainPage({ params }: DomainPageProps) {
           select *
           from task_details
           where subtopic_id = any(${subtopicIds})
+            and status <> 'completed'
             and (
               ${access.unrestricted}::boolean
               or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})

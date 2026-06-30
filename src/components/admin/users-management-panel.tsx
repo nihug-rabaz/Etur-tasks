@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
 import type { Profile } from "@/types/models";
 import { UserPermissionsEditor } from "@/components/admin/user-permissions-editor";
+import { ProfileSettingsPanel } from "@/components/profile/profile-settings-panel";
+import { isRenderableAvatarUrl } from "@/lib/images/avatar";
 import { AVATAR_PALETTE, initialsFrom, pickAvatarBg } from "@/lib/ui/avatar";
 
 type PermissionGroup = {
@@ -38,6 +40,7 @@ export function UsersManagementPanel({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [profileOverrides, setProfileOverrides] = useState<Record<string, { name: string; avatar: string | null }>>({});
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -169,7 +172,10 @@ export function UsersManagementPanel({
             {filtered.map((user) => {
               const permCount = permissionsByUser[user.id]?.length ?? 0;
               const expanded = expandedId === user.id;
-              const avatarUrl = user.avatar?.startsWith("http") ? user.avatar : null;
+              const profileOverride = profileOverrides[user.id];
+              const displayName = profileOverride?.name ?? user.name;
+              const displayAvatar = profileOverride?.avatar ?? user.avatar;
+              const avatarUrl = isRenderableAvatarUrl(displayAvatar) ? displayAvatar : null;
 
               return (
                 <Fragment key={user.id}>
@@ -199,12 +205,12 @@ export function UsersManagementPanel({
                         ) : (
                           <span
                             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
-                            style={{ backgroundColor: pickAvatarBg(user.name || "?") }}
+                            style={{ backgroundColor: pickAvatarBg(displayName || "?") }}
                           >
-                            {initialsFrom(user.name || "?")}
+                            {initialsFrom(displayName || "?")}
                           </span>
                         )}
-                        <span className="font-semibold text-[#323338] dark:text-slate-100">{user.name}</span>
+                        <span className="font-semibold text-[#323338] dark:text-slate-100">{displayName}</span>
                       </div>
                     </td>
                     <td className="max-w-[220px] px-4 py-3 align-middle">
@@ -287,14 +293,38 @@ export function UsersManagementPanel({
                   {expanded ? (
                     <tr className="bg-[#fafbfc] dark:bg-slate-900/30">
                       <td colSpan={7} className="border-b border-[#e6e9ef] px-4 py-4 dark:border-slate-700">
-                        <UserPermissionsEditor
-                          userId={user.id}
-                          isApproved={user.is_approved}
-                          groups={permissionGroups}
-                          selectedIds={permissionsByUser[user.id] ?? []}
-                          syncAction={syncPermissionsAction}
-                          variant="monday"
-                        />
+                        <div className="grid gap-4 xl:grid-cols-2">
+                          <div>
+                            <p className="mb-3 text-sm font-semibold text-[#323338] dark:text-slate-100">עריכת פרופיל</p>
+                            <ProfileSettingsPanel
+                              variant="compact"
+                              initialProfile={{
+                                id: user.id,
+                                name: displayName,
+                                email: user.email ?? null,
+                                avatar: displayAvatar,
+                                role: user.role,
+                              }}
+                              onUpdated={(profile) => {
+                                setProfileOverrides((current) => ({
+                                  ...current,
+                                  [user.id]: { name: profile.name, avatar: profile.avatar },
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <p className="mb-3 text-sm font-semibold text-[#323338] dark:text-slate-100">הרשאות תתי-נושא</p>
+                            <UserPermissionsEditor
+                              userId={user.id}
+                              isApproved={user.is_approved}
+                              groups={permissionGroups}
+                              selectedIds={permissionsByUser[user.id] ?? []}
+                              syncAction={syncPermissionsAction}
+                              variant="monday"
+                            />
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   ) : null}

@@ -79,12 +79,59 @@ export class AuthorizationService extends BaseService {
   public async canAccessTask(profile: Profile, taskId: string): Promise<boolean> {
     if (profile.role === "admin") return true;
     const db = this.getDb();
-    const rows = await db<Array<{ subtopic_id: string }>>`
-      select subtopic_id from tasks where id = ${taskId} limit 1
+    const linked = await db<Array<{ subtopic_id: string }>>`
+      select subtopic_id from task_subtopics where task_id = ${taskId}
     `;
-    const task = rows[0];
-    if (!task) return false;
-    return this.canAccessSubtopic(profile.id, task.subtopic_id);
+    const subtopicIds =
+      linked.length > 0
+        ? linked.map((row) => row.subtopic_id)
+        : (
+            await db<Array<{ subtopic_id: string }>>`
+              select subtopic_id from tasks where id = ${taskId} limit 1
+            `
+          ).map((row) => row.subtopic_id);
+    for (const subtopicId of subtopicIds) {
+      if (await this.canAccessSubtopic(profile.id, subtopicId)) return true;
+    }
+    return false;
+  }
+
+  public async canAccessProject(profile: Profile, projectId: string): Promise<boolean> {
+    if (profile.role === "admin") return true;
+    const db = this.getDb();
+    const linked = await db<Array<{ subtopic_id: string }>>`
+      select subtopic_id from project_subtopics where project_id = ${projectId}
+    `;
+    const subtopicIds =
+      linked.length > 0
+        ? linked.map((row) => row.subtopic_id)
+        : (
+            await db<Array<{ subtopic_id: string }>>`
+              select subtopic_id from projects where id = ${projectId} limit 1
+            `
+          ).map((row) => row.subtopic_id);
+    for (const subtopicId of subtopicIds) {
+      if (await this.canAccessSubtopic(profile.id, subtopicId)) return true;
+    }
+    return false;
+  }
+
+  public async canAccessAllSubtopics(userId: string, subtopicIds: string[]): Promise<boolean> {
+    for (const subtopicId of subtopicIds) {
+      if (!(await this.canAccessSubtopic(userId, subtopicId))) return false;
+    }
+    return subtopicIds.length > 0;
+  }
+
+  public async canAccessCalendarEvent(profile: Profile, eventId: string): Promise<boolean> {
+    if (profile.role === "admin") return true;
+    const db = this.getDb();
+    const rows = await db<Array<{ subtopic_id: string }>>`
+      select subtopic_id from calendar_events where id = ${eventId} limit 1
+    `;
+    const event = rows[0];
+    if (!event) return false;
+    return this.canAccessSubtopic(profile.id, event.subtopic_id);
   }
 
   public async canAccessSubtopic(userId: string, subtopicId: string): Promise<boolean> {

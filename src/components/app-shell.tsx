@@ -12,13 +12,21 @@ import { AdminMessageComposer } from "@/components/notifications/admin-message-c
 const navItems: SideMenuItem[] = [
   { label: "ראשי", href: "/dashboard", description: "סקירה כללית של הכל" },
   { label: "משימות פעילות", href: "/tasks/active", description: "מה עובד עכשיו" },
-  { label: "משימות קרובות", href: "/tasks/upcoming", description: "מה בדרך אלינו" },
+  { label: "לוח זמנים", href: "/tasks/upcoming", description: "משימות, פגישות ולו״זים" },
+  { label: "ארכיון", href: "/tasks/archive", description: "משימות שהושלמו" },
   { label: "משתמשים", href: "/admin/users", description: "ניהול חברי הצוות" },
 ];
 
 function getBreadcrumbHref(segments: string[], index: number): string | null {
   const href = `/${segments.slice(0, index + 1).join("/")}`;
-  const exactRoutes = new Set(["/dashboard", "/tasks/active", "/tasks/upcoming", "/admin/users"]);
+  const exactRoutes = new Set([
+    "/dashboard",
+    "/tasks/active",
+    "/tasks/upcoming",
+    "/tasks/archive",
+    "/admin/users",
+    "/settings/profile",
+  ]);
   if (exactRoutes.has(href)) return href;
 
   const [section] = segments;
@@ -31,6 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
+  const [profile, setProfile] = useState<ProfileSnapshot | null>(null);
   const sideMenu = useSideMenu();
 
   useEffect(() => {
@@ -42,7 +51,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (cancelled || !data?.user) return;
       setSession(data);
     };
-    loadSession();
+    const loadProfile = async () => {
+      const response = await fetch("/api/profile");
+      if (!response.ok) return;
+      const data = (await response.json()) as ProfileSnapshot;
+      if (cancelled) return;
+      setProfile(data);
+    };
+    void loadSession();
+    void loadProfile();
     return () => {
       cancelled = true;
     };
@@ -53,21 +70,25 @@ export function AppShell({ children }: { children: ReactNode }) {
     dashboard: "ראשי",
     tasks: "משימות",
     active: "פעילות",
-    upcoming: "קרובות",
+    upcoming: "לוח זמנים",
+    archive: "ארכיון",
     projects: "פרויקטים",
     domains: "תחומים",
     subtopics: "תתי-נושאים",
     users: "משתמשים",
     admin: "ניהול",
+    settings: "הגדרות",
+    profile: "פרופיל",
   };
 
-  const userLabel = session?.user?.name || session?.user?.email || null;
+  const userLabel = profile?.name || session?.user?.name || session?.user?.email || null;
+  const userAvatarUrl = profile?.avatar ?? null;
   const isDashboard = pathname === "/dashboard";
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
       <RealtimeSync />
-      <SideMenu items={navItems} userLabel={userLabel} state={sideMenu} />
+      <SideMenu items={navItems} userLabel={userLabel} userAvatarUrl={userAvatarUrl} state={sideMenu} />
       <header className="topbar w-full px-3 py-3 sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 sm:gap-3">
           <SideMenuTrigger state={sideMenu} className="shrink-0" />
@@ -111,7 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
             {isAdmin ? <AdminMessageComposer iconOnly /> : null}
-            <TelegramNotificationsPanel />
+            <TelegramNotificationsPanel isAdmin={isAdmin} />
           </div>
         </div>
       </header>
@@ -134,4 +155,9 @@ type SessionSnapshot = {
     isAdmin?: boolean;
     role?: string;
   };
+};
+
+type ProfileSnapshot = {
+  name: string;
+  avatar: string | null;
 };

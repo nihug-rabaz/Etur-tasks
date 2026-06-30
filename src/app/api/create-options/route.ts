@@ -65,12 +65,30 @@ export async function GET(request: Request) {
             id: string;
             name: string;
             subtopic_id: string;
+            subtopic_ids: string[];
           }>
         >`
-          select id, name, subtopic_id
-          from projects
-          where subtopic_id = any(${subtopicIds})
-          order by name
+          select
+            p.id,
+            p.name,
+            p.subtopic_id,
+            coalesce(
+              array_agg(ps.subtopic_id) filter (where ps.subtopic_id is not null),
+              array[p.subtopic_id]
+            ) as subtopic_ids
+          from projects p
+          left join project_subtopics ps on ps.project_id = p.id
+          where (
+            p.subtopic_id = any(${subtopicIds})
+            or exists (
+              select 1
+              from project_subtopics ps2
+              where ps2.project_id = p.id
+                and ps2.subtopic_id = any(${subtopicIds})
+            )
+          )
+          group by p.id, p.name, p.subtopic_id
+          order by p.name
         `
       : [];
 

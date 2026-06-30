@@ -45,5 +45,6 @@ export const config = {
     "/projects/:path*",
     "/subtopics/:path*",
     "/tasks/:path*",
+    "/settings/:path*",
   ],
 };

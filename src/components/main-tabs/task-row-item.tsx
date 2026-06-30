@@ -1,13 +1,10 @@
 "use client";
 
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, GripVertical } from "lucide-react";
 import { TabTaskItem } from "@/services/dashboard.service";
 import { TaskAssigneeStack } from "@/components/main-tabs/task-assignee-stack";
-
-const statusLabel: Record<TabTaskItem["status"], string> = {
-  in_progress: "בתהליך",
-  completed: "הושלמה",
-};
+import { useTaskDragDrop } from "@/components/main-tabs/task-drag-drop-context";
+import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 
 const priorityLabel: Record<TabTaskItem["priority"], string> = {
   low: "נמוכה",
@@ -31,15 +28,31 @@ const priorityBadgeClass: Record<TabTaskItem["priority"], string> = {
 
 interface TaskRowItemProps {
   task: TabTaskItem;
+  projectId: string;
   onClick: () => void;
 }
 
-export function TaskRowItem({ task, onClick }: TaskRowItemProps) {
+export function TaskRowItem({ task, projectId, onClick }: TaskRowItemProps) {
+  const { dragTask, startDrag, endDrag } = useTaskDragDrop();
   const rowTone = priorityRowClass[task.priority] ?? priorityRowClass.medium;
   const badgeTone = priorityBadgeClass[task.priority] ?? priorityBadgeClass.medium;
+  const isDragging = dragTask?.id === task.id;
+
   return (
-    <div className={`w-full rounded-xl border transition ${rowTone}`}>
+    <div
+      className={`w-full rounded-xl border transition ${rowTone} ${isDragging ? "opacity-45" : ""}`}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = "move";
+        startDrag({ id: task.id, sourceProjectId: projectId, title: task.title });
+      }}
+      onDragEnd={endDrag}
+    >
       <div className="flex items-start gap-2 px-3 py-2">
+        <TaskQuickStatus taskId={task.id} status={task.status} size="sm" className="mt-0.5 shrink-0" />
+        <span className="mt-1 shrink-0 cursor-grab text-text-muted active:cursor-grabbing" aria-hidden>
+          <GripVertical size={14} />
+        </span>
         <button
           type="button"
           onClick={onClick}
@@ -49,9 +62,6 @@ export function TaskRowItem({ task, onClick }: TaskRowItemProps) {
             <p className="min-w-0 flex-1 font-medium text-text-primary">{task.title}</p>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-            <span className="rounded-full border border-border-weak bg-surface-1/70 px-2 py-0.5">
-              {statusLabel[task.status]}
-            </span>
             <span className={`rounded-full border px-2 py-0.5 ${badgeTone}`}>
               עדיפות {priorityLabel[task.priority] ?? priorityLabel.medium}
             </span>

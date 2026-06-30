@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
+import { SubtopicMultiSelect } from "@/components/ui/subtopic-multi-select";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { intersectsSubtopicIds } from "@/lib/subtopics/ids";
 
 interface OptionItem {
   id: string;
@@ -45,7 +47,7 @@ export function CreateProjectDrawer({
   const [subtopics, setSubtopics] = useState<OptionItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
-  const [subtopicId, setSubtopicId] = useState(defaultSubtopicId ?? "");
+  const [subtopicIds, setSubtopicIds] = useState<string[]>(defaultSubtopicId ? [defaultSubtopicId] : []);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [description, setDescription] = useState("");
@@ -87,10 +89,13 @@ export function CreateProjectDrawer({
       }
 
       setSubtopics(filteredSubtopics);
-      setSubtopicId((current) => {
-        const stillValid = filteredSubtopics.some((item) => item.id === current);
-        if (stillValid) return current;
-        return defaultSubtopicId ?? filteredSubtopics[0]?.id ?? "";
+      setSubtopicIds((current) => {
+        const valid = current.filter((id) => filteredSubtopics.some((item: OptionItem) => item.id === id));
+        if (valid.length > 0) return valid;
+        if (defaultSubtopicId && filteredSubtopics.some((item: OptionItem) => item.id === defaultSubtopicId)) {
+          return [defaultSubtopicId];
+        }
+        return filteredSubtopics[0] ? [filteredSubtopics[0].id] : [];
       });
     };
     load();
@@ -109,8 +114,8 @@ export function CreateProjectDrawer({
       setError("שם פרויקט הוא שדה חובה");
       return;
     }
-    if (!subtopicId) {
-      setError("יש לבחור תת-נושא");
+    if (subtopicIds.length === 0) {
+      setError("יש לבחור לפחות תת-נושא אחד");
       return;
     }
     setLoading(true);
@@ -119,7 +124,7 @@ export function CreateProjectDrawer({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name,
-        subtopicId,
+        subtopicIds,
         startDate: startDate || null,
         endDate: endDate || null,
         description: description || null,
@@ -166,20 +171,13 @@ export function CreateProjectDrawer({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm">תת-נושא</label>
-            <select
-              value={subtopicId}
-              onChange={(event) => setSubtopicId(event.target.value)}
+            <label className="mb-1 block text-sm">תתי-נושא</label>
+            <SubtopicMultiSelect
+              options={subtopics}
+              value={subtopicIds}
+              onChange={setSubtopicIds}
               disabled={lockSubtopic}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800"
-            >
-              <option value="">בחר תת-נושא</option>
-              {subtopics.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {toHebrewSubtopicLabel(item.name)}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <input

@@ -49,6 +49,7 @@ export class SearchService extends BaseService {
       select id, title, status, priority, due_date, subtopic_name, domain_name, project_name
       from task_details
       where (title ilike ${like} or description ilike ${like})
+        and status <> 'completed'
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})

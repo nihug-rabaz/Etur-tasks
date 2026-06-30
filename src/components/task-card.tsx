@@ -2,6 +2,7 @@ import { Calendar, Flag, UserRound, FolderKanban } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
 import { domainCardStyle, domainKeyFromName, type DomainKey } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 
 interface TaskCardProps {
   task: TaskWithRelations;
@@ -17,16 +18,6 @@ const priorityStyle: Record<string, string> = {
   low: "border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-100",
   medium: "border-amber-400 bg-amber-100 text-amber-900 dark:bg-amber-500/25 dark:text-amber-100",
   high: "border-rose-400 bg-rose-100 text-rose-800 dark:bg-rose-500/25 dark:text-rose-100",
-};
-
-const statusOnHeader: Record<string, string> = {
-  in_progress: "border-amber-200/60 bg-amber-400/90 text-amber-950",
-  completed: "border-emerald-200/60 bg-emerald-400/90 text-emerald-950",
-};
-
-const statusLabel: Record<string, string> = {
-  in_progress: "בתהליך",
-  completed: "הושלמה",
 };
 
 const priorityLabel: Record<string, string> = {
@@ -48,15 +39,10 @@ export function TaskCard({ task }: TaskCardProps) {
         className="flex items-center justify-between gap-2 px-4 py-3 ps-5"
         style={{ backgroundColor: headerBg }}
       >
-        <span
-          className="rounded-full px-3 py-1 text-xs font-bold text-white"
-          style={{ backgroundColor: "rgba(255,255,255,0.22)" }}
-        >
+        <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">
           {domain.label}
         </span>
-        <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusOnHeader[task.status]}`}>
-          {statusLabel[task.status]}
-        </span>
+        <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
       </div>
 
       <div className={`px-4 py-4 ps-5 ${domain.body}`}>

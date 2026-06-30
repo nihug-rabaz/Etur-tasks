@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, UserRound } from "lucide-react";
+import { Check, ChevronDown, Search, UserRound, X } from "lucide-react";
+import { isRenderableAvatarUrl } from "@/lib/images/avatar";
 
 export type AssigneeOption = {
   id: string;
@@ -36,7 +37,7 @@ export function UserAvatarMark({
   size?: "xs" | "sm" | "md";
   variant?: "default" | "flush";
 }) {
-  const url = avatarUrl?.startsWith("http") ? avatarUrl : null;
+  const url = isRenderableAvatarUrl(avatarUrl) ? avatarUrl : null;
   const box =
     size === "xs"
       ? "h-6 w-6 text-[9px]"
@@ -224,16 +225,32 @@ interface AssigneeMultiSelectProps {
   value: string[];
   onChange: (userIds: string[]) => void;
   users: AssigneeOption[];
+  menuMinWidth?: number;
 }
 
-export function AssigneeMultiSelect({ value, onChange, users }: AssigneeMultiSelectProps) {
+export function AssigneeMultiSelect({
+  value,
+  onChange,
+  users,
+  menuMinWidth = 340,
+}: AssigneeMultiSelectProps) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [menuRect, setMenuRect] = useState({ top: 0, left: 0, width: 0, maxH: 280 });
+  const [menuRect, setMenuRect] = useState({ top: 0, left: 0, width: 0, maxH: 400 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const listboxId = useId();
   const selectedUsers = useMemo(() => users.filter((u) => value.includes(u.id)), [users, value]);
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return users;
+    return users.filter((user) => user.name.toLowerCase().includes(query));
+  }, [users, searchQuery]);
+  const allFilteredSelected =
+    filteredUsers.length > 0 && filteredUsers.every((user) => value.includes(user.id));
 
   useEffect(() => {
     setMounted(true);
@@ -243,21 +260,46 @@ export function AssigneeMultiSelect({ value, onChange, users }: AssigneeMultiSel
     const el = triggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const gap = 6;
-    const maxH = Math.min(280, Math.max(120, window.innerHeight - r.bottom - gap - 16));
-    setMenuRect({ top: r.bottom + gap, left: r.left, width: Math.max(r.width, 260), maxH });
+    const gap = 8;
+    const margin = 12;
+    const maxPanel = 420;
+    const minPanel = 200;
+    const spaceBelow = window.innerHeight - r.bottom - gap - margin;
+    const spaceAbove = r.top - gap - margin;
+    const openUp = spaceBelow < minPanel && spaceAbove > spaceBelow;
+    const available = Math.max(160, openUp ? spaceAbove : spaceBelow);
+    const panelHeight = Math.min(maxPanel, available);
+    const width = Math.max(r.width, menuMinWidth);
+    const left = Math.min(Math.max(margin, r.left), window.innerWidth - width - margin);
+    const top = openUp
+      ? Math.max(margin, r.top - gap - panelHeight)
+      : Math.min(r.bottom + gap, window.innerHeight - panelHeight - margin);
+    setMenuRect({ top, left, width, maxH: panelHeight });
   };
 
   useLayoutEffect(() => {
     if (!open) return;
     syncMenuPosition();
-    const onScroll = () => syncMenuPosition();
+    const onScroll = (event: Event) => {
+      const menu = menuRef.current;
+      if (menu && event.target instanceof Node && menu.contains(event.target)) return;
+      syncMenuPosition();
+    };
     window.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
+  }, [open, menuMinWidth]);
+
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery("");
+      return;
+    }
+    const timer = window.setTimeout(() => searchInputRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
   }, [open]);
 
   useEffect(() => {
@@ -290,11 +332,23 @@ export function AssigneeMultiSelect({ value, onChange, users }: AssigneeMultiSel
     }
   };
 
+  const toggleAllFiltered = () => {
+    if (allFilteredSelected) {
+      const filteredIds = new Set(filteredUsers.map((user) => user.id));
+      onChange(value.filter((id) => !filteredIds.has(id)));
+      return;
+    }
+    const merged = new Set(value);
+    for (const user of filteredUsers) merged.add(user.id);
+    onChange([...merged]);
+  };
+
   const baseTrigger =
     "flex min-h-[46px] w-full items-center gap-2 rounded-2xl border border-border-weak bg-surface-2/50 px-3 py-2 text-start text-sm text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] outline-none transition hover:bg-surface-2/70 focus:border-accent-primary/55 focus:bg-surface-1 focus:ring-2 focus:ring-accent-primary/22";
 
   const menu = open ? (
-    <ul
+    <div
+      ref={menuRef}
       id={listboxId}
       role="listbox"
       aria-multiselectable="true"
@@ -303,91 +357,155 @@ export function AssigneeMultiSelect({ value, onChange, users }: AssigneeMultiSel
         top: menuRect.top,
         left: menuRect.left,
         width: menuRect.width,
-        maxHeight: menuRect.maxH,
+        height: menuRect.maxH,
         zIndex: 20000,
       }}
-      className="overflow-y-auto overscroll-contain rounded-2xl border border-border-weak bg-surface-1 py-1.5 shadow-[0_18px_50px_rgba(2,6,23,0.22)] dark:shadow-[0_20px_55px_rgba(0,0,0,0.45)]"
+      className="flex flex-col overflow-hidden rounded-2xl border border-border-weak bg-surface-1 shadow-[0_18px_50px_rgba(2,6,23,0.22)] dark:shadow-[0_20px_55px_rgba(0,0,0,0.45)]"
     >
-      <li>
-        <button
-          type="button"
-          onClick={() => {
-            onChange([]);
-            setOpen(false);
-          }}
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-start text-sm transition hover:bg-surface-2/80"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border-weak bg-surface-2/50 text-text-muted">
-            <UserRound size={16} />
+      <div className="shrink-0 space-y-2 border-b border-border-weak/80 p-3">
+        <div className="relative">
+          <Search size={16} className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          <input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="חיפוש לפי שם משתמש…"
+            className="w-full rounded-xl border border-border-weak bg-surface-2/70 py-2.5 ps-9 pe-3 text-sm text-text-primary outline-none transition focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/20"
+          />
+        </div>
+        <div className="flex items-center justify-between gap-2 px-0.5 text-xs">
+          <span className="font-medium text-text-muted">
+            {users.length} משתמשים · נבחרו {value.length}
           </span>
-          <span className="flex-1 font-medium text-text-secondary">ללא שיוך</span>
-        </button>
-      </li>
-      <div className="mx-2 my-1 h-px bg-border-weak/80" />
-      {users.map((user) => {
-        const isSel = value.includes(user.id);
-        return (
-          <li key={user.id} role="option" aria-selected={isSel}>
-            <button
-              type="button"
-              onClick={() => toggleUser(user.id)}
-              className={`flex w-full items-center gap-3 px-3 py-2.5 text-start text-sm transition ${
-                isSel ? "bg-accent-primary/10" : "hover:bg-surface-2/80"
-              }`}
-            >
-              <UserAvatarMark name={user.name} avatarUrl={user.avatar} />
-              <span className="min-w-0 flex-1 truncate font-medium text-text-primary">{user.name}</span>
-              {isSel ? <Check size={16} className="shrink-0 text-accent-primary" /> : null}
-            </button>
+          <div className="flex items-center gap-2">
+            {value.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="font-bold text-text-secondary transition hover:text-text-primary"
+              >
+                ניקוי
+              </button>
+            ) : null}
+            {filteredUsers.length > 0 ? (
+              <button
+                type="button"
+                onClick={toggleAllFiltered}
+                className="font-bold text-accent-primary transition hover:underline"
+              >
+                {allFilteredSelected ? "ביטול הכל" : "בחירת הכל"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <ul
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1.5 pb-4 [-webkit-overflow-scrolling:touch] [scroll-padding-bottom:12px]"
+        onWheel={(event) => event.stopPropagation()}
+        onTouchMove={(event) => event.stopPropagation()}
+      >
+        {filteredUsers.length === 0 ? (
+          <li className="px-4 py-8 text-center text-sm text-text-muted">
+            {users.length === 0 ? "אין משתמשים זמינים." : "לא נמצאו משתמשים תואמים."}
           </li>
-        );
-      })}
-    </ul>
+        ) : (
+          filteredUsers.map((user) => {
+            const isSel = value.includes(user.id);
+            return (
+              <li key={user.id} role="option" aria-selected={isSel}>
+                <button
+                  type="button"
+                  onClick={() => toggleUser(user.id)}
+                  className={`flex w-full items-center gap-3 px-3 py-2.5 text-start text-sm transition ${
+                    isSel ? "bg-accent-primary/10" : "hover:bg-surface-2/80"
+                  }`}
+                >
+                  <UserAvatarMark name={user.name} avatarUrl={user.avatar} />
+                  <span className="min-w-0 flex-1 truncate font-medium text-text-primary">{user.name}</span>
+                  {isSel ? <Check size={16} className="shrink-0 text-accent-primary" /> : null}
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+      {value.length > 0 ? (
+        <div className="shrink-0 border-t border-border-weak/80 p-2">
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-accent-primary/10 py-2.5 text-sm font-bold text-accent-primary transition hover:bg-accent-primary/15"
+          >
+            <Check size={15} />
+            סיום ({value.length})
+          </button>
+        </div>
+      ) : null}
+    </div>
   ) : null;
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((o) => !o)}
-        className={baseTrigger}
-      >
-        {selectedUsers.length === 0 ? (
-          <>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border-strong bg-surface-1/80 text-text-muted">
-              <UserRound size={16} strokeWidth={2} />
-            </span>
-            <span className="flex-1 text-text-muted">בחרו משתמש אחד או יותר…</span>
-          </>
-        ) : (
-          <>
-            <span className="flex shrink-0 items-center">
-              {selectedUsers.slice(0, 4).map((user, i) => (
-                <span
-                  key={user.id}
-                  className={`rounded-full ring-2 ring-surface-1 dark:ring-surface-2 ${i > 0 ? "-ms-2.5" : ""}`}
-                  style={{ zIndex: 8 - i }}
-                >
-                  <UserAvatarMark name={user.name} avatarUrl={user.avatar} size="sm" />
-                </span>
-              ))}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-start font-medium">
-              {selectedUsers.length === 1
-                ? selectedUsers[0].name
-                : `${selectedUsers.length} משתמשים נבחרו`}
-            </span>
-          </>
-        )}
-        <ChevronDown
-          size={16}
-          className={`ms-auto shrink-0 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
+      <div ref={triggerRef} className={baseTrigger}>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={open ? listboxId : undefined}
+          aria-haspopup="listbox"
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-start"
+        >
+          {selectedUsers.length === 0 ? (
+            <>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed border-border-strong bg-surface-1/80 text-text-muted">
+                <UserRound size={16} strokeWidth={2} />
+              </span>
+              <span className="flex-1 text-text-muted">בחרו משתמש אחד או יותר…</span>
+            </>
+          ) : (
+            <>
+              <span className="flex shrink-0 items-center">
+                {selectedUsers.slice(0, 4).map((user, i) => (
+                  <span
+                    key={user.id}
+                    className={`rounded-full ring-2 ring-surface-1 dark:ring-surface-2 ${i > 0 ? "-ms-2.5" : ""}`}
+                    style={{ zIndex: 8 - i }}
+                  >
+                    <UserAvatarMark name={user.name} avatarUrl={user.avatar} size="sm" />
+                  </span>
+                ))}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {selectedUsers.length === 1
+                  ? selectedUsers[0].name
+                  : `${selectedUsers.length} משתמשים נבחרו`}
+              </span>
+            </>
+          )}
+        </button>
+        {selectedUsers.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            aria-label="ניקוי שיוך"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-2 hover:text-text-primary"
+          >
+            <X size={14} />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label={open ? "סגירת רשימה" : "פתיחת רשימה"}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-2 hover:text-text-primary"
+        >
+          <ChevronDown
+            size={16}
+            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
 
       {mounted && menu ? createPortal(menu, document.body) : null}
     </div>

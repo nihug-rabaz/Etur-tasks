@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { Drawer } from "@/components/ui/drawer";
 import { AssigneeMultiSelect, type AssigneeOption } from "@/components/ui/assignee-select";
-import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { SubtopicMultiSelect } from "@/components/ui/subtopic-multi-select";
+import { intersectsSubtopicIds } from "@/lib/subtopics/ids";
 
 interface OptionItem {
   id: string;
@@ -35,7 +36,7 @@ const fieldClass =
   "w-full rounded-2xl border border-border-weak bg-surface-2/50 px-4 py-3 text-sm text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] outline-none transition placeholder:text-text-muted focus:border-accent-primary/55 focus:bg-surface-1 focus:ring-2 focus:ring-accent-primary/22";
 
 const labelClass =
-  "mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted";
+  "mb-2 flex items-center gap-2 text-sm font-semibold text-text-secondary";
 
 const cardClass =
   "rounded-2xl border border-border-weak/90 bg-surface-2/25 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
@@ -75,14 +76,14 @@ export function CreateTaskDrawer({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [subtopics, setSubtopics] = useState<OptionItem[]>([]);
-  const [projects, setProjects] = useState<Array<OptionItem & { subtopic_id: string }>>([]);
+  const [projects, setProjects] = useState<Array<OptionItem & { subtopic_id: string; subtopic_ids?: string[] }>>([]);
   const [users, setUsers] = useState<AssigneeOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState("");
   const [error, setError] = useState("");
   const [title, setTitle] = useState("");
-  const [subtopicId, setSubtopicId] = useState(defaultSubtopicId ?? "");
+  const [subtopicIds, setSubtopicIds] = useState<string[]>(defaultSubtopicId ? [defaultSubtopicId] : []);
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
   const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
@@ -126,14 +127,13 @@ export function CreateTaskDrawer({
           setOptionsError("אין תת-נושאים זמינים. פנה למנהל להקצות הרשאות.");
           return;
         }
-        setSubtopicId((current) => {
-          if (current && nextSubtopics.some((item: OptionItem) => item.id === current)) {
-            return current;
-          }
+        setSubtopicIds((current) => {
+          const valid = current.filter((id) => nextSubtopics.some((item: OptionItem) => item.id === id));
+          if (valid.length > 0) return valid;
           if (defaultSubtopicId && nextSubtopics.some((item: OptionItem) => item.id === defaultSubtopicId)) {
-            return defaultSubtopicId;
+            return [defaultSubtopicId];
           }
-          return nextSubtopics[0].id;
+          return nextSubtopics[0] ? [nextSubtopics[0].id] : [];
         });
       } finally {
         setOptionsLoading(false);
@@ -143,17 +143,26 @@ export function CreateTaskDrawer({
   }, [open, defaultSubtopicId]);
 
   const filteredProjects = useMemo(
-    () => projects.filter((item) => item.subtopic_id === subtopicId),
-    [projects, subtopicId],
+    () =>
+      projects.filter((item) => {
+        const linkedIds = item.subtopic_ids?.length ? item.subtopic_ids : [item.subtopic_id];
+        return intersectsSubtopicIds(linkedIds, subtopicIds);
+      }),
+    [projects, subtopicIds],
   );
 
-  const handleSubtopicChange = (value: string) => {
-    setSubtopicId(value);
+  const handleSubtopicIdsChange = (nextIds: string[]) => {
+    setSubtopicIds(nextIds);
     if (!projectId) return;
-    const isProjectValid = projects.some(
-      (item) => item.subtopic_id === value && item.id === projectId,
-    );
-    if (!isProjectValid) {
+    const selectedProject = projects.find((item) => item.id === projectId);
+    if (!selectedProject) {
+      setProjectId("");
+      return;
+    }
+    const linkedIds = selectedProject.subtopic_ids?.length
+      ? selectedProject.subtopic_ids
+      : [selectedProject.subtopic_id];
+    if (!intersectsSubtopicIds(linkedIds, nextIds)) {
       setProjectId("");
     }
   };
@@ -164,8 +173,8 @@ export function CreateTaskDrawer({
       setError("שם משימה הוא שדה חובה");
       return;
     }
-    if (!subtopicId) {
-      setError("יש לבחור תת-נושא");
+    if (subtopicIds.length === 0) {
+      setError("יש לבחור לפחות תת-נושא אחד");
       return;
     }
     setLoading(true);
@@ -174,7 +183,7 @@ export function CreateTaskDrawer({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title,
-        subtopicId,
+        subtopicIds,
         projectId: projectId || null,
         assignedToIds,
         dueDate: dueDate || null,
@@ -197,7 +206,7 @@ export function CreateTaskDrawer({
 
   const openDrawer = (event?: MouseEvent) => {
     event?.stopPropagation();
-    if (defaultSubtopicId) setSubtopicId(defaultSubtopicId);
+    if (defaultSubtopicId) setSubtopicIds([defaultSubtopicId]);
     if (defaultProjectId) setProjectId(defaultProjectId);
     setOpen(true);
   };
@@ -211,7 +220,7 @@ export function CreateTaskDrawer({
           <Rocket size={22} strokeWidth={2} />
         </span>
         <div className="min-w-0 space-y-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-accent-primary">יצירה מהירה</p>
+          <p className="text-xs font-semibold text-accent-primary">יצירה מהירה</p>
           <h2 className="text-xl font-bold leading-tight text-text-primary sm:text-2xl">משימה חדשה במערכת</h2>
           <p className="text-sm leading-relaxed text-text-secondary">
             הגדירו כותרת, שיוך ופרויקט — והמשימה תופיע בלוח מיד.
@@ -271,7 +280,7 @@ export function CreateTaskDrawer({
           </FieldBlock>
 
           <div className={cardClass}>
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">איפה זה יושב</p>
+            <p className="mb-3 text-sm font-semibold text-text-secondary">איפה זה יושב</p>
             {optionsLoading ? (
               <p className="mb-3 text-sm text-text-secondary">טוען תת-נושאים ופרויקטים…</p>
             ) : null}
@@ -283,21 +292,14 @@ export function CreateTaskDrawer({
             <div className="grid gap-4 sm:grid-cols-2">
               <FieldBlock
                 icon={<FolderKanban size={14} className="text-accent-cyan" />}
-                label="תת-נושא"
+                label="תתי-נושא"
               >
-                <select
-                  value={subtopicId}
-                  onChange={(event) => handleSubtopicChange(event.target.value)}
+                <SubtopicMultiSelect
+                  options={subtopics}
+                  value={subtopicIds}
+                  onChange={handleSubtopicIdsChange}
                   disabled={optionsLoading || subtopics.length === 0}
-                  className={fieldClass}
-                >
-                  <option value="">בחר תת-נושא</option>
-                  {subtopics.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {toHebrewSubtopicLabel(item.name)}
-                    </option>
-                  ))}
-                </select>
+                />
               </FieldBlock>
               <FieldBlock
                 icon={<FolderKanban size={14} className="text-accent-secondary" />}
@@ -306,7 +308,7 @@ export function CreateTaskDrawer({
                 <select
                   value={projectId}
                   onChange={(event) => setProjectId(event.target.value)}
-                  disabled={optionsLoading || !subtopicId}
+                  disabled={optionsLoading || subtopicIds.length === 0}
                   className={fieldClass}
                 >
                   <option value="">ללא פרויקט</option>
@@ -386,13 +388,13 @@ export function CreateTaskDrawer({
           </div>
 
           <div className={cardClass}>
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">אנשים וזמן</p>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <p className="mb-3 text-sm font-semibold text-text-secondary">אנשים וזמן</p>
+            <div className="space-y-4">
               <FieldBlock
                 icon={<UserRound size={14} className="text-accent-primary" />}
                 label="שיוך למשתמשים"
               >
-                <AssigneeMultiSelect value={assignedToIds} onChange={setAssignedToIds} users={users} />
+                <AssigneeMultiSelect value={assignedToIds} onChange={setAssignedToIds} users={users} menuMinWidth={360} />
               </FieldBlock>
               <FieldBlock
                 icon={<CalendarClock size={14} className="text-accent-cyan" />}
@@ -402,7 +404,7 @@ export function CreateTaskDrawer({
                   type="datetime-local"
                   value={dueDate}
                   onChange={(event) => setDueDate(event.target.value)}
-                  className={`${fieldClass} font-mono text-[13px]`}
+                  className={`${fieldClass} max-w-md text-sm`}
                 />
               </FieldBlock>
             </div>

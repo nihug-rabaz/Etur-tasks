@@ -5,15 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Menu, X } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-
-// Build up to two uppercase initials from a name or email for the avatar badge.
-function getInitials(label: string): string {
-  const source = label.includes("@") ? label.split("@")[0] : label;
-  const words = source.trim().split(/[\s._-]+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  const letters = words.slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "");
-  return letters.join("") || "?";
-}
+import { UserAvatarMark } from "@/components/ui/assignee-select";
 
 export interface SideMenuItem {
   label: string;
@@ -76,11 +68,12 @@ export function SideMenuTrigger({ state, className }: SideMenuTriggerProps) {
 interface SideMenuProps {
   items: SideMenuItem[];
   userLabel?: string | null;
+  userAvatarUrl?: string | null;
   showLogout?: boolean;
   state: SideMenuState;
 }
 
-export function SideMenu({ items, userLabel, showLogout = true, state }: SideMenuProps) {
+export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, state }: SideMenuProps) {
   const pathname = usePathname();
   const { open, close } = state;
 
@@ -182,11 +175,22 @@ export function SideMenu({ items, userLabel, showLogout = true, state }: SideMen
             <div className="flex items-center gap-3 rounded-full bg-surface-2 py-2 pe-2 ps-3">
               {userLabel ? (
                 <>
-                  <span className="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-primary text-sm font-bold text-white">
-                    {getInitials(userLabel)}
+                  <Link
+                    href="/settings/profile"
+                    onClick={close}
+                    className="relative inline-flex shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                    aria-label="עריכת פרופיל"
+                  >
+                    <UserAvatarMark name={userLabel} avatarUrl={userAvatarUrl ?? null} size="sm" />
                     <span className="absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-surface-1 bg-emerald-500" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary">{userLabel}</span>
+                  </Link>
+                  <Link
+                    href="/settings/profile"
+                    onClick={close}
+                    className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary transition hover:text-accent-primary"
+                  >
+                    {userLabel}
+                  </Link>
                 </>
               ) : (
                 <span className="flex-1" />

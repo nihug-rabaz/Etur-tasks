@@ -4,21 +4,12 @@ import { Calendar, Flag, UserRound, FolderKanban } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
 import { domainCardStyle } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 
 interface TasksTableProps {
   tasks: TaskWithRelations[];
   onSelect: (task: TaskWithRelations) => void;
 }
-
-const statusBadge: Record<string, string> = {
-  in_progress: "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-400/60 dark:bg-amber-500/25 dark:text-amber-100",
-  completed: "border-emerald-400 bg-emerald-100 text-emerald-900 dark:border-emerald-400/60 dark:bg-emerald-500/25 dark:text-emerald-100",
-};
-
-const statusLabel: Record<string, string> = {
-  in_progress: "בתהליך",
-  completed: "הושלמה",
-};
 
 const priorityBadge: Record<string, string> = {
   low: "border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-100",
@@ -116,10 +107,8 @@ export function TasksTable({ tasks, onSelect }: TasksTableProps) {
                       {priorityLabel[task.priority]}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${statusBadge[task.status]}`}>
-                      {statusLabel[task.status]}
-                    </span>
+                  <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                    <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
                   </td>
                   <td className="px-4 py-3 text-text-secondary">
                     {formatDueDate(task.due_date)}

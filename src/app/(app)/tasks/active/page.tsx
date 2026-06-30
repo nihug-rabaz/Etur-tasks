@@ -1,4 +1,5 @@
 import { ActiveTasksShell } from "@/components/tasks/active-tasks-shell";
+import { isTaskAssignedToUser } from "@/lib/tasks/assignees";
 import { AuthorizationService } from "@/services/authorization.service";
 import { TaskService } from "@/services/task.service";
 
@@ -22,11 +23,8 @@ export default async function ActiveTasksPage({ searchParams }: ActiveTasksPageP
   }
   const filterUserId = filters.user;
   if (filterUserId) {
-    tasks = tasks.filter((task) => {
-      const ids = task.assignee_ids ?? (task.assigned_to ? [task.assigned_to] : []);
-      return ids.includes(filterUserId);
-    });
+    tasks = tasks.filter((task) => isTaskAssignedToUser(task, filterUserId));
   }
 
-  return <ActiveTasksShell tasks={tasks} />;
+  return <ActiveTasksShell tasks={tasks} currentUserId={profile.id} />;
 }

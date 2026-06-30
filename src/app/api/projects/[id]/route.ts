@@ -19,7 +19,7 @@ export async function DELETE(_: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const allowed = await authorizationService.canAccessSubtopic(profile.id, project.subtopic_id);
+  const allowed = await authorizationService.canAccessProject(profile, id);
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

@@ -37,7 +37,7 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
           <Tab
             key={key}
             label={meta.label}
-            icon={<Icon size={18} />}
+            icon={<Icon size={20} />}
             count={counts?.[key]}
             selected={active === key}
             accentHex={meta.accentHex}
@@ -68,13 +68,13 @@ function Tab({ label, icon, count, selected, accentHex, onClick, indicatorId }: 
       aria-selected={selected}
       onClick={onClick}
       style={selected ? { color: accentHex } : undefined}
-      className={`relative flex flex-1 items-center justify-center gap-1.5 rounded-t-xl px-1.5 py-2.5 text-sm font-bold transition sm:gap-2.5 sm:px-6 sm:py-4 sm:text-base ${
+      className={`relative flex flex-1 items-center justify-center gap-2 rounded-t-xl px-2 py-3 text-base font-extrabold transition sm:gap-3 sm:px-6 sm:py-4 sm:text-xl ${
         selected ? "" : "text-text-muted hover:text-text-secondary"
       }`}
     >
       {icon ? (
         <span
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg transition sm:h-9 sm:w-9 sm:rounded-xl"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-lg transition sm:h-10 sm:w-10 sm:rounded-xl"
           style={selected ? { backgroundColor: `${accentHex}1f`, color: accentHex } : undefined}
         >
           {icon}
@@ -83,7 +83,7 @@ function Tab({ label, icon, count, selected, accentHex, onClick, indicatorId }: 
       <span className="truncate">{label}</span>
       {count !== undefined ? (
         <span
-          className="hidden rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums sm:inline-block sm:px-2.5 sm:text-xs"
+          className="hidden rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums sm:inline-block sm:px-3 sm:text-sm"
           style={
             selected
               ? { backgroundColor: `${accentHex}1f`, color: accentHex }

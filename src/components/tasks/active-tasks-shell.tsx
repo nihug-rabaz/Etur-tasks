@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { LayoutGrid, Rows3 } from "lucide-react";
+import { LayoutGrid, Rows3, UserRound, Users } from "lucide-react";
 import { TaskCard } from "@/components/task-card";
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
+import { isTaskAssignedToUser } from "@/lib/tasks/assignees";
 import {
   domainKeys,
   groupTasksByDomain,
@@ -15,17 +16,33 @@ import {
 import { TaskWithRelations } from "@/types/models";
 
 type ViewMode = "cards" | "table";
+type TaskScope = "all" | "mine";
 
 interface ActiveTasksShellProps {
   tasks: TaskWithRelations[];
+  currentUserId: string;
 }
 
-export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
+export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps) {
+  const [taskScope, setTaskScope] = useState<TaskScope>("all");
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
 
-  const grouped = useMemo(() => groupTasksByDomain(tasks), [tasks]);
+  const scopedTasks = useMemo(
+    () =>
+      taskScope === "mine"
+        ? tasks.filter((task) => isTaskAssignedToUser(task, currentUserId))
+        : tasks,
+    [tasks, taskScope, currentUserId],
+  );
+
+  const mineCount = useMemo(
+    () => tasks.filter((task) => isTaskAssignedToUser(task, currentUserId)).length,
+    [tasks, currentUserId],
+  );
+
+  const grouped = useMemo(() => groupTasksByDomain(scopedTasks), [scopedTasks]);
   const counts = useMemo(
     () => ({
       recruitment: grouped.recruitment.length,
@@ -52,7 +69,8 @@ export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
           <div>
             <h1 className="text-2xl font-bold text-text-primary">משימות פעילות</h1>
             <p className="mt-1 text-sm font-medium text-text-secondary">
-              {tasks.length} משימות פעילות (לא הושלמו)
+              {scopedTasks.length} משימות פעילות
+              {taskScope === "mine" ? " משויכות אליך" : " (לא הושלמו)"}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -60,14 +78,22 @@ export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
             <CreateTaskDrawer triggerLabel="משימה חדשה" />
           </div>
         </div>
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
+          <TaskScopeTabs
+            active={taskScope}
+            allCount={tasks.length}
+            mineCount={mineCount}
+            onChange={setTaskScope}
+          />
           <DomainTopicTabs active={activeDomain} counts={counts} onChange={setActiveDomain} />
         </div>
       </div>
 
-      {tasks.length === 0 ? (
+      {scopedTasks.length === 0 ? (
         <div className="rounded-3xl bg-surface-2/60 p-10 text-center text-sm font-medium text-text-secondary">
-          אין משימות פעילות להצגה כרגע.
+          {taskScope === "mine"
+            ? "אין משימות פעילות משויכות אליך כרגע."
+            : "אין משימות פעילות להצגה כרגע."}
         </div>
       ) : viewMode === "table" ? (
         <TasksTable tasks={tableTasks} onSelect={openTaskDetails} />
@@ -113,6 +139,53 @@ export function ActiveTasksShell({ tasks }: ActiveTasksShellProps) {
         />
       ) : null}
     </section>
+  );
+}
+
+interface TaskScopeTabsProps {
+  active: TaskScope;
+  allCount: number;
+  mineCount: number;
+  onChange: (scope: TaskScope) => void;
+}
+
+function TaskScopeTabs({ active, allCount, mineCount, onChange }: TaskScopeTabsProps) {
+  const baseClass =
+    "inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition sm:flex-none sm:px-5";
+  const activeClass = "bg-accent-primary text-white shadow-sm";
+  const idleClass = "bg-surface-2/80 text-text-secondary hover:bg-surface-2 hover:text-text-primary";
+
+  const tabClass = (selected: boolean) => `${baseClass} ${selected ? activeClass : idleClass}`;
+  const countClass = (selected: boolean) =>
+    `rounded-full px-2 py-0.5 text-xs tabular-nums ${
+      selected ? "bg-white/20" : "bg-surface-1 text-text-muted"
+    }`;
+
+  return (
+    <div className="flex w-full gap-2 sm:w-auto" role="tablist" aria-label="סינון משימות">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={active === "all"}
+        onClick={() => onChange("all")}
+        className={tabClass(active === "all")}
+      >
+        <Users size={16} />
+        כל המשימות
+        <span className={countClass(active === "all")}>{allCount}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={active === "mine"}
+        onClick={() => onChange("mine")}
+        className={tabClass(active === "mine")}
+      >
+        <UserRound size={16} />
+        המשימות שלי
+        <span className={countClass(active === "mine")}>{mineCount}</span>
+      </button>
+    </div>
   );
 }
 

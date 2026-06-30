@@ -69,3 +69,25 @@ export interface TaskWithRelations extends Task {
   assignee_name?: string;
   assignee_ids?: string[];
 }
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  subtopic_id: string;
+  location: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  all_day: boolean;
+  created_by: string;
+  cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CalendarEventWithRelations extends CalendarEvent {
+  subtopic_name?: string;
+  domain_name?: string;
+  participant_name?: string;
+  participant_ids?: string[];
+}

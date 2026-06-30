@@ -102,6 +102,7 @@ export interface TabSectionItem {
   id: string;
   name: string;
   projects: TabProjectItem[];
+  standaloneTasks: TabTaskItem[];
 }
 
 export interface MainTabItem {
@@ -262,12 +263,12 @@ export class DashboardService extends BaseService {
     const db = this.getDb();
     const rows = await db<TaskWithRelations[]>`
       select * from task_details
-      where (
+      where status <> 'completed'
+        and (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
       )
       order by
-        case status when 'in_progress' then 1 else 2 end,
         case when due_date is null then 1 else 0 end,
         due_date asc,
         updated_at desc
@@ -279,11 +280,8 @@ export class DashboardService extends BaseService {
     };
 
     for (const row of rows) {
-      if (row.status === "in_progress" && columns.in_progress.length < limitPerStatus) {
+      if (columns.in_progress.length < limitPerStatus) {
         columns.in_progress.push(row);
-      }
-      if (row.status === "completed" && columns.completed.length < limitPerStatus) {
-        columns.completed.push(row);
       }
     }
 
@@ -332,7 +330,8 @@ export class DashboardService extends BaseService {
     >`
       select id, title, status, priority, subtopic_id, project_id
       from tasks
-      where (
+      where status <> 'completed'
+        and (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
       )
@@ -409,12 +408,12 @@ export class DashboardService extends BaseService {
     const rows = await db<TaskWithRelations[]>`
       select * from task_details
       where project_id is null
+        and status <> 'completed'
         and (
           ${access.unrestricted}::boolean
           or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
         )
       order by
-        case status when 'in_progress' then 1 else 2 end,
         case when due_date is null then 1 else 0 end,
         due_date asc,
         updated_at desc
@@ -463,14 +462,34 @@ export class DashboardService extends BaseService {
           order by name
         `;
     const projects = await db<Array<{ id: string; name: string; status: "active" | "completed" | "archived"; subtopic_id: string }>>`
-      select id, name, status, subtopic_id
-      from projects
+      select p.id, p.name, p.status, p.subtopic_id
+      from projects p
       where (
         ${access.unrestricted}::boolean
-        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or p.subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or exists (
+          select 1
+          from project_subtopics ps
+          where ps.project_id = p.id
+            and ps.subtopic_id in (
+              select subtopic_id from user_subtopic_permissions where user_id = ${access.userId}
+            )
+        )
       )
-      order by created_at desc
+      order by p.created_at desc
     `;
+    const projectLinks = await db<Array<{ project_id: string; subtopic_id: string }>>`
+      select project_id, subtopic_id from project_subtopics
+    `;
+    const projectSubtopicIds = new Map<string, string[]>();
+    for (const project of projects) {
+      projectSubtopicIds.set(project.id, [project.subtopic_id]);
+    }
+    for (const link of projectLinks) {
+      const current = projectSubtopicIds.get(link.project_id) ?? [];
+      if (!current.includes(link.subtopic_id)) current.push(link.subtopic_id);
+      projectSubtopicIds.set(link.project_id, current);
+    }
     const tasks = await db<
       Array<{
         id: string;
@@ -479,14 +498,22 @@ export class DashboardService extends BaseService {
         priority: "low" | "medium" | "high";
         due_date: string | null;
         project_id: string | null;
+        subtopic_id: string;
         assigned_to: string | null;
       }>
     >`
-      select id, title, status, priority, due_date, project_id, assigned_to
+      select id, title, status, priority, due_date, project_id, subtopic_id, assigned_to
       from tasks
-      where (
+      where status <> 'completed'
+        and (
         ${access.unrestricted}::boolean
         or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
+        or id in (
+          select ts.task_id
+          from task_subtopics ts
+          join user_subtopic_permissions usp on usp.subtopic_id = ts.subtopic_id
+          where usp.user_id = ${access.userId}
+        )
       )
       order by
         case status when 'in_progress' then 1 else 2 end,
@@ -495,16 +522,16 @@ export class DashboardService extends BaseService {
         updated_at desc
     `;
 
-    const projectTaskIds = tasks.filter((task) => task.project_id).map((task) => task.id);
+    const allTaskIds = tasks.map((task) => task.id);
     const assigneesByTask = new Map<string, TabTaskAssignee[]>();
-    if (projectTaskIds.length > 0) {
+    if (allTaskIds.length > 0) {
       const assigneeRows = await db<
         Array<{ task_id: string; id: string; name: string; avatar: string | null }>
       >`
         select ta.task_id, p.id, p.name, p.avatar
         from task_assignees ta
         join profiles p on p.id = ta.user_id
-        where ta.task_id = any(${projectTaskIds})
+        where ta.task_id = any(${allTaskIds})
         order by ta.task_id, p.name
       `;
       for (const row of assigneeRows) {
@@ -519,9 +546,7 @@ export class DashboardService extends BaseService {
         tasks
           .filter(
             (task) =>
-              task.project_id &&
-              (assigneesByTask.get(task.id) ?? []).length === 0 &&
-              task.assigned_to,
+              (assigneesByTask.get(task.id) ?? []).length === 0 && task.assigned_to,
           )
           .map((task) => task.assigned_to as string),
       ),
@@ -532,7 +557,6 @@ export class DashboardService extends BaseService {
       `;
       const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
       for (const task of tasks) {
-        if (!task.project_id) continue;
         if ((assigneesByTask.get(task.id) ?? []).length > 0) continue;
         if (!task.assigned_to) continue;
         const profile = profileById.get(task.assigned_to);
@@ -544,25 +568,43 @@ export class DashboardService extends BaseService {
       }
     }
 
+    const toTabTaskItem = (task: (typeof tasks)[number]): TabTaskItem => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.due_date,
+      assignees: assigneesByTask.get(task.id) ?? [],
+    });
+
     const tasksByProject = new Map<string, TabTaskItem[]>();
     for (const task of tasks) {
       if (!task.project_id) continue;
       const current = tasksByProject.get(task.project_id) ?? [];
-      current.push({
-        id: task.id,
-        title: task.title,
-        status: task.status,
-        priority: task.priority,
-        dueDate: task.due_date,
-        assignees: assigneesByTask.get(task.id) ?? [],
-      });
+      current.push(toTabTaskItem(task));
       tasksByProject.set(task.project_id, current);
+    }
+
+    const taskLinks = await db<Array<{ task_id: string; subtopic_id: string }>>`
+      select task_id, subtopic_id from task_subtopics
+    `;
+    const taskSubtopicIds = new Map<string, string[]>();
+    for (const task of tasks) {
+      if (task.project_id) continue;
+      taskSubtopicIds.set(task.id, [task.subtopic_id]);
+    }
+    for (const link of taskLinks) {
+      const task = tasks.find((item) => item.id === link.task_id);
+      if (!task || task.project_id) continue;
+      const current = taskSubtopicIds.get(link.task_id) ?? [];
+      if (!current.includes(link.subtopic_id)) current.push(link.subtopic_id);
+      taskSubtopicIds.set(link.task_id, current);
     }
 
     const subtopicsByDomain = new Map<string, TabSectionItem[]>();
     for (const subtopic of subtopics) {
       const current = subtopicsByDomain.get(subtopic.domain_id) ?? [];
-      current.push({ id: subtopic.id, name: subtopic.name, projects: [] });
+      current.push({ id: subtopic.id, name: subtopic.name, projects: [], standaloneTasks: [] });
       subtopicsByDomain.set(subtopic.domain_id, current);
     }
 
@@ -571,15 +613,30 @@ export class DashboardService extends BaseService {
       for (const section of sections) sectionById.set(section.id, section);
     }
     for (const project of projects) {
-      const section = sectionById.get(project.subtopic_id);
-      if (!section) continue;
-      section.projects.push({
-        id: project.id,
-        name: project.name,
-        sectionId: project.subtopic_id,
-        status: project.status,
-        tasks: tasksByProject.get(project.id) ?? [],
-      });
+      const linkedSubtopicIds = projectSubtopicIds.get(project.id) ?? [project.subtopic_id];
+      for (const subtopicId of linkedSubtopicIds) {
+        const section = sectionById.get(subtopicId);
+        if (!section) continue;
+        section.projects.push({
+          id: project.id,
+          name: project.name,
+          sectionId: subtopicId,
+          status: project.status,
+          tasks: tasksByProject.get(project.id) ?? [],
+        });
+      }
+    }
+
+    for (const task of tasks) {
+      if (task.project_id) continue;
+      const linkedSubtopicIds = taskSubtopicIds.get(task.id) ?? [task.subtopic_id];
+      const tabTask = toTabTaskItem(task);
+      for (const subtopicId of linkedSubtopicIds) {
+        const section = sectionById.get(subtopicId);
+        if (!section) continue;
+        if (section.standaloneTasks.some((item) => item.id === tabTask.id)) continue;
+        section.standaloneTasks.push(tabTask);
+      }
     }
 
     return domains.map((domain) => ({

@@ -15,6 +15,7 @@ import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateProjectDrawer } from "@/components/create-project-drawer";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskDetailsModal } from "@/components/task-details-modal";
+import { TaskDragDropProvider } from "@/components/main-tabs/task-drag-drop-context";
 import { domainMeta, type DomainKey } from "@/lib/ui/domains";
 
 interface MainTabsShellProps {
@@ -98,12 +99,23 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
       for (const section of normalizedSections) {
         const existing = mergedByName.get(section.name);
         if (!existing) {
-          mergedByName.set(section.name, { ...section, projects: [...section.projects] });
+          mergedByName.set(section.name, {
+            ...section,
+            projects: [...section.projects],
+            standaloneTasks: [...section.standaloneTasks],
+          });
           continue;
+        }
+        const mergedStandalone = [...existing.standaloneTasks];
+        for (const task of section.standaloneTasks) {
+          if (!mergedStandalone.some((item) => item.id === task.id)) {
+            mergedStandalone.push(task);
+          }
         }
         mergedByName.set(section.name, {
           ...existing,
           projects: [...existing.projects, ...section.projects],
+          standaloneTasks: mergedStandalone,
         });
       }
       const dedupedSections = Array.from(mergedByName.values());
@@ -116,6 +128,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
               id: `${tab.slug}-${mandatoryName}`,
               name: mandatoryName,
               projects: [],
+              standaloneTasks: [],
             });
           }
         }
@@ -196,7 +209,9 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
                 tab.slug,
                 tab.sections.reduce(
                   (sum, section) =>
-                    sum + section.projects.reduce((projectSum, project) => projectSum + project.tasks.length, 0),
+                    sum +
+                    section.standaloneTasks.length +
+                    section.projects.reduce((projectSum, project) => projectSum + project.tasks.length, 0),
                   0,
                 ),
               ]),
@@ -216,27 +231,29 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto p-3 sm:p-5"
           >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 sm:mb-4 sm:gap-3">
-              <h2 className="text-lg font-semibold text-text-primary sm:text-xl">סקציות ופרויקטים</h2>
-              <div className="flex items-center gap-2">
-                <CreateProjectDrawer
-                  triggerLabel="פרויקט חדש בטאב"
-                  allowedDomainId={selected.id}
-                  allowedDomainSlug={selected.slug}
-                />
+            <TaskDragDropProvider>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 sm:mb-4 sm:gap-3">
+                <h2 className="text-lg font-semibold text-text-primary sm:text-xl">סקציות ופרויקטים</h2>
+                <div className="flex items-center gap-2">
+                  <CreateProjectDrawer
+                    triggerLabel="פרויקט חדש בטאב"
+                    allowedDomainId={selected.id}
+                    allowedDomainSlug={selected.slug}
+                  />
+                </div>
               </div>
-            </div>
-            <div className={sectionsLayoutClass}>
-              {selected.sections.map((section) => (
-                <SectionGroup
-                  key={section.id}
-                  section={section}
-                  domainSlug={selected.slug}
-                  toneClass={tabMeta[selected.slug].contentClass}
-                  onTaskClick={(task) => setSelectedTask(task)}
-                />
-              ))}
-            </div>
+              <div className={sectionsLayoutClass}>
+                {selected.sections.map((section) => (
+                  <SectionGroup
+                    key={section.id}
+                    section={section}
+                    domainSlug={selected.slug}
+                    toneClass={tabMeta[selected.slug].contentClass}
+                    onTaskClick={(task) => setSelectedTask(task)}
+                  />
+                ))}
+              </div>
+            </TaskDragDropProvider>
           </motion.div>
         </AnimatePresence>
       </motion.div>

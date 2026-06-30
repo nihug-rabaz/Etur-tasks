@@ -3,39 +3,50 @@
 import { motion } from "framer-motion";
 import { format, isToday, parseISO } from "date-fns";
 import { he } from "date-fns/locale";
-import { CalendarDays, Sparkles } from "lucide-react";
+import { CalendarClock, CalendarDays, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { CalendarScheduleChip } from "@/components/upcoming/calendar-schedule-chip";
 import { CalendarTaskChip } from "@/components/upcoming/calendar-task-chip";
 import { TaskCard } from "@/components/task-card";
 import Stack from "@/components/ui/stack";
-import { domainKeyFromName, domainKeys, domainMeta, DomainKey } from "@/lib/ui/domains";
+import { scheduleEventDayKeys, formatScheduleTime } from "@/lib/dates/schedule-range";
 import {
   buildCalendarCells,
   dueDateToDayKey,
   isFullMonthRange,
 } from "@/lib/dates/task-date-range";
-import { TaskWithRelations } from "@/types/models";
+import { domainKeyFromName, domainKeys, domainMeta, DomainKey } from "@/lib/ui/domains";
+import { CalendarEventWithRelations, TaskWithRelations } from "@/types/models";
 
 interface UpcomingTasksCalendarProps {
   rangeStartIso: string;
   rangeEndIso: string;
   tasks: TaskWithRelations[];
+  events: CalendarEventWithRelations[];
   activeDomains: Set<DomainKey | "all">;
   onTaskClick: (task: { id: string; title: string }) => void;
+  onScheduleClick: (event: { id: string; title: string }) => void;
+  onSelectedDayChange?: (dayKey: string | null) => void;
 }
 
 const weekdayLabels = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];
 
-function taskDayKey(task: TaskWithRelations): string | null {
-  return dueDateToDayKey(task.due_date);
+function pickDayChips(dayTasks: TaskWithRelations[], dayEvents: CalendarEventWithRelations[]) {
+  if (dayTasks.length > 0 && dayEvents.length > 0) {
+    return { tasks: dayTasks.slice(0, 1), events: dayEvents.slice(0, 1) };
+  }
+  return { tasks: dayTasks.slice(0, 2), events: dayEvents.slice(0, 2 - Math.min(2, dayTasks.length)) };
 }
 
 export function UpcomingTasksCalendar({
   rangeStartIso,
   rangeEndIso,
   tasks,
+  events,
   activeDomains,
   onTaskClick,
+  onScheduleClick,
+  onSelectedDayChange,
 }: UpcomingTasksCalendarProps) {
   const rangeStart = parseISO(rangeStartIso);
   const rangeEnd = parseISO(rangeEndIso);
@@ -49,10 +60,18 @@ export function UpcomingTasksCalendar({
     });
   }, [tasks, activeDomains]);
 
+  const filteredEvents = useMemo(() => {
+    if (activeDomains.has("all")) return events;
+    return events.filter((event) => {
+      const key = domainKeyFromName(event.domain_name);
+      return key ? activeDomains.has(key) : false;
+    });
+  }, [events, activeDomains]);
+
   const tasksByDay = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
     for (const task of filteredTasks) {
-      const key = taskDayKey(task);
+      const key = dueDateToDayKey(task.due_date);
       if (!key) continue;
       const bucket = map.get(key) ?? [];
       bucket.push(task);
@@ -60,6 +79,18 @@ export function UpcomingTasksCalendar({
     }
     return map;
   }, [filteredTasks]);
+
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, CalendarEventWithRelations[]>();
+    for (const event of filteredEvents) {
+      for (const key of scheduleEventDayKeys(event)) {
+        const bucket = map.get(key) ?? [];
+        bucket.push(event);
+        map.set(key, bucket);
+      }
+    }
+    return map;
+  }, [filteredEvents]);
 
   const calendarCells = useMemo(
     () => buildCalendarCells(rangeStart, rangeEnd),
@@ -76,6 +107,7 @@ export function UpcomingTasksCalendar({
 
   const selectedDate = selectedDay ? parseISO(selectedDay) : null;
   const selectedTasks = selectedDay ? (tasksByDay.get(selectedDay) ?? []) : [];
+  const selectedEvents = selectedDay ? (eventsByDay.get(selectedDay) ?? []) : [];
 
   useEffect(() => {
     setSelectedDay((current) => {
@@ -101,13 +133,13 @@ export function UpcomingTasksCalendar({
               <CalendarDays size={22} />
             </span>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-accent-primary">לוח משימות</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-accent-primary">לוח זמנים</p>
               <h2 className="text-xl font-bold text-text-primary sm:text-2xl">{monthTitle}</h2>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border-weak bg-surface-1/70 px-3 py-1.5 text-xs font-semibold text-text-secondary backdrop-blur-sm">
             <Sparkles size={14} className="text-accent-secondary" />
-            {filteredTasks.length} משימות בטווח
+            {filteredTasks.length} משימות · {filteredEvents.length} לו״זים
           </span>
         </div>
       </motion.div>
@@ -118,10 +150,7 @@ export function UpcomingTasksCalendar({
             <div className="upcoming-calendar-inner">
               <div className="upcoming-calendar-grid mb-0.5">
                 {weekdayLabels.map((label) => (
-                  <div
-                    key={label}
-                    className="py-1.5 text-center text-[11px] font-bold text-text-muted sm:text-xs"
-                  >
+                  <div key={label} className="py-1.5 text-center text-[11px] font-bold text-text-muted sm:text-xs">
                     {label}
                   </div>
                 ))}
@@ -141,12 +170,18 @@ export function UpcomingTasksCalendar({
 
                   const { date, key, inRange } = cell;
                   const dayTasks = inRange ? (tasksByDay.get(key) ?? []) : [];
+                  const dayEvents = inRange ? (eventsByDay.get(key) ?? []) : [];
+                  const chips = pickDayChips(dayTasks, dayEvents);
+                  const dayCount = dayTasks.length + dayEvents.length;
                   const today = isToday(date);
                   const selected = selectedDay === key;
 
                   const handleSelect = () => {
-                    if (inRange) setSelectedDay(key);
+                    if (!inRange) return;
+                    setSelectedDay(key);
+                    onSelectedDayChange?.(key);
                   };
+
                   return (
                     <div
                       key={key}
@@ -173,54 +208,40 @@ export function UpcomingTasksCalendar({
                         <span
                           className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold sm:h-7 sm:w-7 sm:text-xs ${
                             today
-                              ? "ring-1 ring-accent-primary/60 bg-surface-1 text-accent-primary"
+                              ? "bg-surface-1 text-accent-primary ring-1 ring-accent-primary/60"
                               : "bg-surface-1/90 text-text-primary"
                           }`}
                         >
                           {format(date, "d")}
                         </span>
-                        {dayTasks.length > 0 ? (
+                        {dayCount > 0 ? (
                           <span className="rounded-full bg-accent-primary/15 px-1 py-0.5 text-[9px] font-bold text-accent-primary sm:text-[10px]">
-                            {dayTasks.length}
+                            {dayCount}
                           </span>
                         ) : null}
                       </div>
 
                       <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-                        {dayTasks.slice(0, 2).map((task) => (
+                        {chips.tasks.map((task) => (
                           <CalendarTaskChip
                             key={task.id}
                             task={task}
                             onClick={() => onTaskClick({ id: task.id, title: task.title })}
                           />
                         ))}
-                        {dayTasks.length > 2 ? (
+                        {chips.events.map((event) => (
+                          <CalendarScheduleChip
+                            key={event.id}
+                            title={event.title}
+                            onClick={() => onScheduleClick({ id: event.id, title: event.title })}
+                          />
+                        ))}
+                        {dayCount > chips.tasks.length + chips.events.length ? (
                           <span className="truncate px-0.5 text-[9px] font-semibold text-text-muted sm:text-[10px]">
-                            +{dayTasks.length - 2}
+                            +{dayCount - chips.tasks.length - chips.events.length}
                           </span>
                         ) : null}
                       </div>
-
-                      {dayTasks.length > 0 ? (
-                        <div className="mt-auto flex gap-0.5 pt-0.5">
-                          {(() => {
-                            const segments: string[] = [];
-                            for (const domainKey of domainKeys) {
-                              const count = dayTasks.filter(
-                                (task) => domainKeyFromName(task.domain_name) === domainKey,
-                              ).length;
-                              if (count > 0) segments.push(domainMeta[domainKey].calendarAccent);
-                            }
-                            const otherCount = dayTasks.filter(
-                              (task) => domainKeyFromName(task.domain_name) === null,
-                            ).length;
-                            if (otherCount > 0) segments.push("bg-slate-400 shadow-[0_0_10px_rgba(148,163,184,0.45)]");
-                            return segments.map((cls, idx) => (
-                              <span key={`${cls}-${idx}`} className={`h-0.5 flex-1 rounded-full ${cls}`} />
-                            ));
-                          })()}
-                        </div>
-                      ) : null}
                     </div>
                   );
                 })}
@@ -236,48 +257,60 @@ export function UpcomingTasksCalendar({
                 ? format(selectedDate, "EEEE, d בMMMM", { locale: he })
                 : "בחרו יום בלוח"}
             </h3>
-            {selectedTasks.length > 0 ? (
+            {selectedTasks.length + selectedEvents.length > 0 ? (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border-weak bg-surface-2/70 px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                 <Sparkles size={10} className="text-accent-secondary" />
-                {selectedTasks.length}
+                {selectedTasks.length + selectedEvents.length}
               </span>
             ) : null}
           </div>
 
           {!selectedDate ? (
             <p className="rounded-xl border border-dashed border-border-weak bg-surface-2/40 px-3 py-3 text-xs text-text-secondary">
-              לחצו על יום בלוח כדי לראות את משימות אותו יום.
+              לחצו על יום בלוח כדי לראות משימות ולו״זים.
             </p>
-          ) : selectedTasks.length === 0 ? (
+          ) : selectedTasks.length === 0 && selectedEvents.length === 0 ? (
             <p className="rounded-xl border border-border-weak bg-surface-2/40 px-3 py-3 text-xs text-text-secondary">
-              אין משימות ביום זה.
+              אין פריטים ביום זה.
             </p>
           ) : (
-            <>
-              <div className="mx-auto" style={{ width: "100%", maxWidth: "14rem", height: "16rem" }}>
-                <Stack
-                  key={selectedDay ?? "none"}
-                  cards={[...selectedTasks].reverse().map((task) => (
-                    <button
-                      key={task.id}
-                      type="button"
-                      onClick={() => onTaskClick({ id: task.id, title: task.title })}
-                      className="block h-full w-full text-start [&>article]:flex [&>article]:h-full [&>article]:flex-col [&>article>div:nth-of-type(2)]:flex-1"
-                    >
-                      <TaskCard task={task} />
-                    </button>
-                  ))}
-                  randomRotation
-                  sensitivity={110}
-                  animationConfig={{ stiffness: 280, damping: 22 }}
-                />
-              </div>
-              {selectedTasks.length > 1 ? (
-                <p className="mt-3 text-center text-[10px] text-text-muted">
-                  גררו להעברת כרטיס לסוף הערימה
-                </p>
+            <div className="space-y-3">
+              {selectedEvents.map((event) => (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => onScheduleClick({ id: event.id, title: event.title })}
+                  className="block w-full rounded-xl border border-violet-400/40 bg-violet-500/10 p-3 text-start transition hover:bg-violet-500/15"
+                >
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-600">לו״ז</p>
+                  <p className="mt-1 text-sm font-bold text-text-primary">{event.title}</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-text-muted">
+                    <CalendarClock size={12} />
+                    {formatScheduleTime(event)}
+                  </p>
+                </button>
+              ))}
+              {selectedTasks.length > 0 ? (
+                <div className="mx-auto" style={{ width: "100%", maxWidth: "14rem", height: "16rem" }}>
+                  <Stack
+                    key={selectedDay ?? "none"}
+                    cards={[...selectedTasks].reverse().map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => onTaskClick({ id: task.id, title: task.title })}
+                        className="block h-full w-full text-start [&>article]:flex [&>article]:h-full [&>article]:flex-col [&>article>div:nth-of-type(2)]:flex-1"
+                      >
+                        <TaskCard task={task} />
+                      </button>
+                    ))}
+                    randomRotation
+                    sensitivity={110}
+                    animationConfig={{ stiffness: 280, damping: 22 }}
+                  />
+                </div>
               ) : null}
-            </>
+            </div>
           )}
         </aside>
       </div>

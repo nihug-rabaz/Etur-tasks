@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { AppSettingsService, isWithinMorningSummaryWindow } from "@/services/app-settings.service";
 import { NotificationService } from "@/services/notification.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { Env } from "@/lib/env";
+import { formatScheduleTime } from "@/lib/dates/schedule-range";
 
 const ISRAEL_TZ = "Asia/Jerusalem";
-const DAILY_SUMMARY_HOURS = { from: 7, to: 9 };
 const TOMORROW_REMINDER_HOURS = { from: 8, to: 20 };
 
 function jerusalemNowParts(date: Date) {
@@ -21,6 +22,7 @@ function jerusalemNowParts(date: Date) {
   return {
     dayKey: `${map.year}-${map.month}-${map.day}`,
     hour: Number.parseInt(map.hour, 10),
+    minute: Number.parseInt(map.minute, 10),
   };
 }
 
@@ -37,10 +39,13 @@ export async function GET(request: Request) {
 
   const sql = NeonDatabase.createClient();
   const now = new Date();
-  const { dayKey, hour } = jerusalemNowParts(now);
+  const { dayKey, hour, minute } = jerusalemNowParts(now);
+  const morningMessageTime = await new AppSettingsService().getMorningMessageTime();
   const result: {
     ok: true;
     israelHour: number;
+    israelMinute: number;
+    morningMessageTime: string;
     dayKey: string;
     dueTomorrowSent: number;
     dailySummarySent: number;
@@ -48,6 +53,8 @@ export async function GET(request: Request) {
   } = {
     ok: true,
     israelHour: hour,
+    israelMinute: minute,
+    morningMessageTime,
     dayKey,
     dueTomorrowSent: 0,
     dailySummarySent: 0,
@@ -113,8 +120,8 @@ export async function GET(request: Request) {
     result.skipped.push("dueTomorrow");
   }
 
-  if (isWithinWindow(hour, DAILY_SUMMARY_HOURS)) {
-    const todayRows = await sql<
+  if (isWithinMorningSummaryWindow(hour, minute, morningMessageTime)) {
+    const todayTaskRows = await sql<
       Array<{
         id: string;
         title: string;
@@ -141,29 +148,89 @@ export async function GET(request: Request) {
       order by p.name, td.due_date asc nulls last, td.title
     `;
 
+    const todayScheduleRows = await sql<
+      Array<{
+        id: string;
+        title: string;
+        starts_at: string;
+        ends_at: string | null;
+        all_day: boolean;
+        subtopic_name: string | null;
+        user_id: string;
+        user_name: string;
+      }>
+    >`
+      select
+        ce.id,
+        ce.title,
+        ce.starts_at,
+        ce.ends_at,
+        ce.all_day,
+        ced.subtopic_name,
+        p.id as user_id,
+        p.name as user_name
+      from calendar_event_details ced
+      join calendar_events ce on ce.id = ced.id
+      join calendar_event_participants cep on cep.event_id = ce.id
+      join profiles p on p.id = cep.user_id
+      where ce.cancelled_at is null
+        and (ce.starts_at at time zone ${ISRAEL_TZ})::date <= (now() at time zone ${ISRAEL_TZ})::date
+        and coalesce((ce.ends_at at time zone ${ISRAEL_TZ})::date, (ce.starts_at at time zone ${ISRAEL_TZ})::date)
+            >= (now() at time zone ${ISRAEL_TZ})::date
+        and p.telegram_id is not null
+      order by p.name, ce.starts_at asc, ce.title
+    `;
+
     const todayByUser = new Map<
       string,
       {
         userName: string;
-        tasks: Array<{ id: string; title: string; dueDate: string | null; subtopic: string | null }>;
+        items: Array<{
+          id: string;
+          title: string;
+          subtopic: string | null;
+          timeLabel: string;
+          kind: "task" | "schedule";
+          sortAt: string;
+        }>;
       }
     >();
-    for (const row of todayRows) {
-      const item = todayByUser.get(row.user_id) ?? { userName: row.user_name, tasks: [] };
-      item.tasks.push({
+
+    for (const row of todayTaskRows) {
+      const item = todayByUser.get(row.user_id) ?? { userName: row.user_name, items: [] };
+      item.items.push({
         id: row.id,
         title: row.title,
-        dueDate: row.due_date,
         subtopic: row.subtopic_name,
+        timeLabel: row.due_date
+          ? new Date(row.due_date).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })
+          : "ללא שעה",
+        kind: "task",
+        sortAt: row.due_date ?? "9999",
       });
       todayByUser.set(row.user_id, item);
     }
+
+    for (const row of todayScheduleRows) {
+      const item = todayByUser.get(row.user_id) ?? { userName: row.user_name, items: [] };
+      item.items.push({
+        id: row.id,
+        title: row.title,
+        subtopic: row.subtopic_name,
+        timeLabel: formatScheduleTime(row),
+        kind: "schedule",
+        sortAt: row.starts_at,
+      });
+      todayByUser.set(row.user_id, item);
+    }
+
     for (const [userId, item] of todayByUser) {
-      result.dailySummarySent += await notificationService.notifyDailyTaskList({
+      const sorted = item.items.sort((a, b) => a.sortAt.localeCompare(b.sortAt));
+      result.dailySummarySent += await notificationService.notifyDailyDigest({
         userId,
         userName: item.userName,
-        tasks: item.tasks,
         dayKey,
+        items: sorted.map(({ sortAt: _sortAt, ...rest }) => rest),
       });
     }
   } else {

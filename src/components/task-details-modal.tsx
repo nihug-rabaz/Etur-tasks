@@ -179,11 +179,11 @@ export function TaskDetailsModal({
   useEffect(() => {
     if (!open) return;
     const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !editing) onClose();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [open, onClose, editing]);
 
   const title = task?.title ?? taskTitle;
   const status: TaskStatus = task?.status ?? "in_progress";
@@ -250,6 +250,7 @@ export function TaskDetailsModal({
       setEditing(false);
       setDraft(null);
       onUpdated?.();
+      router.refresh();
     } finally {
       setSaving(false);
     }
@@ -309,7 +310,7 @@ export function TaskDetailsModal({
               animate={{ y: 0, opacity: 1, scale: 1, filter: "blur(0px)" }}
               exit={{ y: 12, opacity: 0, scale: 0.97, filter: "blur(4px)" }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="hud-modal w-full max-w-xl overflow-hidden rounded-2xl"
+              className="hud-modal font-sans w-full max-w-xl overflow-hidden rounded-2xl"
               role="dialog"
               aria-modal="true"
               aria-label="פרטי משימה"
@@ -321,47 +322,28 @@ export function TaskDetailsModal({
                   <div className="min-w-0 flex-1">
                     {editing && draft ? (
                       <div className="flex items-center gap-2">
-                        <Zap size={20} className="shrink-0 text-sky-500 drop-shadow-[0_0_6px_rgba(14,165,233,0.5)]" />
+                        <Zap size={20} className="shrink-0 text-amber-600" />
                         <input
                           type="text"
+                          autoFocus
                           value={draft.title}
                           onChange={(event) => updateDraft("title", event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") void save();
+                          }}
                           placeholder="כותרת המשימה"
-                          className="hud-title flex-1 rounded-lg border border-sky-300/60 bg-white/70 px-3 py-1.5 text-2xl font-extrabold leading-tight outline-none ring-0 focus:border-sky-500 sm:text-[26px]"
+                          className="hud-title flex-1 rounded-xl border border-amber-300/70 bg-white px-3 py-2 text-xl leading-snug outline-none ring-0 focus:border-amber-500 sm:text-2xl"
                         />
                       </div>
                     ) : (
-                      <h3 className="hud-title flex items-center gap-2 text-2xl font-extrabold leading-tight sm:text-[26px]">
-                        <Zap size={20} className="shrink-0 text-sky-500 drop-shadow-[0_0_6px_rgba(14,165,233,0.5)]" />
+                      <h3 className="hud-title flex items-center gap-2 text-xl leading-snug sm:text-2xl">
+                        <Zap size={20} className="shrink-0 text-amber-600" />
                         <span className="truncate">{headerTitle}</span>
                       </h3>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {!editing ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={startEdit}
-                          disabled={!task || loading}
-                          aria-label="עריכה"
-                          title="עריכה"
-                          className="hud-edit-btn"
-                        >
-                          <Pencil size={15} strokeWidth={2.5} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDelete(true)}
-                          disabled={!task || loading}
-                          aria-label="מחיקה"
-                          title="מחיקה"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
-                        >
-                          <Trash2 size={15} strokeWidth={2.5} />
-                        </button>
-                      </>
-                    ) : (
+                    {editing ? (
                       <>
                         <button
                           type="button"
@@ -382,6 +364,29 @@ export function TaskDetailsModal({
                           className="hud-close-btn"
                         >
                           <X size={16} strokeWidth={2.5} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={startEdit}
+                          disabled={!task || loading}
+                          aria-label="עריכה"
+                          title="עריכה"
+                          className="hud-edit-btn"
+                        >
+                          <Pencil size={15} strokeWidth={2.5} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(true)}
+                          disabled={!task || loading}
+                          aria-label="מחיקה"
+                          title="מחיקה"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          <Trash2 size={15} strokeWidth={2.5} />
                         </button>
                       </>
                     )}
@@ -441,8 +446,8 @@ export function TaskDetailsModal({
                 ) : null}
                 <section className="hud-glass-card p-4">
                   <div className="flex items-center gap-2">
-                    <FileText size={13} className="text-sky-600" />
-                    <p className="hud-glass-card__label">Description</p>
+                    <FileText size={13} className="text-amber-700" />
+                    <p className="hud-glass-card__label">תיאור</p>
                   </div>
                   {editing && draft ? (
                     <textarea
@@ -450,10 +455,10 @@ export function TaskDetailsModal({
                       onChange={(event) => updateDraft("description", event.target.value)}
                       placeholder="תיאור המשימה…"
                       rows={4}
-                      className="mt-3 w-full resize-y rounded-lg border border-sky-300/60 bg-white/70 px-3 py-2 text-sm leading-relaxed text-slate-800 outline-none focus:border-sky-500"
+                      className="mt-3 w-full resize-y rounded-xl border border-amber-300/60 bg-white px-3 py-2.5 text-sm leading-relaxed text-amber-950 outline-none focus:border-amber-500"
                     />
                   ) : (
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-amber-950/90">
                       {loading
                         ? "טוען נתונים…"
                         : task?.description?.trim()
@@ -462,7 +467,7 @@ export function TaskDetailsModal({
                     </p>
                   )}
                   {error ? (
-                    <p className="mt-3 font-mono text-xs text-rose-600">⚠ {error}</p>
+                    <p className="mt-3 text-sm text-rose-600">{error}</p>
                   ) : null}
                 </section>
 
@@ -476,10 +481,10 @@ export function TaskDetailsModal({
                             key={option}
                             type="button"
                             onClick={() => updateDraft("status", option)}
-                            className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+                            className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${
                               draft.status === option
-                                ? "border-sky-500 bg-sky-100 text-sky-800 shadow-[0_0_10px_rgba(14,165,233,0.25)]"
-                                : "border-slate-300 bg-white/70 text-slate-600 hover:border-sky-400"
+                                ? "border-amber-500 bg-amber-100/80 text-amber-900"
+                                : "border-amber-200/80 bg-white text-amber-900/70 hover:border-amber-400"
                             }`}
                           >
                             {statusLabel[option]}
@@ -495,10 +500,10 @@ export function TaskDetailsModal({
                             key={option}
                             type="button"
                             onClick={() => updateDraft("priority", option)}
-                            className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+                            className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${
                               draft.priority === option
-                                ? "border-fuchsia-500 bg-fuchsia-100 text-fuchsia-800 shadow-[0_0_10px_rgba(217,70,239,0.25)]"
-                                : "border-slate-300 bg-white/70 text-slate-600 hover:border-fuchsia-400"
+                                ? "border-orange-500 bg-orange-100/80 text-orange-900"
+                                : "border-amber-200/80 bg-white text-amber-900/70 hover:border-orange-400"
                             }`}
                           >
                             {priorityLabel[option]}
@@ -513,13 +518,13 @@ export function TaskDetailsModal({
                           type="datetime-local"
                           value={draft.dueDate}
                           onChange={(event) => updateDraft("dueDate", event.target.value)}
-                          className="rounded-lg border border-sky-300/60 bg-white/70 px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-500"
+                          className="rounded-xl border border-amber-300/60 bg-white px-3 py-2 text-sm text-amber-950 outline-none focus:border-amber-500"
                         />
                         {draft.dueDate ? (
                           <button
                             type="button"
                             onClick={() => updateDraft("dueDate", "")}
-                            className="rounded-lg border border-slate-300 bg-white/70 px-2 py-2 text-xs font-semibold text-slate-600 hover:border-rose-400 hover:text-rose-600"
+                            className="rounded-lg border border-amber-200/80 bg-white px-2 py-2 text-xs font-semibold text-amber-900/70 hover:border-rose-400 hover:text-rose-600"
                           >
                             ניקוי
                           </button>
@@ -541,43 +546,49 @@ export function TaskDetailsModal({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <section className="hud-glass-card p-4">
                       <div className="flex items-center gap-2">
-                        <Clock size={13} className="text-sky-600" />
-                        <p className="hud-glass-card__label">Created</p>
+                        <Clock size={13} className="text-amber-700" />
+                        <p className="hud-glass-card__label">נוצר</p>
                       </div>
-                      <p className="mt-2.5 font-mono text-sm font-semibold text-slate-800">
+                      <p className="mt-2.5 text-sm font-medium text-amber-950">
                         {formatDate(task?.created_at ?? null)}
                       </p>
                     </section>
                     <section className="hud-glass-card p-4">
                       <div className="flex items-center gap-2">
                         <History size={13} className="text-fuchsia-600" />
-                        <p className="hud-glass-card__label">Updated</p>
+                        <p className="hud-glass-card__label">עודכן</p>
                       </div>
-                      <p className="mt-2.5 font-mono text-sm font-semibold text-slate-800">
+                      <p className="mt-2.5 text-sm font-medium text-amber-950">
                         {formatDate(task?.updated_at ?? null)}
                       </p>
                     </section>
                   </div>
                 )}
 
-                {!editing && (task?.assignee_name || task?.project_name || task?.subtopic_name) ? (
+                {!editing && task ? (
                   <section className="hud-glass-card p-4">
                     <div className="flex items-center gap-2">
-                      <CalendarClock size={13} className="text-sky-600" />
-                      <p className="hud-glass-card__label">Context</p>
+                      <CalendarClock size={13} className="text-amber-700" />
+                      <p className="hud-glass-card__label">שיוך ומיקום</p>
                     </div>
-                    <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
+                    <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
                       <div>
-                        <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">תחום</p>
-                        <p className="mt-1 font-semibold text-slate-800">{domainLabel(task?.domain_name)}</p>
+                        <p className="text-xs font-medium text-amber-800/70">תחום</p>
+                        <p className="mt-1 font-semibold text-amber-950">{domainLabel(task?.domain_name)}</p>
                       </div>
                       <div>
-                        <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">תת-נושא</p>
-                        <p className="mt-1 font-semibold text-slate-800">{task?.subtopic_name ? toHebrewSubtopicLabel(task.subtopic_name) : "—"}</p>
+                        <p className="text-xs font-medium text-amber-800/70">תת-נושא</p>
+                        <p className="mt-1 font-semibold text-amber-950">{task?.subtopic_name ? toHebrewSubtopicLabel(task.subtopic_name) : "—"}</p>
                       </div>
+                      {task?.project_name ? (
+                        <div>
+                          <p className="text-xs font-medium text-amber-800/70">פרויקט</p>
+                          <p className="mt-1 font-semibold text-amber-950">{task.project_name}</p>
+                        </div>
+                      ) : null}
                       <div>
-                        <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">משויך</p>
-                        <p className="mt-1 font-semibold text-slate-800">{task?.assignee_name ?? "—"}</p>
+                        <p className="text-xs font-medium text-amber-800/70">משויכים</p>
+                        <p className="mt-1 font-semibold text-amber-950">{task?.assignee_name ?? "—"}</p>
                       </div>
                     </div>
                   </section>

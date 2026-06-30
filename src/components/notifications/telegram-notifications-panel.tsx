@@ -39,7 +39,7 @@ function buildWebLink(botUsername: string, code: string): string {
   return `https://web.telegram.org/k/#?tgaddr=${encodeURIComponent(tgAddr)}`;
 }
 
-export function TelegramNotificationsPanel() {
+export function TelegramNotificationsPanel({ isAdmin = false }: { isAdmin?: boolean }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<LinkStatus | null>(null);
   const [loading, setLoading] = useState(false);
@@ -245,6 +245,8 @@ export function TelegramNotificationsPanel() {
                   busy={busyAction === "link"}
                 />
               )}
+
+              {isAdmin ? <AdminMorningTimeSetting /> : null}
             </div>
           </motion.div>
         )}
@@ -476,6 +478,88 @@ function LinkedView({
           {busyAction === "unlink" ? <Loader2 size={14} className="animate-spin" /> : <Unlink size={14} />}
           נתק
         </button>
+      </div>
+    </div>
+  );
+}
+
+function AdminMorningTimeSetting() {
+  const [time, setTime] = useState("07:00");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch("/api/telegram/morning-time");
+        if (!response.ok) return;
+        const data = (await response.json()) as { time?: string };
+        if (!cancelled && data.time) setTime(data.time);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const response = await fetch("/api/telegram/morning-time", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ time }),
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { time?: string };
+      if (data.time) setTime(data.time);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!saved) return;
+    const timer = window.setTimeout(() => setSaved(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [saved]);
+
+  return (
+    <div className="border-t border-border-weak pt-3">
+      <div className="rounded-lg border border-amber-300/50 bg-amber-50/70 px-2.5 py-2 dark:border-amber-400/25 dark:bg-amber-500/10">
+        <p className="text-[15px] font-bold leading-tight text-text-primary">זמן הודעת הבוקר טוב</p>
+        <p className="mt-0.5 text-xs leading-snug text-text-muted">
+          מתי נשלחת הודעת &quot;בוקר טוב&quot; עם המשימות להיום
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="time"
+            dir="ltr"
+            value={time}
+            disabled={loading || saving}
+            onChange={(event) => setTime(event.target.value)}
+            className="w-[6.75rem] shrink-0 rounded-lg border border-border-weak bg-white px-2 py-1.5 text-left text-base font-bold text-text-primary disabled:opacity-60 dark:bg-slate-900"
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={loading || saving}
+            className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-accent-primary px-3 py-1.5 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-60"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+            שמור
+          </button>
+          {saved ? (
+            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">נשמר</span>
+          ) : null}
+        </div>
       </div>
     </div>
   );
