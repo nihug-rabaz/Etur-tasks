@@ -16,6 +16,9 @@ import { CreateProjectDrawer } from "@/components/create-project-drawer";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TaskDragDropProvider } from "@/components/main-tabs/task-drag-drop-context";
+import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
+import { TabTaskFilter } from "@/lib/tasks/tab-task-filter";
+import { defaultTaskFilters } from "@/lib/tasks/task-filter";
 import { domainMeta, type DomainKey } from "@/lib/ui/domains";
 
 interface MainTabsShellProps {
@@ -68,7 +71,7 @@ const sectionNameMap: Record<string, string> = {
 };
 
 const sectionOrderMap: Record<TabSlug, string[]> = {
-  recruitment: ["קצינים", "נגדים", "מלש״בים"],
+  recruitment: ["מלש״בים", "קצינים", "נגדים"],
   positioning: ["יח״צ", "סושיאל", "ביקורים"],
   general: ["כללי"],
 };
@@ -76,6 +79,7 @@ const sectionOrderMap: Record<TabSlug, string[]> = {
 export function MainTabsShell({ tabs }: MainTabsShellProps) {
   const initialTab = tabs[0]?.slug ?? "recruitment";
   const [activeTab, setActiveTab] = useState<TabSlug>(initialTab);
+  const [filters, setFilters] = useState(defaultTaskFilters);
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
   const searchParams = useSearchParams();
 
@@ -146,6 +150,8 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
   }, [tabs]);
 
   const selected = normalizedTabs.find((tab) => tab.slug === activeTab) ?? normalizedTabs[0];
+  const tabFilter = useMemo(() => new TabTaskFilter(selected?.sections ?? []), [selected]);
+  const filteredSections = useMemo(() => tabFilter.apply(filters), [tabFilter, filters]);
   const sectionsLayoutClass =
     selected?.slug === "general"
       ? "grid grid-cols-1 items-start gap-3 sm:gap-4"
@@ -217,7 +223,10 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
               ]),
             ) as Partial<Record<DomainKey, number>>}
             onChange={(key) => {
-              if (key !== "all") setActiveTab(key);
+              if (key !== "all") {
+                setActiveTab(key);
+                setFilters(defaultTaskFilters);
+              }
             }}
           />
         </div>
@@ -242,17 +251,32 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
                   />
                 </div>
               </div>
-              <div className={sectionsLayoutClass}>
-                {selected.sections.map((section) => (
-                  <SectionGroup
-                    key={section.id}
-                    section={section}
-                    domainSlug={selected.slug}
-                    toneClass={tabMeta[selected.slug].contentClass}
-                    onTaskClick={(task) => setSelectedTask(task)}
-                  />
-                ))}
+              <div className="mb-3 sm:mb-4">
+                <TaskFilterBar
+                  state={filters}
+                  onChange={setFilters}
+                  subtopicOptions={tabFilter.subtopicOptions}
+                  projectOptions={tabFilter.projectOptions}
+                  assigneeOptions={tabFilter.assigneeOptions}
+                />
               </div>
+              {filteredSections.length === 0 ? (
+                <div className="rounded-2xl bg-surface-2/60 px-4 py-10 text-center text-sm font-medium text-text-secondary">
+                  לא נמצאו משימות התואמות לסינון.
+                </div>
+              ) : (
+                <div className={sectionsLayoutClass}>
+                  {filteredSections.map((section) => (
+                    <SectionGroup
+                      key={section.id}
+                      section={section}
+                      domainSlug={selected.slug}
+                      toneClass={tabMeta[selected.slug].contentClass}
+                      onTaskClick={(task) => setSelectedTask(task)}
+                    />
+                  ))}
+                </div>
+              )}
             </TaskDragDropProvider>
           </motion.div>
         </AnimatePresence>

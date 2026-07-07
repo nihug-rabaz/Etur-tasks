@@ -92,5 +92,5 @@ export async function GET(request: Request) {
         `
       : [];
 
-  return NextResponse.json({ subtopics: subtopicsPayload, users, projects });
+  return NextResponse.json({ subtopics: subtopicsPayload, users, projects, currentUserId: profile.id });
 }

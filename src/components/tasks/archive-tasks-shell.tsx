@@ -7,13 +7,14 @@ import {
   CheckCircle2,
   ChevronDown,
   FolderKanban,
-  Search,
   UserRound,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
+import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
+import { TaskFilter, defaultTaskFilters, isTaskFilterActive } from "@/lib/tasks/task-filter";
 import {
   domainKeys,
   domainCardStyle,
@@ -48,11 +49,14 @@ function formatDate(value: string | null): string {
 export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
-  const [query, setQuery] = useState("");
+  const [filters, setFilters] = useState(defaultTaskFilters);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
 
-  const grouped = useMemo(() => groupTasksByDomain(tasks), [tasks]);
+  const filterEngine = useMemo(() => new TaskFilter(tasks), [tasks]);
+  const matchedTasks = useMemo(() => filterEngine.apply(filters), [filterEngine, filters]);
+
+  const grouped = useMemo(() => groupTasksByDomain(matchedTasks), [matchedTasks]);
   const counts = useMemo(
     () => ({
       recruitment: grouped.recruitment.length,
@@ -64,16 +68,10 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
 
   const visibleDomains = activeDomain === "all" ? domainKeys : [activeDomain];
 
-  const filteredTasks = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return visibleDomains
-      .flatMap((key) => grouped[key])
-      .filter((task) => {
-        if (!q) return true;
-        const blob = `${task.title} ${task.subtopic_name ?? ""} ${task.project_name ?? ""} ${task.assignee_name ?? ""}`.toLowerCase();
-        return blob.includes(q);
-      });
-  }, [visibleDomains, grouped, query]);
+  const filteredTasks = useMemo(
+    () => visibleDomains.flatMap((key) => grouped[key]),
+    [visibleDomains, grouped],
+  );
 
   const byMonth = useMemo(() => {
     const map = new Map<string, TaskWithRelations[]>();
@@ -118,16 +116,14 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
         </div>
 
         <div className="space-y-4 border-t border-border-weak/60 px-5 py-4 sm:px-6">
-          <div className="relative flex items-center">
-            <Search size={18} className="pointer-events-none absolute start-4 text-text-muted" aria-hidden />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="חיפוש לפי שם משימה, תת-נושא, פרויקט או משויך…"
-              className="w-full rounded-full bg-surface-2 py-3 ps-11 pe-4 text-sm text-text-primary outline-none transition focus:ring-2 focus:ring-emerald-400/35"
-            />
-          </div>
+          <TaskFilterBar
+            state={filters}
+            onChange={setFilters}
+            subtopicOptions={filterEngine.subtopicOptions}
+            projectOptions={filterEngine.projectOptions}
+            assigneeOptions={filterEngine.assigneeOptions}
+            accentRingClass="focus:ring-emerald-400/35"
+          />
           <DomainTopicTabs active={activeDomain} counts={counts} onChange={setActiveDomain} />
         </div>
       </div>
@@ -139,7 +135,7 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
           </span>
           <p className="mt-4 text-base font-semibold text-text-primary">אין משימות בארכיון</p>
           <p className="mt-1 text-sm text-text-muted">
-            {query.trim() ? "לא נמצאו תוצאות לחיפוש." : "משימות שהושלמו יופיעו כאן אוטומטית."}
+            {isTaskFilterActive(filters) ? "לא נמצאו תוצאות לסינון." : "משימות שהושלמו יופיעו כאן אוטומטית."}
           </p>
         </div>
       ) : viewMode === "table" ? (

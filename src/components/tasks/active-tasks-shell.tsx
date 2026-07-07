@@ -7,7 +7,9 @@ import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
+import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
 import { isTaskAssignedToUser } from "@/lib/tasks/assignees";
+import { TaskFilter, defaultTaskFilters } from "@/lib/tasks/task-filter";
 import {
   domainKeys,
   groupTasksByDomain,
@@ -27,6 +29,7 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
   const [taskScope, setTaskScope] = useState<TaskScope>("all");
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [filters, setFilters] = useState(defaultTaskFilters);
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
 
   const scopedTasks = useMemo(
@@ -42,7 +45,10 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
     [tasks, currentUserId],
   );
 
-  const grouped = useMemo(() => groupTasksByDomain(scopedTasks), [scopedTasks]);
+  const filterEngine = useMemo(() => new TaskFilter(scopedTasks), [scopedTasks]);
+  const filteredTasks = useMemo(() => filterEngine.apply(filters), [filterEngine, filters]);
+
+  const grouped = useMemo(() => groupTasksByDomain(filteredTasks), [filteredTasks]);
   const counts = useMemo(
     () => ({
       recruitment: grouped.recruitment.length,
@@ -69,7 +75,7 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
           <div>
             <h1 className="text-2xl font-bold text-text-primary">משימות פעילות</h1>
             <p className="mt-1 text-sm font-medium text-text-secondary">
-              {scopedTasks.length} משימות פעילות
+              {filteredTasks.length} משימות פעילות
               {taskScope === "mine" ? " משויכות אליך" : " (לא הושלמו)"}
             </p>
           </div>
@@ -86,14 +92,23 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
             onChange={setTaskScope}
           />
           <DomainTopicTabs active={activeDomain} counts={counts} onChange={setActiveDomain} />
+          <TaskFilterBar
+            state={filters}
+            onChange={setFilters}
+            subtopicOptions={filterEngine.subtopicOptions}
+            projectOptions={filterEngine.projectOptions}
+            assigneeOptions={filterEngine.assigneeOptions}
+          />
         </div>
       </div>
 
-      {scopedTasks.length === 0 ? (
+      {filteredTasks.length === 0 ? (
         <div className="rounded-3xl bg-surface-2/60 p-10 text-center text-sm font-medium text-text-secondary">
-          {taskScope === "mine"
-            ? "אין משימות פעילות משויכות אליך כרגע."
-            : "אין משימות פעילות להצגה כרגע."}
+          {scopedTasks.length === 0
+            ? taskScope === "mine"
+              ? "אין משימות פעילות משויכות אליך כרגע."
+              : "אין משימות פעילות להצגה כרגע."
+            : "לא נמצאו משימות התואמות לסינון."}
         </div>
       ) : viewMode === "table" ? (
         <TasksTable tasks={tableTasks} onSelect={openTaskDetails} />

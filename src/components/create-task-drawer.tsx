@@ -116,13 +116,18 @@ export function CreateTaskDrawer({
         const nextProjects = data.projects ?? [];
         setSubtopics(nextSubtopics);
         setProjects(nextProjects);
-        setUsers(
-          (data.users ?? []).map((u: { id: string; name: string; avatar?: string | null }) => ({
+        const nextUsers: AssigneeOption[] = (data.users ?? []).map(
+          (u: { id: string; name: string; avatar?: string | null }) => ({
             id: u.id,
             name: u.name,
             avatar: u.avatar ?? null,
-          })),
+          }),
         );
+        setUsers(nextUsers);
+        const currentUserId = typeof data.currentUserId === "string" ? data.currentUserId : null;
+        if (currentUserId && nextUsers.some((user) => user.id === currentUserId)) {
+          setAssignedToIds((current) => (current.length > 0 ? current : [currentUserId]));
+        }
         if (nextSubtopics.length === 0) {
           setOptionsError("אין תת-נושאים זמינים. פנה למנהל להקצות הרשאות.");
           return;
@@ -208,6 +213,7 @@ export function CreateTaskDrawer({
     event?.stopPropagation();
     if (defaultSubtopicId) setSubtopicIds([defaultSubtopicId]);
     if (defaultProjectId) setProjectId(defaultProjectId);
+    setAssignedToIds([]);
     setOpen(true);
   };
 

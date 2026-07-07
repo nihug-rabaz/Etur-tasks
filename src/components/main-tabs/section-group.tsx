@@ -1,6 +1,6 @@
 import { TabSectionItem } from "@/services/dashboard.service";
 import { ProjectExpandableCard } from "@/components/main-tabs/project-expandable-card";
-import { StandaloneTasksCard } from "@/components/main-tabs/standalone-tasks-card";
+import { StandaloneTasksList } from "@/components/main-tabs/standalone-tasks-card";
 import { domainMeta, type DomainKey } from "@/lib/ui/domains";
 
 interface SectionGroupProps {
@@ -32,6 +32,7 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
           style={{ backgroundColor: "rgba(255,255,255,0.22)" }}
         >
           {section.projects.length} פרויקטים
+          {section.standaloneTasks.length > 0 ? ` · ${section.standaloneTasks.length} משימות` : ""}
         </span>
       </div>
 
@@ -43,10 +44,9 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
         ) : (
           <>
             {section.standaloneTasks.length > 0 ? (
-              <StandaloneTasksCard
+              <StandaloneTasksList
                 sectionId={section.id}
                 tasks={section.standaloneTasks}
-                toneClass={toneClass}
                 onTaskClick={onTaskClick}
               />
             ) : null}
