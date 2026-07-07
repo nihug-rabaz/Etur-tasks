@@ -515,11 +515,7 @@ export class DashboardService extends BaseService {
           where usp.user_id = ${access.userId}
         )
       )
-      order by
-        case status when 'in_progress' then 1 else 2 end,
-        case when due_date is null then 1 else 0 end,
-        due_date asc,
-        updated_at desc
+      order by created_at asc, id asc
     `;
 
     const allTaskIds = tasks.map((task) => task.id);
