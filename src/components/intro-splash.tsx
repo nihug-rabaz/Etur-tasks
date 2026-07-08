@@ -1,86 +1,130 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { LogIn } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
-const DURATION_MS = 2800;
+const INTRO_VIDEO_SRC = "/intro.mp4";
+
+type IntroPhase = "ready" | "playing" | "failed";
 
 export function IntroSplash() {
   const [visible, setVisible] = useState(true);
+  const [phase, setPhase] = useState<IntroPhase>("ready");
   const reduceMotion = useReducedMotion();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Play the intro on every full page load, then auto-dismiss (in-app navigation keeps it mounted, so it won't replay).
+  const dismiss = useCallback(() => setVisible(false), []);
+
+  const enter = useCallback(() => {
+    if (phase !== "ready") return;
+    setPhase("playing");
+  }, [phase]);
+
   useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), DURATION_MS);
+    if (!reduceMotion) return;
+    const timer = window.setTimeout(dismiss, 400);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [reduceMotion, dismiss]);
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    video.volume = 1;
+    void video.play().catch(() => setPhase("failed"));
+  }, [phase]);
 
   return (
     <AnimatePresence>
       {visible ? (
         <motion.div
           key="intro-splash"
-          className="fixed inset-0 z-[200] flex items-center justify-center overflow-hidden"
-          style={{ background: "radial-gradient(120% 120% at 50% 25%, #a78bfa 0%, #8b5cf6 40%, #22b8cf 100%)" }}
+          className="fixed inset-0 z-[200] overflow-hidden bg-[#0c0a14]"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.7, ease: "easeInOut" }}
-          onClick={() => setVisible(false)}
+          transition={{ duration: 0.6, ease: "easeInOut" }}
+          role="presentation"
         >
-          <div className="pointer-events-none absolute inset-0">
-            <motion.span
-              className="absolute left-1/2 top-1/2 h-[60rem] w-[60rem] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle,rgba(56,189,248,0.22)_0%,rgba(56,189,248,0.08)_35%,transparent_70%)] blur-3xl"
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1.6, ease: "easeOut" }}
+          {phase === "playing" ? (
+            <video
+              ref={videoRef}
+              src={INTRO_VIDEO_SRC}
+              className="h-full w-full object-cover"
+              playsInline
+              preload="auto"
+              onEnded={dismiss}
+              onError={() => setPhase("failed")}
             />
-          </div>
+          ) : null}
 
-          <div className="relative flex flex-col items-center gap-7 px-6">
-            <motion.div
-              className="relative overflow-hidden rounded-[2rem] bg-white p-7 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)] sm:p-9"
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.82, y: 14, filter: "blur(8px)" }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-              transition={{ type: "spring", stiffness: 120, damping: 16, delay: 0.15 }}
+          {phase === "ready" && !reduceMotion ? (
+            <div
+              className="absolute inset-0 flex items-center justify-center px-6"
+              style={{
+                background:
+                  "radial-gradient(120% 120% at 50% 20%, #a78bfa 0%, #7c3aed 38%, #1e1b4b 72%, #0c0a14 100%)",
+              }}
             >
-              <Image
-                src="/logo-mador.png"
-                alt="מדור איתור ומיצוב - הרבנות הצבאית"
-                width={1024}
-                height={819}
-                priority
-                className="h-auto w-[min(70vw,22rem)] select-none"
-              />
-              {!reduceMotion ? (
-                <motion.span
-                  className="absolute inset-y-0 w-1/3 -skew-x-12 bg-gradient-to-r from-transparent via-white/70 to-transparent"
-                  initial={{ left: "-40%" }}
-                  animate={{ left: "130%" }}
-                  transition={{ duration: 1.1, ease: "easeInOut", delay: 0.9 }}
-                />
-              ) : null}
-            </motion.div>
-
-            <motion.div
-              className="flex flex-col items-center gap-3"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.7 }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-                <p className="text-sm font-semibold tracking-[0.3em] text-white/80">מערכת ניהול משימות</p>
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-              </div>
+              <span className="pointer-events-none absolute left-1/2 top-1/3 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/20 blur-3xl" />
               <motion.div
-                className="h-0.5 w-40 origin-center rounded-full bg-gradient-to-r from-cyan-300/0 via-cyan-200 to-cyan-300/0"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ duration: 1, ease: "easeInOut", delay: 0.9 }}
-              />
-            </motion.div>
-          </div>
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.55, ease: "easeOut" }}
+                className="relative flex w-full max-w-sm flex-col items-center text-center"
+              >
+                <div className="mb-8 overflow-hidden rounded-[1.75rem] bg-white p-6 shadow-[0_28px_70px_-18px_rgba(0,0,0,0.55)]">
+                  <Image
+                    src="/logo-intro.png"
+                    alt="מדור אומ״ץ הרבנות הצבאית"
+                    width={1024}
+                    height={1024}
+                    priority
+                    className="h-auto w-[min(72vw,17rem)] select-none"
+                  />
+                </div>
+                <p className="mb-1 text-sm font-semibold tracking-[0.28em] text-white/70">מערכת ניהול משימות</p>
+                <h1 className="mb-8 text-2xl font-black text-white">ברוכים הבאים</h1>
+                <button
+                  type="button"
+                  onClick={enter}
+                  className="inline-flex w-full max-w-xs items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-8 py-4 text-base font-bold text-white shadow-[0_16px_40px_-10px_rgba(139,92,246,0.65)] transition hover:brightness-105 hover:shadow-[0_20px_48px_-10px_rgba(139,92,246,0.75)] active:scale-[0.98]"
+                >
+                  <LogIn size={20} strokeWidth={2.5} />
+                  כניסה למערכת
+                </button>
+              </motion.div>
+            </div>
+          ) : null}
+
+          {reduceMotion || phase === "failed" ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0c0a14] px-6 text-center">
+              <p className="text-lg font-bold text-white">מערכת ניהול משימות</p>
+              <p className="text-sm text-white/70">מדור איתור ומיצוב</p>
+              {phase === "failed" ? (
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  className="mt-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-6 py-3 text-sm font-bold text-white"
+                >
+                  <LogIn size={16} />
+                  המשך לאתר
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {phase === "playing" ? (
+            <button
+              type="button"
+              onClick={dismiss}
+              className="absolute bottom-6 end-6 z-10 rounded-full bg-black/45 px-4 py-2 text-xs font-bold text-white backdrop-blur-sm transition hover:bg-black/60"
+            >
+              דלג
+            </button>
+          ) : null}
         </motion.div>
       ) : null}
     </AnimatePresence>
