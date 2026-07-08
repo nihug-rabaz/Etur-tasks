@@ -8,6 +8,7 @@ import {
   isTaskFilterActive,
   taskMatchesFilters,
 } from "@/lib/tasks/task-filter";
+import { sortTabSectionTasks } from "@/lib/tasks/sort-tab-tasks";
 
 // Applies the shared task filters over the section/project hierarchy of a dashboard tab.
 export class TabTaskFilter {
@@ -71,7 +72,7 @@ export class TabTaskFilter {
             ),
           }))
           .filter((project) => project.tasks.length > 0);
-        return { ...section, standaloneTasks, projects };
+        return sortTabSectionTasks({ ...section, standaloneTasks, projects });
       })
       .filter((section) => section.standaloneTasks.length > 0 || section.projects.length > 0);
   }

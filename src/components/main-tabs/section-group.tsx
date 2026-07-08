@@ -43,13 +43,6 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
           </p>
         ) : (
           <>
-            {section.standaloneTasks.length > 0 ? (
-              <StandaloneTasksList
-                sectionId={section.id}
-                tasks={section.standaloneTasks}
-                onTaskClick={onTaskClick}
-              />
-            ) : null}
             {section.projects.map((project) => (
               <ProjectExpandableCard
                 key={`${section.id}-${project.id}`}
@@ -58,6 +51,13 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
                 onTaskClick={onTaskClick}
               />
             ))}
+            {section.standaloneTasks.length > 0 ? (
+              <StandaloneTasksList
+                sectionId={section.id}
+                tasks={section.standaloneTasks}
+                onTaskClick={onTaskClick}
+              />
+            ) : null}
           </>
         )}
       </div>

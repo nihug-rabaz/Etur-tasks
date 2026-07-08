@@ -515,7 +515,10 @@ export class DashboardService extends BaseService {
           where usp.user_id = ${access.userId}
         )
       )
-      order by created_at asc, id asc
+      order by
+        case priority when 'high' then 1 when 'medium' then 2 else 3 end,
+        created_at asc,
+        id asc
     `;
 
     const allTaskIds = tasks.map((task) => task.id);
