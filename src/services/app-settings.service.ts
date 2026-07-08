@@ -1,6 +1,16 @@
 import { BaseService } from "@/services/base.service";
+import {
+  DomainTabAppearanceMap,
+  DomainTabIconName,
+  defaultDomainTabAppearance,
+  normalizeDomainTabIconName,
+  parseDomainTabAppearance,
+  serializeDomainTabAppearance,
+} from "@/lib/ui/domain-tab-appearance";
+import type { DomainKey } from "@/lib/ui/domains";
 
 const MORNING_MESSAGE_TIME_KEY = "telegram_morning_message_time";
+const DOMAIN_TAB_APPEARANCE_KEY = "domain_tab_appearance";
 const DEFAULT_MORNING_MESSAGE_TIME = "07:00";
 
 export class AppSettingsService extends BaseService {
@@ -34,6 +44,45 @@ export class AppSettingsService extends BaseService {
       return DEFAULT_MORNING_MESSAGE_TIME;
     }
     return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  }
+
+  public async getDomainTabAppearance(): Promise<DomainTabAppearanceMap> {
+    const db = this.getDb();
+    const rows = await db<Array<{ value: string }>>`
+      select value from app_settings where key = ${DOMAIN_TAB_APPEARANCE_KEY} limit 1
+    `.catch(() => []);
+    return parseDomainTabAppearance(rows[0]?.value);
+  }
+
+  public async setDomainTabIcon(slug: DomainKey, icon: DomainTabIconName): Promise<DomainTabAppearanceMap> {
+    const current = await this.getDomainTabAppearance();
+    current[slug] = {
+      ...current[slug],
+      icon: normalizeDomainTabIconName(icon),
+    };
+    await this.saveDomainTabAppearance(current);
+    return current;
+  }
+
+  public async setDomainTabImage(slug: DomainKey, imageUrl: string | null): Promise<DomainTabAppearanceMap> {
+    const current = await this.getDomainTabAppearance();
+    current[slug] = {
+      ...current[slug],
+      imageUrl: imageUrl?.trim() ? imageUrl.trim() : null,
+    };
+    await this.saveDomainTabAppearance(current);
+    return current;
+  }
+
+  private async saveDomainTabAppearance(map: DomainTabAppearanceMap): Promise<void> {
+    const db = this.getDb();
+    const payload = serializeDomainTabAppearance(map);
+    await db`
+      insert into app_settings (key, value)
+      values (${DOMAIN_TAB_APPEARANCE_KEY}, ${payload})
+      on conflict (key) do update
+      set value = excluded.value, updated_at = now()
+    `;
   }
 }
 

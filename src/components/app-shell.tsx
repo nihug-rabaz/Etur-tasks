@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { RealtimeSync } from "@/components/realtime-sync";
 import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -17,6 +17,10 @@ const navItems: SideMenuItem[] = [
   { label: "משתמשים", href: "/admin/users", description: "ניהול חברי הצוות" },
 ];
 
+const adminNavItems: SideMenuItem[] = [
+  { label: "הגדרות מערכת", href: "/admin/settings", description: "איקונים ותצוגת טאבים" },
+];
+
 function getBreadcrumbHref(segments: string[], index: number): string | null {
   const href = `/${segments.slice(0, index + 1).join("/")}`;
   const exactRoutes = new Set([
@@ -25,6 +29,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/tasks/upcoming",
     "/tasks/archive",
     "/admin/users",
+    "/admin/settings",
     "/settings/profile",
   ]);
   if (exactRoutes.has(href)) return href;
@@ -66,6 +71,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   const isAdmin = session?.user?.role === "admin" || Boolean(session?.user?.isAdmin);
+  const menuItems = useMemo(
+    () => (isAdmin ? [...navItems, ...adminNavItems] : navItems),
+    [isAdmin],
+  );
   const routeLabel: Record<string, string> = {
     dashboard: "ראשי",
     tasks: "משימות",
@@ -80,7 +89,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     settings: "הגדרות",
     profile: "פרופיל",
   };
-
   const userLabel = profile?.name || session?.user?.name || session?.user?.email || null;
   const userAvatarUrl = profile?.avatar ?? null;
   const isDashboard = pathname === "/dashboard";
@@ -88,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
       <RealtimeSync />
-      <SideMenu items={navItems} userLabel={userLabel} userAvatarUrl={userAvatarUrl} state={sideMenu} />
+      <SideMenu items={menuItems} userLabel={userLabel} userAvatarUrl={userAvatarUrl} state={sideMenu} />
       <header className="topbar w-full px-3 py-3 sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 sm:gap-3">
           <SideMenuTrigger state={sideMenu} className="shrink-0" />

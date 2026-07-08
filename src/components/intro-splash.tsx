@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { LogIn } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 const INTRO_VIDEO_SRC = "/intro.mp4";
 
@@ -12,7 +12,6 @@ type IntroPhase = "ready" | "playing" | "failed";
 export function IntroSplash() {
   const [visible, setVisible] = useState(true);
   const [phase, setPhase] = useState<IntroPhase>("ready");
-  const reduceMotion = useReducedMotion();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const dismiss = useCallback(() => setVisible(false), []);
@@ -21,12 +20,6 @@ export function IntroSplash() {
     if (phase !== "ready") return;
     setPhase("playing");
   }, [phase]);
-
-  useEffect(() => {
-    if (!reduceMotion) return;
-    const timer = window.setTimeout(dismiss, 400);
-    return () => window.clearTimeout(timer);
-  }, [reduceMotion, dismiss]);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -60,7 +53,7 @@ export function IntroSplash() {
             />
           ) : null}
 
-          {phase === "ready" && !reduceMotion ? (
+          {phase === "ready" ? (
             <div
               className="absolute inset-0 flex items-center justify-center px-6"
               style={{
@@ -73,33 +66,38 @@ export function IntroSplash() {
                 initial={{ opacity: 0, y: 20, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.55, ease: "easeOut" }}
-                className="relative flex w-full max-w-sm flex-col items-center text-center"
+                className="relative flex w-full max-w-sm flex-col items-center text-center pb-24 sm:pb-20"
               >
-                <div className="mb-8 overflow-hidden rounded-[1.75rem] bg-white p-6 shadow-[0_28px_70px_-18px_rgba(0,0,0,0.55)]">
+                <div className="mb-6 overflow-hidden rounded-[1.75rem] bg-white p-4 shadow-[0_28px_70px_-18px_rgba(0,0,0,0.55)] sm:p-5">
                   <Image
                     src="/logo-intro.png"
                     alt="מדור אומ״ץ הרבנות הצבאית"
                     width={1024}
                     height={1024}
                     priority
-                    className="h-auto w-[min(72vw,17rem)] select-none"
+                    className="h-auto w-[min(72vw,13.5rem)] select-none sm:w-[min(58vw,15.5rem)]"
                   />
                 </div>
                 <p className="mb-1 text-sm font-semibold tracking-[0.28em] text-white/70">מערכת ניהול משימות</p>
-                <h1 className="mb-8 text-2xl font-black text-white">ברוכים הבאים</h1>
-                <button
-                  type="button"
-                  onClick={enter}
-                  className="inline-flex w-full max-w-xs items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-8 py-4 text-base font-bold text-white shadow-[0_16px_40px_-10px_rgba(139,92,246,0.65)] transition hover:brightness-105 hover:shadow-[0_20px_48px_-10px_rgba(139,92,246,0.75)] active:scale-[0.98]"
-                >
-                  <LogIn size={20} strokeWidth={2.5} />
-                  כניסה למערכת
-                </button>
+                <h1 className="mb-5 text-xl font-black text-white sm:text-2xl">ברוכים הבאים</h1>
               </motion.div>
             </div>
           ) : null}
 
-          {reduceMotion || phase === "failed" ? (
+          {phase === "ready" ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-6">
+              <button
+                type="button"
+                onClick={enter}
+                className="pointer-events-auto inline-flex w-full max-w-xs items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-8 py-4 text-base font-bold text-white shadow-[0_16px_40px_-10px_rgba(139,92,246,0.65)] transition hover:brightness-105 hover:shadow-[0_20px_48px_-10px_rgba(139,92,246,0.75)] active:scale-[0.98]"
+              >
+                <LogIn size={20} strokeWidth={2.5} />
+                כניסה למערכת
+              </button>
+            </div>
+          ) : null}
+
+          {phase === "failed" ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0c0a14] px-6 text-center">
               <p className="text-lg font-bold text-white">מערכת ניהול משימות</p>
               <p className="text-sm text-white/70">מדור איתור ומיצוב</p>

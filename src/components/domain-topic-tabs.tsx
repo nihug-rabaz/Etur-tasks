@@ -1,15 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
-import { BriefcaseBusiness, Megaphone, Radar } from "lucide-react";
-import { ComponentType } from "react";
+import { useDomainTabAppearance } from "@/hooks/use-domain-tab-appearance";
+import { resolveDomainTabIcon } from "@/lib/ui/domain-tab-appearance";
 import { domainKeys, domainMeta, type DomainKey } from "@/lib/ui/domains";
-
-const domainIcons: Record<DomainKey, ComponentType<{ size?: number; className?: string }>> = {
-  recruitment: Radar,
-  positioning: Megaphone,
-  general: BriefcaseBusiness,
-};
 
 interface DomainTopicTabsProps {
   active: DomainKey | "all";
@@ -19,6 +14,8 @@ interface DomainTopicTabsProps {
 }
 
 export function DomainTopicTabs({ active, counts, onChange, showAll = true }: DomainTopicTabsProps) {
+  const appearance = useDomainTabAppearance();
+
   return (
     <div className="flex w-full items-stretch gap-1 sm:gap-5" role="tablist" aria-label="תחומים">
       {showAll ? (
@@ -32,12 +29,27 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
       ) : null}
       {domainKeys.map((key) => {
         const meta = domainMeta[key];
-        const Icon = domainIcons[key];
+        const item = appearance[key];
+        const Icon = resolveDomainTabIcon(item.icon);
         return (
           <Tab
             key={key}
             label={meta.label}
-            icon={<Icon size={20} />}
+            media={
+              item.imageUrl ? (
+                <Image
+                  src={item.imageUrl}
+                  alt={meta.label}
+                  width={56}
+                  height={56}
+                  unoptimized
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Icon size={22} />
+              )
+            }
+            mediaIsImage={Boolean(item.imageUrl)}
             count={counts?.[key]}
             selected={active === key}
             accentHex={meta.accentHex}
@@ -52,7 +64,8 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
 
 interface TabProps {
   label: string;
-  icon?: React.ReactNode;
+  media?: React.ReactNode;
+  mediaIsImage?: boolean;
   count?: number;
   selected: boolean;
   accentHex: string;
@@ -60,7 +73,7 @@ interface TabProps {
   indicatorId: string;
 }
 
-function Tab({ label, icon, count, selected, accentHex, onClick, indicatorId }: TabProps) {
+function Tab({ label, media, mediaIsImage = false, count, selected, accentHex, onClick, indicatorId }: TabProps) {
   return (
     <button
       type="button"
@@ -72,12 +85,16 @@ function Tab({ label, icon, count, selected, accentHex, onClick, indicatorId }: 
         selected ? "" : "text-text-muted hover:text-text-secondary"
       }`}
     >
-      {icon ? (
+      {media ? (
         <span
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg transition sm:h-10 sm:w-10 sm:rounded-xl"
-          style={selected ? { backgroundColor: `${accentHex}1f`, color: accentHex } : undefined}
+          className={`inline-flex shrink-0 items-center justify-center overflow-hidden transition ${
+            mediaIsImage
+              ? "h-11 w-11 rounded-full ring-2 ring-white/70 shadow-md sm:h-14 sm:w-14"
+              : "h-9 w-9 rounded-xl sm:h-11 sm:w-11 sm:rounded-xl"
+          }`}
+          style={selected ? { backgroundColor: mediaIsImage ? undefined : `${accentHex}1f`, color: accentHex } : undefined}
         >
-          {icon}
+          {media}
         </span>
       ) : null}
       <span className="truncate">{label}</span>
