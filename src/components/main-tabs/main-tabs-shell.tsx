@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { BriefcaseBusiness, LayoutGrid, Megaphone, Radar } from "lucide-react";
+import { BriefcaseBusiness, Megaphone, Radar } from "lucide-react";
+import Image from "next/image";
 import { ComponentType, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MainTabItem } from "@/services/dashboard.service";
@@ -179,11 +180,19 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
       <div className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] min-h-0 w-[94%] max-w-[2000px] flex-col gap-4 pb-4 pt-3 sm:gap-5 sm:pb-5 sm:pt-5">
       <div className="flex flex-col gap-3 px-1 sm:gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
           <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
-            <span
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white transition-all duration-500 sm:h-[3.25rem] sm:w-[3.25rem]"
-              style={{ backgroundColor: accentHex, boxShadow: `0 14px 30px -8px ${accentHex}` }}
-            >
-              <LayoutGrid size={24} />
+            <span className="brand-logo-orbit" style={{ ["--brand-glow" as string]: accentHex }}>
+              <span aria-hidden className="brand-logo-orbit__glow" />
+              <span aria-hidden className="brand-logo-orbit__ring" />
+              <span className="brand-logo-orbit__inner">
+                <Image
+                  src="/logo-mador-omtz.png"
+                  alt="מדור אומ״ץ"
+                  width={112}
+                  height={112}
+                  priority
+                  className="h-full w-full object-contain"
+                />
+              </span>
             </span>
             <div className="min-w-0">
               <h1 className="text-2xl font-black leading-tight tracking-tight text-text-primary sm:text-4xl">פרויקטים ומשימות</h1>
