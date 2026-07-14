@@ -391,6 +391,51 @@ textarea.hud-title {
   color: #92400e;
 }
 
+.task-chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 130, 40, 0.28) transparent;
+}
+
+.task-chat-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 0;
+}
+
+.task-chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.task-chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(180, 130, 40, 0.28);
+  border-radius: 999px;
+}
+
+.task-chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 130, 40, 0.45);
+}
+
+.task-chat-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.hud-modal-body-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180, 130, 40, 0.25) transparent;
+}
+
+.hud-modal-body-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.hud-modal-body-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.hud-modal-body-scroll::-webkit-scrollbar-thumb {
+  background: rgba(180, 130, 40, 0.25);
+  border-radius: 999px;
+}
+
 .hud-close-btn {
   position: relative;
   display: inline-flex;

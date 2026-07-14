@@ -1,27 +1,18 @@
 "use client";
 
 import { Calendar, Flag, UserRound, FolderKanban } from "lucide-react";
-import { TaskWithRelations } from "@/types/models";
+import { useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { TaskWithRelations, type TaskPriority } from "@/types/models";
 import { domainCardStyle } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { TaskQuickPriority } from "@/components/tasks/task-quick-priority";
 import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 
 interface TasksTableProps {
   tasks: TaskWithRelations[];
   onSelect: (task: TaskWithRelations) => void;
+  embedded?: boolean;
 }
-
-const priorityBadge: Record<string, string> = {
-  low: "border-emerald-400 bg-emerald-100 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-100",
-  medium: "border-amber-400 bg-amber-100 text-amber-900 dark:bg-amber-500/25 dark:text-amber-100",
-  high: "border-rose-400 bg-rose-100 text-rose-800 dark:bg-rose-500/25 dark:text-rose-100",
-};
-
-const priorityLabel: Record<string, string> = {
-  low: "נמוכה",
-  medium: "בינונית",
-  high: "גבוהה",
-};
 
 function formatDueDate(value: string | null): string {
   if (!value) return "ללא תאריך";
@@ -30,7 +21,11 @@ function formatDueDate(value: string | null): string {
   return date.toLocaleDateString("he-IL");
 }
 
-export function TasksTable({ tasks, onSelect }: TasksTableProps) {
+function hasTaskQuickOverlay(): boolean {
+  return Boolean(document.querySelector("[data-task-quick-overlay]"));
+}
+
+export function TasksTable({ tasks, onSelect, embedded = false }: TasksTableProps) {
   if (tasks.length === 0) {
     return (
       <div className="rounded-2xl border-2 border-dashed border-border-weak px-4 py-8 text-center text-sm text-text-secondary">
@@ -40,9 +35,18 @@ export function TasksTable({ tasks, onSelect }: TasksTableProps) {
   }
 
   return (
-    <div className="dashboard-glass overflow-hidden rounded-3xl">
+    <div className={embedded ? "overflow-hidden rounded-2xl bg-surface-1/70" : "dashboard-glass overflow-hidden rounded-3xl"}>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-right text-sm" dir="rtl">
+        <table className="min-w-[920px] w-full table-fixed text-right text-sm" dir="rtl">
+          <colgroup>
+            <col className="w-[28%]" />
+            <col className="w-[10%]" />
+            <col className="w-[12%]" />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+            <col className="w-[14%]" />
+            <col className="w-[8%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-border-weak bg-surface-2/70 text-xs font-bold uppercase tracking-wider text-text-secondary">
               <th className="px-4 py-3 font-bold">משימה</th>
@@ -75,50 +79,92 @@ export function TasksTable({ tasks, onSelect }: TasksTableProps) {
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task) => {
-              const domain = domainCardStyle(task.domain_name);
-              return (
-                <tr
-                  key={task.id}
-                  onClick={() => onSelect(task)}
-                  className="group cursor-pointer border-b border-border-weak/60 transition hover:bg-surface-2/80"
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-block h-6 w-1 rounded-full ${domain.accent}`} aria-hidden />
-                      <span className="font-semibold text-text-primary group-hover:underline">
-                        {task.title}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${domain.pillClass}`}>
-                      {domain.label}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {task.subtopic_name ? toHebrewSubtopicLabel(task.subtopic_name) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {task.assignee_name ?? "לא משויך"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold ${priorityBadge[task.priority]}`}>
-                      {priorityLabel[task.priority]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-                    <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary">
-                    {formatDueDate(task.due_date)}
-                  </td>
-                </tr>
-              );
-            })}
+            {tasks.map((task) => (
+              <TaskTableRow key={task.id} task={task} onSelect={onSelect} />
+            ))}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function TaskTableRow({
+  task,
+  onSelect,
+}: {
+  task: TaskWithRelations;
+  onSelect: (task: TaskWithRelations) => void;
+}) {
+  const domain = domainCardStyle(task.domain_name);
+  const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const dismissOnlyRef = useRef(false);
+
+  useEffect(() => {
+    setPriority(task.priority);
+  }, [task.priority]);
+
+  const markDismissOnlyIfOverlayOpen = (event: PointerEvent<HTMLTableRowElement> | MouseEvent<HTMLTableRowElement>) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest("button, [data-no-row-click]")) {
+      dismissOnlyRef.current = false;
+      return;
+    }
+    if (hasTaskQuickOverlay()) {
+      dismissOnlyRef.current = true;
+    }
+  };
+
+  const handleRowClick = (event: MouseEvent<HTMLTableRowElement>) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest("button, [data-no-row-click]")) return;
+    if (dismissOnlyRef.current) {
+      dismissOnlyRef.current = false;
+      return;
+    }
+    if (hasTaskQuickOverlay()) return;
+    onSelect(task);
+  };
+
+  return (
+    <tr
+      onPointerDownCapture={markDismissOnlyIfOverlayOpen}
+      onMouseDownCapture={markDismissOnlyIfOverlayOpen}
+      onClick={handleRowClick}
+      className="group h-14 cursor-pointer border-b border-border-weak/60 transition hover:bg-surface-2/80"
+    >
+      <td className="px-4 py-2 align-middle">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`inline-block h-6 w-1 shrink-0 rounded-full ${domain.accent}`} aria-hidden />
+          <span className="truncate font-semibold text-text-primary group-hover:underline" title={task.title}>
+            {task.title}
+          </span>
+        </div>
+      </td>
+      <td className="px-4 py-2 align-middle whitespace-nowrap">
+        <span className={`inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-xs font-bold ${domain.pillClass}`}>
+          {domain.label}
+        </span>
+      </td>
+      <td
+        className="truncate px-4 py-2 align-middle text-text-secondary"
+        title={task.subtopic_name ? toHebrewSubtopicLabel(task.subtopic_name) : undefined}
+      >
+        {task.subtopic_name ? toHebrewSubtopicLabel(task.subtopic_name) : "—"}
+      </td>
+      <td
+        className="truncate px-4 py-2 align-middle text-text-secondary"
+        title={task.assignee_name ?? undefined}
+      >
+        {task.assignee_name ?? "לא משויך"}
+      </td>
+      <td className="px-4 py-2 align-middle whitespace-nowrap" data-no-row-click onClick={(event) => event.stopPropagation()}>
+        <TaskQuickPriority taskId={task.id} priority={priority} onUpdated={setPriority} />
+      </td>
+      <td className="px-4 py-2 align-middle whitespace-nowrap" data-no-row-click onClick={(event) => event.stopPropagation()}>
+        <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
+      </td>
+      <td className="px-4 py-2 align-middle whitespace-nowrap text-text-secondary">{formatDueDate(task.due_date)}</td>
+    </tr>
   );
 }

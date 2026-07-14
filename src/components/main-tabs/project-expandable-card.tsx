@@ -19,24 +19,22 @@ interface ProjectExpandableCardProps {
 export function ProjectExpandableCard({ project, toneClass, onTaskClick }: ProjectExpandableCardProps) {
   const [open, setOpen] = useState(false);
   const { dragTask, dropTargetProjectId, setDropTarget, moveTaskToProject, endDrag } = useTaskDragDrop();
+  const isDragging = Boolean(dragTask);
   const isValidDropTarget = Boolean(dragTask && dragTask.sourceProjectId !== project.id);
   const isDropHover = isValidDropTarget && dropTargetProjectId === project.id;
 
   const handleDragOver = (event: React.DragEvent) => {
     if (!isValidDropTarget) return;
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = "move";
     setDropTarget(project.id);
   };
 
-  const handleDragLeave = (event: React.DragEvent) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node)) {
-      setDropTarget(null);
-    }
-  };
-
+  // Clearing on leave causes flicker between cards; drop target is cleared on drag end instead.
   const handleDrop = (event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     if (!dragTask || dragTask.sourceProjectId === project.id) {
       endDrag();
       return;
@@ -46,19 +44,18 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl bg-surface-2/60 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${toneClass}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragOver}
+      onDrop={handleDrop}
+      className={`overflow-hidden rounded-2xl bg-surface-2/60 shadow-sm transition-[box-shadow] duration-200 ${
+        isDragging ? "" : "hover:-translate-y-0.5 hover:shadow-md"
+      } ${isDropHover ? "ring-2 ring-accent-primary/55" : ""} ${toneClass}`}
     >
       <div className="relative flex flex-col gap-2.5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3.5">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          onDragOver={handleDragOver}
-          onDragEnter={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`relative flex w-full min-w-0 flex-1 items-start gap-2.5 overflow-hidden text-start transition sm:items-center sm:justify-between sm:gap-3 ${
-            isDropHover ? "ring-2 ring-accent-primary/60 ring-offset-2 ring-offset-surface-2/60" : ""
-          }`}
+          className="relative flex w-full min-w-0 flex-1 items-start gap-2.5 overflow-hidden text-start transition sm:items-center sm:justify-between sm:gap-3"
         >
           <span className="flex min-w-0 flex-1 items-center gap-2">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2/90 text-text-secondary">
@@ -77,26 +74,6 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
             size={18}
             className={`mt-1 shrink-0 text-text-secondary transition-transform duration-200 sm:mt-0 ${open ? "rotate-180" : ""}`}
           />
-
-          <AnimatePresence>
-            {isDropHover ? (
-              <motion.span
-                initial={{ opacity: 0, y: 8, scale: 0.92 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 420, damping: 28 }}
-                className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-accent-primary/15 backdrop-blur-[1px]"
-              >
-                <motion.span
-                  animate={{ scale: [1, 1.06, 1] }}
-                  transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                  className="rounded-full bg-accent-primary px-4 py-2 text-sm font-extrabold text-white shadow-[0_10px_30px_-8px_rgba(14,165,233,0.8)]"
-                >
-                  העברה לפרויקט
-                </motion.span>
-              </motion.span>
-            ) : null}
-          </AnimatePresence>
         </button>
 
         <span className="flex items-center justify-end gap-1.5 border-t border-border-weak/60 pt-2 sm:inline-flex sm:shrink-0 sm:items-center sm:gap-2 sm:border-t-0 sm:pt-0">
@@ -117,6 +94,17 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
             <ExternalLink size={11} className="ms-1 hidden sm:inline" />
           </Link>
         </span>
+
+        <div
+          aria-hidden={!isDropHover}
+          className={`pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-accent-primary/12 transition-opacity duration-150 ${
+            isDropHover ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <span className="rounded-full bg-accent-primary px-4 py-2 text-sm font-extrabold text-white shadow-[0_10px_30px_-8px_rgba(14,165,233,0.75)]">
+            העברה לפרויקט
+          </span>
+        </div>
       </div>
 
       <AnimatePresence initial={false}>

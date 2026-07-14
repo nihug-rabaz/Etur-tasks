@@ -50,7 +50,7 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("timeline");
   const [filters, setFilters] = useState(defaultTaskFilters);
-  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
 
   const filterEngine = useMemo(() => new TaskFilter(tasks), [tasks]);
@@ -85,7 +85,7 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
   }, [filteredTasks]);
 
   const toggleMonth = (key: string) => {
-    setExpandedMonths((current) => {
+    setCollapsedMonths((current) => {
       const next = new Set(current);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -143,7 +143,7 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
       ) : (
         <div className="space-y-4">
           {byMonth.map(([key, monthTasks]) => {
-            const expanded = expandedMonths.size === 0 || expandedMonths.has(key);
+            const expanded = !collapsedMonths.has(key);
             return (
               <section key={key} className="dashboard-glass overflow-hidden rounded-3xl">
                 <button

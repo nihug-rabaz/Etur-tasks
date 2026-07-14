@@ -64,7 +64,26 @@ export async function GET(_: Request, context: { params: Promise<{ id: string }>
     limit 1
   `;
 
-  return NextResponse.json({ task: details[0] ?? null });
+  const task = details[0] ?? null;
+  if (!task) {
+    return NextResponse.json({ task: null });
+  }
+
+  let assignees = await db<Array<{ id: string; name: string; avatar: string | null }>>`
+    select p.id, p.name, p.avatar
+    from task_assignees ta
+    join profiles p on p.id = ta.user_id
+    where ta.task_id = ${id}
+    order by p.name
+  `;
+
+  if (assignees.length === 0 && task.assigned_to) {
+    assignees = await db<Array<{ id: string; name: string; avatar: string | null }>>`
+      select id, name, avatar from profiles where id = ${task.assigned_to} limit 1
+    `;
+  }
+
+  return NextResponse.json({ task: { ...task, assignees } });
 }
 
 export async function DELETE(_: Request, context: { params: Promise<{ id: string }> }) {

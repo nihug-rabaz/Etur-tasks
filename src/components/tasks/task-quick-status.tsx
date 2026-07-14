@@ -148,6 +148,7 @@ export function TaskQuickStatus({
     confirmArchive && mounted ? (
       <div
         id={confirmId}
+        data-task-quick-overlay
         role="dialog"
         aria-label="אישור העברה לארכיון"
         style={{

@@ -120,10 +120,14 @@ export function TaskAssigneeStack({ assignees }: { assignees: TabTaskAssignee[] 
         {shown.map((person, i) => (
           <div
             key={person.id}
-            className={i > 0 ? "-ms-1" : ""}
+            className={`group/assignee relative ${i > 0 ? "-ms-1" : ""}`}
             style={{ zIndex: 8 - i }}
+            title={person.name}
           >
             <UserAvatarMark name={person.name} avatarUrl={person.avatar} size="xs" variant="flush" />
+            <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition group-hover/assignee:opacity-100">
+              {person.name}
+            </span>
           </div>
         ))}
         {extra > 0 ? (

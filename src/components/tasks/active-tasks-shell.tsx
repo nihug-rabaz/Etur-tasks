@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { LayoutGrid, Rows3, UserRound, Users } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronDown, LayoutGrid, Rows3, UserRound, Users } from "lucide-react";
 import { TaskCard } from "@/components/task-card";
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
@@ -12,6 +13,7 @@ import { isTaskAssignedToUser } from "@/lib/tasks/assignees";
 import { TaskFilter, defaultTaskFilters } from "@/lib/tasks/task-filter";
 import {
   domainKeys,
+  domainMeta,
   groupTasksByDomain,
   type DomainKey,
 } from "@/lib/ui/domains";
@@ -30,6 +32,9 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [filters, setFilters] = useState(defaultTaskFilters);
+  const [collapsedDomains, setCollapsedDomains] = useState<Set<DomainKey>>(
+    () => new Set(domainKeys),
+  );
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
 
   const scopedTasks = useMemo(
@@ -60,10 +65,17 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
 
   const visibleDomains = activeDomain === "all" ? domainKeys : [activeDomain];
 
-  const tableTasks = useMemo(
-    () => visibleDomains.flatMap((key) => grouped[key]),
-    [visibleDomains, grouped],
-  );
+  const singleDomainTasks =
+    activeDomain === "all" ? null : grouped[activeDomain];
+
+  const toggleDomain = (key: DomainKey) => {
+    setCollapsedDomains((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   const openTaskDetails = (task: TaskWithRelations) =>
     setSelectedTask({ id: task.id, title: task.title });
@@ -110,36 +122,63 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
               : "אין משימות פעילות להצגה כרגע."
             : "לא נמצאו משימות התואמות לסינון."}
         </div>
-      ) : viewMode === "table" ? (
-        <TasksTable tasks={tableTasks} onSelect={openTaskDetails} />
+      ) : singleDomainTasks ? (
+        singleDomainTasks.length === 0 ? (
+          <div className="rounded-2xl bg-surface-2/60 px-4 py-8 text-center text-sm text-text-secondary">
+            אין משימות בתחום זה.
+          </div>
+        ) : viewMode === "table" ? (
+          <TasksTable tasks={singleDomainTasks} onSelect={openTaskDetails} />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {singleDomainTasks.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => openTaskDetails(task)}
+                className="cursor-pointer text-start"
+              >
+                <TaskCard task={task} />
+              </button>
+            ))}
+          </div>
+        )
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {visibleDomains.map((key) => {
             const domainTasks = grouped[key];
-            if (activeDomain !== "all" && domainTasks.length === 0) {
-              return (
-                <div
-                  key={key}
-                  className="rounded-2xl bg-surface-2/60 px-4 py-8 text-center text-sm text-text-secondary"
-                >
-                  אין משימות בתחום זה.
-                </div>
-              );
-            }
             if (domainTasks.length === 0) return null;
+
+            const expanded = !collapsedDomains.has(key);
+            const meta = domainMeta[key];
+
             return (
-              <div key={key} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {domainTasks.map((task) => (
-                  <button
-                    key={task.id}
-                    type="button"
-                    onClick={() => openTaskDetails(task)}
-                    className="cursor-pointer text-start"
-                  >
-                    <TaskCard task={task} />
-                  </button>
-                ))}
-              </div>
+              <DomainTasksSection
+                key={key}
+                domainKey={key}
+                label={meta.label}
+                count={domainTasks.length}
+                accentClass={meta.header}
+                expanded={expanded}
+                onToggle={() => toggleDomain(key)}
+              >
+                {viewMode === "table" ? (
+                  <TasksTable tasks={domainTasks} onSelect={openTaskDetails} embedded />
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {domainTasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => openTaskDetails(task)}
+                        className="cursor-pointer text-start"
+                      >
+                        <TaskCard task={task} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </DomainTasksSection>
             );
           })}
         </div>
@@ -153,6 +192,67 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
           taskTitle={selectedTask.title}
         />
       ) : null}
+    </section>
+  );
+}
+
+interface DomainTasksSectionProps {
+  domainKey: DomainKey;
+  label: string;
+  count: number;
+  accentClass: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}
+
+function DomainTasksSection({
+  domainKey,
+  label,
+  count,
+  accentClass,
+  expanded,
+  onToggle,
+  children,
+}: DomainTasksSectionProps) {
+  return (
+    <section className="dashboard-glass overflow-hidden rounded-3xl" data-domain={domainKey}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-3 px-5 py-4 text-start transition hover:bg-surface-2/50"
+      >
+        <span className="flex items-center gap-3">
+          <span
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-white ${accentClass}`}
+          >
+            <span className="text-sm font-black">{label.charAt(0)}</span>
+          </span>
+          <span>
+            <span className="block text-base font-bold text-text-primary">{label}</span>
+            <span className="text-xs font-medium text-text-muted">{count} משימות</span>
+          </span>
+        </span>
+        <ChevronDown
+          size={18}
+          className={`shrink-0 text-text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-border-weak/50 px-4 py-4 sm:px-5">{children}</div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </section>
   );
 }

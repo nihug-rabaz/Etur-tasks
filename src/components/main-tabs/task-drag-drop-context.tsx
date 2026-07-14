@@ -28,6 +28,7 @@ export function TaskDragDropProvider({ children }: { children: ReactNode }) {
   const [isPending, startTransition] = useTransition();
 
   const startDrag = useCallback((task: DragTask) => {
+    setDropTargetProjectId(null);
     setDragTask(task);
   }, []);
 
@@ -36,8 +37,9 @@ export function TaskDragDropProvider({ children }: { children: ReactNode }) {
     setDropTargetProjectId(null);
   }, []);
 
+  // Avoid redundant state writes during high-frequency dragOver events.
   const setDropTarget = useCallback((projectId: string | null) => {
-    setDropTargetProjectId(projectId);
+    setDropTargetProjectId((current) => (current === projectId ? current : projectId));
   }, []);
 
   const moveTaskToProject = useCallback(
