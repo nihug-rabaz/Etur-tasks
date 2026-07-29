@@ -14,11 +14,8 @@ const updateSchema = z.object({
 
 export async function GET() {
   const authorizationService = new AuthorizationService();
-  const profile = await authorizationService.getCurrentProfile();
+  const profile = await authorizationService.ensureRealAdminApi();
   if (!profile) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -28,11 +25,8 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   const authorizationService = new AuthorizationService();
-  const profile = await authorizationService.getCurrentProfile();
+  const profile = await authorizationService.ensureRealAdminApi();
   if (!profile) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

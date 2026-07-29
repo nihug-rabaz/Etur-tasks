@@ -9,7 +9,7 @@ export default async function AdminSettingsPage() {
       <div className="dashboard-glass rounded-3xl p-5 sm:p-6">
         <h1 className="text-2xl font-bold text-text-primary">הגדרות מערכת</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          התאמת אייקונים ותמונות לטאבים במסך הראשי (איתור, מיצוב, כללי).
+          התאמת אייקונים ותמונות לטאבים במסך הראשי.
         </p>
       </div>
       <DomainTabsSettingsPanel />

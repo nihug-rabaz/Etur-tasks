@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthorizationService } from "@/services/authorization.service";
+import { ImpersonationService } from "@/services/impersonation.service";
 import { ProfileService } from "@/services/profile.service";
 import { isRenderableAvatarUrl } from "@/lib/images/avatar";
 import { serializeProfile } from "@/lib/profile/serialize";
@@ -26,7 +27,11 @@ export async function GET() {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  return NextResponse.json(serializeProfile(fullProfile));
+  const impersonation = await new ImpersonationService().getSnapshot();
+  return NextResponse.json({
+    ...serializeProfile(fullProfile),
+    impersonation,
+  });
 }
 
 export async function PATCH(request: Request) {

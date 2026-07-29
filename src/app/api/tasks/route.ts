@@ -4,6 +4,7 @@ import { AuthorizationService } from "@/services/authorization.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { NotificationService } from "@/services/notification.service";
 import { SubtopicLinkService } from "@/services/subtopic-link.service";
+import { TaskCloseRequestService } from "@/services/task-close-request.service";
 import { resolveSubtopicIds } from "@/lib/subtopics/validation";
 
 const taskSchema = z.object({
@@ -27,6 +28,8 @@ const taskPatchSchema = z.object({
   dueDate: z.string().nullable().optional(),
   assignedToIds: z.array(z.string().uuid()).optional(),
   projectId: z.string().uuid().nullable().optional(),
+  subtopicId: z.string().uuid().optional(),
+  subtopicIds: z.array(z.string().uuid()).optional(),
 });
 
 export async function POST(request: Request) {
@@ -57,6 +60,11 @@ export async function POST(request: Request) {
     }
   }
 
+  const initialStatus =
+    payload.status === "completed" && !authorizationService.canCloseTask(profile)
+      ? "in_progress"
+      : payload.status;
+
   const db = NeonDatabase.createClient();
   const primaryAssignee = payload.assignedToIds[0] ?? null;
   const rows = await db<Array<{ id: string }>>`
@@ -69,7 +77,7 @@ export async function POST(request: Request) {
       ${primaryAssignee},
       ${profile.id},
       ${payload.priority},
-      ${payload.status},
+      ${initialStatus},
       ${payload.dueDate ?? null}
     )
     returning id
@@ -130,11 +138,31 @@ export async function PATCH(request: Request) {
   const db = NeonDatabase.createClient();
 
   if (payload.status !== undefined) {
+    if (payload.status === "completed" && !authorizationService.canCloseTask(profile)) {
+      return NextResponse.json(
+        { error: "Only admins can close tasks", code: "CLOSE_REQUIRES_ADMIN" },
+        { status: 403 },
+      );
+    }
+    if (payload.status === "in_progress" && !authorizationService.canCloseTask(profile)) {
+      const current = await db<Array<{ status: string }>>`
+        select status from tasks where id = ${payload.id} limit 1
+      `;
+      if (current[0]?.status === "completed") {
+        return NextResponse.json(
+          { error: "Only admins can reopen tasks", code: "REOPEN_REQUIRES_ADMIN" },
+          { status: 403 },
+        );
+      }
+    }
     await db`
       update tasks
       set status = ${payload.status}, updated_at = now()
       where id = ${payload.id}
     `;
+    if (payload.status === "completed") {
+      await new TaskCloseRequestService().cancelPendingForTask(payload.id);
+    }
   }
   if (payload.title !== undefined) {
     await db`
@@ -208,6 +236,28 @@ export async function PATCH(request: Request) {
       `;
       await subtopicLinkService.syncTaskSubtopics(payload.id, projectSubtopicIds);
     }
+  }
+  if (payload.subtopicId !== undefined || payload.subtopicIds !== undefined) {
+    const subtopicIds = resolveSubtopicIds({
+      subtopicId: payload.subtopicId,
+      subtopicIds: payload.subtopicIds,
+    });
+    if (subtopicIds.length === 0) {
+      return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+    }
+    if (profile.role !== "admin") {
+      const canAccessTarget = await authorizationService.canAccessAllSubtopics(profile.id, subtopicIds);
+      if (!canAccessTarget) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+    const subtopicLinkService = new SubtopicLinkService();
+    await db`
+      update tasks
+      set subtopic_id = ${subtopicIds[0]}, project_id = null, updated_at = now()
+      where id = ${payload.id}
+    `;
+    await subtopicLinkService.syncTaskSubtopics(payload.id, subtopicIds);
   }
 
   return NextResponse.json({ ok: true });

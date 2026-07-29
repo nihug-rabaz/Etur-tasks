@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ProfileFontScalePanel } from "@/components/profile/profile-font-scale-panel";
 import { ProfileSettingsPanel } from "@/components/profile/profile-settings-panel";
 import { AuthorizationService } from "@/services/authorization.service";
 import { ProfileService } from "@/services/profile.service";
@@ -27,6 +28,7 @@ export default async function ProfileSettingsPage() {
           role: profile.role,
         }}
       />
+      <ProfileFontScalePanel />
     </section>
   );
 }

@@ -15,6 +15,7 @@ import {
 import { Drawer } from "@/components/ui/drawer";
 import { AssigneeMultiSelect, type AssigneeOption } from "@/components/ui/assignee-select";
 import { SubtopicMultiSelect } from "@/components/ui/subtopic-multi-select";
+import { useCloseRequests } from "@/components/tasks/close-requests-context";
 import { intersectsSubtopicIds } from "@/lib/subtopics/ids";
 
 interface OptionItem {
@@ -74,6 +75,7 @@ export function CreateTaskDrawer({
   accentHex,
 }: CreateTaskDrawerProps) {
   const router = useRouter();
+  const { canClose } = useCloseRequests();
   const [open, setOpen] = useState(false);
   const [subtopics, setSubtopics] = useState<OptionItem[]>([]);
   const [projects, setProjects] = useState<Array<OptionItem & { subtopic_id: string; subtopic_ids?: string[] }>>([]);
@@ -371,8 +373,8 @@ export function CreateTaskDrawer({
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 סטטוס
               </p>
-              <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border-weak bg-surface-2/40 p-1.5">
-                {STATUS_SEGMENTS.map((item) => {
+              <div className={`grid gap-2 rounded-2xl border border-border-weak bg-surface-2/40 p-1.5 ${canClose ? "grid-cols-2" : "grid-cols-1"}`}>
+                {STATUS_SEGMENTS.filter((item) => canClose || item.value !== "completed").map((item) => {
                   const active = status === item.value;
                   return (
                     <button

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { domainKeyFromName, domainMeta } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import type { SearchResults } from "@/services/search.service";
 
 interface DashboardSearchProps {
@@ -177,9 +178,7 @@ export function DashboardSearch({ accentHex, className, onSelectTask }: Dashboar
                         <FolderKanban size={16} />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-text-primary">
-                          {project.name}
-                        </span>
+                        <TruncatedText text={project.name} className="truncate text-sm font-semibold text-text-primary" />
                         <span className="block truncate text-xs text-text-muted">
                           {project.subtopic_name ? toHebrewSubtopicLabel(project.subtopic_name) : "ללא תת-נושא"}
                         </span>

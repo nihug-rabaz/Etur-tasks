@@ -47,6 +47,7 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
               <ProjectExpandableCard
                 key={`${section.id}-${project.id}`}
                 project={project}
+                domainSlug={domainSlug}
                 toneClass={toneClass}
                 onTaskClick={onTaskClick}
               />
@@ -54,6 +55,7 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
             {section.standaloneTasks.length > 0 ? (
               <StandaloneTasksList
                 sectionId={section.id}
+                domainSlug={domainSlug}
                 tasks={section.standaloneTasks}
                 onTaskClick={onTaskClick}
               />

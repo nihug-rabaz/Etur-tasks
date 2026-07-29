@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { BriefcaseBusiness, Megaphone, Radar } from "lucide-react";
 import Image from "next/image";
-import { ComponentType, useEffect, useMemo, useState } from "react";
+import { ComponentType, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { MainTabItem } from "@/services/dashboard.service";
 import { DashboardSearch } from "@/components/main-tabs/dashboard-search";
@@ -19,7 +19,7 @@ import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TaskDragDropProvider } from "@/components/main-tabs/task-drag-drop-context";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
 import { TabTaskFilter } from "@/lib/tasks/tab-task-filter";
-import { defaultTaskFilters } from "@/lib/tasks/task-filter";
+import { defaultTaskFilters, type TaskFilterState } from "@/lib/tasks/task-filter";
 import { domainMeta, type DomainKey } from "@/lib/ui/domains";
 
 interface MainTabsShellProps {
@@ -82,7 +82,24 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
   const [activeTab, setActiveTab] = useState<TabSlug>(initialTab);
   const [filters, setFilters] = useState(defaultTaskFilters);
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
+  const [dragMountSlugs, setDragMountSlugs] = useState<TabSlug[]>([]);
   const searchParams = useSearchParams();
+
+  const handleDragActiveChange = useCallback((state: { active: boolean; sourceDomainSlug?: DomainKey }) => {
+    if (!state.active || !state.sourceDomainSlug) {
+      setDragMountSlugs([]);
+      return;
+    }
+    setDragMountSlugs((current) =>
+      current.includes(state.sourceDomainSlug!) ? current : [...current, state.sourceDomainSlug!],
+    );
+  }, []);
+
+  const handleSwitchTabWhileDragging = useCallback((slug: TabSlug) => {
+    setActiveTab(slug);
+    setFilters(defaultTaskFilters);
+    setDragMountSlugs((current) => (current.includes(slug) ? current : [...current, slug]));
+  }, []);
 
   // Opens a task directly when arriving via a shared deep link (?task=<id>).
   useEffect(() => {
@@ -151,13 +168,22 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
   }, [tabs]);
 
   const selected = normalizedTabs.find((tab) => tab.slug === activeTab) ?? normalizedTabs[0];
-  const tabFilter = useMemo(() => new TabTaskFilter(selected?.sections ?? []), [selected]);
-  const filteredSections = useMemo(() => tabFilter.apply(filters), [tabFilter, filters]);
-  const sectionsLayoutClass =
-    selected?.slug === "general"
-      ? "grid grid-cols-1 items-start gap-3 sm:gap-4"
-      : "grid items-start gap-3 sm:gap-4 xl:grid-cols-3";
   const accentHex = domainMeta[(selected?.slug ?? "general") as DomainKey]?.accentHex ?? "#8b5cf6";
+  const domainDropTargets = useMemo(() => {
+    const map: Partial<Record<DomainKey, { subtopicId: string; label: string }>> = {};
+    for (const tab of normalizedTabs) {
+      const section = tab.sections.find((item) => /^[0-9a-f-]{36}$/i.test(item.id));
+      if (section) {
+        map[tab.slug] = { subtopicId: section.id, label: section.name };
+      }
+    }
+    return map;
+  }, [normalizedTabs]);
+  const mountedTabSlugs = useMemo(() => {
+    if (dragMountSlugs.length === 0) return [activeTab];
+    return Array.from(new Set([...dragMountSlugs, activeTab]));
+  }, [activeTab, dragMountSlugs]);
+  const isCrossTabDragging = dragMountSlugs.length > 0;
 
   if (!selected) {
     return (
@@ -211,6 +237,15 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
           </div>
       </div>
 
+      <TaskDragDropProvider
+        domainDropTargets={domainDropTargets}
+        onDragActiveChange={handleDragActiveChange}
+        onSwitchTabWhileDragging={handleSwitchTabWhileDragging}
+        onMovedToDomain={(slug) => {
+          setActiveTab(slug);
+          setFilters(defaultTaskFilters);
+        }}
+      >
       <motion.div
         className="dashboard-glass-board relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl transition-shadow duration-700 sm:rounded-[2rem]"
         style={{ boxShadow: `0 40px 90px -28px ${accentHex}80, 0 18px 55px -22px ${accentHex}59` }}
@@ -240,56 +275,50 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
           />
         </div>
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selected.slug}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto p-3 sm:p-5"
-          >
-            <TaskDragDropProvider>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 sm:mb-4 sm:gap-3">
-                <h2 className="text-lg font-semibold text-text-primary sm:text-xl">סקציות ופרויקטים</h2>
-                <div className="flex items-center gap-2">
-                  <CreateProjectDrawer
-                    triggerLabel="פרויקט חדש בטאב"
-                    allowedDomainId={selected.id}
-                    allowedDomainSlug={selected.slug}
-                  />
-                </div>
-              </div>
-              <div className="mb-3 sm:mb-4">
-                <TaskFilterBar
-                  state={filters}
-                  onChange={setFilters}
-                  subtopicOptions={tabFilter.subtopicOptions}
-                  projectOptions={tabFilter.projectOptions}
-                  assigneeOptions={tabFilter.assigneeOptions}
+        {isCrossTabDragging ? (
+          <div className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto">
+            {mountedTabSlugs.map((slug) => {
+              const tab = normalizedTabs.find((item) => item.slug === slug);
+              if (!tab) return null;
+              const isVisible = slug === activeTab;
+              return (
+                <TabBoardPanel
+                  key={slug}
+                  tab={tab}
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                  onTaskClick={(task) => setSelectedTask(task)}
+                  className={
+                    isVisible
+                      ? "p-3 sm:p-5"
+                      : "pointer-events-none fixed top-0 -left-[10000px] w-[min(100vw,1200px)] opacity-0"
+                  }
+                  ariaHidden={!isVisible}
                 />
-              </div>
-              {filteredSections.length === 0 ? (
-                <div className="rounded-2xl bg-surface-2/60 px-4 py-10 text-center text-sm font-medium text-text-secondary">
-                  לא נמצאו משימות התואמות לסינון.
-                </div>
-              ) : (
-                <div className={sectionsLayoutClass}>
-                  {filteredSections.map((section) => (
-                    <SectionGroup
-                      key={section.id}
-                      section={section}
-                      domainSlug={selected.slug}
-                      toneClass={tabMeta[selected.slug].contentClass}
-                      onTaskClick={(task) => setSelectedTask(task)}
-                    />
-                  ))}
-                </div>
-              )}
-            </TaskDragDropProvider>
-          </motion.div>
-        </AnimatePresence>
+              );
+            })}
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selected.slug}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto p-3 sm:p-5"
+            >
+              <TabBoardPanel
+                tab={selected}
+                filters={filters}
+                onFiltersChange={setFilters}
+                onTaskClick={(task) => setSelectedTask(task)}
+              />
+            </motion.div>
+          </AnimatePresence>
+        )}
       </motion.div>
+      </TaskDragDropProvider>
       {selectedTask ? (
         <TaskDetailsModal
           open={Boolean(selectedTask)}
@@ -300,5 +329,64 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
       ) : null}
       </div>
     </section>
+  );
+}
+
+interface TabBoardPanelProps {
+  tab: MainTabItem;
+  filters: TaskFilterState;
+  onFiltersChange: (state: TaskFilterState) => void;
+  onTaskClick: (task: { id: string; title: string }) => void;
+  className?: string;
+  ariaHidden?: boolean;
+}
+
+function TabBoardPanel({ tab, filters, onFiltersChange, onTaskClick, className = "", ariaHidden }: TabBoardPanelProps) {
+  const tabFilter = useMemo(() => new TabTaskFilter(tab.sections), [tab.sections]);
+  const filteredSections = useMemo(() => tabFilter.apply(filters), [tabFilter, filters]);
+  const sectionsLayoutClass =
+    tab.slug === "general"
+      ? "grid grid-cols-1 items-start gap-3 sm:gap-4"
+      : "grid items-start gap-3 sm:gap-4 xl:grid-cols-3";
+
+  return (
+    <div className={className} aria-hidden={ariaHidden}>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2.5 sm:mb-4 sm:gap-3">
+        <h2 className="text-lg font-semibold text-text-primary sm:text-xl">סקציות ופרויקטים</h2>
+        <div className="flex items-center gap-2">
+          <CreateProjectDrawer
+            triggerLabel="פרויקט חדש בטאב"
+            allowedDomainId={tab.id}
+            allowedDomainSlug={tab.slug}
+          />
+        </div>
+      </div>
+      <div className="mb-3 sm:mb-4">
+        <TaskFilterBar
+          state={filters}
+          onChange={onFiltersChange}
+          subtopicOptions={tabFilter.subtopicOptions}
+          projectOptions={tabFilter.projectOptions}
+          assigneeOptions={tabFilter.assigneeOptions}
+        />
+      </div>
+      {filteredSections.length === 0 ? (
+        <div className="rounded-2xl bg-surface-2/60 px-4 py-10 text-center text-sm font-medium text-text-secondary">
+          לא נמצאו משימות התואמות לסינון.
+        </div>
+      ) : (
+        <div className={sectionsLayoutClass}>
+          {filteredSections.map((section) => (
+            <SectionGroup
+              key={section.id}
+              section={section}
+              domainSlug={tab.slug}
+              toneClass={tabMeta[tab.slug].contentClass}
+              onTaskClick={onTaskClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

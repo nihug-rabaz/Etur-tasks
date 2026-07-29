@@ -4,14 +4,16 @@ import { ListTodo } from "lucide-react";
 import { TabTaskItem } from "@/services/dashboard.service";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskRowItem } from "@/components/main-tabs/task-row-item";
+import type { DomainKey } from "@/lib/ui/domains";
 
 interface StandaloneTasksListProps {
   sectionId: string;
+  domainSlug: DomainKey;
   tasks: TabTaskItem[];
   onTaskClick: (task: { id: string; title: string }) => void;
 }
 
-export function StandaloneTasksList({ sectionId, tasks, onTaskClick }: StandaloneTasksListProps) {
+export function StandaloneTasksList({ sectionId, domainSlug, tasks, onTaskClick }: StandaloneTasksListProps) {
   const dragProjectId = `standalone-${sectionId}`;
 
   if (tasks.length === 0) return null;
@@ -34,6 +36,7 @@ export function StandaloneTasksList({ sectionId, tasks, onTaskClick }: Standalon
             key={task.id}
             task={task}
             projectId={dragProjectId}
+            domainSlug={domainSlug}
             onClick={() => onTaskClick({ id: task.id, title: task.title })}
           />
         ))}

@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
 import type { Profile } from "@/types/models";
+import { ImpersonateUserButton } from "@/components/admin/impersonation-banner";
 import { UserPermissionsEditor } from "@/components/admin/user-permissions-editor";
 import { ProfileSettingsPanel } from "@/components/profile/profile-settings-panel";
 import { isRenderableAvatarUrl } from "@/lib/images/avatar";
@@ -19,6 +20,7 @@ type StatusFilter = "all" | "approved" | "pending";
 
 interface UsersManagementPanelProps {
   users: Profile[];
+  currentAdminId: string;
   permissionGroups: PermissionGroup[];
   permissionsByUser: Record<string, string[]>;
   updateRoleAction: (formData: FormData) => Promise<void>;
@@ -29,6 +31,7 @@ interface UsersManagementPanelProps {
 
 export function UsersManagementPanel({
   users,
+  currentAdminId,
   permissionGroups,
   permissionsByUser,
   updateRoleAction,
@@ -163,7 +166,7 @@ export function UsersManagementPanel({
               <th className="w-44 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
                 תחומי גישה
               </th>
-              <th className="w-28 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
+              <th className="w-52 px-3 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
                 פעולות
               </th>
             </tr>
@@ -275,19 +278,30 @@ export function UsersManagementPanel({
                       </button>
                     </td>
                     <td className="px-3 py-3 align-middle">
-                      <form action={user.is_approved ? setPendingAction : approveUserAction}>
-                        <input type="hidden" name="userId" value={user.id} />
-                        <button
-                          type="submit"
-                          className={
-                            user.is_approved
-                              ? "rounded-md border border-[#c5c7d0] bg-white px-3 py-1.5 text-xs font-semibold text-[#323338] transition hover:bg-[#f6f7fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                              : "rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0060c3]"
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ImpersonateUserButton
+                          userId={user.id}
+                          userName={displayName}
+                          disabled={
+                            user.id === currentAdminId ||
+                            user.role === "admin" ||
+                            !user.is_approved
                           }
-                        >
-                          {user.is_approved ? "להמתין" : "לאשר"}
-                        </button>
-                      </form>
+                        />
+                        <form action={user.is_approved ? setPendingAction : approveUserAction}>
+                          <input type="hidden" name="userId" value={user.id} />
+                          <button
+                            type="submit"
+                            className={
+                              user.is_approved
+                                ? "rounded-md border border-[#c5c7d0] bg-white px-3 py-1.5 text-xs font-semibold text-[#323338] transition hover:bg-[#f6f7fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                                : "rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0060c3]"
+                            }
+                          >
+                            {user.is_approved ? "להמתין" : "לאשר"}
+                          </button>
+                        </form>
+                      </div>
                     </td>
                   </tr>
                   {expanded ? (

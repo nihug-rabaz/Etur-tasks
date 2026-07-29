@@ -7,6 +7,7 @@ import { TaskAssigneeStack } from "@/components/main-tabs/task-assignee-stack";
 import { useTaskDragDrop } from "@/components/main-tabs/task-drag-drop-context";
 import { TaskQuickPriority } from "@/components/tasks/task-quick-priority";
 import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
+import type { DomainKey } from "@/lib/ui/domains";
 import type { TaskPriority } from "@/types/models";
 
 const priorityRowClass: Record<TaskPriority, string> = {
@@ -19,6 +20,7 @@ const priorityRowClass: Record<TaskPriority, string> = {
 interface TaskRowItemProps {
   task: TabTaskItem;
   projectId: string;
+  domainSlug: DomainKey;
   onClick: () => void;
 }
 
@@ -33,7 +35,7 @@ function hasTaskQuickOverlay(): boolean {
   return Boolean(document.querySelector("[data-task-quick-overlay]"));
 }
 
-export function TaskRowItem({ task, projectId, onClick }: TaskRowItemProps) {
+export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowItemProps) {
   const { dragTask, startDrag, endDrag } = useTaskDragDrop();
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const dismissOnlyRef = useRef(false);
@@ -94,7 +96,7 @@ export function TaskRowItem({ task, projectId, onClick }: TaskRowItemProps) {
         }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", task.id);
-        startDrag({ id: task.id, sourceProjectId: projectId, title: task.title });
+        startDrag({ id: task.id, sourceProjectId: projectId, sourceDomainSlug: domainSlug, title: task.title });
       }}
       onDragEnd={() => {
         dragFromHandleRef.current = false;
@@ -110,7 +112,7 @@ export function TaskRowItem({ task, projectId, onClick }: TaskRowItemProps) {
           data-drag-handle
           className="mt-1 shrink-0 cursor-grab touch-none text-text-muted active:cursor-grabbing"
           aria-hidden
-          title="גרור להעברה לפרויקט אחר"
+          title="גרור להעברה לפרויקט או תחום אחר"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(event) => {
             if (event.button !== 0) return;

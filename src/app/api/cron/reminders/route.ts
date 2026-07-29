@@ -121,6 +121,31 @@ export async function GET(request: Request) {
   }
 
   if (isWithinMorningSummaryWindow(hour, minute, morningMessageTime)) {
+    const linkedUsers = await sql<Array<{ id: string; name: string }>>`
+      select id, name from profiles
+      where telegram_id is not null and is_approved = true
+      order by name
+    `;
+
+    const todayByUser = new Map<
+      string,
+      {
+        userName: string;
+        items: Array<{
+          id: string;
+          title: string;
+          subtopic: string | null;
+          timeLabel: string;
+          kind: "task" | "schedule";
+          sortAt: string;
+        }>;
+      }
+    >();
+
+    for (const user of linkedUsers) {
+      todayByUser.set(user.id, { userName: user.name, items: [] });
+    }
+
     const todayTaskRows = await sql<
       Array<{
         id: string;
@@ -145,6 +170,7 @@ export async function GET(request: Request) {
             = (now() at time zone ${ISRAEL_TZ})::date
         and td.status <> 'completed'
         and p.telegram_id is not null
+        and p.is_approved = true
       order by p.name, td.due_date asc nulls last, td.title
     `;
 
@@ -178,23 +204,9 @@ export async function GET(request: Request) {
         and coalesce((ce.ends_at at time zone ${ISRAEL_TZ})::date, (ce.starts_at at time zone ${ISRAEL_TZ})::date)
             >= (now() at time zone ${ISRAEL_TZ})::date
         and p.telegram_id is not null
+        and p.is_approved = true
       order by p.name, ce.starts_at asc, ce.title
     `;
-
-    const todayByUser = new Map<
-      string,
-      {
-        userName: string;
-        items: Array<{
-          id: string;
-          title: string;
-          subtopic: string | null;
-          timeLabel: string;
-          kind: "task" | "schedule";
-          sortAt: string;
-        }>;
-      }
-    >();
 
     for (const row of todayTaskRows) {
       const item = todayByUser.get(row.user_id) ?? { userName: row.user_name, items: [] };
@@ -203,7 +215,11 @@ export async function GET(request: Request) {
         title: row.title,
         subtopic: row.subtopic_name,
         timeLabel: row.due_date
-          ? new Date(row.due_date).toLocaleString("he-IL", { dateStyle: "short", timeStyle: "short" })
+          ? new Date(row.due_date).toLocaleString("he-IL", {
+              dateStyle: "short",
+              timeStyle: "short",
+              timeZone: ISRAEL_TZ,
+            })
           : "ללא שעה",
         kind: "task",
         sortAt: row.due_date ?? "9999",

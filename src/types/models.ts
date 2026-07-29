@@ -2,6 +2,7 @@ export type UserRole = "admin" | "user";
 export type ProjectStatus = "active" | "completed" | "archived";
 export type TaskPriority = "low" | "medium" | "high";
 export type TaskStatus = "in_progress" | "completed";
+export type TaskCloseRequestStatus = "pending" | "approved" | "rejected" | "cancelled";
 
 export interface Profile {
   id: string;
@@ -16,6 +17,7 @@ export interface Profile {
   approved_at?: string | null;
   approved_by?: string | null;
   created_at: string;
+  font_scale?: string | null;
 }
 
 export interface TelegramLinkCode {
@@ -68,6 +70,26 @@ export interface TaskWithRelations extends Task {
   project_name?: string;
   assignee_name?: string;
   assignee_ids?: string[];
+}
+
+export interface TaskCloseRequest {
+  id: string;
+  task_id: string;
+  requested_by: string;
+  note: string | null;
+  status: TaskCloseRequestStatus;
+  reviewed_by: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskCloseRequestWithRelations extends TaskCloseRequest {
+  task_title?: string;
+  requester_name?: string;
+  reviewer_name?: string | null;
+  subtopic_name?: string | null;
 }
 
 export interface CalendarEvent {

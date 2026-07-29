@@ -1,5 +1,9 @@
-import { resolveAuthenticatedUserId } from "@/lib/auth/session-user";
+import {
+  resolveEffectiveUserId,
+  resolveRealAuthenticatedUserId,
+} from "@/lib/auth/session-user";
 import { BaseService } from "@/services/base.service";
+import { ImpersonationService } from "@/services/impersonation.service";
 import { Profile, Subtopic } from "@/types/models";
 import { redirect } from "next/navigation";
 
@@ -25,11 +29,7 @@ export class AuthorizationService extends BaseService {
     `;
   }
 
-  public async getCurrentProfile(): Promise<Profile | null> {
-    const userId = await resolveAuthenticatedUserId();
-    if (!userId) {
-      return null;
-    }
+  private async loadProfileById(userId: string): Promise<Profile | null> {
     const db = this.getDb();
     const profiles = await db<Profile[]>`
       select id, name, role, telegram_id, avatar, is_approved, approved_at, approved_by, created_at
@@ -40,12 +40,29 @@ export class AuthorizationService extends BaseService {
     return profiles[0] ?? null;
   }
 
+  public async getRealProfile(): Promise<Profile | null> {
+    const userId = await resolveRealAuthenticatedUserId();
+    if (!userId) {
+      return null;
+    }
+    return this.loadProfileById(userId);
+  }
+
+  public async getCurrentProfile(): Promise<Profile | null> {
+    const userId = await resolveEffectiveUserId();
+    if (!userId) {
+      return null;
+    }
+    return this.loadProfileById(userId);
+  }
+
   public async ensureAuthenticated(): Promise<Profile> {
     const profile = await this.getCurrentProfile();
     if (!profile) {
       redirect("/login");
     }
-    await this.ensureAnyAdminExists(profile.id);
+    const realProfile = await this.getRealProfile();
+    await this.ensureAnyAdminExists(realProfile?.id);
     const refreshedProfile = await this.getCurrentProfile();
     if (!refreshedProfile) {
       redirect("/login");
@@ -62,7 +79,13 @@ export class AuthorizationService extends BaseService {
   }
 
   public async ensureAdmin(): Promise<Profile> {
-    const profile = await this.ensureApproved();
+    const profile = await this.getRealProfile();
+    if (!profile) {
+      redirect("/login");
+    }
+    if (!profile.is_approved) {
+      redirect("/pending-approval");
+    }
     if (profile.role !== "admin") {
       redirect("/dashboard");
     }
@@ -70,14 +93,21 @@ export class AuthorizationService extends BaseService {
   }
 
   public async getTaskAccessContext(profile: Profile): Promise<TaskAccessContext> {
+    const snapshot = await new ImpersonationService().getSnapshot();
+    const impersonating = snapshot.active && snapshot.target?.id === profile.id;
     return {
-      unrestricted: profile.role === "admin",
+      unrestricted: profile.role === "admin" && !impersonating,
       userId: profile.id,
     };
   }
 
+  public canCloseTask(profile: Profile): boolean {
+    return profile.role === "admin";
+  }
+
   public async canAccessTask(profile: Profile, taskId: string): Promise<boolean> {
-    if (profile.role === "admin") return true;
+    const access = await this.getTaskAccessContext(profile);
+    if (access.unrestricted) return true;
     const db = this.getDb();
     const linked = await db<Array<{ subtopic_id: string }>>`
       select subtopic_id from task_subtopics where task_id = ${taskId}
@@ -97,7 +127,8 @@ export class AuthorizationService extends BaseService {
   }
 
   public async canAccessProject(profile: Profile, projectId: string): Promise<boolean> {
-    if (profile.role === "admin") return true;
+    const access = await this.getTaskAccessContext(profile);
+    if (access.unrestricted) return true;
     const db = this.getDb();
     const linked = await db<Array<{ subtopic_id: string }>>`
       select subtopic_id from project_subtopics where project_id = ${projectId}
@@ -124,7 +155,8 @@ export class AuthorizationService extends BaseService {
   }
 
   public async canAccessCalendarEvent(profile: Profile, eventId: string): Promise<boolean> {
-    if (profile.role === "admin") return true;
+    const access = await this.getTaskAccessContext(profile);
+    if (access.unrestricted) return true;
     const db = this.getDb();
     const rows = await db<Array<{ subtopic_id: string }>>`
       select subtopic_id from calendar_events where id = ${eventId} limit 1
@@ -135,13 +167,12 @@ export class AuthorizationService extends BaseService {
   }
 
   public async canAccessSubtopic(userId: string, subtopicId: string): Promise<boolean> {
+    const profile = await this.loadProfileById(userId);
+    if (!profile) return false;
+    const access = await this.getTaskAccessContext(profile);
+    if (access.unrestricted) return true;
+
     const db = this.getDb();
-    const profileRows = await db<Array<{ role: string }>>`
-      select role from profiles where id = ${userId} limit 1
-    `;
-    if (profileRows[0]?.role === "admin") {
-      return true;
-    }
     const rows = await db<Array<{ user_id: string }>>`
       select user_id
       from user_subtopic_permissions
@@ -152,8 +183,9 @@ export class AuthorizationService extends BaseService {
   }
 
   public async getAccessibleSubtopics(profile: Profile): Promise<Subtopic[]> {
+    const access = await this.getTaskAccessContext(profile);
     const db = this.getDb();
-    if (profile.role === "admin") {
+    if (access.unrestricted) {
       return db<Subtopic[]>`
         select id, name, domain_id from subtopics order by name
       `;
@@ -168,8 +200,9 @@ export class AuthorizationService extends BaseService {
   }
 
   public async getAccessibleSubtopicsInDomain(profile: Profile, domainId: string): Promise<Subtopic[]> {
+    const access = await this.getTaskAccessContext(profile);
     const db = this.getDb();
-    if (profile.role === "admin") {
+    if (access.unrestricted) {
       return db<Subtopic[]>`
         select id, name, domain_id
         from subtopics
@@ -184,6 +217,14 @@ export class AuthorizationService extends BaseService {
       where usp.user_id = ${profile.id} and s.domain_id = ${domainId}
       order by s.name
     `;
+  }
+
+  public async ensureRealAdminApi(): Promise<Profile | null> {
+    const profile = await this.getRealProfile();
+    if (!profile?.is_approved || profile.role !== "admin") {
+      return null;
+    }
+    return profile;
   }
 
   public requireApprovedProfile(profile: Profile): Profile {

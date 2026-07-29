@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   Flag,
+  FolderKanban,
   History,
   Pencil,
   Target,
@@ -19,6 +20,8 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Reac
 import { createPortal } from "react-dom";
 import { AssigneeMultiSelect, UserAvatarMark, type AssigneeOption } from "@/components/ui/assignee-select";
 import { TaskChatPanel } from "@/components/tasks/task-chat-panel";
+import { useCloseRequests } from "@/components/tasks/close-requests-context";
+import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 import { domainKeyFromName, domainMeta } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 
@@ -42,6 +45,7 @@ interface TaskDetails {
   updated_at: string;
   subtopic_name: string | null;
   domain_name: string | null;
+  project_id: string | null;
   project_name: string | null;
   assignee_name: string | null;
   assignee_ids: string[] | null;
@@ -187,6 +191,7 @@ interface DraftState {
   status: TaskStatus;
   dueDate: string;
   assignedToIds: string[];
+  projectId: string;
 }
 
 export function TaskDetailsModal({
@@ -205,6 +210,7 @@ export function TaskDetailsModal({
   onDeleted?: () => void;
 }) {
   const router = useRouter();
+  const { canClose, refresh: refreshCloseRequests } = useCloseRequests();
   const [loading, setLoading] = useState(false);
   const [task, setTask] = useState<TaskDetails | null>(null);
   const [error, setError] = useState("");
@@ -213,6 +219,8 @@ export function TaskDetailsModal({
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<DraftState | null>(null);
   const [users, setUsers] = useState<AssigneeOption[]>([]);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [badgeMenu, setBadgeMenu] = useState<BadgeMenu>(null);
@@ -227,14 +235,22 @@ export function TaskDetailsModal({
   useEffect(() => {
     if (!editing || users.length > 0) return;
     let cancelled = false;
+    setOptionsLoading(true);
     fetch(`/api/create-options`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
         const list = Array.isArray(data.users) ? (data.users as AssigneeOption[]) : [];
+        const projectList = Array.isArray(data.projects)
+          ? (data.projects as Array<{ id: string; name: string }>)
+          : [];
         setUsers(list);
+        setProjects(projectList);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setOptionsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -291,8 +307,17 @@ export function TaskDetailsModal({
       status: task.status,
       dueDate: toDatetimeLocal(task.due_date),
       assignedToIds: task.assignee_ids ?? [],
+      projectId: task.project_id ?? "",
     };
   }, [task]);
+
+  const projectOptions = useMemo(() => {
+    const map = new Map(projects.map((item) => [item.id, item]));
+    if (task?.project_id && task.project_name && !map.has(task.project_id)) {
+      map.set(task.project_id, { id: task.project_id, name: task.project_name });
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, "he"));
+  }, [projects, task?.project_id, task?.project_name]);
 
   const startEdit = () => {
     if (!initialDraft) return;
@@ -314,18 +339,29 @@ export function TaskDetailsModal({
       setError("נדרשת כותרת למשימה.");
       return;
     }
+    if (!canClose && draft.status === "completed" && task.status !== "completed") {
+      setError("רק מנהל יכול לסגור משימה. אפשר לבקש סגירה מהסטטוס.");
+      return;
+    }
+    if (!canClose && draft.status === "in_progress" && task.status === "completed") {
+      setError("רק מנהל יכול לפתוח מחדש משימה שהושלמה.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         id: task.id,
         title: draft.title.trim(),
         description: draft.description.trim() ? draft.description : null,
-        status: draft.status,
         priority: draft.priority,
         dueDate: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
         assignedToIds: draft.assignedToIds,
+        projectId: draft.projectId ? draft.projectId : null,
       };
+      if (canClose || draft.status === task.status) {
+        payload.status = draft.status;
+      }
       const response = await fetch(`/api/tasks`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -333,6 +369,10 @@ export function TaskDetailsModal({
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
+        if (data.code === "CLOSE_REQUIRES_ADMIN" || data.code === "REOPEN_REQUIRES_ADMIN") {
+          setError("רק מנהל יכול לשנות סטטוס סגירה.");
+          return;
+        }
         setError(data.error === "Forbidden" ? "אין לך הרשאה לערוך משימה זו." : "שמירת השינויים נכשלה.");
         return;
       }
@@ -344,6 +384,7 @@ export function TaskDetailsModal({
       setEditing(false);
       setDraft(null);
       setBadgeMenu(null);
+      await refreshCloseRequests();
       onUpdated?.();
       router.refresh();
     } finally {
@@ -507,14 +548,18 @@ export function TaskDetailsModal({
                 <div className="mt-5 flex flex-wrap items-center gap-2">
                   {editing && draft ? (
                     <>
-                      <button
-                        ref={statusBadgeRef}
-                        type="button"
-                        onClick={() => setBadgeMenu((current) => (current === "status" ? null : "status"))}
-                        className={`${statusBadgeClass(headerStatus)} cursor-pointer transition hover:brightness-95`}
-                      >
-                        {statusLabel[headerStatus]}
-                      </button>
+                      {canClose ? (
+                        <button
+                          ref={statusBadgeRef}
+                          type="button"
+                          onClick={() => setBadgeMenu((current) => (current === "status" ? null : "status"))}
+                          className={`${statusBadgeClass(headerStatus)} cursor-pointer transition hover:brightness-95`}
+                        >
+                          {statusLabel[headerStatus]}
+                        </button>
+                      ) : (
+                        <span className={statusBadgeClass(headerStatus)}>{statusLabel[headerStatus]}</span>
+                      )}
                       <button
                         ref={priorityBadgeRef}
                         type="button"
@@ -534,36 +579,38 @@ export function TaskDetailsModal({
                         יעד · {formatDate(headerDue)}
                       </button>
 
-                      <BadgePopover
-                        open={badgeMenu === "status"}
-                        onClose={() => setBadgeMenu(null)}
-                        anchorRef={statusBadgeRef}
-                      >
-                        <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                          סטטוס
-                        </p>
-                        {statusOptions.map((option) => {
-                          const active = draft.status === option;
-                          return (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => {
-                                updateDraft("status", option);
-                                setBadgeMenu(null);
-                              }}
-                              className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-bold transition ${
-                                active
-                                  ? "bg-amber-100 text-amber-900"
-                                  : "text-slate-700 hover:bg-amber-50"
-                              }`}
-                            >
-                              <span>{statusLabel[option]}</span>
-                              {active ? <Check size={13} strokeWidth={2.8} /> : null}
-                            </button>
-                          );
-                        })}
-                      </BadgePopover>
+                      {canClose ? (
+                        <BadgePopover
+                          open={badgeMenu === "status"}
+                          onClose={() => setBadgeMenu(null)}
+                          anchorRef={statusBadgeRef}
+                        >
+                          <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                            סטטוס
+                          </p>
+                          {statusOptions.map((option) => {
+                            const active = draft.status === option;
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => {
+                                  updateDraft("status", option);
+                                  setBadgeMenu(null);
+                                }}
+                                className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-bold transition ${
+                                  active
+                                    ? "bg-amber-100 text-amber-900"
+                                    : "text-slate-700 hover:bg-amber-50"
+                                }`}
+                              >
+                                <span>{statusLabel[option]}</span>
+                                {active ? <Check size={13} strokeWidth={2.8} /> : null}
+                              </button>
+                            );
+                          })}
+                        </BadgePopover>
+                      ) : null}
 
                       <BadgePopover
                         open={badgeMenu === "priority"}
@@ -633,7 +680,19 @@ export function TaskDetailsModal({
                     </>
                   ) : (
                     <>
-                      <span className={statusBadgeClass(headerStatus)}>{statusLabel[headerStatus]}</span>
+                      <TaskQuickStatus
+                        taskId={taskId}
+                        status={headerStatus}
+                        onUpdated={() => {
+                          void refreshCloseRequests();
+                          onUpdated?.();
+                          void fetch(`/api/tasks/${taskId}`)
+                            .then((response) => (response.ok ? response.json() : null))
+                            .then((data) => {
+                              if (data?.task) setTask(data.task);
+                            });
+                        }}
+                      />
                       <span className="hud-capsule">
                         <Flag size={12} className="text-fuchsia-600" />
                         עדיפות · {priorityLabel[headerPriority]}
@@ -704,6 +763,28 @@ export function TaskDetailsModal({
 
                 {editing && draft ? (
                   <section className="hud-glass-card space-y-4 p-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <FolderKanban size={13} className="text-amber-700" />
+                        <p className="hud-glass-card__label">פרויקט</p>
+                      </div>
+                      <select
+                        value={draft.projectId}
+                        onChange={(event) => updateDraft("projectId", event.target.value)}
+                        disabled={optionsLoading}
+                        className="mt-2 w-full rounded-xl border border-amber-300/70 bg-white px-3 py-2.5 text-sm font-semibold text-amber-950 outline-none focus:border-amber-500 disabled:opacity-60"
+                      >
+                        <option value="">{optionsLoading ? "טוען פרויקטים…" : "ללא פרויקט"}</option>
+                        {projectOptions.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs text-amber-800/65">
+                        שיוך לפרויקט אחר מעדכן אוטומטית את תחום ותת-נושא של המשימה.
+                      </p>
+                    </div>
                     <div>
                       <p className="hud-glass-card__label">משויכים</p>
                       <div className="mt-2">

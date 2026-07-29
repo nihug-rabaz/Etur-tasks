@@ -90,10 +90,11 @@ export function isWithinMorningSummaryWindow(
   hour: number,
   minute: number,
   configuredTime: string,
+  windowMinutes = 240,
 ): boolean {
   const match = configuredTime.match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return false;
   const start = Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);
   const now = hour * 60 + minute;
-  return now >= start;
+  return now >= start && now < start + windowMinutes;
 }

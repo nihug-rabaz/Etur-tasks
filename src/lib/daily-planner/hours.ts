@@ -1,0 +1,160 @@
+export const DEFAULT_DAILY_PLAN_HOUR_START = 6;
+export const DEFAULT_DAILY_PLAN_HOUR_END = 22;
+export const DEFAULT_DAILY_PLAN_SLOT_MINUTES = 60;
+export const DEFAULT_DAILY_PLAN_TASK_DURATION = 30;
+export const MIN_DAILY_PLAN_HOUR_SPAN = 4;
+
+export const DAILY_PLAN_SLOT_MINUTE_OPTIONS = [15, 30, 60] as const;
+export type DailyPlanSlotMinutes = (typeof DAILY_PLAN_SLOT_MINUTE_OPTIONS)[number];
+
+export const DAILY_PLAN_TASK_DURATION_OPTIONS = [15, 30, 45, 60] as const;
+export type DailyPlanTaskDuration = (typeof DAILY_PLAN_TASK_DURATION_OPTIONS)[number];
+
+export interface DailyPlanSettings {
+  hourStart: number;
+  hourEnd: number;
+  slotMinutes: DailyPlanSlotMinutes;
+}
+
+export type DailyPlanHours = DailyPlanSettings;
+
+export interface DailyPlanOccupancy {
+  start_minute: number;
+  duration_minutes: number;
+}
+
+export function normalizeSlotMinutes(value: number | null | undefined): DailyPlanSlotMinutes {
+  const rounded = Number.isFinite(value) ? Math.round(value as number) : DEFAULT_DAILY_PLAN_SLOT_MINUTES;
+  if (rounded === 15 || rounded === 30 || rounded === 60) return rounded;
+  return DEFAULT_DAILY_PLAN_SLOT_MINUTES;
+}
+
+export function normalizeTaskDuration(value: number | null | undefined): DailyPlanTaskDuration {
+  const rounded = Number.isFinite(value) ? Math.round(value as number) : DEFAULT_DAILY_PLAN_TASK_DURATION;
+  if (rounded === 15 || rounded === 30 || rounded === 45 || rounded === 60) return rounded;
+  return DEFAULT_DAILY_PLAN_TASK_DURATION;
+}
+
+export function normalizeDailyPlanHours(
+  hourStart: number | null | undefined,
+  hourEnd: number | null | undefined,
+  slotMinutes?: number | null | undefined,
+): DailyPlanSettings {
+  let start = Number.isFinite(hourStart) ? Math.round(hourStart as number) : DEFAULT_DAILY_PLAN_HOUR_START;
+  let end = Number.isFinite(hourEnd) ? Math.round(hourEnd as number) : DEFAULT_DAILY_PLAN_HOUR_END;
+  start = Math.min(23, Math.max(0, start));
+  end = Math.min(23, Math.max(0, end));
+  if (end <= start) {
+    end = Math.min(23, start + MIN_DAILY_PLAN_HOUR_SPAN);
+  }
+  if (end - start < MIN_DAILY_PLAN_HOUR_SPAN) {
+    end = Math.min(23, start + MIN_DAILY_PLAN_HOUR_SPAN);
+  }
+  if (end <= start) {
+    start = Math.max(0, end - MIN_DAILY_PLAN_HOUR_SPAN);
+  }
+  return {
+    hourStart: start,
+    hourEnd: end,
+    slotMinutes: normalizeSlotMinutes(slotMinutes),
+  };
+}
+
+export function buildDailyPlanHourRange(settings: Pick<DailyPlanSettings, "hourStart" | "hourEnd">): number[] {
+  const list: number[] = [];
+  for (let hour = settings.hourStart; hour <= settings.hourEnd; hour += 1) {
+    list.push(hour);
+  }
+  return list;
+}
+
+export function buildDailyPlanSlotStarts(settings: DailyPlanSettings): number[] {
+  const slotMinutes = settings.slotMinutes;
+  const rangeStart = settings.hourStart * 60;
+  const rangeEnd = settings.hourEnd * 60;
+  const list: number[] = [];
+  for (let minute = rangeStart; minute <= rangeEnd; minute += slotMinutes) {
+    if (minute > 23 * 60 + 59) break;
+    list.push(minute);
+  }
+  return list;
+}
+
+export function formatSlotTimeLabel(startMinute: number): string {
+  const hours = Math.floor(startMinute / 60);
+  const minutes = startMinute % 60;
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+}
+
+export function formatHourLabel(hour: number): string {
+  return `${hour.toString().padStart(2, "0")}:00`;
+}
+
+export function isCurrentPlanHour(hour: number, now: Date): boolean {
+  return now.getHours() === hour;
+}
+
+export function isCurrentPlanSlot(startMinute: number, slotMinutes: number, now: Date): boolean {
+  const nowMinute = now.getHours() * 60 + now.getMinutes();
+  return nowMinute >= startMinute && nowMinute < startMinute + slotMinutes;
+}
+
+export function slotMinutesLabel(minutes: number): string {
+  if (minutes === 60) return "שעה";
+  return `${minutes} דק׳`;
+}
+
+export function rangesOverlap(
+  aStart: number,
+  aDuration: number,
+  bStart: number,
+  bDuration: number,
+): boolean {
+  return aStart < bStart + bDuration && bStart < aStart + aDuration;
+}
+
+export function slotsForHour(hour: number, slots: DailyPlanOccupancy[]): DailyPlanOccupancy[] {
+  const hourStart = hour * 60;
+  const hourEnd = hourStart + 60;
+  return slots
+    .filter((slot) => slot.start_minute >= hourStart && slot.start_minute < hourEnd)
+    .sort((a, b) => a.start_minute - b.start_minute);
+}
+
+export function usedMinutesInHour(hour: number, slots: DailyPlanOccupancy[]): number {
+  return slotsForHour(hour, slots).reduce((sum, slot) => {
+    const hourStart = hour * 60;
+    const hourEnd = hourStart + 60;
+    const start = Math.max(slot.start_minute, hourStart);
+    const end = Math.min(slot.start_minute + slot.duration_minutes, hourEnd);
+    return sum + Math.max(0, end - start);
+  }, 0);
+}
+
+export function findFreeStartInHour(
+  hour: number,
+  duration: number,
+  occupied: DailyPlanOccupancy[],
+  ignoreStartMinute?: number,
+): number | null {
+  const hourStart = hour * 60;
+  const hourEnd = hourStart + 60;
+  if (duration <= 0 || duration > 60) return null;
+  const relevant = occupied.filter((slot) => slot.start_minute !== ignoreStartMinute);
+  for (let start = hourStart; start + duration <= hourEnd; start += 15) {
+    const conflicts = relevant.some((slot) =>
+      rangesOverlap(start, duration, slot.start_minute, slot.duration_minutes),
+    );
+    if (!conflicts) return start;
+  }
+  return null;
+}
+
+export function canFitDurationInHour(
+  hour: number,
+  duration: number,
+  occupied: DailyPlanOccupancy[],
+  ignoreStartMinute?: number,
+): boolean {
+  return findFreeStartInHour(hour, duration, occupied, ignoreStartMinute) !== null;
+}

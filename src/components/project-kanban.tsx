@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, GripVertical, Plus } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
+import { useCloseRequests } from "@/components/tasks/close-requests-context";
+import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 
 interface ProjectKanbanProps {
   tasks: TaskWithRelations[];
@@ -11,6 +13,7 @@ interface ProjectKanbanProps {
 
 export function ProjectKanban({ tasks }: ProjectKanbanProps) {
   const router = useRouter();
+  const { canClose, ready } = useCloseRequests();
   const [dragTaskId, setDragTaskId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
@@ -20,6 +23,7 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
   );
 
   const updateTask = (payload: { id: string; status?: "completed"; title?: string }) => {
+    if (payload.status === "completed" && !canClose) return;
     startTransition(async () => {
       await fetch("/api/tasks", {
         method: "PATCH",
@@ -45,8 +49,11 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
         {activeTasks.map((task) => (
           <article
             key={task.id}
-            draggable
-            onDragStart={() => setDragTaskId(task.id)}
+            draggable={canClose}
+            onDragStart={() => {
+              if (!canClose) return;
+              setDragTaskId(task.id);
+            }}
             onDragEnd={() => setDragTaskId("")}
             className="rounded-2xl bg-surface-1 p-3 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5"
           >
@@ -60,25 +67,30 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
                 }}
                 className="w-full rounded-lg border border-transparent bg-transparent px-1 text-sm font-semibold text-text-primary outline-none transition focus:border-border-strong"
               />
-              <GripVertical size={14} className="text-text-muted" />
+              {canClose ? <GripVertical size={14} className="text-text-muted" /> : null}
             </div>
             <div className="flex items-center justify-between gap-2 text-xs text-text-muted">
               <span>{task.assignee_name ?? "לא משויך"}</span>
               <span>{task.due_date ? new Date(task.due_date).toLocaleDateString("he-IL") : "ללא יעד"}</span>
             </div>
-            <button
-              type="button"
-              onClick={() => updateTask({ id: task.id, status: "completed" })}
-              disabled={isPending}
-              className="mt-3 inline-flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-500/20 disabled:opacity-60"
-            >
-              <Check size={12} />
-              סימון כהושלם
-            </button>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
+              {canClose ? (
+                <button
+                  type="button"
+                  onClick={() => updateTask({ id: task.id, status: "completed" })}
+                  disabled={isPending || !ready}
+                  className="inline-flex items-center gap-1 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-500/20 disabled:opacity-60"
+                >
+                  <Check size={12} />
+                  סימון כהושלם
+                </button>
+              ) : null}
+            </div>
           </article>
         ))}
       </div>
-      {dragTaskId ? (
+      {dragTaskId && canClose ? (
         <div
           onDragOver={(event) => event.preventDefault()}
           onDrop={() => {

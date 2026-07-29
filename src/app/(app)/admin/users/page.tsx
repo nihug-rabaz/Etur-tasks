@@ -18,7 +18,7 @@ const domainLabelMap: Record<string, string> = {
 
 export default async function AdminUsersPage() {
   const authorizationService = new AuthorizationService();
-  await authorizationService.ensureAdmin();
+  const adminProfile = await authorizationService.ensureAdmin();
   const userService = new UserService();
   const users = await userService.getUsers();
   const sql = NeonDatabase.createClient();
@@ -85,6 +85,7 @@ export default async function AdminUsersPage() {
     <section className="pb-8">
       <UsersManagementPanel
         users={usersPayload}
+        currentAdminId={adminProfile.id}
         permissionGroups={permissionGroups}
         permissionsByUser={permissionsRecord}
         updateRoleAction={updateUserRoleAction}

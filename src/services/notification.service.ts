@@ -86,16 +86,19 @@ export class NotificationService extends BaseService {
   }
 
   public async notifyDailyDigest(input: DailyDigestInput): Promise<number> {
-    if (!this.telegram.hasToken() || input.items.length === 0) return 0;
-    const lines = input.items.map((item, index) => {
-      const subtopic = item.subtopic ? ` · ${toHebrewSubtopicLabel(item.subtopic)}` : "";
-      const prefix = item.kind === "schedule" ? "לו״ז" : "משימה";
-      const link =
-        item.kind === "schedule"
-          ? this.scheduleLinkSuffix(item.id)
-          : this.taskLinkSuffix(item.id);
-      return `${index + 1}. [${prefix}] ${item.title}${subtopic}\n   ${item.timeLabel}${link}`;
-    });
+    if (!this.telegram.hasToken()) return 0;
+    const lines =
+      input.items.length === 0
+        ? ["אין משימות או לו״ז להיום."]
+        : input.items.map((item, index) => {
+            const subtopic = item.subtopic ? ` · ${toHebrewSubtopicLabel(item.subtopic)}` : "";
+            const prefix = item.kind === "schedule" ? "לו״ז" : "משימה";
+            const link =
+              item.kind === "schedule"
+                ? this.scheduleLinkSuffix(item.id)
+                : this.taskLinkSuffix(item.id);
+            return `${index + 1}. [${prefix}] ${item.title}${subtopic}\n   ${item.timeLabel}${link}`;
+          });
     const text =
       `בוקר טוב ${input.userName}\n` +
       "הלו״ז שלך להיום:\n" +
@@ -133,6 +136,47 @@ export class NotificationService extends BaseService {
     return this.sendToUsers(adminIds, text, (userId) => `pending-user:${input.userId}:${userId}`);
   }
 
+  public async notifyTaskCloseRequested(input: {
+    taskId: string;
+    title: string;
+    requesterName: string;
+    note: string | null;
+  }): Promise<number> {
+    if (!this.telegram.hasToken()) return 0;
+    const adminIds = await this.getAdminIds();
+    const noteLine = input.note ? `\nהערה: ${input.note}` : "";
+    const text =
+      "בקשה לסגירת משימה\n" +
+      `משימה: ${input.title}\n` +
+      `מבקש: ${input.requesterName}${noteLine}` +
+      this.taskLinkSuffix(input.taskId);
+    return this.sendToUsers(
+      adminIds,
+      text,
+      (userId) => `task-close-requested:${input.taskId}:${userId}:${Date.now()}`,
+    );
+  }
+
+  public async notifyTaskCloseDecision(input: {
+    taskId: string;
+    title: string;
+    requesterId: string;
+    approved: boolean;
+    reviewNote?: string | null;
+  }): Promise<number> {
+    if (!this.telegram.hasToken()) return 0;
+    const noteLine = input.reviewNote ? `\nהערת מנהל: ${input.reviewNote}` : "";
+    const text = input.approved
+      ? `בקשת הסגירה אושרה\nמשימה: ${input.title}${this.taskLinkSuffix(input.taskId)}`
+      : `בקשת הסגירה נדחתה\nמשימה: ${input.title}${noteLine}${this.taskLinkSuffix(input.taskId)}`;
+    return this.sendToUsers(
+      [input.requesterId],
+      text,
+      (userId) =>
+        `task-close-decision:${input.taskId}:${input.approved ? "ok" : "no"}:${userId}:${Date.now()}`,
+    );
+  }
+
   private async withAdminRecipients(userIds: string[]): Promise<string[]> {
     const adminIds = await this.getAdminIds();
     return [...new Set([...userIds, ...adminIds])];
@@ -159,9 +203,14 @@ export class NotificationService extends BaseService {
       if (!(await this.reserveDelivery(key))) continue;
       try {
         const delivered = await this.telegram.sendToUser(userId, text);
-        if (delivered) sent += 1;
-      } catch {
-        continue;
+        if (delivered) {
+          sent += 1;
+        } else {
+          await this.releaseDelivery(key);
+        }
+      } catch (error) {
+        await this.releaseDelivery(key);
+        console.error("[notification-send]", key, error);
       }
     }
     return sent;
@@ -179,6 +228,15 @@ export class NotificationService extends BaseService {
       return rows.length > 0;
     } catch {
       return false;
+    }
+  }
+
+  private async releaseDelivery(key: string): Promise<void> {
+    const db = this.getDb();
+    try {
+      await db`delete from notification_deliveries where notification_key = ${key}`;
+    } catch (error) {
+      console.error("[notification-release]", key, error);
     }
   }
 

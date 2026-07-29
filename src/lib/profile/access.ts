@@ -7,7 +7,7 @@ export type ProfileEditAccess =
 
 export async function resolveProfileEditAccess(targetUserId: string): Promise<ProfileEditAccess> {
   const authorizationService = new AuthorizationService();
-  const actor = await authorizationService.getCurrentProfile();
+  const actor = await authorizationService.getRealProfile();
   if (!actor) {
     return { ok: false, status: 401 };
   }

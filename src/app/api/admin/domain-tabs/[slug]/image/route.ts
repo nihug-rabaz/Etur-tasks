@@ -16,11 +16,8 @@ export async function POST(
   context: { params: Promise<{ slug: string }> },
 ) {
   const authorizationService = new AuthorizationService();
-  const profile = await authorizationService.getCurrentProfile();
+  const profile = await authorizationService.ensureRealAdminApi();
   if (!profile) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -61,11 +58,8 @@ export async function DELETE(
   context: { params: Promise<{ slug: string }> },
 ) {
   const authorizationService = new AuthorizationService();
-  const profile = await authorizationService.getCurrentProfile();
+  const profile = await authorizationService.ensureRealAdminApi();
   if (!profile) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

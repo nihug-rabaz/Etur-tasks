@@ -3,6 +3,10 @@ import { Geist_Mono, Heebo, Secular_One } from "next/font/google";
 import { Toaster } from "sonner";
 import { IntroSplash } from "@/components/intro-splash";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { FontScaleRoot } from "@/components/ui/font-scale-root";
+import { AuthorizationService } from "@/services/authorization.service";
+import { ProfileService } from "@/services/profile.service";
+import { getFontScaleOption } from "@/lib/ui/font-scale";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -54,19 +58,31 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const profile = await new AuthorizationService().getCurrentProfile();
+  const fontScale = profile
+    ? await new ProfileService().getFontScale(profile.id)
+    : getFontScaleOption("default");
+
   return (
     <html
       lang="he"
       dir="rtl"
       className={`${geistMono.variable} ${secularOne.variable} ${heebo.variable} h-full antialiased`}
-      style={{ colorScheme: "light" }}
+      data-font-scale={fontScale.preset}
+      suppressHydrationWarning
+      style={{
+        colorScheme: "light",
+        fontSize: `${16 * fontScale.scale}px`,
+        ["--app-font-scale" as string]: String(fontScale.scale),
+      }}
     >
       <body className="min-h-full flex flex-col">
+        <FontScaleRoot initialPreset={fontScale.preset} />
         <IntroSplash />
         {children}
         <PwaInstallPrompt />

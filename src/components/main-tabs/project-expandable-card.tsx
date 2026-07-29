@@ -8,15 +8,18 @@ import { TabProjectItem } from "@/services/dashboard.service";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { DeleteProjectButton } from "@/components/delete-project-button";
 import { TaskRowItem } from "@/components/main-tabs/task-row-item";
+import { TruncatedText } from "@/components/ui/truncated-text";
 import { useTaskDragDrop } from "@/components/main-tabs/task-drag-drop-context";
+import type { DomainKey } from "@/lib/ui/domains";
 
 interface ProjectExpandableCardProps {
   project: TabProjectItem;
+  domainSlug: DomainKey;
   toneClass: string;
   onTaskClick: (task: { id: string; title: string }) => void;
 }
 
-export function ProjectExpandableCard({ project, toneClass, onTaskClick }: ProjectExpandableCardProps) {
+export function ProjectExpandableCard({ project, domainSlug, toneClass, onTaskClick }: ProjectExpandableCardProps) {
   const [open, setOpen] = useState(false);
   const { dragTask, dropTargetProjectId, setDropTarget, moveTaskToProject, endDrag } = useTaskDragDrop();
   const isDragging = Boolean(dragTask);
@@ -62,9 +65,10 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
               <FolderKanban size={14} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-base font-bold leading-snug text-text-primary [overflow-wrap:anywhere] sm:truncate sm:[overflow-wrap:normal]">
-                {project.name}
-              </span>
+              <TruncatedText
+                text={project.name}
+                className="text-base font-bold leading-snug text-text-primary [overflow-wrap:anywhere] sm:truncate sm:[overflow-wrap:normal]"
+              />
               <span className="mt-0.5 block text-xs font-medium text-text-muted sm:mt-0">
                 {project.tasks.length} משימות בפרויקט
               </span>
@@ -127,6 +131,7 @@ export function ProjectExpandableCard({ project, toneClass, onTaskClick }: Proje
                     key={task.id}
                     task={task}
                     projectId={project.id}
+                    domainSlug={domainSlug}
                     onClick={() => {
                       onTaskClick({ id: task.id, title: task.title });
                     }}
