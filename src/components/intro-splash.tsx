@@ -13,6 +13,7 @@ export function IntroSplash() {
   const [visible, setVisible] = useState(true);
   const [phase, setPhase] = useState<IntroPhase>("ready");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const backgroundVideoRef = useRef<HTMLVideoElement>(null);
 
   const dismiss = useCallback(() => setVisible(false), []);
 
@@ -25,6 +26,11 @@ export function IntroSplash() {
     if (phase !== "playing") return;
     const video = videoRef.current;
     if (!video) return;
+    const backgroundVideo = backgroundVideoRef.current;
+    if (backgroundVideo) {
+      backgroundVideo.muted = true;
+      void backgroundVideo.play().catch(() => undefined);
+    }
     video.muted = false;
     video.volume = 1;
     void video.play().catch(() => setPhase("failed"));
@@ -42,15 +48,27 @@ export function IntroSplash() {
           role="presentation"
         >
           {phase === "playing" ? (
-            <video
-              ref={videoRef}
-              src={INTRO_VIDEO_SRC}
-              className="h-full w-full object-cover"
-              playsInline
-              preload="auto"
-              onEnded={dismiss}
-              onError={() => setPhase("failed")}
-            />
+            <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
+              <video
+                ref={backgroundVideoRef}
+                src={INTRO_VIDEO_SRC}
+                className="pointer-events-none absolute inset-[-5%] h-[110%] w-[110%] scale-110 object-cover opacity-50 blur-3xl saturate-150"
+                playsInline
+                muted
+                preload="auto"
+                aria-hidden
+              />
+              <div className="pointer-events-none absolute inset-0 bg-black/35" />
+              <video
+                ref={videoRef}
+                src={INTRO_VIDEO_SRC}
+                className="relative z-[1] h-full w-full object-contain shadow-[0_0_70px_rgba(0,0,0,0.65)]"
+                playsInline
+                preload="auto"
+                onEnded={dismiss}
+                onError={() => setPhase("failed")}
+              />
+            </div>
           ) : null}
 
           {phase === "ready" ? (

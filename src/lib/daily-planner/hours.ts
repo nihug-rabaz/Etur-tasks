@@ -3,12 +3,15 @@ export const DEFAULT_DAILY_PLAN_HOUR_END = 22;
 export const DEFAULT_DAILY_PLAN_SLOT_MINUTES = 60;
 export const DEFAULT_DAILY_PLAN_TASK_DURATION = 30;
 export const MIN_DAILY_PLAN_HOUR_SPAN = 4;
+export const MIN_DAILY_PLAN_TASK_DURATION = 1;
+export const MAX_DAILY_PLAN_TASK_DURATION = 24 * 60;
+export const DAILY_PLAN_TIME_STEP = 1;
 
 export const DAILY_PLAN_SLOT_MINUTE_OPTIONS = [15, 30, 60] as const;
 export type DailyPlanSlotMinutes = (typeof DAILY_PLAN_SLOT_MINUTE_OPTIONS)[number];
 
-export const DAILY_PLAN_TASK_DURATION_OPTIONS = [15, 30, 45, 60] as const;
-export type DailyPlanTaskDuration = (typeof DAILY_PLAN_TASK_DURATION_OPTIONS)[number];
+export const DAILY_PLAN_TASK_DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180] as const;
+export type DailyPlanTaskDuration = number;
 
 export interface DailyPlanSettings {
   hourStart: number;
@@ -31,8 +34,7 @@ export function normalizeSlotMinutes(value: number | null | undefined): DailyPla
 
 export function normalizeTaskDuration(value: number | null | undefined): DailyPlanTaskDuration {
   const rounded = Number.isFinite(value) ? Math.round(value as number) : DEFAULT_DAILY_PLAN_TASK_DURATION;
-  if (rounded === 15 || rounded === 30 || rounded === 45 || rounded === 60) return rounded;
-  return DEFAULT_DAILY_PLAN_TASK_DURATION;
+  return Math.min(MAX_DAILY_PLAN_TASK_DURATION, Math.max(MIN_DAILY_PLAN_TASK_DURATION, rounded));
 }
 
 export function normalizeDailyPlanHours(
@@ -100,8 +102,11 @@ export function isCurrentPlanSlot(startMinute: number, slotMinutes: number, now:
 }
 
 export function slotMinutesLabel(minutes: number): string {
-  if (minutes === 60) return "שעה";
-  return `${minutes} דק׳`;
+  if (minutes < 60) return `${minutes} דק׳`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  if (remainder === 0) return hours === 1 ? "שעה" : `${hours} שעות`;
+  return `${hours}:${remainder.toString().padStart(2, "0")} שעות`;
 }
 
 export function rangesOverlap(
@@ -137,11 +142,23 @@ export function findFreeStartInHour(
   occupied: DailyPlanOccupancy[],
   ignoreStartMinute?: number,
 ): number | null {
-  const hourStart = hour * 60;
-  const hourEnd = hourStart + 60;
-  if (duration <= 0 || duration > 60) return null;
+  return findFreeStart(hour * 60, duration, occupied, hour * 60 + 60, ignoreStartMinute);
+}
+
+export function findFreeStart(
+  requestedStart: number,
+  duration: number,
+  occupied: DailyPlanOccupancy[],
+  rangeEnd = 24 * 60,
+  ignoreStartMinute?: number,
+): number | null {
+  if (duration < MIN_DAILY_PLAN_TASK_DURATION || requestedStart + duration > rangeEnd) return null;
   const relevant = occupied.filter((slot) => slot.start_minute !== ignoreStartMinute);
-  for (let start = hourStart; start + duration <= hourEnd; start += 15) {
+  for (
+    let start = requestedStart;
+    start + duration <= rangeEnd;
+    start += DAILY_PLAN_TIME_STEP
+  ) {
     const conflicts = relevant.some((slot) =>
       rangesOverlap(start, duration, slot.start_minute, slot.duration_minutes),
     );

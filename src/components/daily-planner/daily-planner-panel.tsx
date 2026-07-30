@@ -1,111 +1,87 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { format, parseISO, addDays, subDays, isToday } from "date-fns";
+import { addDays, format, isToday, parseISO, subDays } from "date-fns";
 import { he } from "date-fns/locale";
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  FolderKanban,
+  Clock3,
+  GripVertical,
+  Minus,
   Plus,
   Search,
   Settings2,
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  DailyPlannerClient,
+  type DailyPlannerSlot,
+  type DailyPlannerSnapshot,
+  type DailyPlannerTask,
+} from "@/lib/daily-planner/daily-planner-client";
+import {
   buildDailyPlanHourRange,
-  canFitDurationInHour,
+  DAILY_PLAN_TASK_DURATION_OPTIONS,
   DEFAULT_DAILY_PLAN_HOUR_END,
   DEFAULT_DAILY_PLAN_HOUR_START,
   DEFAULT_DAILY_PLAN_TASK_DURATION,
-  DAILY_PLAN_TASK_DURATION_OPTIONS,
-  findFreeStartInHour,
   formatHourLabel,
   formatSlotTimeLabel,
-  isCurrentPlanHour,
+  MAX_DAILY_PLAN_TASK_DURATION,
+  MIN_DAILY_PLAN_TASK_DURATION,
   normalizeDailyPlanHours,
   normalizeTaskDuration,
-  rangesOverlap,
   slotMinutesLabel,
-  usedMinutesInHour,
-  type DailyPlanTaskDuration,
 } from "@/lib/daily-planner/hours";
 
-interface PlannerTask {
-  id: string;
-  title: string;
-  priority: "low" | "medium" | "high";
-  status: "in_progress" | "completed";
-  project_id?: string | null;
-  project_name?: string | null;
-}
-
-interface ProjectTaskGroup {
-  key: string;
-  name: string;
-  tasks: PlannerTask[];
-}
-
-function buildProjectGroups(tasks: PlannerTask[]): ProjectTaskGroup[] {
-  const groups = new Map<string, ProjectTaskGroup>();
-  for (const task of tasks) {
-    const name = task.project_name?.trim() || "ללא פרויקט";
-    const key = task.project_id ?? `name:${name}`;
-    const existing = groups.get(key);
-    if (existing) {
-      existing.tasks.push(task);
-    } else {
-      groups.set(key, { key, name, tasks: [task] });
-    }
-  }
-  return Array.from(groups.values()).sort((a, b) => {
-    if (a.name === "ללא פרויקט") return 1;
-    if (b.name === "ללא פרויקט") return -1;
-    return a.name.localeCompare(b.name, "he");
-  });
-}
-
-interface PlannerSlot {
-  start_minute: number;
-  duration_minutes: number;
-  task_id: string;
-  title: string;
-  priority: "low" | "medium" | "high";
-  status: "in_progress" | "completed";
-}
-
+const HOUR_HEIGHT = 84;
+const DURATION_BUTTON_STEP = 5;
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 
-const priorityBar: Record<PlannerTask["priority"], string> = {
-  low: "bg-emerald-500",
-  medium: "bg-amber-500",
-  high: "bg-rose-500",
+const priorityStyle: Record<DailyPlannerTask["priority"], string> = {
+  low: "border-emerald-300 bg-emerald-50 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-100",
+  medium: "border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/70 dark:text-amber-100",
+  high: "border-rose-300 bg-rose-50 text-rose-950 dark:border-rose-800 dark:bg-rose-950/70 dark:text-rose-100",
 };
 
-function formatHourOption(hour: number): string {
-  return `${hour.toString().padStart(2, "0")}:00`;
-}
+class DailyPlannerTimeline {
+  public static top(startMinute: number, rangeStart: number): number {
+    return ((startMinute - rangeStart) / 60) * HOUR_HEIGHT;
+  }
 
-function toDateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = (date.getMonth() + 1).toString().padStart(2, "0");
-  const d = date.getDate().toString().padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
+  public static height(durationMinutes: number): number {
+    return Math.max(24, (durationMinutes / 60) * HOUR_HEIGHT - 3);
+  }
 
-function pickDefaultDuration(
-  hour: number,
-  occupancy: { start_minute: number; duration_minutes: number }[],
-): DailyPlanTaskDuration {
-  const fitting = DAILY_PLAN_TASK_DURATION_OPTIONS.filter((minutes) =>
-    canFitDurationInHour(hour, minutes, occupancy),
-  );
-  if (fitting.includes(DEFAULT_DAILY_PLAN_TASK_DURATION)) return DEFAULT_DAILY_PLAN_TASK_DURATION;
-  return fitting[fitting.length - 1] ?? DEFAULT_DAILY_PLAN_TASK_DURATION;
+  public static overlapsRange(
+    slot: DailyPlannerSlot,
+    rangeStart: number,
+    rangeEnd: number,
+  ): boolean {
+    return slot.start_minute < rangeEnd && slot.start_minute + slot.duration_minutes > rangeStart;
+  }
+
+  public static appendStart(
+    hour: number,
+    slots: DailyPlannerSlot[],
+    ignoreStartMinute?: number,
+  ): number {
+    const hourStart = hour * 60;
+    const hourEnd = hourStart + 60;
+    const occupiedEnds = slots
+      .filter(
+        (slot) =>
+          slot.start_minute !== ignoreStartMinute &&
+          slot.start_minute < hourEnd &&
+          slot.start_minute + slot.duration_minutes > hourStart,
+      )
+      .map((slot) => slot.start_minute + slot.duration_minutes);
+    return Math.max(hourStart, ...occupiedEnds);
+  }
 }
 
 interface DailyPlannerPanelProps {
@@ -115,12 +91,13 @@ interface DailyPlannerPanelProps {
 
 export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
   const [mounted, setMounted] = useState(false);
-  const [planDate, setPlanDate] = useState(() => toDateKey(new Date()));
-  const [tasks, setTasks] = useState<PlannerTask[]>([]);
-  const [slots, setSlots] = useState<PlannerSlot[]>([]);
+  const [planDate, setPlanDate] = useState(() => DailyPlannerClient.dateKey(new Date()));
+  const latestPlanDate = useRef(planDate);
+  const [tasks, setTasks] = useState<DailyPlannerTask[]>([]);
+  const [slots, setSlots] = useState<DailyPlannerSlot[]>([]);
   const [loading, setLoading] = useState(false);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [loadedPlanDate, setLoadedPlanDate] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [hourStart, setHourStart] = useState(DEFAULT_DAILY_PLAN_HOUR_START);
   const [hourEnd, setHourEnd] = useState(DEFAULT_DAILY_PLAN_HOUR_END);
@@ -128,160 +105,294 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
   const [draftHourStart, setDraftHourStart] = useState(DEFAULT_DAILY_PLAN_HOUR_START);
   const [draftHourEnd, setDraftHourEnd] = useState(DEFAULT_DAILY_PLAN_HOUR_END);
   const [hoursSaving, setHoursSaving] = useState(false);
-  const [activeSlotMinute, setActiveSlotMinute] = useState<number | null>(null);
-  const [assignHour, setAssignHour] = useState<number | null>(null);
+  const [editorStart, setEditorStart] = useState<number | null>(null);
+  const [editingSlotStart, setEditingSlotStart] = useState<number | null>(null);
   const [draftTaskId, setDraftTaskId] = useState<string | null>(null);
-  const [draftDuration, setDraftDuration] = useState<DailyPlanTaskDuration>(DEFAULT_DAILY_PLAN_TASK_DURATION);
-  const [assignSaving, setAssignSaving] = useState(false);
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set());
+  const [draftDuration, setDraftDuration] = useState(DEFAULT_DAILY_PLAN_TASK_DURATION);
+  const [query, setQuery] = useState("");
+  const [draggingSlotStart, setDraggingSlotStart] = useState<number | null>(null);
+  const [dropHour, setDropHour] = useState<number | null>(null);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    latestPlanDate.current = planDate;
+  }, [planDate]);
 
-  const closeAssign = useCallback(() => {
-    setAssignHour(null);
+  const closeEditor = useCallback(() => {
+    setEditorStart(null);
+    setEditingSlotStart(null);
     setDraftTaskId(null);
+    setDraftDuration(DEFAULT_DAILY_PLAN_TASK_DURATION);
     setQuery("");
-    setCollapsedProjects(new Set());
   }, []);
 
   useEffect(() => {
-    if (!open) {
-      closeAssign();
-      setActiveSlotMinute(null);
-      setHoursOpen(false);
-      setError("");
-    }
-  }, [open, closeAssign]);
+    if (open) return;
+    closeEditor();
+    setHoursOpen(false);
+    setDraggingSlotStart(null);
+    setDropHour(null);
+    setError("");
+  }, [open, closeEditor]);
+
+  const applySnapshot = useCallback((date: string, snapshot: DailyPlannerSnapshot) => {
+    if (latestPlanDate.current !== date) return;
+    setSlots(
+      snapshot.slots.map((slot) => ({
+        ...slot,
+        duration_minutes: normalizeTaskDuration(slot.duration_minutes),
+      })),
+    );
+    setTasks(snapshot.tasks);
+    const settings = normalizeDailyPlanHours(
+      snapshot.hourStart,
+      snapshot.hourEnd,
+      snapshot.slotMinutes,
+    );
+    setHourStart(settings.hourStart);
+    setHourEnd(settings.hourEnd);
+    setDraftHourStart(settings.hourStart);
+    setDraftHourEnd(settings.hourEnd);
+    setLoadedPlanDate(date);
+  }, []);
 
   const load = useCallback(async () => {
+    const cached = DailyPlannerClient.getCached(planDate);
+    if (cached) {
+      applySnapshot(planDate, cached);
+      setLoading(false);
+      if (DailyPlannerClient.isFresh(planDate)) return;
+    }
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/daily-planner?date=${planDate}`);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setError("לא הצלחנו לטעון הלו״ז היומי.");
-        return;
+      applySnapshot(planDate, await DailyPlannerClient.load(planDate, Boolean(cached)));
+    } catch {
+      if (!cached && latestPlanDate.current === planDate) {
+        setError("לא הצלחנו לטעון את המשימות להיום.");
       }
-      setSlots(
-        Array.isArray(data.slots)
-          ? data.slots.map((slot: PlannerSlot & { hour?: number }) => ({
-              ...slot,
-              start_minute: slot.start_minute ?? (slot.hour ?? 0) * 60,
-              duration_minutes: normalizeTaskDuration(slot.duration_minutes),
-            }))
-          : [],
-      );
-      setTasks(Array.isArray(data.tasks) ? data.tasks : []);
-      const settings = normalizeDailyPlanHours(data.hourStart, data.hourEnd, data.slotMinutes);
-      setHourStart(settings.hourStart);
-      setHourEnd(settings.hourEnd);
-      setDraftHourStart(settings.hourStart);
-      setDraftHourEnd(settings.hourEnd);
     } finally {
-      setLoading(false);
+      if (latestPlanDate.current === planDate) setLoading(false);
     }
-  }, [planDate]);
+  }, [applySnapshot, planDate]);
 
   useEffect(() => {
-    if (!open) return;
-    void load();
+    if (open) void load();
   }, [open, load]);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (assignHour !== null) {
-          closeAssign();
-          return;
-        }
-        onClose();
-      }
+      if (event.key !== "Escape") return;
+      if (editorStart !== null) closeEditor();
+      else onClose();
     };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      document.body.style.overflow = previousOverflow;
     };
-  }, [open, onClose, assignHour, closeAssign]);
-
-  const occupancy = useMemo(
-    () =>
-      slots.map((slot) => ({
-        start_minute: slot.start_minute,
-        duration_minutes: slot.duration_minutes,
-      })),
-    [slots],
-  );
-
-  const scheduledTaskIds = useMemo(() => new Set(slots.map((slot) => slot.task_id)), [slots]);
-
-  const availableTasks = useMemo(
-    () => tasks.filter((task) => !scheduledTaskIds.has(task.id)),
-    [tasks, scheduledTaskIds],
-  );
-
-  const filteredTasks = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return availableTasks;
-    return availableTasks.filter(
-      (task) =>
-        task.title.toLowerCase().includes(q) ||
-        (task.project_name ?? "").toLowerCase().includes(q),
-    );
-  }, [availableTasks, query]);
-
-  const projectGroups = useMemo(() => buildProjectGroups(filteredTasks), [filteredTasks]);
-  const searchActive = query.trim().length > 0;
+  }, [open, editorStart, closeEditor, onClose]);
 
   const selectedDate = parseISO(planDate);
   const planIsToday = isToday(selectedDate);
-  const now = new Date();
   const visibleHours = useMemo(
     () => buildDailyPlanHourRange({ hourStart, hourEnd }),
     [hourStart, hourEnd],
   );
-  const dateLine = format(selectedDate, "EEEE, d בMMMM", { locale: he });
-  const plannedMinutes = useMemo(
-    () => slots.reduce((sum, slot) => sum + slot.duration_minutes, 0),
-    [slots],
+  const rangeStart = visibleHours[0] * 60;
+  const rangeEnd = Math.min(24 * 60, (visibleHours.at(-1) ?? hourEnd) * 60 + 60);
+  const timelineHeight = visibleHours.length * HOUR_HEIGHT;
+  const plannedMinutes = slots.reduce((sum, slot) => sum + slot.duration_minutes, 0);
+  const scheduledTaskIds = useMemo(
+    () =>
+      new Set(
+        slots
+          .filter((slot) => slot.start_minute !== editingSlotStart)
+          .map((slot) => slot.task_id),
+      ),
+    [slots, editingSlotStart],
   );
+  const availableTasks = useMemo(() => {
+    const search = query.trim().toLocaleLowerCase("he");
+    return tasks.filter((task) => {
+      if (scheduledTaskIds.has(task.id)) return false;
+      if (!search) return true;
+      return (
+        task.title.toLocaleLowerCase("he").includes(search) ||
+        (task.project_name ?? "").toLocaleLowerCase("he").includes(search)
+      );
+    });
+  }, [query, scheduledTaskIds, tasks]);
+  const maxDraftDuration =
+    editorStart === null
+      ? MAX_DAILY_PLAN_TASK_DURATION
+      : Math.min(MAX_DAILY_PLAN_TASK_DURATION, 24 * 60 - editorStart);
 
-  const assignFreeMinutes =
-    assignHour === null ? 0 : 60 - usedMinutesInHour(assignHour, occupancy);
+  const selectPlanDate = (date: Date) => {
+    setLoading(true);
+    closeEditor();
+    setPlanDate(DailyPlannerClient.dateKey(date));
+  };
 
-  const fittingDurations = useMemo(() => {
-    if (assignHour === null) return [...DAILY_PLAN_TASK_DURATION_OPTIONS];
-    return DAILY_PLAN_TASK_DURATION_OPTIONS.filter((minutes) =>
-      canFitDurationInHour(assignHour, minutes, occupancy),
-    );
-  }, [assignHour, occupancy]);
-
-  useEffect(() => {
-    if (assignHour === null) return;
-    if (fittingDurations.includes(draftDuration)) return;
-    if (fittingDurations.length > 0) setDraftDuration(fittingDurations[fittingDurations.length - 1]);
-  }, [assignHour, draftDuration, fittingDurations]);
-
-  const draftTask = tasks.find((task) => task.id === draftTaskId);
-
-  const openAssign = (hour: number) => {
-    const free = 60 - usedMinutesInHour(hour, occupancy);
-    if (free <= 0) {
-      setError("השעה הזו מלאה.");
+  const openNewTask = (startMinute: number) => {
+    if (startMinute >= 24 * 60) {
+      setError("אין יותר מקום ביום הזה.");
       return;
     }
     setError("");
-    setActiveSlotMinute(null);
-    setAssignHour(hour);
+    setEditorStart(startMinute);
+    setEditingSlotStart(null);
     setDraftTaskId(null);
-    setDraftDuration(pickDefaultDuration(hour, occupancy));
+    setDraftDuration(Math.min(DEFAULT_DAILY_PLAN_TASK_DURATION, 24 * 60 - startMinute));
     setQuery("");
+  };
+
+  const openNewTaskForHour = (hour: number) => {
+    openNewTask(DailyPlannerTimeline.appendStart(hour, slots));
+  };
+
+  const openExistingTask = (slot: DailyPlannerSlot) => {
+    setError("");
+    setEditorStart(slot.start_minute);
+    setEditingSlotStart(slot.start_minute);
+    setDraftTaskId(slot.task_id);
+    setDraftDuration(slot.duration_minutes);
+    setQuery("");
+  };
+
+  const changeDuration = (direction: -1 | 1) => {
+    setDraftDuration((current) =>
+      Math.min(
+        maxDraftDuration,
+        Math.max(MIN_DAILY_PLAN_TASK_DURATION, current + direction * DURATION_BUTTON_STEP),
+      ),
+    );
+  };
+
+  const setExactDuration = (value: string) => {
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes)) return;
+    setDraftDuration(
+      Math.min(maxDraftDuration, Math.max(MIN_DAILY_PLAN_TASK_DURATION, Math.round(minutes))),
+    );
+  };
+
+  const saveTask = async () => {
+    if (editorStart === null || !draftTaskId) return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await DailyPlannerClient.assign({
+        planDate,
+        startMinute: editorStart,
+        taskId: draftTaskId,
+        durationMinutes: draftDuration,
+        previousStartMinute: editingSlotStart ?? undefined,
+      });
+      const task = tasks.find((candidate) => candidate.id === draftTaskId);
+      if (!task) {
+        await load();
+        closeEditor();
+        return;
+      }
+      const nextSlot: DailyPlannerSlot = {
+        start_minute: result.startMinute,
+        duration_minutes: result.durationMinutes,
+        task_id: task.id,
+        title: task.title,
+        priority: task.priority,
+        status: task.status,
+      };
+      setSlots((current) => {
+        const next = [
+          ...current.filter((slot) => slot.start_minute !== editingSlotStart),
+          nextSlot,
+        ].sort((left, right) => left.start_minute - right.start_minute);
+        DailyPlannerClient.updateSlots(planDate, next);
+        return next;
+      });
+      closeEditor();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error && saveError.message === "TIME_CONFLICT"
+          ? "הזמן הזה כבר תפוס. אפשר לבחור שעה אחרת או לקצר את המשימה."
+          : "שמירת המשימה נכשלה.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const moveTaskToHour = async (hour: number) => {
+    if (draggingSlotStart === null) return;
+    const draggedSlot = slots.find((slot) => slot.start_minute === draggingSlotStart);
+    if (!draggedSlot) return;
+    const targetStart = DailyPlannerTimeline.appendStart(hour, slots, draggingSlotStart);
+    setDropHour(null);
+    if (targetStart + draggedSlot.duration_minutes > 24 * 60) {
+      setDraggingSlotStart(null);
+      setError("אין מספיק זמן פנוי בשעה הזו.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const result = await DailyPlannerClient.assign({
+        planDate,
+        startMinute: targetStart,
+        taskId: draggedSlot.task_id,
+        durationMinutes: draggedSlot.duration_minutes,
+        previousStartMinute: draggingSlotStart,
+      });
+      setSlots((current) => {
+        const next = current
+          .map((slot) =>
+            slot.start_minute === draggingSlotStart
+              ? {
+                  ...slot,
+                  start_minute: result.startMinute,
+                  duration_minutes: result.durationMinutes,
+                }
+              : slot,
+          )
+          .sort((left, right) => left.start_minute - right.start_minute);
+        DailyPlannerClient.updateSlots(planDate, next);
+        return next;
+      });
+    } catch (moveError) {
+      setError(
+        moveError instanceof Error && moveError.message === "TIME_CONFLICT"
+          ? "אין מספיק זמן פנוי בשעה הזו."
+          : "העברת המשימה נכשלה.",
+      );
+    } finally {
+      setSaving(false);
+      setDraggingSlotStart(null);
+      setDropHour(null);
+    }
+  };
+
+  const removeTask = async () => {
+    if (editingSlotStart === null) return;
+    setSaving(true);
+    setError("");
+    try {
+      await DailyPlannerClient.remove(planDate, editingSlotStart);
+      setSlots((current) => {
+        const next = current.filter((slot) => slot.start_minute !== editingSlotStart);
+        DailyPlannerClient.updateSlots(planDate, next);
+        return next;
+      });
+      closeEditor();
+    } catch {
+      setError("הסרת המשימה נכשלה.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveHours = async () => {
@@ -291,162 +402,28 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
       const response = await fetch("/api/daily-planner/hours", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hourStart: draftHourStart,
-          hourEnd: draftHourEnd,
-        }),
+        body: JSON.stringify({ hourStart: draftHourStart, hourEnd: draftHourEnd }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setError("עדכון שעות היום נכשל.");
-        return;
-      }
+      if (!response.ok) throw new Error();
       const settings = normalizeDailyPlanHours(data.hourStart, data.hourEnd, data.slotMinutes);
       setHourStart(settings.hourStart);
       setHourEnd(settings.hourEnd);
-      setDraftHourStart(settings.hourStart);
-      setDraftHourEnd(settings.hourEnd);
       setHoursOpen(false);
+    } catch {
+      setError("עדכון טווח השעות נכשל.");
     } finally {
       setHoursSaving(false);
     }
   };
 
-  const clearSlot = async (startMinute: number) => {
-    setSavingKey(`m-${startMinute}`);
-    setError("");
-    try {
-      const response = await fetch("/api/daily-planner", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planDate, startMinute, taskId: null }),
-      });
-      if (!response.ok) {
-        setError("שמירת השיבוץ נכשלה.");
-        return;
-      }
-      await load();
-      setActiveSlotMinute(null);
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
-  const confirmAssign = async () => {
-    if (assignHour === null || !draftTaskId) return;
-    if (!canFitDurationInHour(assignHour, draftDuration, occupancy)) {
-      setError("אין מספיק מקום בשעה הזו למשך שנבחר.");
-      return;
-    }
-    setAssignSaving(true);
-    setError("");
-    try {
-      const response = await fetch("/api/daily-planner", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planDate,
-          hour: assignHour,
-          taskId: draftTaskId,
-          durationMinutes: draftDuration,
-        }),
-      });
-      if (response.status === 409) {
-        setError("אין מספיק מקום בשעה הזו למשך שנבחר.");
-        return;
-      }
-      if (!response.ok) {
-        setError("שמירת השיבוץ נכשלה.");
-        return;
-      }
-      await load();
-      closeAssign();
-    } finally {
-      setAssignSaving(false);
-    }
-  };
-
-  const handleDurationChange = async (slot: PlannerSlot, durationMinutes: DailyPlanTaskDuration) => {
-    const hour = Math.floor(slot.start_minute / 60);
-    const hourEndBound = hour * 60 + 60;
-    const others = occupancy.filter((entry) => entry.start_minute !== slot.start_minute);
-    const fitsHere =
-      slot.start_minute + durationMinutes <= hourEndBound &&
-      !others.some((entry) =>
-        rangesOverlap(
-          slot.start_minute,
-          durationMinutes,
-          entry.start_minute,
-          entry.duration_minutes,
-        ),
-      );
-
-    if (fitsHere) {
-      setSavingKey(`m-${slot.start_minute}`);
-      setError("");
-      try {
-        const response = await fetch("/api/daily-planner", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            planDate,
-            startMinute: slot.start_minute,
-            taskId: slot.task_id,
-            durationMinutes,
-          }),
-        });
-        if (!response.ok) {
-          setError("שמירת השיבוץ נכשלה.");
-          return;
-        }
-        await load();
-      } finally {
-        setSavingKey(null);
-      }
-      return;
-    }
-
-    const freeStart = findFreeStartInHour(hour, durationMinutes, occupancy, slot.start_minute);
-    if (freeStart === null) {
-      setError("אין מספיק מקום בשעה הזו למשך שנבחר.");
-      return;
-    }
-
-    setSavingKey(`m-${slot.start_minute}`);
-    setError("");
-    try {
-      const clearResponse = await fetch("/api/daily-planner", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planDate, startMinute: slot.start_minute, taskId: null }),
-      });
-      if (!clearResponse.ok) {
-        setError("שמירת השיבוץ נכשלה.");
-        return;
-      }
-      const placeResponse = await fetch("/api/daily-planner", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planDate,
-          startMinute: freeStart,
-          taskId: slot.task_id,
-          durationMinutes,
-        }),
-      });
-      if (!placeResponse.ok) {
-        setError("שמירת השיבוץ נכשלה.");
-        await load();
-        return;
-      }
-      await load();
-      setActiveSlotMinute(freeStart);
-    } finally {
-      setSavingKey(null);
-    }
-  };
-
   if (!mounted) return null;
+
+  const visibleSlots = slots.filter((slot) =>
+    DailyPlannerTimeline.overlapsRange(slot, rangeStart, rangeEnd),
+  );
+  const nowMinute = new Date().getHours() * 60 + new Date().getMinutes();
+  const showNow = planIsToday && nowMinute >= rangeStart && nowMinute < rangeEnd;
 
   return createPortal(
     <AnimatePresence>
@@ -455,59 +432,75 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
           <motion.button
             type="button"
             aria-label="סגירה"
-            className="fixed inset-0 z-[80] bg-black/50"
+            className="fixed inset-0 z-[80] bg-slate-950/50"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
           <motion.aside
-            className="fixed left-0 top-0 z-[85] flex h-dvh max-h-dvh w-[min(400px,100vw)] flex-col overflow-hidden border-e border-black/10 bg-[#f7f8fa] shadow-2xl sm:w-[min(440px,94vw)] dark:border-white/10 dark:bg-[#12141b]"
+            dir="rtl"
+            className="fixed left-0 top-0 z-[85] flex h-dvh w-[min(460px,100vw)] flex-col overflow-hidden border-e border-black/10 bg-white shadow-[20px_0_60px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#12141b]"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "tween", duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-            aria-label="לו״ז יומי"
+            aria-label="משימות להיום"
           >
-            <header className="shrink-0 border-b border-black/10 bg-white px-4 pb-3 pt-4 dark:border-white/10 dark:bg-[#161922]">
-              <div className="flex items-start gap-3">
+            <header className="relative shrink-0 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-[#171a24]">
+              {loading ? (
+                <motion.div
+                  className="absolute inset-x-0 bottom-0 h-0.5 origin-right bg-violet-600"
+                  initial={{ scaleX: 0.15 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 0.8, repeat: Infinity, repeatType: "reverse" }}
+                />
+              ) : null}
+              <div className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-[17px] font-bold text-text-primary">לו״ז יומי</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[17px] font-extrabold text-text-primary">משימות להיום</h2>
                     {planIsToday ? (
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
                         היום
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-[12px] text-text-muted">{dateLine}</p>
+                  <p className="mt-0.5 text-[12px] text-text-muted">
+                    {format(selectedDate, "EEEE, d בMMMM", { locale: he })} · {slots.length} משימות ·{" "}
+                    {slotMinutesLabel(plannedMinutes)}
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-text-secondary hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-text-secondary hover:bg-slate-200 dark:bg-slate-800"
                   aria-label="סגירה"
                 >
-                  <X size={16} />
+                  <X size={17} />
                 </button>
               </div>
 
               <div className="mt-3 flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setPlanDate(toDateKey(subDays(selectedDate, 1)))}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-text-secondary hover:bg-slate-200 dark:bg-slate-800"
+                  onClick={() => selectPlanDate(subDays(selectedDate, 1))}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800"
                   aria-label="יום קודם"
                 >
                   <ChevronRight size={16} />
                 </button>
-                <div className="min-w-0 flex-1 rounded-lg bg-slate-100 px-3 py-1.5 text-center text-[12px] font-semibold text-text-secondary dark:bg-slate-800">
-                  {format(selectedDate, "d MMMM yyyy", { locale: he })}
-                </div>
                 <button
                   type="button"
-                  onClick={() => setPlanDate(toDateKey(addDays(selectedDate, 1)))}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-text-secondary hover:bg-slate-200 dark:bg-slate-800"
+                  onClick={() => selectPlanDate(new Date())}
+                  className="h-8 min-w-0 flex-1 rounded-lg bg-slate-100 px-3 text-[12px] font-bold text-text-secondary dark:bg-slate-800"
+                >
+                  {format(selectedDate, "d MMMM yyyy", { locale: he })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectPlanDate(addDays(selectedDate, 1))}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800"
                   aria-label="יום הבא"
                 >
                   <ChevronLeft size={16} />
@@ -515,39 +508,15 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
                 <button
                   type="button"
                   onClick={() => {
-                    setHoursOpen((value) => !value);
                     setDraftHourStart(hourStart);
                     setDraftHourEnd(hourEnd);
+                    setHoursOpen((current) => !current);
                   }}
-                  className={`inline-flex h-8 w-8 items-center justify-center rounded-lg ${
-                    hoursOpen
-                      ? "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300"
-                      : "bg-slate-100 text-text-secondary hover:bg-slate-200 dark:bg-slate-800"
-                  }`}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800"
                   aria-label="טווח שעות"
                 >
                   <Settings2 size={15} />
                 </button>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <div className="rounded-lg bg-slate-100 px-2.5 py-1 text-[12px] dark:bg-slate-800">
-                  <span className="font-extrabold text-text-primary">{slots.length}</span>
-                  <span className="ms-1 font-medium text-text-muted">משימות</span>
-                </div>
-                <div className="rounded-lg bg-slate-100 px-2.5 py-1 text-[12px] dark:bg-slate-800">
-                  <span className="font-extrabold text-text-primary">{plannedMinutes}</span>
-                  <span className="ms-1 font-medium text-text-muted">דק׳</span>
-                </div>
-                {!planIsToday ? (
-                  <button
-                    type="button"
-                    onClick={() => setPlanDate(toDateKey(new Date()))}
-                    className="ms-auto rounded-lg bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700 dark:bg-violet-950 dark:text-violet-300"
-                  >
-                    חזרה להיום
-                  </button>
-                ) : null}
               </div>
 
               <AnimatePresence initial={false}>
@@ -558,38 +527,36 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-slate-100 p-2.5 dark:bg-slate-800">
-                      <span className="text-[11px] font-semibold text-text-muted">טווח</span>
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-100 p-2 dark:bg-slate-800">
                       <select
                         value={draftHourStart}
                         onChange={(event) => setDraftHourStart(Number(event.target.value))}
-                        className="rounded-lg border-0 bg-white px-2 py-1.5 text-[12px] font-bold dark:bg-slate-900"
+                        className="min-w-0 flex-1 rounded-lg bg-white px-2 py-2 text-[12px] font-bold dark:bg-slate-900"
                         aria-label="משעה"
                       >
                         {HOUR_OPTIONS.map((hour) => (
-                          <option key={`start-${hour}`} value={hour} disabled={hour >= draftHourEnd}>
-                            {formatHourOption(hour)}
+                          <option key={hour} value={hour} disabled={hour >= draftHourEnd}>
+                            מ־{formatHourLabel(hour)}
                           </option>
                         ))}
                       </select>
-                      <span className="text-text-muted">–</span>
                       <select
                         value={draftHourEnd}
                         onChange={(event) => setDraftHourEnd(Number(event.target.value))}
-                        className="rounded-lg border-0 bg-white px-2 py-1.5 text-[12px] font-bold dark:bg-slate-900"
+                        className="min-w-0 flex-1 rounded-lg bg-white px-2 py-2 text-[12px] font-bold dark:bg-slate-900"
                         aria-label="עד שעה"
                       >
                         {HOUR_OPTIONS.map((hour) => (
-                          <option key={`end-${hour}`} value={hour} disabled={hour <= draftHourStart}>
-                            {formatHourOption(hour)}
+                          <option key={hour} value={hour} disabled={hour <= draftHourStart}>
+                            עד {formatHourLabel(hour)}
                           </option>
                         ))}
                       </select>
                       <button
                         type="button"
                         onClick={() => void saveHours()}
-                        disabled={hoursSaving || draftHourEnd <= draftHourStart}
-                        className="rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-extrabold text-white disabled:opacity-40"
+                        disabled={hoursSaving}
+                        className="rounded-lg bg-violet-600 px-3 py-2 text-[12px] font-bold text-white disabled:opacity-40"
                       >
                         {hoursSaving ? "…" : "שמור"}
                       </button>
@@ -599,227 +566,224 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
               </AnimatePresence>
             </header>
 
-            <section className="relative min-h-0 flex-1 bg-[#f7f8fa] dark:bg-[#12141b]">
-              <div className="h-full overflow-y-auto px-3 py-3">
-                {loading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 8 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className="h-12 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"
-                        aria-hidden
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {visibleHours.map((hour) => {
-                      const hourSlots = slots
-                        .filter((slot) => Math.floor(slot.start_minute / 60) === hour)
-                        .sort((a, b) => a.start_minute - b.start_minute);
-                      const used = usedMinutesInHour(hour, occupancy);
-                      const free = 60 - used;
-                      const busy =
-                        savingKey === `h-${hour}` ||
-                        hourSlots.some((slot) => savingKey === `m-${slot.start_minute}`);
-                      const isNow = planIsToday && isCurrentPlanHour(hour, now);
-                      const isTarget = assignHour === hour;
-                      const isEmpty = hourSlots.length === 0;
+            <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#f8fafc] dark:bg-[#12141b]">
+              {loading && loadedPlanDate !== planDate ? (
+                <div className="space-y-3 p-4">
+                  {Array.from({ length: 7 }).map((_, index) => (
+                    <div key={index} className="h-16 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+                  ))}
+                </div>
+              ) : (
+                <div className="relative mx-3 my-4" style={{ height: timelineHeight }}>
+                  {visibleHours.map((hour, index) => (
+                    <div
+                      key={hour}
+                      className="absolute inset-x-0"
+                      style={{ top: index * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                    >
+                      <span className="absolute right-0 top-[-8px] w-12 text-left text-[11px] font-semibold tabular-nums text-text-muted">
+                        {formatHourLabel(hour)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openNewTaskForHour(hour)}
+                        className="group absolute bottom-0 left-0 right-14 top-0 border-t border-slate-200 text-right hover:bg-violet-50/70 dark:border-slate-800 dark:hover:bg-violet-950/20"
+                        aria-label={`הוסף משימה בשעה ${formatHourLabel(hour)}`}
+                      >
+                        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-violet-700 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 dark:bg-slate-800 dark:text-violet-300">
+                          <Plus size={11} />
+                          הוסף
+                        </span>
+                      </button>
+                    </div>
+                  ))}
 
-                      return (
+                  {showNow ? (
+                    <div
+                      className="pointer-events-none absolute left-0 right-12 z-20 border-t-2 border-rose-500"
+                      style={{ top: DailyPlannerTimeline.top(nowMinute, rangeStart) }}
+                    >
+                      <span className="absolute -right-1 -top-1.5 h-3 w-3 rounded-full bg-rose-500" />
+                    </div>
+                  ) : null}
+
+                  {visibleSlots.map((slot) => {
+                    const clippedStart = Math.max(slot.start_minute, rangeStart);
+                    const clippedEnd = Math.min(slot.start_minute + slot.duration_minutes, rangeEnd);
+                    return (
+                      <button
+                        key={slot.start_minute}
+                        type="button"
+                        onClick={() => openExistingTask(slot)}
+                        draggable={!saving}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", String(slot.start_minute));
+                          setDraggingSlotStart(slot.start_minute);
+                          setDropHour(Math.floor(slot.start_minute / 60));
+                        }}
+                        onDragEnd={() => {
+                          setDraggingSlotStart(null);
+                          setDropHour(null);
+                        }}
+                        className={`absolute left-1 right-[3.65rem] z-10 cursor-grab overflow-hidden rounded-lg border px-2.5 py-1.5 text-right shadow-sm transition hover:brightness-95 active:cursor-grabbing ${priorityStyle[slot.priority]}`}
+                        style={{
+                          top: DailyPlannerTimeline.top(clippedStart, rangeStart) + 2,
+                          height: DailyPlannerTimeline.height(clippedEnd - clippedStart),
+                        }}
+                      >
+                        <span className="flex items-center gap-1">
+                          <GripVertical size={13} className="shrink-0 opacity-45" />
+                          <span className="block min-w-0 flex-1 truncate text-[12px] font-extrabold">
+                            {slot.title}
+                          </span>
+                        </span>
+                        {slot.duration_minutes >= 30 ? (
+                          <span className="mt-0.5 block truncate text-[10px] font-semibold opacity-70">
+                            {formatSlotTimeLabel(slot.start_minute)}–{formatSlotTimeLabel(
+                              slot.start_minute + slot.duration_minutes,
+                            )}{" "}
+                            · {slotMinutesLabel(slot.duration_minutes)}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+
+                  {draggingSlotStart !== null
+                    ? visibleHours.map((hour, index) => (
                         <div
-                          key={hour}
-                          className={`grid grid-cols-[3.25rem_minmax(0,1fr)] items-start gap-2 rounded-xl p-1 ${
-                            isTarget
-                              ? "bg-violet-50 dark:bg-violet-950/40"
-                              : isNow
-                                ? "bg-teal-50/70 dark:bg-teal-950/30"
-                                : ""
+                          key={`drop-${hour}`}
+                          className={`absolute left-0 right-14 z-30 flex items-center justify-center rounded-lg border-2 border-dashed transition ${
+                            dropHour === hour
+                              ? "border-violet-500 bg-violet-100/90 text-violet-700 dark:bg-violet-950/90 dark:text-violet-200"
+                              : "border-transparent bg-white/20 text-transparent dark:bg-black/10"
                           }`}
+                          style={{ top: index * HOUR_HEIGHT + 2, height: HOUR_HEIGHT - 4 }}
+                          onDragEnter={() => setDropHour(hour)}
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = "move";
+                            setDropHour(hour);
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            void moveTaskToHour(hour);
+                          }}
                         >
-                          <div
-                            className={`pt-2.5 text-end text-[11px] font-bold tabular-nums ${
-                              isNow ? "text-teal-700 dark:text-teal-300" : "text-text-muted"
-                            }`}
-                          >
-                            {formatHourLabel(hour)}
-                          </div>
-
-                          <div className="min-w-0">
-                            {isEmpty ? (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => openAssign(hour)}
-                                className={`flex w-full items-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-start transition ${
-                                  isTarget
-                                    ? "border-violet-400 bg-white dark:border-violet-500 dark:bg-slate-900"
-                                    : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-violet-600"
-                                }`}
-                              >
-                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-text-muted dark:bg-slate-800">
-                                  <Plus size={14} strokeWidth={2.5} />
-                                </span>
-                                <span className="text-[12px] font-semibold text-text-muted">הוסף משימה</span>
-                              </button>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {hourSlots.map((slot) => {
-                                  const expanded = activeSlotMinute === slot.start_minute;
-                                  return (
-                                    <div
-                                      key={slot.start_minute}
-                                      className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900"
-                                    >
-                                      <button
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() =>
-                                          setActiveSlotMinute((current) =>
-                                            current === slot.start_minute ? null : slot.start_minute,
-                                          )
-                                        }
-                                        className="flex w-full items-stretch gap-0 text-start"
-                                      >
-                                        <span
-                                          className={`w-1.5 shrink-0 ${priorityBar[slot.priority]}`}
-                                          aria-hidden
-                                        />
-                                        <span className="min-w-0 flex-1 px-3 py-2.5">
-                                          <span className="block truncate text-[13px] font-bold text-text-primary">
-                                            {slot.title}
-                                          </span>
-                                          <span className="mt-0.5 block text-[11px] font-semibold text-text-muted">
-                                            {formatSlotTimeLabel(slot.start_minute)} ·{" "}
-                                            {slotMinutesLabel(slot.duration_minutes)}
-                                          </span>
-                                        </span>
-                                      </button>
-
-                                      <AnimatePresence initial={false}>
-                                        {expanded ? (
-                                          <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: "auto", opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            className="overflow-hidden"
-                                          >
-                                            <div className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 px-3 py-2 dark:border-slate-800">
-                                              {DAILY_PLAN_TASK_DURATION_OPTIONS.map((minutes) => (
-                                                <button
-                                                  key={minutes}
-                                                  type="button"
-                                                  disabled={busy}
-                                                  onClick={() => void handleDurationChange(slot, minutes)}
-                                                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
-                                                    slot.duration_minutes === minutes
-                                                      ? "bg-violet-600 text-white"
-                                                      : "bg-slate-100 text-text-secondary dark:bg-slate-800"
-                                                  }`}
-                                                >
-                                                  {slotMinutesLabel(minutes)}
-                                                </button>
-                                              ))}
-                                              <button
-                                                type="button"
-                                                disabled={busy}
-                                                onClick={() => void clearSlot(slot.start_minute)}
-                                                className="ms-auto inline-flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950 dark:text-rose-300"
-                                                aria-label="הסר משימה"
-                                              >
-                                                <Trash2 size={13} />
-                                              </button>
-                                            </div>
-                                          </motion.div>
-                                        ) : null}
-                                      </AnimatePresence>
-                                    </div>
-                                  );
-                                })}
-
-                                {free > 0 ? (
-                                  <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => openAssign(hour)}
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-text-muted hover:border-violet-300 hover:text-violet-700 dark:border-slate-700 dark:bg-slate-900"
-                                  >
-                                    <Plus size={12} strokeWidth={2.5} />
-                                    עוד {free} דק׳
-                                  </button>
-                                ) : (
-                                  <p className="px-1 text-[10px] font-semibold text-text-muted">מלא</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
+                          <span className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-extrabold shadow-sm dark:bg-slate-900/90">
+                            העבר ל־{formatHourLabel(hour)}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                      ))
+                    : null}
+                </div>
+              )}
 
               <AnimatePresence>
-                {assignHour !== null ? (
+                {editorStart !== null ? (
                   <>
                     <motion.button
                       type="button"
-                      aria-label="סגור בחירה"
-                      className="absolute inset-0 z-10 border-0 bg-slate-950/45"
-                      onClick={closeAssign}
+                      aria-label="סגור עריכה"
+                      className="fixed inset-0 z-30 bg-slate-950/45"
+                      onClick={closeEditor}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                     />
                     <motion.div
-                      className="absolute inset-x-0 bottom-0 z-20 flex max-h-[82%] flex-col rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] dark:bg-[#171b26]"
+                      className="fixed bottom-0 left-0 z-40 flex max-h-[82dvh] w-[min(460px,100vw)] flex-col rounded-t-3xl bg-white shadow-[0_-18px_50px_rgba(15,23,42,0.25)] dark:bg-[#171a24]"
                       initial={{ y: "100%" }}
                       animate={{ y: 0 }}
                       exit={{ y: "100%" }}
-                      transition={{ type: "tween", duration: 0.24, ease: [0.32, 0.72, 0, 1] }}
+                      transition={{ type: "tween", duration: 0.22 }}
                     >
-                      <div className="mx-auto mt-2.5 h-1 w-9 rounded-full bg-slate-300 dark:bg-slate-600" />
-
-                      <div className="flex items-start gap-3 px-4 pb-3 pt-3">
-                        <div className="inline-flex h-10 min-w-14 items-center justify-center rounded-xl bg-violet-100 px-2 text-[13px] font-extrabold tabular-nums text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                          {formatHourLabel(assignHour)}
+                      <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+                      <div className="flex items-center gap-3 px-4 pb-3 pt-3">
+                        <div className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-violet-100 px-3 text-[13px] font-extrabold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                          <Clock3 size={15} />
+                          {formatSlotTimeLabel(editorStart)}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[15px] font-bold text-text-primary">שיבוץ משימה</p>
-                          <p className="text-[12px] text-text-muted">נותרו {assignFreeMinutes} דקות</p>
-                        </div>
+                        <h3 className="min-w-0 flex-1 text-[15px] font-extrabold text-text-primary">
+                          {editingSlotStart === null ? "הוספת משימה" : "עריכת משימה"}
+                        </h3>
                         <button
                           type="button"
-                          onClick={closeAssign}
-                          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800"
-                          aria-label="סגור"
+                          onClick={closeEditor}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800"
+                          aria-label="סגירה"
                         >
                           <X size={16} />
                         </button>
                       </div>
 
-                      <div className="px-4 pb-3">
-                        <p className="mb-2 text-[11px] font-bold text-text-muted">משך</p>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {fittingDurations.map((minutes) => (
+                      <div className="mx-4 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">
+                        <p className="mb-2 text-center text-[11px] font-bold text-text-muted">כמה זמן?</p>
+                        <div className="flex items-center justify-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => changeDuration(-1)}
+                            disabled={draftDuration <= MIN_DAILY_PLAN_TASK_DURATION}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-text-primary shadow-sm disabled:opacity-30 dark:bg-slate-900"
+                            aria-label="קצר משך"
+                          >
+                            <Minus size={18} />
+                          </button>
+                          <div className="min-w-24 text-center">
+                            <p className="text-[20px] font-black text-text-primary">
+                              {slotMinutesLabel(draftDuration)}
+                            </p>
+                            <p className="text-[10px] font-semibold text-text-muted">
+                              עד {formatSlotTimeLabel(editorStart + draftDuration)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => changeDuration(1)}
+                            disabled={draftDuration >= maxDraftDuration}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-text-primary shadow-sm disabled:opacity-30 dark:bg-slate-900"
+                            aria-label="הארך משך"
+                          >
+                            <Plus size={18} />
+                          </button>
+                        </div>
+                        <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                          {DAILY_PLAN_TASK_DURATION_OPTIONS.filter(
+                            (duration) => duration <= maxDraftDuration,
+                          ).map((duration) => (
                             <button
-                              key={minutes}
+                              key={duration}
                               type="button"
-                              onClick={() => setDraftDuration(minutes)}
-                              className={`rounded-xl py-2.5 text-[12px] font-extrabold ${
-                                draftDuration === minutes
+                              onClick={() => setDraftDuration(duration)}
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                                draftDuration === duration
                                   ? "bg-violet-600 text-white"
-                                  : "bg-slate-100 text-text-secondary dark:bg-slate-800"
+                                  : "bg-white text-text-secondary dark:bg-slate-900"
                               }`}
                             >
-                              {slotMinutesLabel(minutes)}
+                              {slotMinutesLabel(duration)}
                             </button>
                           ))}
                         </div>
+                        <label className="mt-3 flex items-center justify-center gap-2 border-t border-slate-200 pt-3 text-[11px] font-bold text-text-muted dark:border-slate-700">
+                          משך מדויק
+                          <input
+                            type="number"
+                            min={MIN_DAILY_PLAN_TASK_DURATION}
+                            max={maxDraftDuration}
+                            step={1}
+                            value={draftDuration}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onChange={(event) => setExactDuration(event.target.value)}
+                            className="h-8 w-20 rounded-lg border-0 bg-white px-2 text-center text-[13px] font-extrabold tabular-nums text-text-primary outline-none ring-violet-400 focus:ring-2 dark:bg-slate-900"
+                            aria-label="משך מדויק בדקות"
+                          />
+                          דקות
+                        </label>
                       </div>
 
-                      <div className="px-4 pb-2">
+                      <div className="px-4 pb-2 pt-3">
                         <div className="relative">
                           <Search
                             size={15}
@@ -829,112 +793,84 @@ export function DailyPlannerPanel({ open, onClose }: DailyPlannerPanelProps) {
                             type="search"
                             value={query}
                             onChange={(event) => setQuery(event.target.value)}
-                            placeholder="חיפוש משימה…"
-                            className="w-full rounded-xl border-0 bg-slate-100 py-2.5 pe-3 ps-9 text-sm outline-none ring-violet-400 focus:ring-2 dark:bg-slate-800"
-                            autoFocus
+                            placeholder="חיפוש משימה"
+                            className="w-full rounded-xl border-0 bg-slate-100 py-2.5 pe-9 ps-3 text-[13px] outline-none ring-violet-400 focus:ring-2 dark:bg-slate-800"
                           />
                         </div>
                       </div>
 
-                      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2">
-                        {filteredTasks.length === 0 ? (
-                          <p className="mx-1 my-6 rounded-xl bg-slate-100 px-4 py-8 text-center text-[12px] font-semibold text-text-muted dark:bg-slate-800">
-                            {availableTasks.length === 0 ? "אין משימות פנויות לשיבוץ" : "אין תוצאות"}
+                      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">
+                        {availableTasks.length === 0 ? (
+                          <p className="my-4 rounded-xl bg-slate-100 px-4 py-6 text-center text-[12px] font-semibold text-text-muted dark:bg-slate-800">
+                            אין משימות פנויות
                           </p>
                         ) : (
-                          <div className="space-y-2">
-                            {projectGroups.map((group) => {
-                              const collapsed = !searchActive && collapsedProjects.has(group.key);
+                          <div className="space-y-1.5">
+                            {availableTasks.map((task) => {
+                              const selected = task.id === draftTaskId;
                               return (
-                                <section
-                                  key={group.key}
-                                  className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/60"
+                                <button
+                                  key={task.id}
+                                  type="button"
+                                  onClick={() => setDraftTaskId(task.id)}
+                                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-right ${
+                                    selected
+                                      ? "bg-violet-100 ring-2 ring-violet-500 dark:bg-violet-950"
+                                      : "bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
+                                  }`}
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (searchActive) return;
-                                      setCollapsedProjects((current) => {
-                                        const next = new Set(current);
-                                        if (next.has(group.key)) next.delete(group.key);
-                                        else next.add(group.key);
-                                        return next;
-                                      });
-                                    }}
-                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-start"
-                                  >
-                                    <FolderKanban
-                                      size={14}
-                                      className="shrink-0 text-violet-600 dark:text-violet-300"
-                                    />
-                                    <span className="min-w-0 flex-1 truncate text-[12px] font-extrabold text-text-primary">
-                                      {group.name}
+                                  <span
+                                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                                      task.priority === "high"
+                                        ? "bg-rose-500"
+                                        : task.priority === "medium"
+                                          ? "bg-amber-500"
+                                          : "bg-emerald-500"
+                                    }`}
+                                  />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-[13px] font-bold text-text-primary">
+                                      {task.title}
                                     </span>
-                                    <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-bold text-text-muted dark:bg-slate-800">
-                                      {group.tasks.length}
-                                    </span>
-                                    {!searchActive ? (
-                                      <ChevronDown
-                                        size={14}
-                                        className={`text-text-muted transition-transform ${collapsed ? "" : "rotate-180"}`}
-                                      />
+                                    {task.project_name ? (
+                                      <span className="mt-0.5 block truncate text-[10px] text-text-muted">
+                                        {task.project_name}
+                                      </span>
                                     ) : null}
-                                  </button>
-
-                                  {!collapsed ? (
-                                    <ul className="space-y-1 border-t border-slate-200 px-1.5 py-1.5 dark:border-slate-700">
-                                      {group.tasks.map((task) => {
-                                        const selected = draftTaskId === task.id;
-                                        return (
-                                          <li key={task.id}>
-                                            <button
-                                              type="button"
-                                              onClick={() => setDraftTaskId(task.id)}
-                                              className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-start ${
-                                                selected
-                                                  ? "bg-violet-50 ring-2 ring-violet-400 dark:bg-violet-950/50"
-                                                  : "bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700"
-                                              }`}
-                                            >
-                                              <span
-                                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${priorityBar[task.priority]}`}
-                                              />
-                                              <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-text-primary">
-                                                {task.title}
-                                              </span>
-                                              <span
-                                                className={`h-4 w-4 shrink-0 rounded-full ${
-                                                  selected
-                                                    ? "bg-violet-600 ring-2 ring-white ring-offset-1"
-                                                    : "border-2 border-slate-300 dark:border-slate-600"
-                                                }`}
-                                                aria-hidden
-                                              />
-                                            </button>
-                                          </li>
-                                        );
-                                      })}
-                                    </ul>
-                                  ) : null}
-                                </section>
+                                  </span>
+                                  <span
+                                    className={`h-5 w-5 shrink-0 rounded-full ${
+                                      selected
+                                        ? "border-[5px] border-violet-600 bg-white"
+                                        : "border-2 border-slate-300 dark:border-slate-600"
+                                    }`}
+                                  />
+                                </button>
                               );
                             })}
                           </div>
                         )}
                       </div>
 
-                      <div className="shrink-0 border-t border-slate-200 px-4 py-3 dark:border-slate-700">
+                      <div className="flex gap-2 border-t border-slate-200 px-4 py-3 dark:border-slate-800">
+                        {editingSlotStart !== null ? (
+                          <button
+                            type="button"
+                            onClick={() => void removeTask()}
+                            disabled={saving}
+                            className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600 disabled:opacity-40 dark:bg-rose-950 dark:text-rose-300"
+                            aria-label="הסר משימה"
+                          >
+                            <Trash2 size={17} />
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          disabled={!draftTaskId || assignSaving || fittingDurations.length === 0}
-                          onClick={() => void confirmAssign()}
-                          className="w-full rounded-xl bg-violet-600 py-3 text-[14px] font-extrabold text-white shadow-lg shadow-violet-600/25 disabled:opacity-40 disabled:shadow-none"
+                          onClick={() => void saveTask()}
+                          disabled={!draftTaskId || saving}
+                          className="h-12 min-w-0 flex-1 rounded-xl bg-violet-600 text-[14px] font-extrabold text-white shadow-lg shadow-violet-600/20 disabled:opacity-40 disabled:shadow-none"
                         >
-                          {assignSaving
-                            ? "משבץ…"
-                            : draftTask
-                              ? `שבץ · ${slotMinutesLabel(draftDuration)}`
-                              : "בחר משימה"}
+                          {saving ? "שומר…" : editingSlotStart === null ? "הוסף ליומן" : "שמור שינויים"}
                         </button>
                       </div>
                     </motion.div>

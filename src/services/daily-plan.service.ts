@@ -1,6 +1,14 @@
 import { BaseService } from "@/services/base.service";
 import { TaskAccessContext } from "@/services/authorization.service";
-import { TaskWithRelations } from "@/types/models";
+
+export interface DailyPlanTaskRow {
+  id: string;
+  title: string;
+  priority: "low" | "medium" | "high";
+  status: "in_progress" | "completed";
+  project_id: string | null;
+  project_name: string | null;
+}
 
 export interface DailyPlanSlotRow {
   start_minute: number;
@@ -36,8 +44,27 @@ export class DailyPlanService extends BaseService {
     startMinute: number,
     taskId: string,
     durationMinutes: number,
+    previousStartMinute?: number,
   ): Promise<void> {
     const db = this.getDb();
+    if (previousStartMinute !== undefined && previousStartMinute !== startMinute) {
+      await db`
+        with removed_slot as (
+          delete from user_daily_plan_slots
+          where user_id = ${userId}
+            and plan_date = ${planDate}::date
+            and start_minute = ${previousStartMinute}
+        )
+        insert into user_daily_plan_slots (user_id, task_id, plan_date, start_minute, duration_minutes)
+        values (${userId}, ${taskId}, ${planDate}::date, ${startMinute}, ${durationMinutes})
+        on conflict (user_id, plan_date, start_minute)
+        do update set
+          task_id = excluded.task_id,
+          duration_minutes = excluded.duration_minutes,
+          updated_at = now()
+      `;
+      return;
+    }
     await db`
       insert into user_daily_plan_slots (user_id, task_id, plan_date, start_minute, duration_minutes)
       values (${userId}, ${taskId}, ${planDate}::date, ${startMinute}, ${durationMinutes})
@@ -59,28 +86,51 @@ export class DailyPlanService extends BaseService {
     `;
   }
 
-  public async getAssignableTasks(access: TaskAccessContext, userId: string): Promise<TaskWithRelations[]> {
+  public async getAssignableTasks(
+    access: TaskAccessContext,
+    userId: string,
+  ): Promise<DailyPlanTaskRow[]> {
     const db = this.getDb();
-    const rows = await db<TaskWithRelations[]>`
-      select * from task_details
-      where status <> 'completed'
+    return db<DailyPlanTaskRow[]>`
+      select distinct
+        t.id,
+        t.title,
+        t.priority,
+        t.status,
+        t.project_id,
+        p.name as project_name
+      from tasks t
+      left join projects p on p.id = t.project_id
+      where t.status <> 'completed'
         and (
           ${access.unrestricted}::boolean
-          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-          or id in (
-            select ts.task_id
-            from task_subtopics ts
-            join user_subtopic_permissions usp on usp.subtopic_id = ts.subtopic_id
-            where usp.user_id = ${access.userId}
+          or (
+            (
+              t.subtopic_id in (
+                select subtopic_id
+                from user_subtopic_permissions
+                where user_id = ${access.userId}
+              )
+              or exists (
+                select 1
+                from task_subtopics ts
+                join user_subtopic_permissions usp on usp.subtopic_id = ts.subtopic_id
+                where ts.task_id = t.id
+                  and usp.user_id = ${access.userId}
+              )
+            )
+            and (
+              t.assigned_to = ${userId}
+              or exists (
+                select 1
+                from task_assignees ta
+                where ta.task_id = t.id
+                  and ta.user_id = ${userId}
+              )
+            )
           )
         )
-      order by due_date asc nulls last, title asc
+      order by t.title asc
     `;
-    if (access.unrestricted) return rows;
-    return rows.filter((task) => {
-      const assigneeIds = task.assignee_ids ?? [];
-      if (assigneeIds.includes(userId)) return true;
-      return task.assigned_to === userId;
-    });
   }
 }

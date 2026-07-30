@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  findFreeStartInHour,
+  findFreeStart,
+  MAX_DAILY_PLAN_TASK_DURATION,
+  MIN_DAILY_PLAN_TASK_DURATION,
   normalizeTaskDuration,
   rangesOverlap,
 } from "@/lib/daily-planner/hours";
@@ -14,8 +16,14 @@ const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const putSchema = z.object({
   planDate: dateKeySchema,
   startMinute: z.number().int().min(0).max(1439).optional(),
+  previousStartMinute: z.number().int().min(0).max(1439).optional(),
   hour: z.number().int().min(0).max(23).optional(),
-  durationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60)]).optional(),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(MIN_DAILY_PLAN_TASK_DURATION)
+    .max(MAX_DAILY_PLAN_TASK_DURATION)
+    .optional(),
   taskId: z.string().uuid().nullable(),
 });
 
@@ -37,9 +45,11 @@ export async function GET(request: Request) {
 
   const access = await authorizationService.getTaskAccessContext(profile);
   const dailyPlanService = new DailyPlanService();
-  const slots = await dailyPlanService.getSlotsForDay(profile.id, planDate);
-  const tasks = await dailyPlanService.getAssignableTasks(access, profile.id);
-  const hours = await new ProfileService().getDailyPlanHours(profile.id);
+  const [slots, tasks, hours] = await Promise.all([
+    dailyPlanService.getSlotsForDay(profile.id, planDate),
+    dailyPlanService.getAssignableTasks(access, profile.id),
+    new ProfileService().getDailyPlanHours(profile.id),
+  ]);
 
   return NextResponse.json({
     planDate,
@@ -85,6 +95,13 @@ export async function PUT(request: Request) {
 
   const durationMinutes = normalizeTaskDuration(parsed.data.durationMinutes);
   const existingSlots = await dailyPlanService.getSlotsForDay(profile.id, planDate);
+  const previousStartMinute = parsed.data.previousStartMinute;
+  if (previousStartMinute !== undefined) {
+    const movingSlot = existingSlots.find((slot) => slot.start_minute === previousStartMinute);
+    if (!movingSlot || movingSlot.task_id !== taskId) {
+      return NextResponse.json({ error: "Original slot not found" }, { status: 409 });
+    }
+  }
   const occupancy = existingSlots.map((slot) => ({
     start_minute: slot.start_minute,
     duration_minutes: slot.duration_minutes,
@@ -95,23 +112,25 @@ export async function PUT(request: Request) {
     if (parsed.data.hour === undefined) {
       return NextResponse.json({ error: "hour or startMinute required" }, { status: 400 });
     }
-    const freeStart = findFreeStartInHour(parsed.data.hour, durationMinutes, occupancy);
+    const freeStart = findFreeStart(
+      parsed.data.hour * 60,
+      durationMinutes,
+      occupancy,
+      24 * 60,
+      previousStartMinute,
+    );
     if (freeStart === null) {
-      return NextResponse.json({ error: "Hour is full" }, { status: 409 });
+      return NextResponse.json({ error: "No free time" }, { status: 409 });
     }
     startMinute = freeStart;
   } else {
     const resolvedStart = startMinute;
-    const hour = Math.floor(resolvedStart / 60);
-    const existing = existingSlots.find((slot) => slot.start_minute === resolvedStart);
-    const ignore = existing ? resolvedStart : undefined;
-    const hourEnd = hour * 60 + 60;
-    if (resolvedStart + durationMinutes > hourEnd) {
-      return NextResponse.json({ error: "Duration exceeds hour" }, { status: 400 });
+    if (resolvedStart + durationMinutes > 24 * 60) {
+      return NextResponse.json({ error: "Duration exceeds day" }, { status: 400 });
     }
     const conflicts = occupancy.some(
       (slot) =>
-        slot.start_minute !== ignore &&
+        slot.start_minute !== previousStartMinute &&
         rangesOverlap(resolvedStart, durationMinutes, slot.start_minute, slot.duration_minutes),
     );
     if (conflicts) {
@@ -125,6 +144,7 @@ export async function PUT(request: Request) {
     startMinute as number,
     taskId,
     durationMinutes,
+    previousStartMinute,
   );
   return NextResponse.json({ ok: true, startMinute, durationMinutes });
 }

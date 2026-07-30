@@ -3,6 +3,7 @@
 import { CalendarClock } from "lucide-react";
 import { useState } from "react";
 import { DailyPlannerPanel } from "@/components/daily-planner/daily-planner-panel";
+import { DailyPlannerClient } from "@/lib/daily-planner/daily-planner-client";
 
 export function DailyPlannerLauncher() {
   const [open, setOpen] = useState(false);
@@ -12,6 +13,8 @@ export function DailyPlannerLauncher() {
       <button
         type="button"
         onClick={() => setOpen(true)}
+        onPointerEnter={() => DailyPlannerClient.preload(DailyPlannerClient.dateKey(new Date()))}
+        onFocus={() => DailyPlannerClient.preload(DailyPlannerClient.dateKey(new Date()))}
         aria-label="לו״ז יומי"
         title="לו״ז יומי"
         className="daily-planner-launcher focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-cyan/50"
