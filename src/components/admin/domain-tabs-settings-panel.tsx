@@ -199,7 +199,7 @@ export function DomainTabsSettingsPanel() {
                 </button>
               ) : null}
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-text-muted">
+            <p className="mt-3 text-[0.6875rem] leading-relaxed text-text-muted">
               תמונה עגולה תוצג במקום האייקון בטאב. מומלץ תמונה מרובעת.
             </p>
           </article>

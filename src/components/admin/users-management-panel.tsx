@@ -61,7 +61,7 @@ export function UsersManagementPanel({
       <div className="border-b border-[#e6e9ef] px-6 py-5 dark:border-slate-700">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-[#323338] dark:text-slate-100">
+            <h1 className="text-[1.75rem] font-semibold leading-tight tracking-tight text-[#323338] dark:text-slate-100">
               ניהול משתמשים
             </h1>
             <p className="mt-1 text-sm text-[#676879] dark:text-slate-400">
@@ -262,7 +262,7 @@ export function UsersManagementPanel({
                           {permissionGroups.slice(0, 3).map((g, i) => (
                             <span
                               key={g.domainSlug}
-                              className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white dark:border-slate-900"
+                              className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[0.625rem] font-bold text-white dark:border-slate-900"
                               style={{ backgroundColor: AVATAR_PALETTE[i % AVATAR_PALETTE.length] }}
                               title={g.domainLabel}
                             >

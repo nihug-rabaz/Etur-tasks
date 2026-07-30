@@ -190,7 +190,7 @@ export function TelegramNotificationsPanel({ isAdmin = false }: { isAdmin?: bool
                 <Sparkles size={16} className="text-accent-primary" />
                 <div>
                   <p className="text-sm font-bold text-text-primary">התראות טלגרם</p>
-                  <p className="text-[11px] text-text-muted">מרכז שליטה</p>
+                  <p className="text-[0.6875rem] text-text-muted">מרכז שליטה</p>
                 </div>
               </div>
               <button
@@ -282,7 +282,7 @@ function UnlinkedView({
         חבר לטלגרם
       </button>
       {botUsername && (
-        <p className="text-center text-[11px] text-text-muted">
+        <p className="text-center text-[0.6875rem] text-text-muted">
           בוט: <span className="font-mono">@{botUsername}</span>
         </p>
       )}
@@ -343,7 +343,7 @@ function PendingLinkView({
                   fgColor="#1e1b4b"
                 />
               </div>
-              <p className="text-center text-[11px] leading-relaxed text-text-secondary">
+              <p className="text-center text-[0.6875rem] leading-relaxed text-text-secondary">
                 סרוק עם מצלמת הטלפון כדי לפתוח צ&apos;אט עם הבוט
                 <br />
                 <span className="font-mono text-text-muted">@{linkCode.botUsername}</span>
@@ -457,13 +457,13 @@ function LinkedView({
             <p className="text-sm font-bold text-emerald-700 dark:text-emerald-200">
               החשבון מחובר
             </p>
-            <p className="truncate text-[11px] text-emerald-700/80 dark:text-emerald-300/70">
+            <p className="truncate text-[0.6875rem] text-emerald-700/80 dark:text-emerald-300/70">
               {status.username ? `@${status.username}` : `Chat ID: ${status.chatId}`}
             </p>
           </div>
         </div>
         {linkedAtLabel && (
-          <p className="mt-2 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
+          <p className="mt-2 text-[0.6875rem] text-emerald-700/70 dark:text-emerald-300/70">
             מחובר מאז {linkedAtLabel}
           </p>
         )}
@@ -534,7 +534,7 @@ function AdminMorningTimeSetting() {
   return (
     <div className="border-t border-border-weak pt-3">
       <div className="rounded-lg border border-amber-300/50 bg-amber-50/70 px-2.5 py-2 dark:border-amber-400/25 dark:bg-amber-500/10">
-        <p className="text-[15px] font-bold leading-tight text-text-primary">זמן הודעת הבוקר טוב</p>
+        <p className="text-[0.9375rem] font-bold leading-tight text-text-primary">זמן הודעת הבוקר טוב</p>
         <p className="mt-0.5 text-xs leading-snug text-text-muted">
           מתי נשלחת הודעת &quot;בוקר טוב&quot; עם המשימות להיום
         </p>

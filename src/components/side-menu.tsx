@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, Settings2, X } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { UserAvatarMark } from "@/components/ui/assignee-select";
@@ -119,7 +119,7 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
 
         <div className="relative flex h-full flex-col gap-6 px-7 pb-7 pt-20">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-accent-primary">ניווט מהיר</p>
+            <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.32em] text-accent-primary">ניווט מהיר</p>
             <h2 className="mt-2 text-3xl font-black leading-tight text-text-primary">לאן בא לנו לקפוץ?</h2>
           </div>
 
@@ -190,6 +190,15 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
                     className="min-w-0 flex-1 truncate text-sm font-semibold text-text-primary transition hover:text-accent-primary"
                   >
                     {userLabel}
+                  </Link>
+                  <Link
+                    href="/settings/profile"
+                    onClick={close}
+                    aria-label="הגדרות אישיות"
+                    title="הגדרות אישיות"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-accent-primary/10 hover:text-accent-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/50"
+                  >
+                    <Settings2 size={16} />
                   </Link>
                 </>
               ) : (

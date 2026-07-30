@@ -102,7 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     users: "משתמשים",
     admin: "ניהול",
     settings: "הגדרות",
-    profile: "פרופיל",
+    profile: "הגדרות אישיות",
   };
   const userLabel = profile?.name || session?.user?.name || session?.user?.email || null;
   const userAvatarUrl = profile?.avatar ?? null;

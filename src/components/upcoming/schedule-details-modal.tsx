@@ -91,7 +91,7 @@ export function ScheduleDetailsModal({
             >
               <header className="flex items-start justify-between gap-3 border-b border-border-weak bg-violet-500/10 px-5 py-4">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-600">לו״ז / פגישה</p>
+                  <p className="text-[0.625rem] font-bold uppercase tracking-[0.2em] text-violet-600">לו״ז / פגישה</p>
                   <h2 className="mt-1 text-xl font-bold text-text-primary">{title}</h2>
                 </div>
                 <button type="button" onClick={onClose} aria-label="סגירה" className="rounded-full p-2 hover:bg-surface-2">

@@ -25,7 +25,7 @@ export function CalendarTaskChip({ task, onClick }: CalendarTaskChipProps) {
         event.stopPropagation();
         onClick();
       }}
-      className={`group flex w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-start text-[11px] font-semibold transition hover:scale-[1.02] hover:brightness-110 ${style}`}
+      className={`group flex w-full items-center gap-1.5 rounded-lg border px-2 py-1 text-start text-[0.6875rem] font-semibold transition hover:scale-[1.02] hover:brightness-110 ${style}`}
     >
       <span
         className={`h-1.5 w-1.5 shrink-0 rounded-full ${priorityDot[task.priority] ?? priorityDot.medium}`}

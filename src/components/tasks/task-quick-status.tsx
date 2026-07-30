@@ -197,7 +197,7 @@ export function TaskQuickStatus({
             : "המשימה תועבר לארכיון"}
         </p>
         {pendingRequest?.note ? (
-          <p className="mt-1.5 rounded-lg bg-surface-2/80 px-2 py-1.5 text-[11px] text-text-secondary">
+          <p className="mt-1.5 rounded-lg bg-surface-2/80 px-2 py-1.5 text-[0.6875rem] text-text-secondary">
             {pendingRequest.note}
           </p>
         ) : null}
@@ -205,7 +205,7 @@ export function TaskQuickStatus({
           <button
             type="button"
             onClick={() => setConfirmArchive(false)}
-            className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-text-secondary transition hover:bg-surface-2"
+            className="rounded-lg px-2.5 py-1.5 text-[0.6875rem] font-bold text-text-secondary transition hover:bg-surface-2"
           >
             ביטול
           </button>
@@ -226,7 +226,7 @@ export function TaskQuickStatus({
               }
               applyStatus("completed");
             }}
-            className="rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(16,185,129,0.65)] transition hover:bg-emerald-600"
+            className="rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[0.6875rem] font-bold text-white shadow-[0_4px_12px_-4px_rgba(16,185,129,0.65)] transition hover:bg-emerald-600"
           >
             {pendingRequest ? "אשר סגירה" : "אישור"}
           </button>
@@ -258,7 +258,7 @@ export function TaskQuickStatus({
           </span>
           <div>
             <p className="text-xs font-bold text-text-primary">בקשה ממנהל לסגור</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-text-secondary">
+            <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-text-secondary">
               רק מנהלים יכולים להעביר משימה לארכיון.
             </p>
           </div>
@@ -269,14 +269,14 @@ export function TaskQuickStatus({
           rows={2}
           maxLength={500}
           placeholder="הערה למנהל (אופציונלי)"
-          className="mt-2.5 w-full resize-none rounded-xl border border-border-weak bg-surface-2/60 px-2.5 py-2 text-[11px] text-text-primary outline-none transition focus:border-sky-400"
+          className="mt-2.5 w-full resize-none rounded-xl border border-border-weak bg-surface-2/60 px-2.5 py-2 text-[0.6875rem] text-text-primary outline-none transition focus:border-sky-400"
         />
-        {requestError ? <p className="mt-1 text-[11px] font-semibold text-rose-600">{requestError}</p> : null}
+        {requestError ? <p className="mt-1 text-[0.6875rem] font-semibold text-rose-600">{requestError}</p> : null}
         <div className="mt-2.5 flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => setRequestOpen(false)}
-            className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-text-secondary transition hover:bg-surface-2"
+            className="rounded-lg px-2.5 py-1.5 text-[0.6875rem] font-bold text-text-secondary transition hover:bg-surface-2"
           >
             ביטול
           </button>
@@ -284,7 +284,7 @@ export function TaskQuickStatus({
             type="button"
             onClick={submitCloseRequest}
             disabled={isPending}
-            className="inline-flex items-center gap-1 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[11px] font-bold text-white shadow-[0_4px_12px_-4px_rgba(14,165,233,0.65)] transition hover:bg-sky-600 disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-lg bg-sky-500 px-2.5 py-1.5 text-[0.6875rem] font-bold text-white shadow-[0_4px_12px_-4px_rgba(14,165,233,0.65)] transition hover:bg-sky-600 disabled:opacity-60"
           >
             <Send size={11} />
             שלח בקשה
@@ -297,7 +297,7 @@ export function TaskQuickStatus({
     return (
       <span
         className={`inline-flex items-center gap-1 rounded-full border border-border-weak/80 bg-surface-1/90 font-bold text-text-secondary ${
-          compact ? "px-2 py-1 text-[10px]" : "px-2.5 py-1.5 text-[11px]"
+          compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
         } ${className}`}
       >
         <Loader2 size={compact ? 11 : 12} className="animate-spin text-text-muted" />
@@ -317,7 +317,7 @@ export function TaskQuickStatus({
         >
           <span
             className={`inline-flex items-center rounded-full border border-amber-500/35 bg-amber-500/10 font-bold text-amber-800 dark:text-amber-100 ${
-              compact ? "px-2 py-1 text-[10px]" : "px-2.5 py-1.5 text-[11px]"
+              compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
             }`}
           >
             בתהליך
@@ -334,7 +334,7 @@ export function TaskQuickStatus({
                 setRequestError("");
               }}
               className={`inline-flex items-center gap-1 rounded-full border border-sky-500/35 bg-sky-500/10 font-bold text-sky-800 transition hover:bg-sky-500/20 dark:text-sky-100 disabled:opacity-60 ${
-                compact ? "px-2 py-1 text-[10px]" : "px-2.5 py-1.5 text-[11px]"
+                compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
               }`}
             >
               {isPending ? <Loader2 size={compact ? 11 : 12} className="animate-spin" /> : <HandHelping size={compact ? 11 : 12} />}
@@ -351,7 +351,7 @@ export function TaskQuickStatus({
     return (
       <span
         className={`inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/10 font-bold text-emerald-800 dark:text-emerald-100 ${
-          compact ? "px-2 py-1 text-[10px]" : "px-2.5 py-1.5 text-[11px]"
+          compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
         } ${className}`}
       >
         <Check size={compact ? 11 : 12} strokeWidth={2.8} />
@@ -393,7 +393,7 @@ export function TaskQuickStatus({
                   aria-pressed={active}
                   title={option.label}
                   className={`inline-flex items-center gap-1 rounded-full font-bold transition-all duration-200 disabled:opacity-60 ${
-                    compact ? "px-2 py-1 text-[10px]" : "px-2.5 py-1.5 text-[11px]"
+                    compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
                   } ${active ? option.active : option.idle}`}
                 >
                   {option.value === "completed" ? <Check size={compact ? 11 : 12} strokeWidth={2.8} /> : null}

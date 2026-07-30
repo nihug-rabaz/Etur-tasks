@@ -24,7 +24,7 @@ export function StandaloneTasksList({ sectionId, domainSlug, tasks, onTaskClick 
         <span className="inline-flex items-center gap-1.5 text-xs font-bold text-text-muted">
           <ListTodo size={13} />
           משימות ללא פרויקט
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-bold text-text-secondary">
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.625rem] font-bold text-text-secondary">
             {tasks.length}
           </span>
         </span>

@@ -402,7 +402,7 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
                             maxLength={4000}
                             className="w-full resize-y rounded-2xl bg-surface-2 px-4 py-3 text-sm leading-relaxed text-text-primary outline-none transition focus:ring-2 focus:ring-accent-cyan/30"
                           />
-                          <div className="mt-1 px-1 text-end text-[11px] text-text-muted">{message.length} / 4000</div>
+                          <div className="mt-1 px-1 text-end text-[0.6875rem] text-text-muted">{message.length} / 4000</div>
                         </div>
 
                         <div className="space-y-2">

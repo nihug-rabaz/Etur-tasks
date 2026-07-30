@@ -176,7 +176,7 @@ export function TaskChatPanel({ taskId, open }: TaskChatPanelProps) {
           </span>
           <span className="min-w-0">
             <span className="block text-sm font-bold text-amber-950">צ'אט משימה</span>
-            <span className="block truncate text-[11px] font-medium text-amber-800/65">{subtitle}</span>
+            <span className="block truncate text-[0.6875rem] font-medium text-amber-800/65">{subtitle}</span>
           </span>
         </span>
         <span
@@ -214,7 +214,7 @@ export function TaskChatPanel({ taskId, open }: TaskChatPanelProps) {
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-amber-950">התחילו שיחה על המשימה</p>
-                    <p className="text-[11px] leading-snug text-amber-800/70">
+                    <p className="text-[0.6875rem] leading-snug text-amber-800/70">
                       עדכונים ותיאום בין המשויכים — במקום אחד.
                     </p>
                   </div>
@@ -243,12 +243,12 @@ export function TaskChatPanel({ taskId, open }: TaskChatPanelProps) {
                         }`}
                       >
                         {!isMine ? (
-                          <p className="mb-0.5 text-[11px] font-bold text-amber-700">{message.authorName}</p>
+                          <p className="mb-0.5 text-[0.6875rem] font-bold text-amber-700">{message.authorName}</p>
                         ) : null}
                         <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed">
                           {message.body}
                         </p>
-                        <p className={`mt-1 text-[10px] font-medium ${isMine ? "text-white/75" : "text-amber-800/55"}`}>
+                        <p className={`mt-1 text-[0.625rem] font-medium ${isMine ? "text-white/75" : "text-amber-800/55"}`}>
                           {formatMessageTime(message.createdAt)}
                         </p>
                       </div>

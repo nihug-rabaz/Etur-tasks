@@ -54,7 +54,7 @@ export function ImpersonationBanner({ state, onStopped }: ImpersonationBannerPro
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-amber-950 dark:text-amber-50">
               <span>מצב התחזות פעיל</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-900 dark:bg-amber-400/15 dark:text-amber-100">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.6875rem] font-semibold text-amber-900 dark:bg-amber-400/15 dark:text-amber-100">
                 <Sparkles size={11} />
                 תצוגת משתמש
               </span>
@@ -72,7 +72,7 @@ export function ImpersonationBanner({ state, onStopped }: ImpersonationBannerPro
             <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover ring-2 ring-amber-300/80" />
           ) : (
             <span
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white ring-2 ring-amber-300/80"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[0.6875rem] font-bold text-white ring-2 ring-amber-300/80"
               style={{ backgroundColor: pickAvatarBg(state.target.name) }}
             >
               {initialsFrom(state.target.name)}
@@ -141,7 +141,7 @@ export function ImpersonateUserButton({
         <Eye size={14} />
         {isPending ? "נכנס…" : "צפייה כמשתמש"}
       </button>
-      {error ? <p className="mt-1 text-[11px] font-medium text-rose-600">{error}</p> : null}
+      {error ? <p className="mt-1 text-[0.6875rem] font-medium text-rose-600">{error}</p> : null}
     </div>
   );
 }

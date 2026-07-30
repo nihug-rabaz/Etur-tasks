@@ -65,11 +65,11 @@ export function AdminCloseRequestsInbox() {
               <div className="flex items-center gap-2">
                 <Inbox size={16} className="text-amber-600" />
                 <p className="text-sm font-bold text-text-primary">בקשות סגירה</p>
-                <span className="ms-auto rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-200">
+                <span className="ms-auto rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.6875rem] font-bold text-amber-800 dark:text-amber-200">
                   {count}
                 </span>
               </div>
-              <p className="mt-1 text-[11px] text-text-secondary">משתמשים ממתינים לאישור מנהל</p>
+              <p className="mt-1 text-[0.6875rem] text-text-secondary">משתמשים ממתינים לאישור מנהל</p>
             </div>
             <div className="max-h-[min(420px,60vh)] overflow-y-auto">
               {count === 0 ? (
@@ -79,14 +79,14 @@ export function AdminCloseRequestsInbox() {
                   {requests.map((item) => (
                     <li key={item.id} className="px-4 py-3">
                       <p className="text-sm font-semibold text-text-primary">{item.task_title}</p>
-                      <p className="mt-0.5 text-[11px] text-text-secondary">
+                      <p className="mt-0.5 text-[0.6875rem] text-text-secondary">
                         {item.requester_name}
                         {item.subtopic_name
                           ? ` · ${toHebrewSubtopicLabel(item.subtopic_name)}`
                           : ""}
                       </p>
                       {item.note ? (
-                        <p className="mt-1.5 rounded-lg bg-surface-2/80 px-2.5 py-1.5 text-[11px] leading-relaxed text-text-secondary">
+                        <p className="mt-1.5 rounded-lg bg-surface-2/80 px-2.5 py-1.5 text-[0.6875rem] leading-relaxed text-text-secondary">
                           {item.note}
                         </p>
                       ) : null}
@@ -100,7 +100,7 @@ export function AdminCloseRequestsInbox() {
                               if (ok) router.refresh();
                             });
                           }}
-                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-500 px-2.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-emerald-600 disabled:opacity-60"
+                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-emerald-500 px-2.5 py-1.5 text-[0.6875rem] font-bold text-white transition hover:bg-emerald-600 disabled:opacity-60"
                         >
                           <Check size={12} strokeWidth={2.8} />
                           אשר סגירה
@@ -114,7 +114,7 @@ export function AdminCloseRequestsInbox() {
                               if (ok) router.refresh();
                             });
                           }}
-                          className="inline-flex items-center justify-center gap-1 rounded-xl border border-border-weak bg-surface-2 px-2.5 py-1.5 text-[11px] font-bold text-text-secondary transition hover:bg-rose-500/10 hover:text-rose-700 disabled:opacity-60"
+                          className="inline-flex items-center justify-center gap-1 rounded-xl border border-border-weak bg-surface-2 px-2.5 py-1.5 text-[0.6875rem] font-bold text-text-secondary transition hover:bg-rose-500/10 hover:text-rose-700 disabled:opacity-60"
                         >
                           <X size={12} />
                           דחה
@@ -141,7 +141,7 @@ export function AdminCloseRequestsInbox() {
       >
         {isPending ? <Loader2 size={15} className="animate-spin" /> : <Inbox size={15} />}
         {count > 0 ? (
-          <span className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute -end-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[0.625rem] font-bold text-white">
             {count > 9 ? "9+" : count}
           </span>
         ) : null}
@@ -169,7 +169,7 @@ export function CloseRequestPendingBadge({
   return (
     <div
       className={`inline-flex items-center gap-1.5 rounded-full border border-amber-500/35 bg-amber-500/10 text-amber-900 dark:text-amber-100 ${
-        compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"
+        compact ? "px-2 py-0.5 text-[0.625rem]" : "px-2.5 py-1 text-[0.6875rem]"
       }`}
       onClick={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.stopPropagation()}

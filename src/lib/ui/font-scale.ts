@@ -1,4 +1,4 @@
-export type FontScalePreset = "compact" | "default" | "comfortable" | "large";
+export type FontScalePreset = "compact" | "default" | "comfortable" | "large" | "extra-large";
 
 export interface FontScaleOption {
   preset: FontScalePreset;
@@ -15,7 +15,7 @@ export const fontScaleOptions: FontScaleOption[] = [
     preset: "compact",
     label: "קטן",
     description: "יותר תוכן על המסך",
-    scale: 0.84,
+    scale: 0.9,
   },
   {
     preset: "default",
@@ -27,13 +27,19 @@ export const fontScaleOptions: FontScaleOption[] = [
     preset: "comfortable",
     label: "נוח",
     description: "קריאה נוחה יותר",
-    scale: 1.16,
+    scale: 1.12,
   },
   {
     preset: "large",
     label: "גדול",
     description: "טקסט בולט וברור",
-    scale: 1.32,
+    scale: 1.25,
+  },
+  {
+    preset: "extra-large",
+    label: "גדול מאוד",
+    description: "נגישות מרבית וקריאה קלה",
+    scale: 1.4,
   },
 ];
 

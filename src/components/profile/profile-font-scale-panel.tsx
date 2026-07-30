@@ -10,6 +10,14 @@ import {
   type FontScalePreset,
 } from "@/lib/ui/font-scale";
 
+const previewTextClass: Record<FontScalePreset, string> = {
+  compact: "text-sm",
+  default: "text-base",
+  comfortable: "text-lg",
+  large: "text-xl",
+  "extra-large": "text-2xl",
+};
+
 export function ProfileFontScalePanel() {
   const [preset, setPreset] = useState<FontScalePreset>("default");
   const [loading, setLoading] = useState(true);
@@ -35,7 +43,14 @@ export function ProfileFontScalePanel() {
 
   const savePreset = async (nextPreset: FontScalePreset) => {
     if (nextPreset === preset || busyPreset) return;
+    const previousPreset = preset;
+    const restorePreviousPreset = () => {
+      setPreset(previousPreset);
+      notifyFontScaleChanged(previousPreset);
+    };
     setBusyPreset(nextPreset);
+    setPreset(nextPreset);
+    notifyFontScaleChanged(nextPreset);
     try {
       const response = await fetch("/api/ui/font-scale", {
         method: "PUT",
@@ -43,6 +58,7 @@ export function ProfileFontScalePanel() {
         body: JSON.stringify({ preset: nextPreset }),
       });
       if (!response.ok) {
+        restorePreviousPreset();
         toast.error("לא הצלחנו לשמור את גודל הפונט");
         return;
       }
@@ -51,6 +67,9 @@ export function ProfileFontScalePanel() {
       setPreset(saved);
       notifyFontScaleChanged(saved);
       toast.success("גודל הפונט שלך עודכן");
+    } catch {
+      restorePreviousPreset();
+      toast.error("לא הצלחנו לשמור את גודל הפונט");
     } finally {
       setBusyPreset(null);
     }
@@ -67,7 +86,7 @@ export function ProfileFontScalePanel() {
           </span>
           <div>
             <h2 className="text-lg font-bold text-text-primary">גודל פונט אישי</h2>
-            <p className="text-sm text-text-secondary">משפיע רק על התצוגה שלך במערכת</p>
+            <p className="text-sm text-text-secondary">הטקסט מתעדכן מיד בכל חלקי המערכת</p>
           </div>
         </div>
         {!loading ? (
@@ -84,7 +103,7 @@ export function ProfileFontScalePanel() {
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {fontScaleOptions.map((option) => {
               const selected = preset === option.preset;
               const busy = busyPreset === option.preset;
@@ -94,6 +113,7 @@ export function ProfileFontScalePanel() {
                   type="button"
                   disabled={Boolean(busyPreset)}
                   onClick={() => savePreset(option.preset)}
+                  aria-pressed={selected}
                   className={`relative flex min-h-[4.5rem] flex-col justify-between rounded-xl border px-3 py-2.5 text-start transition ${
                     selected
                       ? "border-violet-400/80 bg-violet-500/10 shadow-[inset_0_0_0_1px_rgba(139,92,246,0.15)]"
@@ -102,15 +122,7 @@ export function ProfileFontScalePanel() {
                 >
                   <div className="flex w-full items-start justify-between gap-1">
                     <span
-                      className={`font-black leading-none text-text-primary ${
-                        option.preset === "compact"
-                          ? "text-sm"
-                          : option.preset === "large"
-                            ? "text-xl"
-                            : option.preset === "comfortable"
-                              ? "text-lg"
-                              : "text-base"
-                      }`}
+                      className={`font-black leading-none text-text-primary ${previewTextClass[option.preset]}`}
                       aria-hidden
                     >
                       Aa
@@ -125,7 +137,7 @@ export function ProfileFontScalePanel() {
                   </div>
                   <div className="mt-2">
                     <p className="text-sm font-bold text-text-primary">{option.label}</p>
-                    <p className="text-[11px] text-text-muted">{Math.round(option.scale * 100)}%</p>
+                    <p className="text-[0.6875rem] text-text-muted">{Math.round(option.scale * 100)}%</p>
                   </div>
                 </button>
               );

@@ -456,7 +456,7 @@ export function TaskDetailsModal({
               <header className="relative shrink-0 px-6 pt-6 pb-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   {!loading && task ? (
-                    <p className="flex min-w-0 items-center justify-start gap-1.5 text-[11px] font-semibold text-amber-800/65">
+                    <p className="flex min-w-0 items-center justify-start gap-1.5 text-[0.6875rem] font-semibold text-amber-800/65">
                       <Clock size={11} className="text-amber-600/85" />
                       <span>נוצר · {formatDate(task.created_at)}</span>
                     </p>
@@ -585,7 +585,7 @@ export function TaskDetailsModal({
                           onClose={() => setBadgeMenu(null)}
                           anchorRef={statusBadgeRef}
                         >
-                          <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          <p className="px-2 pb-1.5 pt-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400">
                             סטטוס
                           </p>
                           {statusOptions.map((option) => {
@@ -617,7 +617,7 @@ export function TaskDetailsModal({
                         onClose={() => setBadgeMenu(null)}
                         anchorRef={priorityBadgeRef}
                       >
-                        <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        <p className="px-2 pb-1.5 pt-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400">
                           עדיפות
                         </p>
                         {priorityOptions.map((option) => {
@@ -649,7 +649,7 @@ export function TaskDetailsModal({
                         anchorRef={dueBadgeRef}
                         width={240}
                       >
-                        <p className="px-2 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        <p className="px-2 pb-1.5 pt-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400">
                           תאריך יעד
                         </p>
                         <input
@@ -663,7 +663,7 @@ export function TaskDetailsModal({
                             <button
                               type="button"
                               onClick={() => updateDraft("dueDate", "")}
-                              className="rounded-lg px-2.5 py-1.5 text-[11px] font-bold text-rose-600 transition hover:bg-rose-50"
+                              className="rounded-lg px-2.5 py-1.5 text-[0.6875rem] font-bold text-rose-600 transition hover:bg-rose-50"
                             >
                               ניקוי
                             </button>
@@ -671,7 +671,7 @@ export function TaskDetailsModal({
                           <button
                             type="button"
                             onClick={() => setBadgeMenu(null)}
-                            className="rounded-lg bg-amber-500 px-2.5 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-600"
+                            className="rounded-lg bg-amber-500 px-2.5 py-1.5 text-[0.6875rem] font-bold text-white transition hover:bg-amber-600"
                           >
                             סיום
                           </button>
@@ -838,7 +838,7 @@ export function TaskDetailsModal({
                                 <span className="max-w-[7.5rem] truncate text-xs font-bold text-amber-950">
                                   {person.name.split(" ")[0]}
                                 </span>
-                                <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-amber-950 px-2.5 py-1 text-[11px] font-semibold text-amber-50 opacity-0 shadow-lg transition group-hover:opacity-100">
+                                <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-amber-950 px-2.5 py-1 text-[0.6875rem] font-semibold text-amber-50 opacity-0 shadow-lg transition group-hover:opacity-100">
                                   {person.name}
                                 </span>
                               </span>
@@ -856,7 +856,7 @@ export function TaskDetailsModal({
               </div>
 
               {!loading && task ? (
-                <p className="flex shrink-0 items-center justify-end gap-1.5 border-t border-amber-200/35 px-6 py-3 text-[11px] font-semibold text-fuchsia-700/70">
+                <p className="flex shrink-0 items-center justify-end gap-1.5 border-t border-amber-200/35 px-6 py-3 text-[0.6875rem] font-semibold text-fuchsia-700/70">
                   <History size={11} className="text-fuchsia-600/85" />
                   <span>עדכון אחרון ב {formatDate(task.updated_at)}</span>
                 </p>

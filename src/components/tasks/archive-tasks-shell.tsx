@@ -217,7 +217,7 @@ function ArchiveTaskRow({ task, onClick }: { task: TaskWithRelations; onClick: (
           <span className="truncate text-sm font-bold text-text-primary group-hover:text-emerald-700 sm:text-base">
             {task.title}
           </span>
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${domain.pillClass}`}>
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-[0.625rem] font-bold ${domain.pillClass}`}>
             {domain.label}
           </span>
         </span>
@@ -234,7 +234,7 @@ function ArchiveTaskRow({ task, onClick }: { task: TaskWithRelations; onClick: (
         </span>
       </span>
       <span className="shrink-0 text-end text-xs font-medium text-text-muted">
-        <span className="block text-[10px] uppercase tracking-wide opacity-70">הושלם</span>
+        <span className="block text-[0.625rem] uppercase tracking-wide opacity-70">הושלם</span>
         {formatDate(task.updated_at)}
       </span>
     </button>

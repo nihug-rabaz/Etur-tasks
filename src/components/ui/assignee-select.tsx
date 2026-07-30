@@ -40,9 +40,9 @@ export function UserAvatarMark({
   const url = isRenderableAvatarUrl(avatarUrl) ? avatarUrl : null;
   const box =
     size === "xs"
-      ? "h-6 w-6 text-[9px]"
+      ? "h-6 w-6 text-[0.5625rem]"
       : size === "sm"
-        ? "h-8 w-8 text-[10px]"
+        ? "h-8 w-8 text-[0.625rem]"
         : "h-9 w-9 text-xs";
   const imgRing =
     variant === "flush" ? "" : "ring-2 ring-surface-1 dark:ring-surface-2";

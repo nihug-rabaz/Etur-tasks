@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AppSettingsService, isWithinMorningSummaryWindow } from "@/services/app-settings.service";
+import { AppSettingsService, isMorningSummaryDue } from "@/services/app-settings.service";
 import { NotificationService } from "@/services/notification.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { Env } from "@/lib/env";
@@ -120,7 +120,7 @@ export async function GET(request: Request) {
     result.skipped.push("dueTomorrow");
   }
 
-  if (isWithinMorningSummaryWindow(hour, minute, morningMessageTime)) {
+  if (isMorningSummaryDue(hour, minute, morningMessageTime)) {
     const linkedUsers = await sql<Array<{ id: string; name: string }>>`
       select id, name from profiles
       where telegram_id is not null and is_approved = true

@@ -86,15 +86,14 @@ export class AppSettingsService extends BaseService {
   }
 }
 
-export function isWithinMorningSummaryWindow(
+export function isMorningSummaryDue(
   hour: number,
   minute: number,
   configuredTime: string,
-  windowMinutes = 240,
 ): boolean {
   const match = configuredTime.match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return false;
   const start = Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);
   const now = hour * 60 + minute;
-  return now >= start && now < start + windowMinutes;
+  return now >= start;
 }

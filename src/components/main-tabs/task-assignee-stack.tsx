@@ -80,7 +80,7 @@ export function TaskAssigneeStack({ assignees }: { assignees: TabTaskAssignee[] 
       }}
       className="rounded-xl border border-border-weak bg-surface-1 py-2 shadow-[0_16px_48px_rgba(2,6,23,0.28)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.5)]"
     >
-      <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">
+      <p className="mb-1.5 px-3 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-text-muted">
         משויכים למשימה
       </p>
       <ul className="max-h-52 space-y-0.5 overflow-y-auto px-1">
@@ -125,14 +125,14 @@ export function TaskAssigneeStack({ assignees }: { assignees: TabTaskAssignee[] 
             title={person.name}
           >
             <UserAvatarMark name={person.name} avatarUrl={person.avatar} size="xs" variant="flush" />
-            <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-semibold text-white opacity-0 shadow-lg transition group-hover/assignee:opacity-100">
+            <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[0.625rem] font-semibold text-white opacity-0 shadow-lg transition group-hover/assignee:opacity-100">
               {person.name}
             </span>
           </div>
         ))}
         {extra > 0 ? (
           <span
-            className="-ms-1 flex h-6 min-w-[1.5rem] items-center justify-center rounded-full border-2 border-background bg-surface-2 px-1 text-[9px] font-bold text-text-secondary dark:bg-surface-2"
+            className="-ms-1 flex h-6 min-w-[1.5rem] items-center justify-center rounded-full border-2 border-background bg-surface-2 px-1 text-[0.5625rem] font-bold text-text-secondary dark:bg-surface-2"
             style={{ zIndex: 0 }}
           >
             +{extra}

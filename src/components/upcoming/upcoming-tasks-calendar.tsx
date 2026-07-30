@@ -133,7 +133,7 @@ export function UpcomingTasksCalendar({
               <CalendarDays size={22} />
             </span>
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-accent-primary">לוח זמנים</p>
+              <p className="text-[0.625rem] font-bold uppercase tracking-[0.28em] text-accent-primary">לוח זמנים</p>
               <h2 className="text-xl font-bold text-text-primary sm:text-2xl">{monthTitle}</h2>
             </div>
           </div>
@@ -150,7 +150,7 @@ export function UpcomingTasksCalendar({
             <div className="upcoming-calendar-inner">
               <div className="upcoming-calendar-grid mb-0.5">
                 {weekdayLabels.map((label) => (
-                  <div key={label} className="py-1.5 text-center text-[11px] font-bold text-text-muted sm:text-xs">
+                  <div key={label} className="py-1.5 text-center text-[0.6875rem] font-bold text-text-muted sm:text-xs">
                     {label}
                   </div>
                 ))}
@@ -206,7 +206,7 @@ export function UpcomingTasksCalendar({
                     >
                       <div className="mb-1 flex items-center justify-between gap-0.5">
                         <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-bold sm:h-7 sm:w-7 sm:text-xs ${
+                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-[0.6875rem] font-bold sm:h-7 sm:w-7 sm:text-xs ${
                             today
                               ? "bg-surface-1 text-accent-primary ring-1 ring-accent-primary/60"
                               : "bg-surface-1/90 text-text-primary"
@@ -215,7 +215,7 @@ export function UpcomingTasksCalendar({
                           {format(date, "d")}
                         </span>
                         {dayCount > 0 ? (
-                          <span className="rounded-full bg-accent-primary/15 px-1 py-0.5 text-[9px] font-bold text-accent-primary sm:text-[10px]">
+                          <span className="rounded-full bg-accent-primary/15 px-1 py-0.5 text-[0.5625rem] font-bold text-accent-primary sm:text-[0.625rem]">
                             {dayCount}
                           </span>
                         ) : null}
@@ -237,7 +237,7 @@ export function UpcomingTasksCalendar({
                           />
                         ))}
                         {dayCount > chips.tasks.length + chips.events.length ? (
-                          <span className="truncate px-0.5 text-[9px] font-semibold text-text-muted sm:text-[10px]">
+                          <span className="truncate px-0.5 text-[0.5625rem] font-semibold text-text-muted sm:text-[0.625rem]">
                             +{dayCount - chips.tasks.length - chips.events.length}
                           </span>
                         ) : null}
@@ -258,7 +258,7 @@ export function UpcomingTasksCalendar({
                 : "בחרו יום בלוח"}
             </h3>
             {selectedTasks.length + selectedEvents.length > 0 ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border-weak bg-surface-2/70 px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border-weak bg-surface-2/70 px-2 py-0.5 text-[0.625rem] font-semibold text-text-secondary">
                 <Sparkles size={10} className="text-accent-secondary" />
                 {selectedTasks.length + selectedEvents.length}
               </span>
@@ -282,7 +282,7 @@ export function UpcomingTasksCalendar({
                   onClick={() => onScheduleClick({ id: event.id, title: event.title })}
                   className="block w-full rounded-xl border border-violet-400/40 bg-violet-500/10 p-3 text-start transition hover:bg-violet-500/15"
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-600">לו״ז</p>
+                  <p className="text-[0.625rem] font-bold uppercase tracking-wide text-violet-600">לו״ז</p>
                   <p className="mt-1 text-sm font-bold text-text-primary">{event.title}</p>
                   <p className="mt-1 flex items-center gap-1 text-xs text-text-muted">
                     <CalendarClock size={12} />

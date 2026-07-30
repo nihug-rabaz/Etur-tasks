@@ -152,7 +152,7 @@ export function TaskQuickPriority({ taskId, priority, onUpdated, className = "" 
         onClick={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <p className="px-2.5 pb-1.5 pt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-text-muted">
+        <p className="px-2.5 pb-1.5 pt-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-text-muted">
           עדיפות
         </p>
         {options.map((option) => {
