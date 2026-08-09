@@ -7,18 +7,18 @@ import {
 } from "@/lib/daily-planner/daily-planner-client";
 import type { DomainKey } from "@/lib/ui/domains";
 
+const DEFAULT_TONE =
+  "border-emerald-500/35 bg-emerald-500/15 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-50";
+
 const assignedBadgeTone: Record<DomainKey, string> = {
-  recruitment:
-    "border-emerald-500/35 bg-emerald-500/15 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-50",
-  positioning:
-    "border-emerald-500/35 bg-emerald-500/15 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-50",
-  general:
-    "border-emerald-500/35 bg-emerald-500/15 text-emerald-900 dark:border-emerald-400/40 dark:bg-emerald-500/20 dark:text-emerald-50",
+  recruitment: DEFAULT_TONE,
+  positioning: DEFAULT_TONE,
+  general: DEFAULT_TONE,
 };
 
 interface TaskPlanAssignedBadgeProps {
   taskId: string;
-  domainSlug: DomainKey;
+  domainSlug?: DomainKey;
   className?: string;
 }
 
@@ -59,12 +59,14 @@ export function TaskPlanAssignedBadge({
 
   if (!assigned) return null;
 
+  const tone = domainSlug ? assignedBadgeTone[domainSlug] : DEFAULT_TONE;
+
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[0.625rem] font-bold leading-none ${assignedBadgeTone[domainSlug]} ${className}`}
-      title="המשימה משויכת ללו״ז יומי"
+      className={`inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[0.625rem] font-bold leading-tight ${tone} ${className}`}
+      title="מישהו עובד על זה בלו״ז היומי"
     >
-      משוייך
+      מישהו עובד על זה ; )
     </span>
   );
 }

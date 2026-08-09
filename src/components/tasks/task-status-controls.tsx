@@ -31,13 +31,11 @@ export function TaskStatusControls({
       onUpdated={onUpdated}
       className={className}
       belowStatus={
-        domainSlug ? (
-          <TaskPlanAssignedBadge
-            taskId={taskId}
-            domainSlug={domainSlug}
-            className="w-full justify-center"
-          />
-        ) : null
+        <TaskPlanAssignedBadge
+          taskId={taskId}
+          domainSlug={domainSlug}
+          className="w-full justify-center text-center"
+        />
       }
     />
   );

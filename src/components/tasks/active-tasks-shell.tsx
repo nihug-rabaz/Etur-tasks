@@ -142,18 +142,25 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
             אין משימות בתחום זה.
           </div>
         ) : viewMode === "table" ? (
-          <TasksTable tasks={singleDomainTasks} onSelect={openTaskDetails} />
+          <TasksTable tasks={singleDomainTasks} onSelect={openTaskDetails} enablePlanDrag />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {singleDomainTasks.map((task) => (
-              <button
+              <div
                 key={task.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => openTaskDetails(task)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    openTaskDetails(task);
+                  }
+                }}
                 className="cursor-pointer text-start"
               >
-                <TaskCard task={task} />
-              </button>
+                <TaskCard task={task} enablePlanDrag />
+              </div>
             ))}
           </div>
         )
@@ -177,18 +184,25 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
                 onToggle={() => toggleDomain(key)}
               >
                 {viewMode === "table" ? (
-                  <TasksTable tasks={domainTasks} onSelect={openTaskDetails} embedded />
+                  <TasksTable tasks={domainTasks} onSelect={openTaskDetails} embedded enablePlanDrag />
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {domainTasks.map((task) => (
-                      <button
+                      <div
                         key={task.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => openTaskDetails(task)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openTaskDetails(task);
+                          }
+                        }}
                         className="cursor-pointer text-start"
                       >
-                        <TaskCard task={task} />
-                      </button>
+                        <TaskCard task={task} enablePlanDrag />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -207,7 +221,7 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
         />
       ) : null}
       </div>
-      <DailyPlanDesktopColumn accentHex={accentHex} allowDrop={false} />
+      <DailyPlanDesktopColumn accentHex={accentHex} allowDrop />
     </section>
   );
 }

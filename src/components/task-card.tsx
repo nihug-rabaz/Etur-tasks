@@ -3,9 +3,11 @@ import { TaskWithRelations } from "@/types/models";
 import { domainCardStyle, domainKeyFromName, type DomainKey } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { TaskStatusControls } from "@/components/tasks/task-status-controls";
+import { TaskPlanDragHandle } from "@/components/tasks/task-plan-drag-handle";
 
 interface TaskCardProps {
   task: TaskWithRelations;
+  enablePlanDrag?: boolean;
 }
 
 const domainHeaderColors: Record<DomainKey, string> = {
@@ -26,7 +28,7 @@ const priorityLabel: Record<string, string> = {
   high: "גבוהה",
 };
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, enablePlanDrag = false }: TaskCardProps) {
   const domain = domainCardStyle(task.domain_name);
   const domainKey = domainKeyFromName(task.domain_name);
   const headerBg = domainKey ? domainHeaderColors[domainKey] : "#64748b";
@@ -39,10 +41,28 @@ export function TaskCard({ task }: TaskCardProps) {
         className="flex items-center justify-between gap-2 px-4 py-3 ps-5"
         style={{ backgroundColor: headerBg }}
       >
-        <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">
-          {domain.label}
-        </span>
-        <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
+        <div className="flex min-w-0 items-center gap-2">
+          {enablePlanDrag ? (
+            <TaskPlanDragHandle
+              task={{
+                id: task.id,
+                title: task.title,
+                priority: task.priority,
+                status: task.status === "completed" ? "completed" : "in_progress",
+              }}
+              className="bg-white/15 text-white hover:bg-white/25 hover:text-white"
+            />
+          ) : null}
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">
+            {domain.label}
+          </span>
+        </div>
+        <TaskStatusControls
+          taskId={task.id}
+          status={task.status}
+          size="sm"
+          domainSlug={domainKey ?? undefined}
+        />
       </div>
 
       <div className={`px-4 py-4 ps-5 ${domain.body}`}>

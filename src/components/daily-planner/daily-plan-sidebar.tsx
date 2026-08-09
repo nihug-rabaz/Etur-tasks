@@ -249,12 +249,26 @@ export function DailyPlanSidebar({
     setIsOver(false);
     setDragDepth(0);
     const fromContext = dragDrop?.dragTask;
-    const taskId = fromContext?.id || event.dataTransfer.getData("text/plain");
+    const fromPayload = (() => {
+      try {
+        const raw = event.dataTransfer.getData("application/x-etur-task");
+        if (!raw) return null;
+        return JSON.parse(raw) as {
+          id?: string;
+          title?: string;
+          priority?: DailyPlannerSlot["priority"];
+          status?: DailyPlannerSlot["status"];
+        };
+      } catch {
+        return null;
+      }
+    })();
+    const taskId = fromContext?.id || fromPayload?.id || event.dataTransfer.getData("text/plain");
     if (!taskId) return;
     void addTask(taskId, {
-      title: fromContext?.title,
-      priority: fromContext?.priority,
-      status: fromContext?.status,
+      title: fromContext?.title || fromPayload?.title,
+      priority: fromContext?.priority || fromPayload?.priority,
+      status: fromContext?.status || fromPayload?.status,
     });
     dragDrop?.endDrag();
   };
