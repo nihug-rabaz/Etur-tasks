@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 
 import { GoogleSignInForm } from "@/components/google-signin-form";
+import { DevelopedByCredit } from "@/components/developed-by-credit";
 
 type LoginPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -103,6 +104,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="mt-6">
           <GoogleSignInForm />
         </div>
+        <DevelopedByCredit className="mt-8 border-t border-border-weak/60 pt-5" />
       </div>
     </div>
   );

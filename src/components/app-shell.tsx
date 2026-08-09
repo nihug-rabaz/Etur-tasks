@@ -18,6 +18,7 @@ import {
   type ModuleAccessContext,
   type ModuleRole,
 } from "@/shared/modules/registry";
+import { DevelopedByCredit } from "@/components/developed-by-credit";
 
 function getBreadcrumbHref(segments: string[], index: number): string | null {
   const href = `/${segments.slice(0, index + 1).join("/")}`;
@@ -233,6 +234,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>
         </div>
+        <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
+          <DevelopedByCredit compact />
+        </footer>
       </div>
     </CloseRequestsProvider>
   );

@@ -98,6 +98,18 @@ export function IntroSplash() {
                 </div>
                 <p className="mb-1 text-sm font-semibold tracking-[0.28em] text-white/70">מערכת ניהול משימות</p>
                 <h1 className="mb-5 text-xl font-black text-white sm:text-2xl">ברוכים הבאים</h1>
+                <div className="mt-2 flex items-center justify-center gap-2.5">
+                  <Image
+                    src="/nihug-logo.png"
+                    alt="תחום ניהו״ג"
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 rounded-full object-contain bg-white/90 p-0.5"
+                  />
+                  <p className="text-xs font-medium text-white/75 sm:text-sm">
+                    פותח ע״י תחום ניהו״ג · מטה הרבנות הצבאית
+                  </p>
+                </div>
               </motion.div>
             </div>
           ) : null}
