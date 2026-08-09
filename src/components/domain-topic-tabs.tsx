@@ -12,15 +12,27 @@ interface DomainTopicTabsProps {
   counts?: Partial<Record<DomainKey, number>>;
   onChange: (key: DomainKey | "all") => void;
   showAll?: boolean;
+  compact?: boolean;
 }
 
-export function DomainTopicTabs({ active, counts, onChange, showAll = true }: DomainTopicTabsProps) {
+export function DomainTopicTabs({
+  active,
+  counts,
+  onChange,
+  showAll = true,
+  compact = false,
+}: DomainTopicTabsProps) {
   const appearance = useDomainTabAppearance();
   const dragDrop = useOptionalTaskDragDrop();
   const isDragging = Boolean(dragDrop?.dragTask);
 
   return (
-    <div className="flex w-full items-stretch gap-1 sm:gap-5" role="tablist" aria-label="תחומים">
+    <div className="min-w-0 w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        className={`flex w-full min-w-0 items-stretch ${compact ? "gap-0.5 sm:gap-2" : "gap-1 sm:gap-5"}`}
+        role="tablist"
+        aria-label="תחומים"
+      >
       {showAll ? (
         <Tab
           label="הכל"
@@ -28,6 +40,7 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
           accentHex="var(--accent-primary)"
           onClick={() => onChange("all")}
           indicatorId="domain-tab-indicator"
+          compact={compact}
         />
       ) : null}
       {domainKeys.map((key) => {
@@ -53,13 +66,13 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
                 <Image
                   src={item.imageUrl}
                   alt={meta.label}
-                  width={56}
-                  height={56}
+                  width={compact ? 40 : 56}
+                  height={compact ? 40 : 56}
                   unoptimized
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <Icon size={22} />
+                <Icon size={compact ? 18 : 22} />
               )
             }
             mediaIsImage={Boolean(item.imageUrl)}
@@ -68,6 +81,7 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
             accentHex={meta.accentHex}
             onClick={() => onChange(key)}
             indicatorId="domain-tab-indicator"
+            compact={compact}
             isDragging={isDragging}
             isDropHover={isDropHover}
             dropHint={dropHint}
@@ -98,6 +112,7 @@ export function DomainTopicTabs({ active, counts, onChange, showAll = true }: Do
           />
         );
       })}
+      </div>
     </div>
   );
 }
@@ -111,6 +126,7 @@ interface TabProps {
   accentHex: string;
   onClick: () => void;
   indicatorId: string;
+  compact?: boolean;
   isDragging?: boolean;
   isDropHover?: boolean;
   dropHint?: string;
@@ -128,6 +144,7 @@ function Tab({
   accentHex,
   onClick,
   indicatorId,
+  compact = false,
   isDragging = false,
   isDropHover = false,
   dropHint,
@@ -145,18 +162,24 @@ function Tab({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       style={selected ? { color: accentHex } : undefined}
-      className={`relative flex flex-1 items-center justify-center gap-2 rounded-t-xl px-2 py-3 text-base font-extrabold transition sm:gap-3 sm:px-6 sm:py-4 sm:text-xl ${
-        selected ? "" : "text-text-muted hover:text-text-secondary"
-      } ${isDropHover ? "ring-2 ring-accent-primary/55 ring-offset-2 ring-offset-surface-1/80" : ""} ${
-        isDragging && onDragOver ? "cursor-copy" : ""
-      }`}
+      className={`relative flex min-w-0 flex-1 items-center justify-center rounded-t-xl font-extrabold transition ${
+        compact
+          ? "gap-1 px-1.5 py-2 text-xs sm:gap-1.5 sm:px-2.5 sm:py-2.5 sm:text-sm"
+          : "gap-2 px-2 py-3 text-base sm:gap-3 sm:px-6 sm:py-4 sm:text-xl"
+      } ${selected ? "" : "text-text-muted hover:text-text-secondary"} ${
+        isDropHover ? "ring-2 ring-accent-primary/55 ring-offset-2 ring-offset-surface-1/80" : ""
+      } ${isDragging && onDragOver ? "cursor-copy" : ""}`}
     >
       {media ? (
         <span
           className={`inline-flex shrink-0 items-center justify-center overflow-hidden transition ${
             mediaIsImage
-              ? "h-11 w-11 rounded-full ring-2 ring-white/70 shadow-md sm:h-14 sm:w-14"
-              : "h-9 w-9 rounded-xl sm:h-11 sm:w-11 sm:rounded-xl"
+              ? compact
+                ? "h-8 w-8 rounded-full ring-2 ring-white/70 shadow-sm sm:h-9 sm:w-9"
+                : "h-11 w-11 rounded-full ring-2 ring-white/70 shadow-md sm:h-14 sm:w-14"
+              : compact
+                ? "h-7 w-7 rounded-lg sm:h-8 sm:w-8 sm:rounded-xl"
+                : "h-9 w-9 rounded-xl sm:h-11 sm:w-11 sm:rounded-xl"
           }`}
           style={selected ? { backgroundColor: mediaIsImage ? undefined : `${accentHex}1f`, color: accentHex } : undefined}
         >
@@ -166,7 +189,11 @@ function Tab({
       <span className="truncate">{label}</span>
       {count !== undefined ? (
         <span
-          className="hidden rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums sm:inline-block sm:px-3 sm:text-sm"
+          className={`rounded-full font-bold tabular-nums ${
+            compact
+              ? "hidden px-1.5 py-0.5 text-[0.625rem] sm:inline-block"
+              : "hidden px-2.5 py-0.5 text-xs sm:inline-block sm:px-3 sm:text-sm"
+          }`}
           style={
             selected
               ? { backgroundColor: `${accentHex}1f`, color: accentHex }
@@ -179,7 +206,7 @@ function Tab({
       {selected ? (
         <motion.span
           layoutId={indicatorId}
-          className="absolute inset-x-3 -bottom-px h-[3px] rounded-full"
+          className="absolute inset-x-2 -bottom-px h-[3px] rounded-full sm:inset-x-3"
           style={{ backgroundColor: accentHex }}
           transition={{ type: "spring", stiffness: 400, damping: 32 }}
         />

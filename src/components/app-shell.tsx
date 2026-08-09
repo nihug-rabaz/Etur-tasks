@@ -9,7 +9,6 @@ import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/com
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TelegramNotificationsPanel } from "@/components/notifications/telegram-notifications-panel";
 import { AdminMessageComposer } from "@/components/notifications/admin-message-composer";
-import { DailyPlannerLauncher } from "@/components/daily-planner/daily-planner-launcher";
 import { CloseRequestsProvider } from "@/components/tasks/close-requests-context";
 import { AdminCloseRequestsInbox } from "@/components/tasks/admin-close-requests-inbox";
 import {
@@ -223,11 +222,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <TelegramNotificationsPanel isAdmin={isRealAdmin && !isImpersonating} />
               ) : null}
             </div>
-            {showTasksChrome && !isDashboard ? (
-              <div className="shrink-0 ps-1 sm:ps-2">
-                <DailyPlannerLauncher />
-              </div>
-            ) : null}
           </div>
         </header>
         <div

@@ -15,7 +15,10 @@ import {
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateProjectDrawer } from "@/components/create-project-drawer";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
-import { DailyPlanSidebar } from "@/components/daily-planner/daily-plan-sidebar";
+import {
+  DailyPlanDesktopColumn,
+  DailyPlanMobileAccess,
+} from "@/components/daily-planner/daily-plan-dock";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TaskDragDropProvider } from "@/components/main-tabs/task-drag-drop-context";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
@@ -231,6 +234,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
               className="min-w-0 flex-1"
               onSelectTask={(task) => setSelectedTask(task)}
             />
+            <DailyPlanMobileAccess accentHex={accentHex} />
             <div className="shrink-0">
               <CreateTaskDrawer triggerLabel="יצירה מהירה" compact accentHex={accentHex} />
             </div>
@@ -300,9 +304,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
         </div>
         </motion.div>
 
-        <div className="flex w-[15rem] shrink-0 flex-col self-stretch">
-          <DailyPlanSidebar accentHex={accentHex} />
-        </div>
+        <DailyPlanDesktopColumn accentHex={accentHex} fillHeight />
       </div>
       </TaskDragDropProvider>
       {selectedTask ? (

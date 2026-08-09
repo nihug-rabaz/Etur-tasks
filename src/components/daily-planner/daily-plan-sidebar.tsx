@@ -39,7 +39,15 @@ class DailyPlanListSorter {
   }
 }
 
-export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string }) {
+export function DailyPlanSidebar({
+  accentHex = "#22b8cf",
+  allowDrop = true,
+  emptyHint,
+}: {
+  accentHex?: string;
+  allowDrop?: boolean;
+  emptyHint?: string;
+}) {
   const dragDrop = useOptionalTaskDragDrop();
   const [planDate] = useState(() => DailyPlannerClient.dateKey(new Date()));
   const [slots, setSlots] = useState<DailyPlannerSlot[]>([]);
@@ -206,6 +214,7 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
   );
 
   const handleDragOver = (event: DragEvent<HTMLElement>) => {
+    if (!allowDrop) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = "copy";
@@ -215,6 +224,7 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
   };
 
   const handleDragEnter = (event: DragEvent<HTMLElement>) => {
+    if (!allowDrop) return;
     event.preventDefault();
     event.stopPropagation();
     setDragDepth((depth) => depth + 1);
@@ -222,6 +232,7 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
   };
 
   const handleDragLeave = (event: DragEvent<HTMLElement>) => {
+    if (!allowDrop) return;
     event.preventDefault();
     event.stopPropagation();
     setDragDepth((depth) => {
@@ -232,6 +243,7 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
   };
 
   const handleDrop = (event: DragEvent<HTMLElement>) => {
+    if (!allowDrop) return;
     event.preventDefault();
     event.stopPropagation();
     setIsOver(false);
@@ -272,7 +284,7 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
           />
         </div>
         <p className="mt-1.5 text-center text-[11px] font-medium leading-relaxed text-text-muted">
-          גררו משימה לכאן · סמנו כשסיימתם
+          {allowDrop ? "גררו משימה לכאן · סמנו כשסיימתם" : "סמנו משימה ברשימה · סמנו כשסיימתם"}
         </p>
       </header>
 
@@ -298,7 +310,10 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
               <br />
               תתחיל למלא את הלו״ז שלך!
             </p>
-            <p className="mt-1 text-[11px] font-medium text-text-muted">שחררו כאן משימה מהרשימה</p>
+            <p className="mt-1 text-[11px] font-medium text-text-muted">
+              {emptyHint ??
+                (allowDrop ? "שחררו כאן משימה מהרשימה" : "סמנו ✓ ליד משימה כדי לשייך ללו״ז")}
+            </p>
           </div>
         ) : (
           <ul className="flex flex-col gap-2">

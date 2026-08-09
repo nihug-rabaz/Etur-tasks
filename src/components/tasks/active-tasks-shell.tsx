@@ -6,6 +6,10 @@ import { ChevronDown, LayoutGrid, Rows3, UserRound, Users } from "lucide-react";
 import { TaskCard } from "@/components/task-card";
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import {
+  DailyPlanDesktopColumn,
+  DailyPlanMobileAccess,
+} from "@/components/daily-planner/daily-plan-dock";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
@@ -80,30 +84,40 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
   const openTaskDetails = (task: TaskWithRelations) =>
     setSelectedTask({ id: task.id, title: task.title });
 
+  const accentHex =
+    activeDomain === "all" ? "#8b5cf6" : domainMeta[activeDomain].accentHex;
+
   return (
-    <section className="space-y-5">
-      <div className="dashboard-glass rounded-3xl p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
+    <section className="flex flex-col gap-4 md:flex-row md:items-start md:gap-4">
+      <div className="min-w-0 flex-1 space-y-4 md:space-y-5">
+      <div className="dashboard-glass min-w-0 overflow-hidden rounded-3xl p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold text-text-primary">משימות פעילות</h1>
             <p className="mt-1 text-sm font-medium text-text-secondary">
               {filteredTasks.length} משימות פעילות
               {taskScope === "mine" ? " משויכות אליך" : " (לא הושלמו)"}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            <DailyPlanMobileAccess accentHex={accentHex} />
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
             <CreateTaskDrawer triggerLabel="משימה חדשה" />
           </div>
         </div>
-        <div className="mt-4 space-y-4">
+        <div className="mt-4 min-w-0 space-y-4">
           <TaskScopeTabs
             active={taskScope}
             allCount={tasks.length}
             mineCount={mineCount}
             onChange={setTaskScope}
           />
-          <DomainTopicTabs active={activeDomain} counts={counts} onChange={setActiveDomain} />
+          <DomainTopicTabs
+            active={activeDomain}
+            counts={counts}
+            onChange={setActiveDomain}
+            compact
+          />
           <TaskFilterBar
             state={filters}
             onChange={setFilters}
@@ -192,6 +206,8 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
           taskTitle={selectedTask.title}
         />
       ) : null}
+      </div>
+      <DailyPlanDesktopColumn accentHex={accentHex} allowDrop={false} />
     </section>
   );
 }

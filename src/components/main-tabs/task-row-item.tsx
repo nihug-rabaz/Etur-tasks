@@ -5,8 +5,10 @@ import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type Keyb
 import { TabTaskItem } from "@/services/dashboard.service";
 import { TaskAssigneeStack } from "@/components/main-tabs/task-assignee-stack";
 import { useTaskDragDrop } from "@/components/main-tabs/task-drag-drop-context";
+import { TaskDailyPlanCheckbox } from "@/components/tasks/task-daily-plan-checkbox";
 import { TaskQuickPriority } from "@/components/tasks/task-quick-priority";
 import { TaskStatusControls } from "@/components/tasks/task-status-controls";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import type { DomainKey } from "@/lib/ui/domains";
 import type { TaskPriority } from "@/types/models";
 
@@ -36,6 +38,7 @@ function hasTaskQuickOverlay(): boolean {
 }
 
 export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowItemProps) {
+  const isMobile = useIsMobile();
   const { dragTask, startDrag, endDrag } = useTaskDragDrop();
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const dismissOnlyRef = useRef(false);
@@ -132,20 +135,40 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
       onKeyDown={handleRowKeyDown}
     >
       <div className="flex items-start gap-2 px-2 py-2 pe-3">
-        <button
-          type="button"
-          data-no-row-click
-          data-drag-handle
-          draggable
-          aria-label={`גרור משימה: ${task.title}`}
-          title="גרור ללו״ז או לפרויקט אחר"
-          className="mt-0.5 inline-flex h-8 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-muted transition hover:bg-black/5 hover:text-text-primary active:cursor-grabbing dark:hover:bg-white/10"
-          onClick={(event) => event.stopPropagation()}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <GripVertical size={16} aria-hidden />
-        </button>
+        {isMobile ? (
+          <div className="mt-0.5 flex shrink-0 flex-col items-center gap-1">
+            <TaskDailyPlanCheckbox taskId={task.id} className="mt-0" />
+            <button
+              type="button"
+              data-no-row-click
+              data-drag-handle
+              draggable
+              aria-label={`גרור משימה: ${task.title}`}
+              title="גרור לפרויקט או תחום אחר"
+              className="inline-flex h-7 w-8 cursor-grab touch-none items-center justify-center rounded-lg text-text-muted transition hover:bg-black/5 hover:text-text-primary active:cursor-grabbing dark:hover:bg-white/10"
+              onClick={(event) => event.stopPropagation()}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <GripVertical size={15} aria-hidden />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-no-row-click
+            data-drag-handle
+            draggable
+            aria-label={`גרור משימה: ${task.title}`}
+            title="גרור ללו״ז או לפרויקט אחר"
+            className="mt-0.5 inline-flex h-8 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-muted transition hover:bg-black/5 hover:text-text-primary active:cursor-grabbing dark:hover:bg-white/10"
+            onClick={(event) => event.stopPropagation()}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <GripVertical size={16} aria-hidden />
+          </button>
+        )}
         <div data-no-row-click className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
           <TaskStatusControls
             taskId={task.id}

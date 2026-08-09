@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
+import {
+  DailyPlanDesktopColumn,
+  DailyPlanMobileAccess,
+} from "@/components/daily-planner/daily-plan-dock";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
@@ -94,9 +98,11 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
   };
 
   const openTask = (task: TaskWithRelations) => setSelectedTask({ id: task.id, title: task.title });
+  const accentHex = "#10b981";
 
   return (
-    <section className="space-y-5">
+    <section className="flex flex-col gap-5 md:flex-row md:items-start">
+      <div className="min-w-0 flex-1 space-y-5">
       <div className="dashboard-glass overflow-hidden rounded-3xl">
         <div className="bg-gradient-to-l from-emerald-500/15 via-surface-1 to-teal-400/10 px-5 py-6 sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -111,7 +117,13 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
                 </p>
               </div>
             </div>
-            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+            <div className="flex flex-wrap items-center gap-2">
+              <DailyPlanMobileAccess
+                accentHex={accentHex}
+                triggerClassName="border-emerald-500/25 bg-emerald-500/10 text-emerald-800 hover:bg-emerald-500/15 dark:text-emerald-100"
+              />
+              <ViewModeToggle value={viewMode} onChange={setViewMode} />
+            </div>
           </div>
         </div>
 
@@ -124,7 +136,7 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
             assigneeOptions={filterEngine.assigneeOptions}
             accentRingClass="focus:ring-emerald-400/35"
           />
-          <DomainTopicTabs active={activeDomain} counts={counts} onChange={setActiveDomain} />
+          <DomainTopicTabs active={activeDomain} counts={counts} onChange={setActiveDomain} compact />
         </div>
       </div>
 
@@ -197,6 +209,8 @@ export function ArchiveTasksShell({ tasks }: ArchiveTasksShellProps) {
           taskTitle={selectedTask.title}
         />
       ) : null}
+      </div>
+      <DailyPlanDesktopColumn accentHex={accentHex} allowDrop={false} />
     </section>
   );
 }
