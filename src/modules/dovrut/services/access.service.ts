@@ -32,4 +32,30 @@ export class DovrutAccessService {
 
     return { profile, role };
   }
+
+  public canManageUsers(role: ModuleRole, platformRole: string): boolean {
+    return role === "admin" || platformRole === "admin";
+  }
+
+  public canDelete(role: ModuleRole, platformRole: string): boolean {
+    return role === "admin" || platformRole === "admin";
+  }
+
+  public canForceApproval(role: ModuleRole, platformRole: string): boolean {
+    return role === "admin" || platformRole === "admin";
+  }
+
+  public canEditContent(role: ModuleRole): boolean {
+    return role === "admin" || role === "user";
+  }
+
+  public canApprove(role: ModuleRole, platformRole: string): boolean {
+    return role === "admin" || role === "approver" || platformRole === "admin";
+  }
+
+  public roleLabel(role: ModuleRole): string {
+    if (role === "admin") return "מנהל";
+    if (role === "approver") return "מאשר";
+    return "חפ״ש";
+  }
 }

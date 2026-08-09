@@ -25,12 +25,22 @@ interface CloseRequestsContextValue {
 
 const CloseRequestsContext = createContext<CloseRequestsContextValue | null>(null);
 
-export function CloseRequestsProvider({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
+export function CloseRequestsProvider({
+  children,
+  enabled = true,
+}: {
+  children: ReactNode;
+  enabled?: boolean;
+}) {
+  const [ready, setReady] = useState(!enabled);
   const [canClose, setCanClose] = useState(false);
   const [requests, setRequests] = useState<TaskCloseRequestWithRelations[]>([]);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      setReady(true);
+      return;
+    }
     const response = await fetch("/api/tasks/close-requests");
     if (!response.ok) {
       setReady(true);
@@ -43,7 +53,7 @@ export function CloseRequestsProvider({ children }: { children: ReactNode }) {
     setCanClose(Boolean(data.canClose));
     setRequests(data.requests ?? []);
     setReady(true);
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     void refresh();

@@ -87,7 +87,7 @@ export default async function RootLayout({
         ["--app-font-scale" as string]: String(fontScale.scale),
       }}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <FontScaleRoot initialPreset={fontScale.preset} />
         <IntroSplash />
         {children}

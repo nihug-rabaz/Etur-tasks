@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, LayoutGrid, Rows3, UserRound, Users } from "lucide-react";
 import { TaskCard } from "@/components/task-card";
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
@@ -13,6 +13,7 @@ import {
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
+import { mergeTaskList, useTasksLiveSync } from "@/components/tasks/tasks-live-sync";
 import { isTaskAssignedToUser } from "@/lib/tasks/assignees";
 import { TaskFilter, defaultTaskFilters } from "@/lib/tasks/task-filter";
 import {
@@ -31,7 +32,9 @@ interface ActiveTasksShellProps {
   currentUserId: string;
 }
 
-export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps) {
+export function ActiveTasksShell({ tasks: initialTasks, currentUserId }: ActiveTasksShellProps) {
+  const { subscribe } = useTasksLiveSync();
+  const [tasks, setTasks] = useState(initialTasks);
   const [taskScope, setTaskScope] = useState<TaskScope>("all");
   const [activeDomain, setActiveDomain] = useState<DomainKey | "all">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
@@ -40,6 +43,16 @@ export function ActiveTasksShell({ tasks, currentUserId }: ActiveTasksShellProps
     () => new Set(domainKeys),
   );
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
+
+  useEffect(() => {
+    setTasks(initialTasks);
+  }, [initialTasks]);
+
+  useEffect(() => {
+    return subscribe((changes) => {
+      setTasks((current) => mergeTaskList(current, changes));
+    });
+  }, [subscribe]);
 
   const scopedTasks = useMemo(
     () =>

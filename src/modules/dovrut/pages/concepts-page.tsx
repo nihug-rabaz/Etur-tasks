@@ -2,24 +2,25 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DovrutConcept, DovrutConceptType } from "@/modules/dovrut/types";
+import type { DovrutConcept } from "@/modules/dovrut/types";
 import {
   APPROVAL_STATUS_LABELS,
   DOMAIN_LABELS,
-  WORK_STATUS_ARTICLE_LABELS,
-  WORK_STATUS_SOCIAL_LABELS,
+  WORK_STATUS_LABELS,
 } from "@/modules/dovrut/lib/approval-flows";
 
 export function DovrutConceptsPage() {
   const [concepts, setConcepts] = useState<DovrutConcept[]>([]);
   const [query, setQuery] = useState("");
-  const [type, setType] = useState<"all" | DovrutConceptType>("all");
+  const [activeOnly, setActiveOnly] = useState(true);
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/dovrut/concepts");
+    const response = await fetch(
+      `/api/dovrut/concepts${activeOnly ? "?activeOnly=1" : ""}`,
+    );
     const data = await response.json();
     setConcepts(Array.isArray(data.concepts) ? data.concepts : []);
-  }, []);
+  }, [activeOnly]);
 
   useEffect(() => {
     void load();
@@ -27,56 +28,64 @@ export function DovrutConceptsPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return concepts.filter((concept) => {
-      if (type !== "all" && concept.type !== type) return false;
-      if (!q) return true;
-      return (
+    if (!q) return concepts;
+    return concepts.filter(
+      (concept) =>
         concept.name.toLowerCase().includes(q) ||
-        (concept.project_name ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [concepts, query, type]);
+        (concept.project_name ?? "").toLowerCase().includes(q) ||
+        (concept.interviewer ?? "").toLowerCase().includes(q) ||
+        (concept.media_outlet ?? "").toLowerCase().includes(q),
+    );
+  }, [concepts, query]);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
-      <h1 className="text-xl font-bold text-text-primary">קונספטים</h1>
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="חיפוש"
-          className="min-w-[200px] flex-1 rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
-        />
-        <select
-          value={type}
-          onChange={(event) => setType(event.target.value as typeof type)}
-          className="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
-        >
-          <option value="all">הכל</option>
-          <option value="article_interview">כתבות</option>
-          <option value="social_media">רשתות</option>
-        </select>
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-text-primary">פריטים</h1>
+          <p className="mt-1 text-sm text-text-muted">כתבות, ראיונות ורשתות</p>
+        </div>
+        <label className="flex items-center gap-2 text-xs font-bold">
+          <input
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => setActiveOnly(e.target.checked)}
+          />
+          פעילים בלבד
+        </label>
       </div>
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="חיפוש לפי שם, מערכת, מראיין…"
+        className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+      />
       <ul className="space-y-2">
         {filtered.map((concept) => (
           <li key={concept.id}>
             <Link
-              href={`/dovrut/concepts/${concept.id}`}
-              className="block rounded-2xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+              href={`/dovrut/items/${concept.id}`}
+              className="block rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
             >
-              <p className="text-sm font-extrabold text-text-primary">{concept.name}</p>
-              <p className="mt-1 text-[11px] text-text-muted">
+              <p className="text-sm font-bold text-text-primary">{concept.name}</p>
+              <p className="mt-0.5 text-[11px] text-text-muted">
                 {concept.project_name}
-                {concept.domain ? ` · ${DOMAIN_LABELS[concept.domain]}` : ""} ·{" "}
+                {concept.domain ? ` · ${DOMAIN_LABELS[concept.domain]}` : ""}
+                {concept.media_outlet ? ` · מערכת: ${concept.media_outlet}` : ""}
+                {concept.interviewer ? ` · מראיין: ${concept.interviewer}` : ""}
+                {" · "}
                 {concept.type === "article_interview"
                   ? concept.approval_status
                     ? APPROVAL_STATUS_LABELS[concept.approval_status]
-                    : WORK_STATUS_ARTICLE_LABELS[concept.work_status_article ?? ""]
-                  : WORK_STATUS_SOCIAL_LABELS[concept.work_status_social ?? ""]}
+                    : WORK_STATUS_LABELS[concept.work_status_article ?? "planning"]
+                  : WORK_STATUS_LABELS[concept.work_status_social ?? "planning"]}
               </p>
             </Link>
           </li>
         ))}
+        {filtered.length === 0 ? (
+          <p className="py-8 text-center text-sm text-text-muted">אין פריטים</p>
+        ) : null}
       </ul>
     </div>
   );

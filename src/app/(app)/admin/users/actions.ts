@@ -43,7 +43,11 @@ export async function approveUserAction(formData: FormData) {
   const sql = NeonDatabase.createClient();
   await sql`
     update profiles
-    set is_approved = true, approved_at = now(), approved_by = ${admin.id}
+    set
+      is_approved = true,
+      access_status = 'approved',
+      approved_at = now(),
+      approved_by = ${admin.id}
     where id = ${userId}
   `;
   revalidatePath("/admin/users");
@@ -56,8 +60,31 @@ export async function setUserPendingAction(formData: FormData) {
   const sql = NeonDatabase.createClient();
   await sql`
     update profiles
-    set is_approved = false, approved_at = null, approved_by = null
+    set
+      is_approved = false,
+      access_status = 'pending',
+      approved_at = null,
+      approved_by = null
     where id = ${userId}
+  `;
+  revalidatePath("/admin/users");
+}
+
+export async function rejectUserAction(formData: FormData) {
+  const authorizationService = new AuthorizationService();
+  const admin = await authorizationService.ensureAdmin();
+  const userId = String(formData.get("userId"));
+  if (userId === admin.id) return;
+  const sql = NeonDatabase.createClient();
+  await sql`
+    update profiles
+    set
+      is_approved = false,
+      access_status = 'rejected',
+      approved_at = null,
+      approved_by = ${admin.id}
+    where id = ${userId}
+      and role <> 'admin'
   `;
   revalidatePath("/admin/users");
 }

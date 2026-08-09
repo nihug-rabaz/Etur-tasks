@@ -1,19 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-
+/**
+ * Legacy full-page refresh removed in favor of TasksLiveSyncProvider delta polling.
+ * Kept as a no-op export so any residual imports stay safe.
+ */
 export function RealtimeSync() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      router.refresh();
-    }, 30000);
-    return () => {
-      clearInterval(timer);
-    };
-  }, [router]);
-
   return null;
 }

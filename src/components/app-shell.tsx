@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ImpersonationBanner, type ImpersonationViewState } from "@/components/admin/impersonation-banner";
-import { RealtimeSync } from "@/components/realtime-sync";
 import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TelegramNotificationsPanel } from "@/components/notifications/telegram-notifications-panel";
@@ -12,6 +11,7 @@ import { AdminMessageComposer } from "@/components/notifications/admin-message-c
 import { CloseRequestsProvider } from "@/components/tasks/close-requests-context";
 import { AdminCloseRequestsInbox } from "@/components/tasks/admin-close-requests-inbox";
 import {
+  canAccessModule,
   getNavForPathname,
   listAccessibleModules,
   resolveActiveModuleId,
@@ -19,6 +19,8 @@ import {
   type ModuleRole,
 } from "@/shared/modules/registry";
 import { DevelopedByCredit } from "@/components/developed-by-credit";
+import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import { TasksLiveSyncProvider } from "@/components/tasks/tasks-live-sync";
 
 function getBreadcrumbHref(segments: string[], index: number): string | null {
   const href = `/${segments.slice(0, index + 1).join("/")}`;
@@ -34,6 +36,9 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/dovrut",
     "/dovrut/projects",
     "/dovrut/concepts",
+    "/dovrut/items",
+    "/dovrut/campaigns",
+    "/dovrut/audiences",
     "/dovrut/news",
     "/dovrut/approvals",
     "/dovrut/approval/branch-head",
@@ -45,7 +50,14 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
   if (exactRoutes.has(href)) return href;
 
   const [section] = segments;
-  if (section === "dovrut" && index === 1 && (segments[1] === "projects" || segments[1] === "concepts")) {
+  if (
+    section === "dovrut" &&
+    index === 1 &&
+    (segments[1] === "projects" ||
+      segments[1] === "concepts" ||
+      segments[1] === "items" ||
+      segments[1] === "campaigns")
+  ) {
     return href;
   }
   const isDynamicDetails =
@@ -100,7 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [loadProfile, loadModuleRoles, pathname]);
+  }, [loadProfile, loadModuleRoles]);
 
   const isRealAdmin = session?.user?.role === "admin" || Boolean(session?.user?.isAdmin);
   const isImpersonating = impersonation.active;
@@ -142,11 +154,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isDashboard = pathname === "/dashboard" || pathname === "/dovrut";
   const isHome = pathname === "/";
   const showTasksChrome = activeModuleId === "tasks";
+  const canCreateTasks = canAccessModule("tasks", access) && !isImpersonating;
 
   return (
-    <CloseRequestsProvider>
+    <CloseRequestsProvider enabled={showTasksChrome}>
+      <TasksLiveSyncProvider enabled={showTasksChrome || pathname === "/dashboard"}>
       <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
-        <RealtimeSync />
         <ImpersonationBanner state={impersonation} onStopped={loadProfile} />
         <SideMenu items={menuItems} userLabel={userLabel} userAvatarUrl={userAvatarUrl} state={sideMenu} />
         <header className="topbar w-full px-3 py-3 sm:px-6 lg:px-8">
@@ -164,6 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <Link
                       key={module.id}
                       href={href}
+                      prefetch={false}
                       className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
                         active
                           ? "bg-accent-primary text-white"
@@ -234,10 +248,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>
         </div>
+        {canCreateTasks ? (
+          <CreateTaskDrawer floating triggerLabel="משימה חדשה" />
+        ) : null}
         <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
           <DevelopedByCredit compact />
         </footer>
       </div>
+      </TasksLiveSyncProvider>
     </CloseRequestsProvider>
   );
 }

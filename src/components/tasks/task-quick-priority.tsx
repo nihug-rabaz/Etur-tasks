@@ -1,10 +1,10 @@
 "use client";
 
 import { Check, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import type { TaskPriority } from "@/types/models";
+import { useTasksLiveSync } from "@/components/tasks/tasks-live-sync";
 
 interface TaskQuickPriorityProps {
   taskId: string;
@@ -50,7 +50,7 @@ const MENU_WIDTH = 148;
 const MENU_HEIGHT = 148;
 
 export function TaskQuickPriority({ taskId, priority, onUpdated, className = "" }: TaskQuickPriorityProps) {
-  const router = useRouter();
+  const { publishLocal } = useTasksLiveSync();
   const anchorRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
   const [current, setCurrent] = useState(priority);
@@ -130,7 +130,7 @@ export function TaskQuickPriority({ taskId, priority, onUpdated, className = "" 
         return;
       }
       onUpdated?.(next);
-      router.refresh();
+      publishLocal({ id: taskId, priority: next });
     });
   };
 

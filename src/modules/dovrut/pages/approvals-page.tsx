@@ -76,7 +76,7 @@ export function DovrutApprovalsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <h1 className="text-xl font-bold text-text-primary">אישור קונספטים</h1>
+      <h1 className="text-xl font-bold text-text-primary">אישור פריטים</h1>
       <div className="flex gap-2">
         <input
           value={code}
@@ -133,7 +133,7 @@ export function DovrutApprovalsPage() {
               דחה
             </button>
             <Link
-              href={`/dovrut/concepts/${concept.id}`}
+              href={`/dovrut/items/${concept.id}`}
               className="ms-auto rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold dark:bg-slate-800"
             >
               לפרטים

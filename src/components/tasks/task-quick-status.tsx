@@ -14,6 +14,7 @@ import {
 import { createPortal } from "react-dom";
 import { useCloseRequests } from "@/components/tasks/close-requests-context";
 import { CloseRequestPendingBadge } from "@/components/tasks/admin-close-requests-inbox";
+import { useTasksLiveSync } from "@/components/tasks/tasks-live-sync";
 
 type TaskStatus = "in_progress" | "completed";
 
@@ -66,6 +67,7 @@ export function TaskQuickStatus({
   belowStatus,
 }: TaskQuickStatusProps) {
   const router = useRouter();
+  const { publishLocal } = useTasksLiveSync();
   const { ready, canClose, getPendingForTask, requestClose, approveRequest } = useCloseRequests();
   const anchorRef = useRef<HTMLDivElement>(null);
   const confirmId = useId();
@@ -158,7 +160,7 @@ export function TaskQuickStatus({
         return;
       }
       onUpdated?.();
-      router.refresh();
+      publishLocal({ id: taskId, status: next });
     });
   };
 

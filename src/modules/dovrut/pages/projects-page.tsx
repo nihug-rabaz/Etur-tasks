@@ -1,37 +1,54 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DovrutProject, DovrutProjectStatus } from "@/modules/dovrut/types";
+import type { DovrutCampaign, DovrutProject, DovrutProjectStatus } from "@/modules/dovrut/types";
 
 export function DovrutProjectsPage() {
+  const searchParams = useSearchParams();
+  const campaignFilter = searchParams.get("campaignId") ?? "";
   const [projects, setProjects] = useState<DovrutProject[]>([]);
+  const [campaigns, setCampaigns] = useState<DovrutCampaign[]>([]);
   const [query, setQuery] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<DovrutProjectStatus>("active");
+  const [campaignId, setCampaignId] = useState(campaignFilter);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/dovrut/projects");
-    const data = await response.json();
-    setProjects(Array.isArray(data.projects) ? data.projects : []);
+    const [projectsRes, campaignsRes] = await Promise.all([
+      fetch("/api/dovrut/projects"),
+      fetch("/api/dovrut/campaigns"),
+    ]);
+    const projectsData = await projectsRes.json();
+    const campaignsData = await campaignsRes.json();
+    setProjects(Array.isArray(projectsData.projects) ? projectsData.projects : []);
+    setCampaigns(Array.isArray(campaignsData.campaigns) ? campaignsData.campaigns : []);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (campaignFilter) setCampaignId(campaignFilter);
+  }, [campaignFilter]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return projects;
-    return projects.filter(
-      (project) =>
+    return projects.filter((project) => {
+      if (campaignFilter && project.campaign_id !== campaignFilter) return false;
+      if (!q) return true;
+      return (
         project.name.toLowerCase().includes(q) ||
-        (project.description ?? "").toLowerCase().includes(q),
-    );
-  }, [projects, query]);
+        (project.description ?? "").toLowerCase().includes(q) ||
+        (project.campaign_name ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [projects, query, campaignFilter]);
 
   const createProject = async () => {
     if (!name.trim()) return;
@@ -45,6 +62,7 @@ export function DovrutProjectsPage() {
           name: name.trim(),
           description: description.trim() || null,
           status,
+          campaign_id: campaignId || null,
         }),
       });
       if (!response.ok) {
@@ -64,7 +82,7 @@ export function DovrutProjectsPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div>
         <h1 className="text-xl font-bold text-text-primary">פרויקטים תקשורתיים</h1>
-        <p className="mt-1 text-sm text-text-muted">קמפיינים של מדור הדוברות</p>
+        <p className="mt-1 text-sm text-text-muted">תחת קמפיין · פרויקט ← פריט</p>
       </div>
 
       <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
@@ -84,6 +102,18 @@ export function DovrutProjectsPage() {
             <option value="active">פעיל</option>
             <option value="completed">הושלם</option>
             <option value="on_hold">מושהה</option>
+          </select>
+          <select
+            value={campaignId}
+            onChange={(event) => setCampaignId(event.target.value)}
+            className="rounded-xl bg-slate-100 px-3 py-2 text-sm sm:col-span-2 dark:bg-slate-800"
+          >
+            <option value="">ללא קמפיין</option>
+            {campaigns.map((campaign) => (
+              <option key={campaign.id} value={campaign.id}>
+                {campaign.name}
+              </option>
+            ))}
           </select>
           <textarea
             value={description}
@@ -121,6 +151,11 @@ export function DovrutProjectsPage() {
                 <h3 className="text-sm font-extrabold text-text-primary">{project.name}</h3>
                 <span className="text-[11px] font-bold text-text-muted">{project.status}</span>
               </div>
+              {project.campaign_name ? (
+                <p className="mt-0.5 text-[11px] font-semibold text-violet-700">
+                  קמפיין · {project.campaign_name}
+                </p>
+              ) : null}
               {project.description ? (
                 <p className="mt-1 line-clamp-2 text-xs text-text-secondary">{project.description}</p>
               ) : null}

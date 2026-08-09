@@ -5,6 +5,7 @@ import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { UsersManagementPanel } from "@/components/admin/users-management-panel";
 import {
   approveUserAction,
+  rejectUserAction,
   setUserPendingAction,
   syncUserPermissionsAction,
   updateUserRoleAction,
@@ -76,6 +77,7 @@ export default async function AdminUsersPage() {
     telegram_id: user.telegram_id,
     avatar: user.avatar,
     is_approved: user.is_approved,
+    access_status: user.access_status ?? (user.is_approved ? "approved" : "pending"),
     approved_at: user.approved_at != null ? String(user.approved_at) : null,
     approved_by: user.approved_by ?? null,
     created_at: String(user.created_at),
@@ -92,6 +94,7 @@ export default async function AdminUsersPage() {
         syncPermissionsAction={syncUserPermissionsAction}
         approveUserAction={approveUserAction}
         setPendingAction={setUserPendingAction}
+        rejectUserAction={rejectUserAction}
       />
     </section>
   );

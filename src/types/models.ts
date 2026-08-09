@@ -1,4 +1,5 @@
 export type UserRole = "admin" | "user";
+export type UserAccessStatus = "pending" | "approved" | "rejected";
 export type ProjectStatus = "active" | "completed" | "archived";
 export type TaskPriority = "low" | "medium" | "high";
 export type TaskStatus = "in_progress" | "completed";
@@ -14,6 +15,7 @@ export interface Profile {
   telegram_linked_at?: string | null;
   avatar: string | null;
   is_approved: boolean;
+  access_status?: UserAccessStatus;
   approved_at?: string | null;
   approved_by?: string | null;
   created_at: string;

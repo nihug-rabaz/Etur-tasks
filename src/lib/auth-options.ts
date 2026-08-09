@@ -24,8 +24,16 @@ async function ensureProfile(email: string, name: string) {
   const isApproved = role === "admin";
 
   await db`
-    insert into profiles (id, name, email, role, is_approved, approved_at)
-    values (${userId}, ${name}, ${email}, ${role}, ${isApproved}, ${isApproved ? new Date().toISOString() : null})
+    insert into profiles (id, name, email, role, is_approved, access_status, approved_at)
+    values (
+      ${userId},
+      ${name},
+      ${email},
+      ${role},
+      ${isApproved},
+      ${isApproved ? "approved" : "pending"},
+      ${isApproved ? new Date().toISOString() : null}
+    )
   `;
 
   if (!isApproved) {

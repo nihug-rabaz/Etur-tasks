@@ -10,10 +10,15 @@ const INTRO_VIDEO_SRC = "/intro.mp4";
 type IntroPhase = "ready" | "playing" | "failed";
 
 export function IntroSplash() {
+  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(true);
   const [phase, setPhase] = useState<IntroPhase>("ready");
   const videoRef = useRef<HTMLVideoElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const dismiss = useCallback(() => setVisible(false), []);
 
@@ -35,6 +40,8 @@ export function IntroSplash() {
     video.volume = 1;
     void video.play().catch(() => setPhase("failed"));
   }, [phase]);
+
+  if (!mounted) return null;
 
   return (
     <AnimatePresence>
@@ -72,13 +79,7 @@ export function IntroSplash() {
           ) : null}
 
           {phase === "ready" ? (
-            <div
-              className="absolute inset-0 flex items-center justify-center px-6"
-              style={{
-                background:
-                  "radial-gradient(120% 120% at 50% 20%, #a78bfa 0%, #7c3aed 38%, #1e1b4b 72%, #0c0a14 100%)",
-              }}
-            >
+            <div className="intro-splash-ready-bg absolute inset-0 flex items-center justify-center px-6">
               <span className="pointer-events-none absolute left-1/2 top-1/3 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/20 blur-3xl" />
               <motion.div
                 initial={{ opacity: 0, y: 20, scale: 0.96 }}
@@ -148,7 +149,7 @@ export function IntroSplash() {
             <button
               type="button"
               onClick={dismiss}
-              className="absolute bottom-6 end-6 z-10 rounded-full bg-black/45 px-4 py-2 text-xs font-bold text-white backdrop-blur-sm transition hover:bg-black/60"
+              className="absolute bottom-6 end-6 z-10 rounded-full bg-black/50 px-7 py-3.5 text-base font-bold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 sm:px-8 sm:py-4 sm:text-lg"
             >
               דלג
             </button>

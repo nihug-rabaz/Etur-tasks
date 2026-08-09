@@ -1,5 +1,5 @@
-import { DovrutConceptsPage } from "@/modules/dovrut/pages/concepts-page";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <DovrutConceptsPage />;
+export default function DovrutConceptsRedirectPage() {
+  redirect("/dovrut/items");
 }

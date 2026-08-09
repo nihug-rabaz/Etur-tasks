@@ -131,6 +131,7 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
                   <li key={item.href}>
                     <Link
                       href={item.href}
+                      prefetch={false}
                       onClick={close}
                       aria-label={item.ariaLabel ?? item.label}
                       className={`group flex items-center justify-between gap-4 rounded-2xl px-4 py-3 transition ${

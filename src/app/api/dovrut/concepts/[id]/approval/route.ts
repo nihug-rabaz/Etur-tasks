@@ -20,9 +20,13 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const access = await new DovrutAccessService().requireDovrutAccess();
+  const accessService = new DovrutAccessService();
+  const access = await accessService.requireDovrutAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  if (!accessService.canApprove(access.role, access.profile.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await context.params;
   const body = await request.json().catch(() => null);

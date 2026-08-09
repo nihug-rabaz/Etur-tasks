@@ -8,6 +8,7 @@ const createSchema = z.object({
   description: z.string().nullable().optional(),
   target_audiences: z.array(z.string()).optional(),
   status: z.enum(["active", "completed", "on_hold"]).optional(),
+  campaign_id: z.string().uuid().nullable().optional(),
 });
 
 export async function GET() {
@@ -20,11 +21,12 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const access = await new DovrutAccessService().requireDovrutAccess();
+  const accessService = new DovrutAccessService();
+  const access = await accessService.requireDovrutAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  if (access.role === "approver") {
+  if (!accessService.canEditContent(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

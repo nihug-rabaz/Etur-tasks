@@ -24,7 +24,7 @@ export class AuthorizationService extends BaseService {
     }
     await db`
       update profiles
-      set role = 'admin', is_approved = true, approved_at = now(), approved_by = null
+      set role = 'admin', is_approved = true, access_status = 'approved', approved_at = now(), approved_by = null
       where id = ${currentUserId}
     `;
   }
@@ -32,7 +32,7 @@ export class AuthorizationService extends BaseService {
   private async loadProfileById(userId: string): Promise<Profile | null> {
     const db = this.getDb();
     const profiles = await db<Profile[]>`
-      select id, name, role, telegram_id, avatar, is_approved, approved_at, approved_by, created_at
+      select id, name, role, telegram_id, avatar, is_approved, access_status, approved_at, approved_by, created_at
       from profiles
       where id = ${userId}
       limit 1

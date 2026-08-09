@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
-import type { Profile } from "@/types/models";
+import type { Profile, UserAccessStatus } from "@/types/models";
 import { ImpersonateUserButton } from "@/components/admin/impersonation-banner";
 import { UserPermissionsEditor } from "@/components/admin/user-permissions-editor";
 import { ProfileSettingsPanel } from "@/components/profile/profile-settings-panel";
@@ -16,7 +16,14 @@ type PermissionGroup = {
   items: Array<{ id: string; name: string }>;
 };
 
-type StatusFilter = "all" | "approved" | "pending";
+type StatusFilter = "all" | UserAccessStatus;
+
+function resolveAccessStatus(user: Profile): UserAccessStatus {
+  if (user.access_status === "pending" || user.access_status === "approved" || user.access_status === "rejected") {
+    return user.access_status;
+  }
+  return user.is_approved ? "approved" : "pending";
+}
 
 interface UsersManagementPanelProps {
   users: Profile[];
@@ -27,6 +34,7 @@ interface UsersManagementPanelProps {
   syncPermissionsAction: (formData: FormData) => Promise<void>;
   approveUserAction: (formData: FormData) => Promise<void>;
   setPendingAction: (formData: FormData) => Promise<void>;
+  rejectUserAction: (formData: FormData) => Promise<void>;
 }
 
 export function UsersManagementPanel({
@@ -38,6 +46,7 @@ export function UsersManagementPanel({
   syncPermissionsAction,
   approveUserAction,
   setPendingAction,
+  rejectUserAction,
 }: UsersManagementPanelProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -48,8 +57,9 @@ export function UsersManagementPanel({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return users.filter((user) => {
-      if (statusFilter === "approved" && !user.is_approved) return false;
-      if (statusFilter === "pending" && user.is_approved) return false;
+      const access = resolveAccessStatus(user);
+      if (statusFilter === "all" && access === "rejected") return false;
+      if (statusFilter !== "all" && access !== statusFilter) return false;
       if (!q) return true;
       const blob = `${user.name} ${user.email ?? ""}`.toLowerCase();
       return blob.includes(q);
@@ -123,6 +133,7 @@ export function UsersManagementPanel({
                 { key: "all" as const, label: "הכל" },
                 { key: "approved" as const, label: "מאושרים" },
                 { key: "pending" as const, label: "ממתינים" },
+                { key: "rejected" as const, label: "בוטלו" },
               ] as const
             ).map(({ key, label }) => (
               <button
@@ -173,6 +184,7 @@ export function UsersManagementPanel({
           </thead>
           <tbody>
             {filtered.map((user) => {
+              const access = resolveAccessStatus(user);
               const permCount = permissionsByUser[user.id]?.length ?? 0;
               const expanded = expandedId === user.id;
               const profileOverride = profileOverrides[user.id];
@@ -244,12 +256,14 @@ export function UsersManagementPanel({
                     <td className="px-4 py-3 align-middle">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          user.is_approved
+                          access === "approved"
                             ? "bg-[#e5f7ed] text-[#00c875] dark:bg-emerald-950/50 dark:text-emerald-300"
-                            : "bg-[#fff4e5] text-[#ff6900] dark:bg-amber-950/40 dark:text-amber-300"
+                            : access === "rejected"
+                              ? "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
+                              : "bg-[#fff4e5] text-[#ff6900] dark:bg-amber-950/40 dark:text-amber-300"
                         }`}
                       >
-                        {user.is_approved ? "מאושר" : "ממתין"}
+                        {access === "approved" ? "מאושר" : access === "rejected" ? "בוטל" : "ממתין"}
                       </span>
                     </td>
                     <td className="px-4 py-3 align-middle">
@@ -285,22 +299,52 @@ export function UsersManagementPanel({
                           disabled={
                             user.id === currentAdminId ||
                             user.role === "admin" ||
-                            !user.is_approved
+                            access !== "approved"
                           }
                         />
-                        <form action={user.is_approved ? setPendingAction : approveUserAction}>
-                          <input type="hidden" name="userId" value={user.id} />
-                          <button
-                            type="submit"
-                            className={
-                              user.is_approved
-                                ? "rounded-md border border-[#c5c7d0] bg-white px-3 py-1.5 text-xs font-semibold text-[#323338] transition hover:bg-[#f6f7fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                                : "rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0060c3]"
-                            }
-                          >
-                            {user.is_approved ? "להמתין" : "לאשר"}
-                          </button>
-                        </form>
+                        {access !== "approved" ? (
+                          <form action={approveUserAction}>
+                            <input type="hidden" name="userId" value={user.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0060c3]"
+                            >
+                              לאשר
+                            </button>
+                          </form>
+                        ) : (
+                          <form action={setPendingAction}>
+                            <input type="hidden" name="userId" value={user.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-[#c5c7d0] bg-white px-3 py-1.5 text-xs font-semibold text-[#323338] transition hover:bg-[#f6f7fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                            >
+                              להמתין
+                            </button>
+                          </form>
+                        )}
+                        {access === "pending" && user.id !== currentAdminId && user.role !== "admin" ? (
+                          <form action={rejectUserAction}>
+                            <input type="hidden" name="userId" value={user.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-200"
+                            >
+                              לבטל
+                            </button>
+                          </form>
+                        ) : null}
+                        {access === "rejected" ? (
+                          <form action={setPendingAction}>
+                            <input type="hidden" name="userId" value={user.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-[#c5c7d0] bg-white px-3 py-1.5 text-xs font-semibold text-[#323338] transition hover:bg-[#f6f7fb] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                            >
+                              להמתין
+                            </button>
+                          </form>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

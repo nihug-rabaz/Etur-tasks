@@ -5,7 +5,7 @@ import { BriefcaseBusiness, Megaphone, Radar } from "lucide-react";
 import Image from "next/image";
 import { ComponentType, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MainTabItem } from "@/services/dashboard.service";
+import { MainTabItem, type TabTaskItem } from "@/services/dashboard.service";
 import { DashboardSearch } from "@/components/main-tabs/dashboard-search";
 import { SectionGroup } from "@/components/main-tabs/section-group";
 import {
@@ -22,6 +22,10 @@ import {
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TaskDragDropProvider } from "@/components/main-tabs/task-drag-drop-context";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
+import {
+  useTasksLiveSync,
+  type TaskLivePatch,
+} from "@/components/tasks/tasks-live-sync";
 import { TabTaskFilter } from "@/lib/tasks/tab-task-filter";
 import { defaultTaskFilters, type TaskFilterState } from "@/lib/tasks/task-filter";
 import { domainMeta, type DomainKey } from "@/lib/ui/domains";
@@ -31,6 +35,46 @@ interface MainTabsShellProps {
 }
 
 type TabSlug = MainTabItem["slug"];
+
+function patchTabTask(task: TabTaskItem, change: TaskLivePatch): TabTaskItem {
+  return {
+    ...task,
+    title: change.title ?? task.title,
+    status: (change.status as TabTaskItem["status"] | undefined) ?? task.status,
+    priority: (change.priority as TabTaskItem["priority"] | undefined) ?? task.priority,
+    dueDate: change.due_date !== undefined ? change.due_date : task.dueDate,
+  };
+}
+
+function applyLivePatchesToTabs(tabs: MainTabItem[], changes: TaskLivePatch[]): MainTabItem[] {
+  if (changes.length === 0) return tabs;
+  const byId = new Map(changes.map((change) => [change.id, change]));
+  return tabs.map((tab) => ({
+    ...tab,
+    sections: tab.sections.map((section) => ({
+      ...section,
+      standaloneTasks: section.standaloneTasks
+        .map((task) => {
+          const change = byId.get(task.id);
+          if (!change) return task;
+          if (change.status === "completed") return null;
+          return patchTabTask(task, change);
+        })
+        .filter((task): task is TabTaskItem => Boolean(task)),
+      projects: section.projects.map((project) => ({
+        ...project,
+        tasks: project.tasks
+          .map((task) => {
+            const change = byId.get(task.id);
+            if (!change) return task;
+            if (change.status === "completed") return null;
+            return patchTabTask(task, change);
+          })
+          .filter((task): task is TabTaskItem => Boolean(task)),
+      })),
+    })),
+  }));
+}
 
 const tabMeta: Record<
   TabSlug,
@@ -81,13 +125,25 @@ const sectionOrderMap: Record<TabSlug, string[]> = {
   general: ["כללי"],
 };
 
-export function MainTabsShell({ tabs }: MainTabsShellProps) {
+export function MainTabsShell({ tabs: initialTabs }: MainTabsShellProps) {
+  const { subscribe } = useTasksLiveSync();
+  const [tabs, setTabs] = useState(initialTabs);
   const initialTab = tabs[0]?.slug ?? "recruitment";
   const [activeTab, setActiveTab] = useState<TabSlug>(initialTab);
   const [filters, setFilters] = useState(defaultTaskFilters);
   const [selectedTask, setSelectedTask] = useState<{ id: string; title: string } | null>(null);
   const [dragMountSlugs, setDragMountSlugs] = useState<TabSlug[]>([]);
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    setTabs(initialTabs);
+  }, [initialTabs]);
+
+  useEffect(() => {
+    return subscribe((changes) => {
+      setTabs((current) => applyLivePatchesToTabs(current, changes));
+    });
+  }, [subscribe]);
 
   const handleDragActiveChange = useCallback((state: { active: boolean; sourceDomainSlug?: DomainKey }) => {
     if (!state.active || !state.sourceDomainSlug) {

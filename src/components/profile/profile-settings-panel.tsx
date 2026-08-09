@@ -184,18 +184,29 @@ export function ProfileSettingsPanel({
               : "mb-2 block text-sm font-semibold text-text-primary"
           }
         >
-          שם תצוגה
+          שם תצוגה בעברית
         </label>
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="איך יופיע השם במערכת"
+          placeholder='לדוגמה: "יוסי כהן" — כך יופיע בכל המערכת'
+          dir="rtl"
+          lang="he"
           className={
             compact
               ? "w-full rounded-md border border-[#c5c7d0] bg-white px-3 py-2 text-sm text-[#323338] outline-none transition focus:border-[#0073ea] focus:ring-2 focus:ring-[#0073ea]/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               : "w-full rounded-2xl border border-border-weak bg-surface-2/70 px-4 py-2.5 text-sm text-text-primary outline-none transition focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/30"
           }
         />
+        <p
+          className={
+            compact
+              ? "mt-2 text-xs text-[#676879] dark:text-slate-400"
+              : "mt-2 text-xs text-text-muted"
+          }
+        >
+          מומלץ להזין שם מלא בעברית. שינוי השם מתבצע כאן ידנית (לא תרגום אוטומטי).
+        </p>
       </div>
 
       <div className="flex justify-end">

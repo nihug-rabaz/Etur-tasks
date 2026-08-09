@@ -1,5 +1,7 @@
 export type DovrutProjectStatus = "active" | "completed" | "on_hold";
 
+export type DovrutCampaignStatus = "active" | "completed" | "on_hold";
+
 export type DovrutConceptType = "article_interview" | "social_media";
 
 export type DovrutDomain =
@@ -14,20 +16,14 @@ export type DovrutDomain =
   | "logistic"
   | "field";
 
-export type DovrutWorkStatusArticle =
+export type DovrutWorkStatus =
   | "planning"
   | "production"
   | "waiting_approvals"
-  | "waiting_spokesperson"
-  | "waiting_publish"
-  | "published";
+  | "approved";
 
-export type DovrutWorkStatusSocial =
-  | "planning"
-  | "production"
-  | "waiting_approval"
-  | "waiting_publish"
-  | "published";
+export type DovrutWorkStatusArticle = DovrutWorkStatus;
+export type DovrutWorkStatusSocial = DovrutWorkStatus;
 
 export type DovrutApprovalStatus =
   | "waiting_spokesperson_officer"
@@ -46,15 +42,27 @@ export type DovrutActivityAction =
   | "approval_changed"
   | "deleted";
 
+export interface DovrutCampaign {
+  id: string;
+  name: string;
+  description: string | null;
+  status: DovrutCampaignStatus;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DovrutProject {
   id: string;
   name: string;
   description: string | null;
   target_audiences: string[];
   status: DovrutProjectStatus;
+  campaign_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  campaign_name?: string | null;
 }
 
 export interface DovrutConcept {
@@ -65,7 +73,12 @@ export interface DovrutConcept {
   domain: DovrutDomain | null;
   interviewees: string[];
   media_outlet: string | null;
+  interviewer: string | null;
   needs_briefing: boolean;
+  requires_chief_rabbi: boolean;
+  requires_deputy_commander: boolean;
+  requires_branch_head: boolean;
+  target_audience: string | null;
   link: string | null;
   details: string | null;
   notes: string | null;
@@ -80,6 +93,7 @@ export interface DovrutConcept {
   rejection_reason: string | null;
   rejected_at_step: string | null;
   last_rejection_date: string | null;
+  linked_task_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -99,3 +113,16 @@ export interface DovrutActivityLog {
   user_email: string | null;
   created_at: string;
 }
+
+export interface DovrutAudienceMessage {
+  id: string;
+  audience: string;
+  domain: DovrutDomain | null;
+  title: string;
+  body: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DovrutItem = DovrutConcept;

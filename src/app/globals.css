@@ -2,6 +2,16 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+.intro-splash-ready-bg {
+  background-image: radial-gradient(
+    120% 120% at 50% 20%,
+    #a78bfa 0%,
+    #7c3aed 38%,
+    #1e1b4b 72%,
+    #0c0a14 100%
+  );
+}
+
 :root {
   --app-font-scale: 1;
   --background: #f4f5f7;
@@ -335,6 +345,12 @@ textarea.hud-title {
   color: #475569;
   background: rgba(148, 163, 184, 0.16);
   border-color: rgba(100, 116, 139, 0.45);
+}
+
+.hud-badge--danger {
+  color: #be123c;
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(244, 63, 94, 0.4);
 }
 
 .hud-badge::before {

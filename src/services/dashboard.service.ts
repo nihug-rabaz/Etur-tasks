@@ -1,5 +1,6 @@
 import { BaseService } from "@/services/base.service";
 import { TaskAccessContext } from "@/services/authorization.service";
+import { TaskService } from "@/services/task.service";
 import { TaskWithRelations } from "@/types/models";
 
 export interface DomainSummary {
@@ -260,32 +261,11 @@ export class DashboardService extends BaseService {
     access: TaskAccessContext,
     limitPerStatus = 6,
   ): Promise<DashboardTaskColumns> {
-    const db = this.getDb();
-    const rows = await db<TaskWithRelations[]>`
-      select * from task_details
-      where status <> 'completed'
-        and (
-        ${access.unrestricted}::boolean
-        or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-      )
-      order by
-        case when due_date is null then 1 else 0 end,
-        due_date asc,
-        updated_at desc
-    `;
-
-    const columns: DashboardTaskColumns = {
-      in_progress: [],
+    const rows = await new TaskService().getActiveTasks(access, { limit: limitPerStatus });
+    return {
+      in_progress: rows,
       completed: [],
     };
-
-    for (const row of rows) {
-      if (columns.in_progress.length < limitPerStatus) {
-        columns.in_progress.push(row);
-      }
-    }
-
-    return columns;
   }
 
   public async getHierarchyExplorerData(
@@ -404,26 +384,18 @@ export class DashboardService extends BaseService {
     access: TaskAccessContext,
     limit = 4,
   ): Promise<MainTaskCluster[]> {
-    const db = this.getDb();
-    const rows = await db<TaskWithRelations[]>`
-      select * from task_details
-      where project_id is null
-        and status <> 'completed'
-        and (
-          ${access.unrestricted}::boolean
-          or subtopic_id in (select subtopic_id from user_subtopic_permissions where user_id = ${access.userId})
-        )
-      order by
-        case when due_date is null then 1 else 0 end,
-        due_date asc,
-        updated_at desc
-    `;
+    const rows = await new TaskService().getStandaloneActiveTasks(access);
     const clusters = new Map<string, MainTaskCluster>();
     for (const task of rows) {
       const categoryName = task.domain_name ?? "כללי";
       const subtopicName = task.subtopic_name ?? "כללי";
       const key = `${categoryName}:${subtopicName}`;
-      const categorySlug = categoryName === "Recruitment" ? "recruitment" : categoryName === "Positioning" ? "positioning" : "general";
+      const categorySlug =
+        categoryName === "Recruitment"
+          ? "recruitment"
+          : categoryName === "Positioning"
+            ? "positioning"
+            : "general";
       if (!clusters.has(key)) {
         clusters.set(key, {
           categoryId: task.subtopic_id,
@@ -478,9 +450,14 @@ export class DashboardService extends BaseService {
       )
       order by p.created_at desc
     `;
-    const projectLinks = await db<Array<{ project_id: string; subtopic_id: string }>>`
-      select project_id, subtopic_id from project_subtopics
-    `;
+    const projectLinks =
+      projects.length === 0
+        ? []
+        : await db<Array<{ project_id: string; subtopic_id: string }>>`
+            select project_id, subtopic_id
+            from project_subtopics
+            where project_id = any(${projects.map((project) => project.id)})
+          `;
     const projectSubtopicIds = new Map<string, string[]>();
     for (const project of projects) {
       projectSubtopicIds.set(project.id, [project.subtopic_id]);

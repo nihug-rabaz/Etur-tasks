@@ -22,6 +22,7 @@ import { AssigneeMultiSelect, UserAvatarMark, type AssigneeOption } from "@/comp
 import { TaskChatPanel } from "@/components/tasks/task-chat-panel";
 import { useCloseRequests } from "@/components/tasks/close-requests-context";
 import { TaskStatusControls } from "@/components/tasks/task-status-controls";
+import { useTasksLiveSync } from "@/components/tasks/tasks-live-sync";
 import { domainKeyFromName, domainMeta } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 
@@ -210,6 +211,7 @@ export function TaskDetailsModal({
   onDeleted?: () => void;
 }) {
   const router = useRouter();
+  const { publishLocal } = useTasksLiveSync();
   const { canClose, refresh: refreshCloseRequests } = useCloseRequests();
   const [loading, setLoading] = useState(false);
   const [task, setTask] = useState<TaskDetails | null>(null);
@@ -386,7 +388,18 @@ export function TaskDetailsModal({
       setBadgeMenu(null);
       await refreshCloseRequests();
       onUpdated?.();
-      router.refresh();
+      if (task) {
+        publishLocal({
+          id: task.id,
+          title: draft.title.trim(),
+          description: draft.description.trim() ? draft.description : null,
+          priority: draft.priority,
+          due_date: draft.dueDate ? new Date(draft.dueDate).toISOString() : null,
+          status: (payload.status as TaskStatus | undefined) ?? task.status,
+          assigned_to: draft.assignedToIds[0] ?? null,
+          assignee_ids: draft.assignedToIds,
+        });
+      }
     } finally {
       setSaving(false);
     }

@@ -1,20 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   DovrutActivityLog,
   DovrutApprovalStatus,
   DovrutConcept,
-  DovrutWorkStatusArticle,
-  DovrutWorkStatusSocial,
+  DovrutWorkStatus,
 } from "@/modules/dovrut/types";
 import {
   APPROVAL_STATUS_LABELS,
-  DOVRUT_DOMAIN_FLOWS,
   DOMAIN_LABELS,
-  WORK_STATUS_ARTICLE_LABELS,
-  WORK_STATUS_SOCIAL_LABELS,
+  WORK_STATUS_LABELS,
+  WORK_STATUS_ORDER,
+  buildApprovalFlow,
 } from "@/modules/dovrut/lib/approval-flows";
 
 export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
@@ -22,30 +21,76 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [activity, setActivity] = useState<DovrutActivityLog[]>([]);
   const [notes, setNotes] = useState("");
   const [link, setLink] = useState("");
+  const [mediaOutlet, setMediaOutlet] = useState("");
+  const [interviewer, setInterviewer] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [needsBriefing, setNeedsBriefing] = useState(true);
+  const [requiresChief, setRequiresChief] = useState(true);
+  const [requiresDeputy, setRequiresDeputy] = useState(true);
+  const [requiresBranch, setRequiresBranch] = useState(false);
+  const [linkedTaskId, setLinkedTaskId] = useState("");
+  const [draftText, setDraftText] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/dovrut/concepts/${conceptId}`);
     const data = await response.json();
-    setConcept(data.concept ?? null);
+    const next = data.concept ?? null;
+    setConcept(next);
     setActivity(Array.isArray(data.activity) ? data.activity : []);
-    setNotes(data.concept?.notes ?? "");
-    setLink(data.concept?.link ?? "");
+    setNotes(next?.notes ?? "");
+    setLink(next?.link ?? "");
+    setMediaOutlet(next?.media_outlet ?? "");
+    setInterviewer(next?.interviewer ?? "");
+    setTargetAudience(next?.target_audience ?? "");
+    setNeedsBriefing(Boolean(next?.needs_briefing));
+    setRequiresChief(Boolean(next?.requires_chief_rabbi));
+    setRequiresDeputy(Boolean(next?.requires_deputy_commander));
+    setRequiresBranch(Boolean(next?.requires_branch_head));
+    setLinkedTaskId(next?.linked_task_id ?? "");
+    setDraftText(next?.draft_text ?? next?.details ?? "");
   }, [conceptId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const flow = useMemo(() => {
+    if (!concept || concept.type !== "article_interview") return [] as DovrutApprovalStatus[];
+    return buildApprovalFlow({
+      requires_chief_rabbi: concept.requires_chief_rabbi,
+      requires_deputy_commander: concept.requires_deputy_commander,
+      requires_branch_head: concept.requires_branch_head,
+    });
+  }, [concept]);
+
   const saveFields = async () => {
     setSaving(true);
     setMessage("");
     try {
+      const body: Record<string, unknown> = {
+        notes,
+        target_audience: targetAudience.trim() || null,
+        needs_briefing: needsBriefing,
+        requires_chief_rabbi: requiresChief,
+        requires_deputy_commander: requiresDeputy,
+        requires_branch_head: requiresBranch,
+        linked_task_id: linkedTaskId.trim() || null,
+      };
+      if (concept?.type === "article_interview") {
+        body.media_outlet = mediaOutlet.trim() || null;
+        body.interviewer = interviewer.trim() || null;
+        body.link = link.trim() || null;
+      } else {
+        body.draft_text = draftText;
+        body.link = null;
+      }
       const response = await fetch(`/api/dovrut/concepts/${conceptId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes, link }),
+        body: JSON.stringify(body),
       });
       if (!response.ok) {
         setMessage("שמירה נכשלה");
@@ -58,13 +103,13 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     }
   };
 
-  const setWorkStatus = async (status: string) => {
+  const setWorkStatus = async (status: DovrutWorkStatus) => {
     setSaving(true);
     try {
       const body =
         concept?.type === "article_interview"
-          ? { work_status_article: status as DovrutWorkStatusArticle }
-          : { work_status_social: status as DovrutWorkStatusSocial };
+          ? { work_status_article: status }
+          : { work_status_social: status };
       await fetch(`/api/dovrut/concepts/${conceptId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -82,11 +127,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
       const response = await fetch(`/api/dovrut/concepts/${conceptId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          approval_status: status,
-          rejection_reason: "",
-          rejected_at_step: "",
-        }),
+        body: JSON.stringify({ approval_status: status }),
       });
       if (!response.ok) {
         setMessage("רק מנהל יכול לשנות סטטוס אישורים ישירות");
@@ -105,33 +146,53 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     setMessage("קוד אישור הועתק");
   };
 
-  if (!concept) return <div className="text-sm text-text-muted">טוען קונספט…</div>;
+  const runAiWording = async () => {
+    if (!draftText.trim()) return;
+    setAiBusy(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/dovrut/ai/wording", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: draftText, audience: targetAudience || undefined }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || "ניסוח AI נכשל");
+        return;
+      }
+      setDraftText(data.text ?? draftText);
+      setMessage("נוסח עודכן");
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
-  const workLabels =
-    concept.type === "article_interview" ? WORK_STATUS_ARTICLE_LABELS : WORK_STATUS_SOCIAL_LABELS;
+  if (!concept) return <div className="text-sm text-text-muted">טוען פריט…</div>;
+
   const currentWork =
     concept.type === "article_interview"
       ? concept.work_status_article
       : concept.work_status_social;
-  const flow = concept.domain ? DOVRUT_DOMAIN_FLOWS[concept.domain] : [];
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <div>
-        <Link href="/dovrut/concepts" className="text-xs font-bold text-violet-600">
-          ← חזרה לקונספטים
+        <Link href="/dovrut/items" className="text-xs font-bold text-violet-600">
+          ← חזרה לפריטים
         </Link>
         <h1 className="mt-2 text-xl font-bold text-text-primary">{concept.name}</h1>
         <p className="mt-1 text-sm text-text-muted">
           {concept.project_name}
           {concept.domain ? ` · ${DOMAIN_LABELS[concept.domain]}` : ""}
+          {concept.target_audience ? ` · קהל: ${concept.target_audience}` : ""}
         </p>
       </div>
 
       <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
         <h2 className="mb-3 text-sm font-extrabold">סטטוס עבודה</h2>
         <div className="flex flex-wrap gap-2">
-          {Object.entries(workLabels).map(([value, label]) => (
+          {WORK_STATUS_ORDER.map((value) => (
             <button
               key={value}
               type="button"
@@ -143,7 +204,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
                   : "bg-slate-100 text-text-secondary dark:bg-slate-800"
               }`}
             >
-              {label}
+              {WORK_STATUS_LABELS[value]}
             </button>
           ))}
         </div>
@@ -186,10 +247,91 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         <h2 className="mb-3 text-sm font-extrabold">פרטים</h2>
         <div className="grid gap-2">
           <input
-            value={link}
-            onChange={(event) => setLink(event.target.value)}
-            placeholder="קישור"
+            value={targetAudience}
+            onChange={(event) => setTargetAudience(event.target.value)}
+            placeholder="קהל יעד"
             className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+          />
+          {concept.type === "article_interview" ? (
+            <>
+              <input
+                value={mediaOutlet}
+                onChange={(event) => setMediaOutlet(event.target.value)}
+                placeholder="מערכת"
+                className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+              />
+              <input
+                value={interviewer}
+                onChange={(event) => setInterviewer(event.target.value)}
+                placeholder="שם המראיין (אופציונלי)"
+                className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+              />
+              <input
+                value={link}
+                onChange={(event) => setLink(event.target.value)}
+                placeholder="קישור (כתבה/ראיון)"
+                className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+              />
+              <div className="space-y-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-900/50">
+                <p className="text-xs font-bold text-text-secondary">אישורים נדרשים</p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={requiresChief}
+                    onChange={(e) => setRequiresChief(e.target.checked)}
+                  />
+                  רבצ״ר
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={requiresDeputy}
+                    onChange={(e) => setRequiresDeputy(e.target.checked)}
+                  />
+                  רמ״ט
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={requiresBranch}
+                    onChange={(e) => setRequiresBranch(e.target.checked)}
+                  />
+                  רמ״ח
+                </label>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={needsBriefing}
+                    onChange={(e) => setNeedsBriefing(e.target.checked)}
+                  />
+                  צריך לתדרך
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <textarea
+                value={draftText}
+                onChange={(event) => setDraftText(event.target.value)}
+                placeholder="טיוטת תוכן לרשתות"
+                className="min-h-28 rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+              />
+              <button
+                type="button"
+                disabled={aiBusy || !draftText.trim()}
+                onClick={() => void runAiWording()}
+                className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white disabled:opacity-40 dark:bg-slate-600"
+              >
+                {aiBusy ? "מנסח…" : "שפר ניסוח (AI)"}
+              </button>
+            </>
+          )}
+          <input
+            value={linkedTaskId}
+            onChange={(event) => setLinkedTaskId(event.target.value)}
+            placeholder="מזהה משימה מקושרת (UUID, אופציונלי)"
+            className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+            dir="ltr"
           />
           <textarea
             value={notes}
@@ -209,14 +351,24 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
       </section>
 
       <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
-        <h2 className="mb-3 text-sm font-extrabold">היסטוריה</h2>
+        <h2 className="mb-3 text-sm font-extrabold">טיימליין פעילות</h2>
         <ul className="space-y-2">
           {activity.map((row) => (
-            <li key={row.id} className="rounded-xl bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800">
+            <li
+              key={row.id}
+              className="rounded-xl border-s-2 border-violet-400 bg-slate-50 px-3 py-2 text-xs dark:bg-slate-800"
+            >
               <p className="font-bold text-text-primary">
-                {row.action_type} · {row.user_name}
+                {row.details || row.action_type} · {row.user_name}
               </p>
-              <p className="text-text-muted">{row.details || row.field_changed}</p>
+              <p className="text-text-muted">
+                {row.field_changed
+                  ? `${row.field_changed}: ${row.old_value ?? "—"} → ${row.new_value ?? "—"}`
+                  : null}
+              </p>
+              <p className="mt-0.5 text-[10px] text-text-muted">
+                {new Date(row.created_at).toLocaleString("he-IL")}
+              </p>
             </li>
           ))}
           {activity.length === 0 ? (

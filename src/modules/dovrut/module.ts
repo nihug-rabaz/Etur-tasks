@@ -3,20 +3,32 @@ import type { AppModuleDefinition } from "@/shared/modules/types";
 export const dovrutModule: AppModuleDefinition = {
   id: "dovrut",
   label: "דוברות",
-  description: "פרויקטים תקשורתיים, קונספטים וציר אישורים",
+  description: "קמפיינים, פרויקטים, פריטים וציר אישורים",
   href: "/dovrut",
   navItems: [
     { label: "ראשי", href: "/dovrut", description: "סקירת דוברות", roles: ["admin", "user"] },
     {
-      label: "פרויקטים",
-      href: "/dovrut/projects",
+      label: "קמפיינים",
+      href: "/dovrut/campaigns",
       description: "קמפיינים תקשורתיים",
       roles: ["admin", "user"],
     },
     {
-      label: "קונספטים",
-      href: "/dovrut/concepts",
+      label: "פרויקטים",
+      href: "/dovrut/projects",
+      description: "פרויקטים תחת קמפיינים",
+      roles: ["admin", "user"],
+    },
+    {
+      label: "פריטים",
+      href: "/dovrut/items",
       description: "כתבות ורשתות",
+      roles: ["admin", "user"],
+    },
+    {
+      label: "קהלי יעד",
+      href: "/dovrut/audiences",
+      description: "מסרים לקהל יעד ולתחום",
       roles: ["admin", "user"],
     },
     {
@@ -26,7 +38,7 @@ export const dovrutModule: AppModuleDefinition = {
       roles: ["admin", "user"],
     },
     {
-      label: "אישור קונספטים",
+      label: "אישור פריטים",
       href: "/dovrut/approvals",
       description: "אישור לפי קוד",
       roles: ["admin", "user", "approver"],
@@ -46,7 +58,7 @@ export const dovrutModule: AppModuleDefinition = {
     {
       label: "רבצ״ר",
       href: "/dovrut/approval/chief-rabbi",
-      description: "תור אישור רבצ״ר",
+      description: "תור אישור רבצ״ר · דשבורד הרב קובי",
       roles: ["admin", "user", "approver"],
     },
   ],
@@ -54,18 +66,21 @@ export const dovrutModule: AppModuleDefinition = {
     {
       label: "משתמשי מודול",
       href: "/dovrut/admin/users",
-      description: "תפקידים במודול דוברות",
+      description: "תפקידים במודול דוברות (מנהל / חפ״ש / מאשר)",
     },
     {
       label: "ניהול מאשרים",
       href: "/dovrut/admin/approvers",
-      description: "טלפונים והודעות WhatsApp",
+      description: "תזכורות אישור בטלגרם",
     },
   ],
   breadcrumbLabels: {
     dovrut: "דוברות",
+    campaigns: "קמפיינים",
     projects: "פרויקטים",
-    concepts: "קונספטים",
+    concepts: "פריטים",
+    items: "פריטים",
+    audiences: "קהלי יעד",
     news: "חדשות",
     approvals: "אישורים",
     approval: "אישור",

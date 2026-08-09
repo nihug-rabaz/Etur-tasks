@@ -1,20 +1,36 @@
 import { BaseService } from "@/services/base.service";
-import { getInitialApprovalStatus, getNextApprovalStatus } from "@/modules/dovrut/lib/approval-flows";
+import {
+  DEFAULT_APPROVAL_FLAGS,
+  getInitialApprovalStatus,
+  getNextApprovalStatus,
+  type ApprovalRequirementFlags,
+} from "@/modules/dovrut/lib/approval-flows";
 import type {
   DovrutActivityLog,
   DovrutApprovalStatus,
   DovrutConcept,
   DovrutConceptType,
   DovrutDomain,
-  DovrutWorkStatusArticle,
-  DovrutWorkStatusSocial,
+  DovrutWorkStatus,
 } from "@/modules/dovrut/types";
+
+function flagsFromConcept(concept: Pick<
+  DovrutConcept,
+  "requires_branch_head" | "requires_deputy_commander" | "requires_chief_rabbi"
+>): ApprovalRequirementFlags {
+  return {
+    requires_branch_head: Boolean(concept.requires_branch_head),
+    requires_deputy_commander: Boolean(concept.requires_deputy_commander),
+    requires_chief_rabbi: Boolean(concept.requires_chief_rabbi),
+  };
+}
 
 export class DovrutConceptService extends BaseService {
   public async list(filters?: {
     projectId?: string;
     type?: DovrutConceptType;
     approvalStatus?: DovrutApprovalStatus;
+    activeOnly?: boolean;
   }): Promise<DovrutConcept[]> {
     const db = this.getDb();
     return db<DovrutConcept[]>`
@@ -24,6 +40,10 @@ export class DovrutConceptService extends BaseService {
       where (${filters?.projectId ?? null}::uuid is null or c.project_id = ${filters?.projectId ?? null})
         and (${filters?.type ?? null}::text is null or c.type = ${filters?.type ?? null})
         and (${filters?.approvalStatus ?? null}::text is null or c.approval_status = ${filters?.approvalStatus ?? null})
+        and (
+          ${!(filters?.activeOnly ?? false)}::boolean
+          or coalesce(c.work_status_article, c.work_status_social, 'planning') <> 'approved'
+        )
       order by c.updated_at desc
     `;
   }
@@ -48,7 +68,12 @@ export class DovrutConceptService extends BaseService {
       domain?: DovrutDomain | null;
       interviewees?: string[];
       media_outlet?: string | null;
+      interviewer?: string | null;
       needs_briefing?: boolean;
+      requires_chief_rabbi?: boolean;
+      requires_deputy_commander?: boolean;
+      requires_branch_head?: boolean;
+      target_audience?: string | null;
       link?: string | null;
       details?: string | null;
       notes?: string | null;
@@ -64,10 +89,18 @@ export class DovrutConceptService extends BaseService {
   ): Promise<DovrutConcept> {
     const db = this.getDb();
     const isArticle = input.type === "article_interview";
-    const approvalStatus = isArticle ? getInitialApprovalStatus(input.domain) : null;
+    const flags: ApprovalRequirementFlags = {
+      requires_chief_rabbi: input.requires_chief_rabbi ?? DEFAULT_APPROVAL_FLAGS.requires_chief_rabbi,
+      requires_deputy_commander:
+        input.requires_deputy_commander ?? DEFAULT_APPROVAL_FLAGS.requires_deputy_commander,
+      requires_branch_head: input.requires_branch_head ?? DEFAULT_APPROVAL_FLAGS.requires_branch_head,
+    };
+    const approvalStatus = isArticle ? getInitialApprovalStatus(flags) : null;
+    const needsBriefing = input.needs_briefing ?? true;
     const rows = await db<DovrutConcept[]>`
       insert into dovrut_concepts (
-        name, project_id, type, domain, interviewees, media_outlet, needs_briefing,
+        name, project_id, type, domain, interviewees, media_outlet, interviewer, needs_briefing,
+        requires_chief_rabbi, requires_deputy_commander, requires_branch_head, target_audience,
         link, details, notes, work_status_article, content_type, draft_text,
         draft_images, draft_videos, partners, work_status_social, approval_status, created_by
       ) values (
@@ -77,12 +110,17 @@ export class DovrutConceptService extends BaseService {
         ${isArticle ? input.domain ?? null : null},
         ${isArticle ? input.interviewees ?? [] : []},
         ${isArticle ? input.media_outlet ?? null : null},
-        ${isArticle ? Boolean(input.needs_briefing) : false},
-        ${input.link ?? null},
+        ${isArticle ? input.interviewer ?? null : null},
+        ${isArticle ? needsBriefing : false},
+        ${isArticle ? flags.requires_chief_rabbi : false},
+        ${isArticle ? flags.requires_deputy_commander : false},
+        ${isArticle ? flags.requires_branch_head : false},
+        ${input.target_audience ?? null},
+        ${isArticle ? input.link ?? null : null},
         ${input.details ?? null},
         ${input.notes ?? null},
         ${isArticle ? "planning" : null},
-        ${!isArticle ? input.content_type ?? null : null},
+        ${!isArticle ? input.content_type ?? "text" : null},
         ${!isArticle ? input.draft_text ?? null : null},
         ${!isArticle ? input.draft_images ?? [] : []},
         ${!isArticle ? input.draft_videos ?? [] : []},
@@ -98,7 +136,7 @@ export class DovrutConceptService extends BaseService {
       concept_id: created.id,
       project_id: created.project_id,
       action_type: "created",
-      details: "יצירת קונספט",
+      details: "יצירת פריט",
       user_name: actorName,
       user_email: actorEmail ?? null,
     });
@@ -114,14 +152,33 @@ export class DovrutConceptService extends BaseService {
     const existing = await this.getById(id);
     if (!existing) return null;
     const db = this.getDb();
+    const nextLink =
+      existing.type === "social_media"
+        ? null
+        : patch.link !== undefined
+          ? patch.link
+          : existing.link;
     const rows = await db<DovrutConcept[]>`
       update dovrut_concepts set
         name = ${patch.name ?? existing.name},
         domain = ${patch.domain !== undefined ? patch.domain : existing.domain},
         interviewees = ${patch.interviewees ?? existing.interviewees},
         media_outlet = ${patch.media_outlet !== undefined ? patch.media_outlet : existing.media_outlet},
+        interviewer = ${patch.interviewer !== undefined ? patch.interviewer : existing.interviewer},
         needs_briefing = ${patch.needs_briefing ?? existing.needs_briefing},
-        link = ${patch.link !== undefined ? patch.link : existing.link},
+        requires_chief_rabbi = ${
+          patch.requires_chief_rabbi ?? existing.requires_chief_rabbi
+        },
+        requires_deputy_commander = ${
+          patch.requires_deputy_commander ?? existing.requires_deputy_commander
+        },
+        requires_branch_head = ${
+          patch.requires_branch_head ?? existing.requires_branch_head
+        },
+        target_audience = ${
+          patch.target_audience !== undefined ? patch.target_audience : existing.target_audience
+        },
+        link = ${nextLink},
         details = ${patch.details !== undefined ? patch.details : existing.details},
         notes = ${patch.notes !== undefined ? patch.notes : existing.notes},
         work_status_article = ${
@@ -153,6 +210,9 @@ export class DovrutConceptService extends BaseService {
             ? patch.last_rejection_date
             : existing.last_rejection_date
         },
+        linked_task_id = ${
+          patch.linked_task_id !== undefined ? patch.linked_task_id : existing.linked_task_id
+        },
         updated_at = now()
       where id = ${id}
       returning *
@@ -161,7 +221,7 @@ export class DovrutConceptService extends BaseService {
       concept_id: id,
       project_id: existing.project_id,
       action_type: "updated",
-      details: "עדכון קונספט",
+      details: "עדכון פריט",
       user_name: actorName,
       user_email: actorEmail ?? null,
     });
@@ -200,20 +260,20 @@ export class DovrutConceptService extends BaseService {
     if (concept.approval_status !== input.approvalStep) {
       throw new Error("Approval step mismatch");
     }
+    const flags = flagsFromConcept(concept);
 
     if (input.action === "approve") {
-      const next = getNextApprovalStatus(concept.domain, input.approvalStep);
+      const next = getNextApprovalStatus(flags, input.approvalStep);
       if (!next) throw new Error("Already fully approved");
-      const updated = await this.update(
-        concept.id,
-        {
-          approval_status: next,
-          rejection_reason: "",
-          rejected_at_step: "",
-        },
-        input.actorName,
-        input.actorEmail,
-      );
+      const patch: Partial<DovrutConcept> = {
+        approval_status: next,
+        rejection_reason: "",
+        rejected_at_step: "",
+      };
+      if (next === "approved") {
+        patch.work_status_article = "approved";
+      }
+      const updated = await this.update(concept.id, patch, input.actorName, input.actorEmail);
       await this.writeLog({
         concept_id: concept.id,
         project_id: concept.project_id,
@@ -228,12 +288,12 @@ export class DovrutConceptService extends BaseService {
       return updated!;
     }
 
-    const reset = getInitialApprovalStatus(concept.domain);
+    const reset = getInitialApprovalStatus(flags);
     const updated = await this.update(
       concept.id,
       {
         approval_status: reset,
-        work_status_article: "planning" as DovrutWorkStatusArticle,
+        work_status_article: "planning",
         rejection_reason: input.rejectionReason ?? "",
         rejected_at_step: input.approvalStep,
         last_rejection_date: new Date().toISOString(),
@@ -262,6 +322,15 @@ export class DovrutConceptService extends BaseService {
       where concept_id = ${conceptId}
       order by created_at desc
     `;
+  }
+
+  public async linkTask(
+    conceptId: string,
+    taskId: string | null,
+    actorName: string,
+    actorEmail?: string | null,
+  ): Promise<DovrutConcept | null> {
+    return this.update(conceptId, { linked_task_id: taskId }, actorName, actorEmail);
   }
 
   private async writeLog(input: {
@@ -296,25 +365,19 @@ export class DovrutConceptService extends BaseService {
 
   public async setWorkStatus(
     id: string,
-    status: DovrutWorkStatusArticle | DovrutWorkStatusSocial,
+    status: DovrutWorkStatus,
     actorName: string,
     actorEmail?: string | null,
   ): Promise<DovrutConcept | null> {
     const existing = await this.getById(id);
     if (!existing) return null;
     if (existing.type === "article_interview") {
-      return this.update(
-        id,
-        { work_status_article: status as DovrutWorkStatusArticle },
-        actorName,
-        actorEmail,
-      );
+      const patch: Partial<DovrutConcept> = { work_status_article: status };
+      if (status === "waiting_approvals" && !existing.approval_status) {
+        patch.approval_status = getInitialApprovalStatus(flagsFromConcept(existing));
+      }
+      return this.update(id, patch, actorName, actorEmail);
     }
-    return this.update(
-      id,
-      { work_status_social: status as DovrutWorkStatusSocial },
-      actorName,
-      actorEmail,
-    );
+    return this.update(id, { work_status_social: status }, actorName, actorEmail);
   }
 }
