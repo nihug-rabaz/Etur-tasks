@@ -262,16 +262,14 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
         style={{ borderBottom: `1px solid ${isDark ? `${accentHex}50` : `${accentHex}40`}` }}
       >
         <div className="flex flex-col items-center">
-          <div className="rounded-2xl bg-white/95 px-2.5 py-1.5 shadow-sm dark:bg-white">
-            <Image
-              src="/todo-list-logo.png"
-              alt="TODO LIST"
-              width={720}
-              height={445}
-              priority
-              className="h-auto w-[7.25rem] object-contain sm:w-[7.75rem]"
-            />
-          </div>
+          <Image
+            src="/todo-list-logo.png"
+            alt="TODO LIST"
+            width={720}
+            height={445}
+            priority
+            className="h-auto w-[7.25rem] object-contain sm:w-[7.75rem]"
+          />
         </div>
         <p className="mt-1.5 text-center text-[11px] font-medium leading-relaxed text-text-muted">
           גררו משימה לכאן · סמנו כשסיימתם
@@ -295,7 +293,11 @@ export function DailyPlanSidebar({ accentHex = "#22b8cf" }: { accentHex?: string
                   : `${accentHex}0d`,
             }}
           >
-            <p className="text-sm font-semibold text-text-primary">הלו״ז ריק</p>
+            <p className="text-sm font-semibold text-text-primary">
+              איתרנו כבר עשרה בטלנים,
+              <br />
+              תתחיל למלא את הלו״ז שלך!
+            </p>
             <p className="mt-1 text-[11px] font-medium text-text-muted">שחררו כאן משימה מהרשימה</p>
           </div>
         ) : (

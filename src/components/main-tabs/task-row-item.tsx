@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarClock, GripVertical } from "lucide-react";
-import { useEffect, useRef, useState, type MouseEvent, type KeyboardEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type MouseEvent, type KeyboardEvent, type PointerEvent } from "react";
 import { TabTaskItem } from "@/services/dashboard.service";
 import { TaskAssigneeStack } from "@/components/main-tabs/task-assignee-stack";
 import { useTaskDragDrop } from "@/components/main-tabs/task-drag-drop-context";
@@ -40,6 +40,7 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const dismissOnlyRef = useRef(false);
   const didDragRef = useRef(false);
+  const rowRef = useRef<HTMLDivElement>(null);
   const rowTone = priorityRowClass[priority] ?? priorityRowClass.medium;
   const isDragging = dragTask?.id === task.id;
 
@@ -79,64 +80,80 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
     onClick();
   };
 
+  const handleDragStart = (event: DragEvent<HTMLButtonElement>) => {
+    didDragRef.current = true;
+    event.dataTransfer.effectAllowed = "copyMove";
+    event.dataTransfer.setData("text/plain", task.id);
+    event.dataTransfer.setData(
+      "application/x-etur-task",
+      JSON.stringify({
+        id: task.id,
+        title: task.title,
+        priority: task.priority,
+        status: task.status,
+        projectId,
+        domainSlug,
+      }),
+    );
+    const row = rowRef.current;
+    if (row) {
+      const rect = row.getBoundingClientRect();
+      event.dataTransfer.setDragImage(row, Math.min(24, rect.width / 2), Math.min(16, rect.height / 2));
+    }
+    startDrag({
+      id: task.id,
+      sourceProjectId: projectId,
+      sourceDomainSlug: domainSlug,
+      title: task.title,
+      priority: task.priority,
+      status: task.status,
+    });
+  };
+
+  const handleDragEnd = () => {
+    endDrag();
+    window.setTimeout(() => {
+      didDragRef.current = false;
+    }, 0);
+  };
+
   return (
     <div
+      ref={rowRef}
       data-task-row
-      className={`w-full cursor-grab rounded-xl border active:cursor-grabbing transition-[opacity,border-color,background-color] ${rowTone} ${isDragging ? "opacity-40" : ""}`}
-      draggable
+      className={`w-full cursor-pointer rounded-xl border transition-[opacity,border-color,background-color] ${rowTone} ${isDragging ? "opacity-40" : ""}`}
       role="button"
       tabIndex={0}
       aria-label={`פתח פרטי משימה: ${task.title}`}
-      title="גררו ללו״ז או לפרויקט אחר · לחצו לפתיחה"
+      title="לחצו לפתיחה"
       onPointerDownCapture={markDismissOnlyIfOverlayOpen}
       onMouseDownCapture={markDismissOnlyIfOverlayOpen}
       onClick={handleRowClick}
       onKeyDown={handleRowKeyDown}
-      onDragStart={(event) => {
-        if (isRowChromeTarget(event.target)) {
-          event.preventDefault();
-          return;
-        }
-        didDragRef.current = true;
-        event.dataTransfer.effectAllowed = "copyMove";
-        event.dataTransfer.setData("text/plain", task.id);
-        event.dataTransfer.setData(
-          "application/x-etur-task",
-          JSON.stringify({
-            id: task.id,
-            title: task.title,
-            priority: task.priority,
-            status: task.status,
-            projectId,
-            domainSlug,
-          }),
-        );
-        startDrag({
-          id: task.id,
-          sourceProjectId: projectId,
-          sourceDomainSlug: domainSlug,
-          title: task.title,
-          priority: task.priority,
-          status: task.status,
-        });
-      }}
-      onDragEnd={() => {
-        endDrag();
-        window.setTimeout(() => {
-          didDragRef.current = false;
-        }, 0);
-      }}
     >
-      <div className="flex items-start gap-2 px-3 py-2">
-        <div data-no-row-click className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
-        </div>
-        <span
-          className="mt-0.5 shrink-0 text-text-muted"
-          aria-hidden
+      <div className="flex items-start gap-2 px-2 py-2 pe-3">
+        <button
+          type="button"
+          data-no-row-click
+          data-drag-handle
+          draggable
+          aria-label={`גרור משימה: ${task.title}`}
+          title="גרור ללו״ז או לפרויקט אחר"
+          className="mt-0.5 inline-flex h-8 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-text-muted transition hover:bg-black/5 hover:text-text-primary active:cursor-grabbing dark:hover:bg-white/10"
+          onClick={(event) => event.stopPropagation()}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         >
-          <GripVertical size={16} />
-        </span>
+          <GripVertical size={16} aria-hidden />
+        </button>
+        <div data-no-row-click className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <TaskStatusControls
+            taskId={task.id}
+            status={task.status}
+            size="sm"
+            domainSlug={domainSlug}
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 min-w-0 text-sm font-medium leading-snug text-text-primary [overflow-wrap:anywhere]">
             {task.title}

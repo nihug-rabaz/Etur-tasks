@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { BriefcaseBusiness, Megaphone, Radar } from "lucide-react";
 import Image from "next/image";
 import { ComponentType, useCallback, useEffect, useMemo, useState } from "react";
@@ -184,7 +184,6 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
     if (dragMountSlugs.length === 0) return [activeTab];
     return Array.from(new Set([...dragMountSlugs, activeTab]));
   }, [activeTab, dragMountSlugs]);
-  const isCrossTabDragging = dragMountSlugs.length > 0;
 
   if (!selected) {
     return (
@@ -277,48 +276,28 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
           />
         </div>
 
-        {isCrossTabDragging ? (
-          <div className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto">
-            {mountedTabSlugs.map((slug) => {
-              const tab = normalizedTabs.find((item) => item.slug === slug);
-              if (!tab) return null;
-              const isVisible = slug === activeTab;
-              return (
-                <TabBoardPanel
-                  key={slug}
-                  tab={tab}
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                  onTaskClick={(task) => setSelectedTask(task)}
-                  className={
-                    isVisible
-                      ? "p-3 sm:p-5"
-                      : "pointer-events-none fixed top-0 -left-[10000px] w-[min(100vw,1200px)] opacity-0"
-                  }
-                  ariaHidden={!isVisible}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={selected.slug}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto p-3 sm:p-5"
-            >
+        <div className="dashboard-board-content relative z-10 min-h-0 flex-1 overflow-y-auto">
+          {mountedTabSlugs.map((slug) => {
+            const tab = normalizedTabs.find((item) => item.slug === slug);
+            if (!tab) return null;
+            const isVisible = slug === activeTab;
+            return (
               <TabBoardPanel
-                tab={selected}
+                key={slug}
+                tab={tab}
                 filters={filters}
                 onFiltersChange={setFilters}
                 onTaskClick={(task) => setSelectedTask(task)}
+                className={
+                  isVisible
+                    ? "p-3 sm:p-5"
+                    : "pointer-events-none fixed top-0 -left-[10000px] w-[min(100vw,1200px)] p-3 opacity-0 sm:p-5"
+                }
+                ariaHidden={!isVisible}
               />
-            </motion.div>
-          </AnimatePresence>
-        )}
+            );
+          })}
+        </div>
         </motion.div>
 
         <div className="flex w-[15rem] shrink-0 flex-col self-stretch">

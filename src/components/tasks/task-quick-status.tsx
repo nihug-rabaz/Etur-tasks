@@ -2,7 +2,15 @@
 
 import { Check, HandHelping, Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import { useCloseRequests } from "@/components/tasks/close-requests-context";
 import { CloseRequestPendingBadge } from "@/components/tasks/admin-close-requests-inbox";
@@ -15,6 +23,12 @@ interface TaskQuickStatusProps {
   size?: "sm" | "md";
   onUpdated?: () => void;
   className?: string;
+  belowStatus?: ReactNode;
+}
+
+function StatusColumn({ chip, below }: { chip: ReactNode; below?: ReactNode }) {
+  if (!below) return <>{chip}</>;
+  return <div className="inline-flex flex-col items-stretch gap-1">{chip}{below}</div>;
 }
 
 const options: Array<{
@@ -49,6 +63,7 @@ export function TaskQuickStatus({
   size = "md",
   onUpdated,
   className = "",
+  belowStatus,
 }: TaskQuickStatusProps) {
   const router = useRouter();
   const { ready, canClose, getPendingForTask, requestClose, approveRequest } = useCloseRequests();
@@ -295,14 +310,19 @@ export function TaskQuickStatus({
 
   if (!ready) {
     return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full border border-border-weak/80 bg-surface-1/90 font-bold text-text-secondary ${
-          compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
-        } ${className}`}
-      >
-        <Loader2 size={compact ? 11 : 12} className="animate-spin text-text-muted" />
-        {current === "completed" ? "הושלמה" : "בתהליך"}
-      </span>
+      <StatusColumn
+        below={belowStatus}
+        chip={
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border border-border-weak/80 bg-surface-1/90 font-bold text-text-secondary ${
+              compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
+            } ${className}`}
+          >
+            <Loader2 size={compact ? 11 : 12} className="animate-spin text-text-muted" />
+            {current === "completed" ? "הושלמה" : "בתהליך"}
+          </span>
+        }
+      />
     );
   }
 
@@ -311,17 +331,22 @@ export function TaskQuickStatus({
       <>
         <div
           ref={anchorRef}
-          className={`inline-flex items-center gap-1.5 ${className}`}
+          className={`inline-flex items-start gap-1.5 ${className}`}
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <span
-            className={`inline-flex items-center rounded-full border border-amber-500/35 bg-amber-500/10 font-bold text-amber-800 dark:text-amber-100 ${
-              compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
-            }`}
-          >
-            בתהליך
-          </span>
+          <StatusColumn
+            below={belowStatus}
+            chip={
+              <span
+                className={`inline-flex w-full items-center justify-center rounded-full border border-amber-500/35 bg-amber-500/10 font-bold text-amber-800 dark:text-amber-100 ${
+                  compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
+                }`}
+              >
+                בתהליך
+              </span>
+            }
+          />
           {pendingRequest ? (
             <CloseRequestPendingBadge taskId={taskId} compact={compact} />
           ) : (
@@ -349,14 +374,19 @@ export function TaskQuickStatus({
 
   if (!canClose && current === "completed") {
     return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/10 font-bold text-emerald-800 dark:text-emerald-100 ${
-          compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
-        } ${className}`}
-      >
-        <Check size={compact ? 11 : 12} strokeWidth={2.8} />
-        הושלמה
-      </span>
+      <StatusColumn
+        below={belowStatus}
+        chip={
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border border-emerald-500/35 bg-emerald-500/10 font-bold text-emerald-800 dark:text-emerald-100 ${
+              compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
+            } ${className}`}
+          >
+            <Check size={compact ? 11 : 12} strokeWidth={2.8} />
+            הושלמה
+          </span>
+        }
+      />
     );
   }
 
@@ -364,45 +394,50 @@ export function TaskQuickStatus({
     <>
       <div
         ref={anchorRef}
-        className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}
+        className={`inline-flex flex-wrap items-start gap-1.5 ${className}`}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
       >
-        <div
-          role="group"
-          aria-label="שינוי סטטוס משימה"
-          className="inline-flex items-center rounded-full border border-border-weak/80 bg-surface-1/90 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm"
-        >
-          {isPending ? (
-            <span
-              className={`inline-flex items-center justify-center text-text-muted ${
-                compact ? "h-7 min-w-[4.5rem]" : "h-8 min-w-[5.5rem]"
-              }`}
+        <StatusColumn
+          below={belowStatus}
+          chip={
+            <div
+              role="group"
+              aria-label="שינוי סטטוס משימה"
+              className="inline-flex items-center rounded-full border border-border-weak/80 bg-surface-1/90 p-0.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-sm"
             >
-              <Loader2 size={compact ? 13 : 14} className="animate-spin" />
-            </span>
-          ) : (
-            options.map((option) => {
-              const active = current === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  disabled={isPending || !ready}
-                  onClick={() => handleOptionClick(option.value)}
-                  aria-pressed={active}
-                  title={option.label}
-                  className={`inline-flex items-center gap-1 rounded-full font-bold transition-all duration-200 disabled:opacity-60 ${
-                    compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
-                  } ${active ? option.active : option.idle}`}
+              {isPending ? (
+                <span
+                  className={`inline-flex items-center justify-center text-text-muted ${
+                    compact ? "h-7 min-w-[4.5rem]" : "h-8 min-w-[5.5rem]"
+                  }`}
                 >
-                  {option.value === "completed" ? <Check size={compact ? 11 : 12} strokeWidth={2.8} /> : null}
-                  <span>{compact ? option.shortLabel : option.label}</span>
-                </button>
-              );
-            })
-          )}
-        </div>
+                  <Loader2 size={compact ? 13 : 14} className="animate-spin" />
+                </span>
+              ) : (
+                options.map((option) => {
+                  const active = current === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      disabled={isPending || !ready}
+                      onClick={() => handleOptionClick(option.value)}
+                      aria-pressed={active}
+                      title={option.label}
+                      className={`inline-flex items-center gap-1 rounded-full font-bold transition-all duration-200 disabled:opacity-60 ${
+                        compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]"
+                      } ${active ? option.active : option.idle}`}
+                    >
+                      {option.value === "completed" ? <Check size={compact ? 11 : 12} strokeWidth={2.8} /> : null}
+                      <span>{compact ? option.shortLabel : option.label}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          }
+        />
         {pendingRequest && current === "in_progress" ? (
           <CloseRequestPendingBadge taskId={taskId} compact={compact} />
         ) : null}

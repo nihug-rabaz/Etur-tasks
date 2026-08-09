@@ -1,7 +1,8 @@
 "use client";
 
+import { TaskPlanAssignedBadge } from "@/components/tasks/task-plan-assigned-badge";
 import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
-import { TaskTzadikSwitch } from "@/components/tasks/task-tzadik-switch";
+import type { DomainKey } from "@/lib/ui/domains";
 
 type TaskStatus = "in_progress" | "completed";
 
@@ -11,20 +12,33 @@ interface TaskStatusControlsProps {
   size?: "sm" | "md";
   onUpdated?: () => void;
   className?: string;
+  domainSlug?: DomainKey;
 }
 
-/** Stacks tzadik plan placement above active/completed status. */
 export function TaskStatusControls({
   taskId,
   status,
   size = "md",
   onUpdated,
   className = "",
+  domainSlug,
 }: TaskStatusControlsProps) {
   return (
-    <div className={`inline-flex flex-col items-stretch gap-1 ${className}`}>
-      <TaskTzadikSwitch taskId={taskId} size={size} onUpdated={onUpdated} />
-      <TaskQuickStatus taskId={taskId} status={status} size={size} onUpdated={onUpdated} />
-    </div>
+    <TaskQuickStatus
+      taskId={taskId}
+      status={status}
+      size={size}
+      onUpdated={onUpdated}
+      className={className}
+      belowStatus={
+        domainSlug ? (
+          <TaskPlanAssignedBadge
+            taskId={taskId}
+            domainSlug={domainSlug}
+            className="w-full justify-center"
+          />
+        ) : null
+      }
+    />
   );
 }
