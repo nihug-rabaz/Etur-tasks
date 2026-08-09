@@ -1,0 +1,158 @@
+{
+  "name": "Concept",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05e7\u05d5\u05e0\u05e1\u05e4\u05d8"
+    },
+    "project_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05d4\u05e4\u05e8\u05d5\u05d9\u05e7\u05d8"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "article_interview",
+        "social_media"
+      ],
+      "description": "\u05e1\u05d5\u05d2 \u05e7\u05d5\u05e0\u05e1\u05e4\u05d8"
+    },
+    "domain": {
+      "type": "string",
+      "enum": [
+        "kashrut",
+        "halacha",
+        "reut",
+        "tipuch",
+        "lehaka",
+        "zuq",
+        "masan",
+        "agam_hachsharot",
+        "logistic",
+        "field"
+      ],
+      "description": "\u05ea\u05d7\u05d5\u05dd"
+    },
+    "interviewees": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u05de\u05e8\u05d5\u05d0\u05d9\u05d9\u05e0\u05d9\u05dd (\u05dc\u05db\u05ea\u05d1\u05d4/\u05e8\u05d0\u05d9\u05d5\u05df)"
+    },
+    "media_outlet": {
+      "type": "string",
+      "description": "\u05db\u05dc\u05d9 \u05ea\u05e7\u05e9\u05d5\u05e8\u05ea (\u05dc\u05db\u05ea\u05d1\u05d4/\u05e8\u05d0\u05d9\u05d5\u05df)"
+    },
+    "needs_briefing": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u05e6\u05e8\u05d9\u05da \u05dc\u05ea\u05d3\u05e8\u05da"
+    },
+    "link": {
+      "type": "string",
+      "description": "\u05e7\u05d9\u05e9\u05d5\u05e8"
+    },
+    "details": {
+      "type": "string",
+      "description": "\u05e4\u05d9\u05e8\u05d5\u05d8 \u05d7\u05d5\u05e4\u05e9\u05d9"
+    },
+    "notes": {
+      "type": "string",
+      "description": "\u05d4\u05e2\u05e8\u05d5\u05ea"
+    },
+    "work_status_article": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "production",
+        "waiting_approvals",
+        "waiting_spokesperson",
+        "waiting_publish",
+        "published"
+      ],
+      "default": "planning",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05e2\u05d1\u05d5\u05d3\u05d4 \u05dc\u05db\u05ea\u05d1\u05d4/\u05e8\u05d0\u05d9\u05d5\u05df"
+    },
+    "content_type": {
+      "type": "string",
+      "enum": [
+        "carousel",
+        "video",
+        "image",
+        "reels",
+        "text"
+      ],
+      "description": "\u05e1\u05d5\u05d2 \u05ea\u05d5\u05db\u05df (\u05dc\u05e8\u05e9\u05ea\u05d5\u05ea \u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea)"
+    },
+    "draft_text": {
+      "type": "string",
+      "description": "\u05d8\u05d9\u05d5\u05d8\u05d4 - \u05d8\u05e7\u05e1\u05d8"
+    },
+    "draft_images": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u05d8\u05d9\u05d5\u05d8\u05d4 - \u05ea\u05de\u05d5\u05e0\u05d5\u05ea"
+    },
+    "draft_videos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u05d8\u05d9\u05d5\u05d8\u05d4 - \u05e1\u05e8\u05d8\u05d5\u05e0\u05d9\u05dd"
+    },
+    "partners": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u05e9\u05d5\u05ea\u05e4\u05d9\u05dd"
+    },
+    "work_status_social": {
+      "type": "string",
+      "enum": [
+        "planning",
+        "production",
+        "waiting_approval",
+        "waiting_publish",
+        "published"
+      ],
+      "default": "planning",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05e2\u05d1\u05d5\u05d3\u05d4 \u05dc\u05e8\u05e9\u05ea\u05d5\u05ea \u05d7\u05d1\u05e8\u05ea\u05d9\u05d5\u05ea"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": [
+        "waiting_spokesperson_officer",
+        "waiting_branch_head",
+        "waiting_deputy_commander",
+        "waiting_chief_rabbi",
+        "waiting_command_rabbi",
+        "approved"
+      ],
+      "default": "waiting_spokesperson_officer",
+      "description": "\u05e1\u05d8\u05d8\u05d5\u05e1 \u05e6\u05d9\u05e8 \u05d0\u05d9\u05e9\u05d5\u05e8\u05d9\u05dd"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "description": "\u05e1\u05d9\u05d1\u05ea \u05d3\u05d7\u05d9\u05d9\u05d4 (\u05d0\u05dd \u05e0\u05d3\u05d7\u05d4)"
+    },
+    "rejected_at_step": {
+      "type": "string",
+      "description": "\u05d4\u05e9\u05dc\u05d1 \u05e9\u05d1\u05d5 \u05e0\u05d3\u05d7\u05d4"
+    },
+    "last_rejection_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "\u05ea\u05d0\u05e8\u05d9\u05da \u05d3\u05d7\u05d9\u05d9\u05d4 \u05d0\u05d7\u05e8\u05d5\u05df"
+    }
+  },
+  "required": [
+    "name",
+    "project_id",
+    "type"
+  ]
+}

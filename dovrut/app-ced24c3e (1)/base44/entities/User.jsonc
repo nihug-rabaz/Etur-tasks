@@ -1,0 +1,14 @@
+{
+  "name": "User",
+  "type": "object",
+  "properties": {
+    "custom_role": {
+      "type": "string",
+      "enum": [
+        "approver"
+      ],
+      "description": "\u05ea\u05e4\u05e7\u05d9\u05d3 \u05de\u05d5\u05ea\u05d0\u05dd \u05d0\u05d9\u05e9\u05d9\u05ea"
+    }
+  },
+  "required": []
+}
