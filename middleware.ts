@@ -8,10 +8,10 @@ export default withAuth(
     const isApproved = token?.isApproved === true;
 
     if (pathname === "/login" && token) {
-      return NextResponse.redirect(new URL(isApproved ? "/dashboard" : "/pending-approval", req.url));
+      return NextResponse.redirect(new URL(isApproved ? "/" : "/pending-approval", req.url));
     }
     if (pathname === "/pending-approval" && token && isApproved) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(new URL("/", req.url));
     }
     if (token && !isApproved && pathname !== "/pending-approval" && !pathname.startsWith("/api/auth")) {
       return NextResponse.redirect(new URL("/pending-approval", req.url));
@@ -46,5 +46,6 @@ export const config = {
     "/subtopics/:path*",
     "/tasks/:path*",
     "/settings/:path*",
+    "/dovrut/:path*",
   ],
 };

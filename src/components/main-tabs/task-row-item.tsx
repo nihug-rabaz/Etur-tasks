@@ -6,7 +6,7 @@ import { TabTaskItem } from "@/services/dashboard.service";
 import { TaskAssigneeStack } from "@/components/main-tabs/task-assignee-stack";
 import { useTaskDragDrop } from "@/components/main-tabs/task-drag-drop-context";
 import { TaskQuickPriority } from "@/components/tasks/task-quick-priority";
-import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
+import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 import type { DomainKey } from "@/lib/ui/domains";
 import type { TaskPriority } from "@/types/models";
 
@@ -39,7 +39,7 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
   const { dragTask, startDrag, endDrag } = useTaskDragDrop();
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const dismissOnlyRef = useRef(false);
-  const dragFromHandleRef = useRef(false);
+  const didDragRef = useRef(false);
   const rowTone = priorityRowClass[priority] ?? priorityRowClass.medium;
   const isDragging = dragTask?.id === task.id;
 
@@ -47,7 +47,6 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
     setPriority(task.priority);
   }, [task.priority]);
 
-  // Capture runs before document mousedown closes the overlay — mark this gesture as dismiss-only.
   const markDismissOnlyIfOverlayOpen = (event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>) => {
     if (isRowChromeTarget(event.target)) {
       dismissOnlyRef.current = false;
@@ -59,7 +58,10 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
   };
 
   const handleRowClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (isDragging || dragFromHandleRef.current) return;
+    if (isDragging || didDragRef.current) {
+      didDragRef.current = false;
+      return;
+    }
     if (isRowChromeTarget(event.target)) return;
     if (dismissOnlyRef.current) {
       dismissOnlyRef.current = false;
@@ -80,55 +82,65 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
   return (
     <div
       data-task-row
-      className={`w-full cursor-pointer rounded-xl border transition-[opacity,border-color,background-color] ${rowTone} ${isDragging ? "opacity-40" : ""}`}
+      className={`w-full cursor-grab rounded-xl border active:cursor-grabbing transition-[opacity,border-color,background-color] ${rowTone} ${isDragging ? "opacity-40" : ""}`}
       draggable
       role="button"
       tabIndex={0}
       aria-label={`פתח פרטי משימה: ${task.title}`}
+      title="גררו ללו״ז או לפרויקט אחר · לחצו לפתיחה"
       onPointerDownCapture={markDismissOnlyIfOverlayOpen}
       onMouseDownCapture={markDismissOnlyIfOverlayOpen}
       onClick={handleRowClick}
       onKeyDown={handleRowKeyDown}
       onDragStart={(event) => {
-        if (!dragFromHandleRef.current) {
+        if (isRowChromeTarget(event.target)) {
           event.preventDefault();
           return;
         }
-        event.dataTransfer.effectAllowed = "move";
+        didDragRef.current = true;
+        event.dataTransfer.effectAllowed = "copyMove";
         event.dataTransfer.setData("text/plain", task.id);
-        startDrag({ id: task.id, sourceProjectId: projectId, sourceDomainSlug: domainSlug, title: task.title });
+        event.dataTransfer.setData(
+          "application/x-etur-task",
+          JSON.stringify({
+            id: task.id,
+            title: task.title,
+            priority: task.priority,
+            status: task.status,
+            projectId,
+            domainSlug,
+          }),
+        );
+        startDrag({
+          id: task.id,
+          sourceProjectId: projectId,
+          sourceDomainSlug: domainSlug,
+          title: task.title,
+          priority: task.priority,
+          status: task.status,
+        });
       }}
       onDragEnd={() => {
-        dragFromHandleRef.current = false;
         endDrag();
+        window.setTimeout(() => {
+          didDragRef.current = false;
+        }, 0);
       }}
     >
       <div className="flex items-start gap-2 px-3 py-2">
         <div data-no-row-click className="mt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
+          <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
         </div>
         <span
-          data-no-row-click
-          data-drag-handle
-          className="mt-1 shrink-0 cursor-grab touch-none text-text-muted active:cursor-grabbing"
+          className="mt-0.5 shrink-0 text-text-muted"
           aria-hidden
-          title="גרור להעברה לפרויקט או תחום אחר"
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(event) => {
-            if (event.button !== 0) return;
-            dragFromHandleRef.current = true;
-          }}
-          onPointerUp={() => {
-            if (!isDragging) dragFromHandleRef.current = false;
-          }}
-          onPointerCancel={() => {
-            dragFromHandleRef.current = false;
-          }}
         >
-          <GripVertical size={14} />
+          <GripVertical size={16} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="min-w-0 text-sm font-medium text-text-primary">{task.title}</p>
+          <p className="line-clamp-2 min-w-0 text-sm font-medium leading-snug text-text-primary [overflow-wrap:anywhere]">
+            {task.title}
+          </p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
             <div data-no-row-click onClick={(e) => e.stopPropagation()}>
               <TaskQuickPriority taskId={task.id} priority={priority} onUpdated={setPriority} />

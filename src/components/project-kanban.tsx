@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, GripVertical, Plus } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
 import { useCloseRequests } from "@/components/tasks/close-requests-context";
-import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
+import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 
 interface ProjectKanbanProps {
   tasks: TaskWithRelations[];
@@ -74,7 +74,7 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
               <span>{task.due_date ? new Date(task.due_date).toLocaleDateString("he-IL") : "ללא יעד"}</span>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
+              <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
               {canClose ? (
                 <button
                   type="button"

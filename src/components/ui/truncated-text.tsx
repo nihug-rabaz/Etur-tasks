@@ -29,7 +29,10 @@ export function TruncatedText({ text, className = "" }: TruncatedTextProps) {
       left: rect.left,
       maxWidth: Math.max(rect.width, Math.min(320, window.innerWidth - rect.left - 16)),
     });
-    setOverflows(element.scrollWidth > element.clientWidth + 1);
+    setOverflows(
+      element.scrollWidth > element.clientWidth + 1 ||
+        element.scrollHeight > element.clientHeight + 1,
+    );
   }, []);
 
   useEffect(() => {

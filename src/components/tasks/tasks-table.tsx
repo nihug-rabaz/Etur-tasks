@@ -6,7 +6,7 @@ import { TaskWithRelations, type TaskPriority } from "@/types/models";
 import { domainCardStyle } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { TaskQuickPriority } from "@/components/tasks/task-quick-priority";
-import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
+import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 
 interface TasksTableProps {
   tasks: TaskWithRelations[];
@@ -162,7 +162,7 @@ function TaskTableRow({
         <TaskQuickPriority taskId={task.id} priority={priority} onUpdated={setPriority} />
       </td>
       <td className="px-4 py-2 align-middle whitespace-nowrap" data-no-row-click onClick={(event) => event.stopPropagation()}>
-        <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
+        <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
       </td>
       <td className="px-4 py-2 align-middle whitespace-nowrap text-text-secondary">{formatDueDate(task.due_date)}</td>
     </tr>

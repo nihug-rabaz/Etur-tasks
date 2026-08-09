@@ -15,6 +15,7 @@ import {
 import { DomainTopicTabs } from "@/components/domain-topic-tabs";
 import { CreateProjectDrawer } from "@/components/create-project-drawer";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import { DailyPlanSidebar } from "@/components/daily-planner/daily-plan-sidebar";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TaskDragDropProvider } from "@/components/main-tabs/task-drag-drop-context";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
@@ -203,7 +204,7 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
         style={{ background: `radial-gradient(circle, ${accentHex}, transparent 68%)`, opacity: 0.5 }}
       />
 
-      <div className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] min-h-0 w-[94%] max-w-[2000px] flex-col gap-4 pb-4 pt-3 sm:gap-5 sm:pb-5 sm:pt-5">
+      <div className="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] max-h-[calc(100dvh-4rem)] min-h-0 w-[96%] max-w-[2200px] flex-col gap-4 pb-4 pt-3 sm:gap-5 sm:pb-5 sm:pt-5">
       <div className="flex flex-col gap-3 px-1 sm:gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
           <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
             <span className="brand-logo-orbit" style={{ ["--brand-glow" as string]: accentHex }}>
@@ -246,10 +247,11 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
           setFilters(defaultTaskFilters);
         }}
       >
-      <motion.div
-        className="dashboard-glass-board relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl transition-shadow duration-700 sm:rounded-[2rem]"
-        style={{ boxShadow: `0 40px 90px -28px ${accentHex}80, 0 18px 55px -22px ${accentHex}59` }}
-      >
+      <div className="flex min-h-0 flex-1 items-stretch gap-3">
+        <motion.div
+          className="dashboard-glass-board relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl transition-shadow duration-700 sm:rounded-[2rem]"
+          style={{ boxShadow: `0 40px 90px -28px ${accentHex}80, 0 18px 55px -22px ${accentHex}59` }}
+        >
         <div className="dashboard-tabs-bar relative z-10 shrink-0 px-2 pt-2 sm:px-6 sm:pt-3">
           <DomainTopicTabs
             active={activeTab}
@@ -317,7 +319,12 @@ export function MainTabsShell({ tabs }: MainTabsShellProps) {
             </motion.div>
           </AnimatePresence>
         )}
-      </motion.div>
+        </motion.div>
+
+        <div className="flex w-[15rem] shrink-0 flex-col self-stretch">
+          <DailyPlanSidebar accentHex={accentHex} />
+        </div>
+      </div>
       </TaskDragDropProvider>
       {selectedTask ? (
         <TaskDetailsModal

@@ -14,6 +14,8 @@ interface DragTask {
   sourceProjectId: string;
   sourceDomainSlug: DomainKey;
   title: string;
+  priority?: "low" | "medium" | "high";
+  status?: "in_progress" | "completed";
 }
 
 interface DragActiveState {

@@ -15,6 +15,9 @@ const dateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 const putSchema = z.object({
   planDate: dateKeySchema,
+  mode: z.enum(["slot", "list"]).optional().default("slot"),
+  action: z.enum(["add", "remove", "setDone"]).optional(),
+  isDone: z.boolean().optional(),
   startMinute: z.number().int().min(0).max(1439).optional(),
   previousStartMinute: z.number().int().min(0).max(1439).optional(),
   hour: z.number().int().min(0).max(23).optional(),
@@ -77,8 +80,65 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
 
-  const { planDate, taskId } = parsed.data;
+  const { planDate, taskId, mode } = parsed.data;
   const dailyPlanService = new DailyPlanService();
+
+  if (mode === "list") {
+    if (parsed.data.action === "setDone" && taskId) {
+      const allowedDone = await authorizationService.canAccessTask(profile, taskId);
+      if (!allowedDone) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (typeof parsed.data.isDone !== "boolean") {
+        return NextResponse.json({ error: "isDone required" }, { status: 400 });
+      }
+      await dailyPlanService.setTaskDone(profile.id, planDate, taskId, parsed.data.isDone);
+      return NextResponse.json({ ok: true, isDone: parsed.data.isDone });
+    }
+
+    if (parsed.data.action === "remove" && taskId) {
+      const allowedRemove = await authorizationService.canAccessTask(profile, taskId);
+      if (!allowedRemove) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      await dailyPlanService.removeTaskFromDay(profile.id, planDate, taskId);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (taskId === null) {
+      if (parsed.data.startMinute === undefined) {
+        return NextResponse.json({ error: "startMinute or taskId required" }, { status: 400 });
+      }
+      await dailyPlanService.clearSlot(profile.id, planDate, parsed.data.startMinute);
+      return NextResponse.json({ ok: true });
+    }
+
+    const allowedList = await authorizationService.canAccessTask(profile, taskId);
+    if (!allowedList) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (parsed.data.action === "remove") {
+      await dailyPlanService.removeTaskFromDay(profile.id, planDate, taskId);
+      return NextResponse.json({ ok: true });
+    }
+
+    try {
+      const result = await dailyPlanService.addTaskToDay(
+        profile.id,
+        planDate,
+        taskId,
+        normalizeTaskDuration(parsed.data.durationMinutes),
+      );
+      return NextResponse.json({
+        ok: true,
+        startMinute: result.startMinute,
+        durationMinutes: result.durationMinutes,
+      });
+    } catch {
+      return NextResponse.json({ error: "Day full" }, { status: 409 });
+    }
+  }
 
   if (taskId === null) {
     if (parsed.data.startMinute === undefined) {

@@ -12,22 +12,18 @@ import { AdminMessageComposer } from "@/components/notifications/admin-message-c
 import { DailyPlannerLauncher } from "@/components/daily-planner/daily-planner-launcher";
 import { CloseRequestsProvider } from "@/components/tasks/close-requests-context";
 import { AdminCloseRequestsInbox } from "@/components/tasks/admin-close-requests-inbox";
-
-const navItems: SideMenuItem[] = [
-  { label: "ראשי", href: "/dashboard", description: "סקירה כללית של הכל" },
-  { label: "משימות פעילות", href: "/tasks/active", description: "מה עובד עכשיו" },
-  { label: "לוח זמנים", href: "/tasks/upcoming", description: "משימות, פגישות ולו״זים" },
-  { label: "ארכיון", href: "/tasks/archive", description: "משימות שהושלמו" },
-  { label: "משתמשים", href: "/admin/users", description: "ניהול חברי הצוות" },
-];
-
-const adminNavItems: SideMenuItem[] = [
-  { label: "הגדרות מערכת", href: "/admin/settings", description: "איקונים ותצוגת טאבים" },
-];
+import {
+  getNavForPathname,
+  listAccessibleModules,
+  resolveActiveModuleId,
+  type ModuleAccessContext,
+  type ModuleRole,
+} from "@/shared/modules/registry";
 
 function getBreadcrumbHref(segments: string[], index: number): string | null {
   const href = `/${segments.slice(0, index + 1).join("/")}`;
   const exactRoutes = new Set([
+    "/",
     "/dashboard",
     "/tasks/active",
     "/tasks/upcoming",
@@ -35,10 +31,23 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/admin/users",
     "/admin/settings",
     "/settings/profile",
+    "/dovrut",
+    "/dovrut/projects",
+    "/dovrut/concepts",
+    "/dovrut/news",
+    "/dovrut/approvals",
+    "/dovrut/approval/branch-head",
+    "/dovrut/approval/deputy-commander",
+    "/dovrut/approval/chief-rabbi",
+    "/dovrut/admin/users",
+    "/dovrut/admin/approvers",
   ]);
   if (exactRoutes.has(href)) return href;
 
   const [section] = segments;
+  if (section === "dovrut" && index === 1 && (segments[1] === "projects" || segments[1] === "concepts")) {
+    return href;
+  }
   const isDynamicDetails =
     index === 1 && (section === "projects" || section === "domains" || section === "subtopics");
   return isDynamicDetails ? href : null;
@@ -49,6 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const segments = pathname.split("/").filter(Boolean);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [profile, setProfile] = useState<ProfileSnapshot | null>(null);
+  const [moduleRoles, setModuleRoles] = useState<Record<string, ModuleRole>>({});
   const [impersonation, setImpersonation] = useState<ImpersonationViewState>({
     active: false,
     actor: null,
@@ -68,6 +78,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loadModuleRoles = useCallback(async () => {
+    const response = await fetch("/api/modules/roles");
+    if (!response.ok) return;
+    const data = (await response.json()) as { roles?: Record<string, ModuleRole> };
+    setModuleRoles(data.roles ?? {});
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const loadSession = async () => {
@@ -79,34 +96,52 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
     void loadSession();
     void loadProfile();
+    void loadModuleRoles();
     return () => {
       cancelled = true;
     };
-  }, [loadProfile, pathname]);
+  }, [loadProfile, loadModuleRoles, pathname]);
 
   const isRealAdmin = session?.user?.role === "admin" || Boolean(session?.user?.isAdmin);
   const isImpersonating = impersonation.active;
-  const menuItems = useMemo(
-    () => (isRealAdmin && !isImpersonating ? [...navItems, ...adminNavItems] : navItems),
-    [isRealAdmin, isImpersonating],
+  const access: ModuleAccessContext = useMemo(
+    () => ({
+      isPlatformAdmin: isRealAdmin,
+      moduleRoles,
+    }),
+    [isRealAdmin, moduleRoles],
   );
-  const routeLabel: Record<string, string> = {
-    dashboard: "ראשי",
-    tasks: "משימות",
-    active: "פעילות",
-    upcoming: "לוח זמנים",
-    archive: "ארכיון",
-    projects: "פרויקטים",
-    domains: "תחומים",
-    subtopics: "תתי-נושאים",
-    users: "משתמשים",
-    admin: "ניהול",
-    settings: "הגדרות",
-    profile: "הגדרות אישיות",
-  };
+
+  const { module: activeModule, items: moduleNavItems } = useMemo(
+    () => getNavForPathname(pathname, access, { isImpersonating }),
+    [pathname, access, isImpersonating],
+  );
+
+  const accessibleModules = useMemo(() => listAccessibleModules(access), [access]);
+  const activeModuleId = resolveActiveModuleId(pathname);
+
+  const menuItems: SideMenuItem[] = useMemo(
+    () =>
+      moduleNavItems.map((item) => ({
+        label: item.label,
+        href: item.href,
+        description: item.description,
+      })),
+    [moduleNavItems],
+  );
+
+  const routeLabel = useMemo(() => {
+    const labels: Record<string, string> = {
+      ...(activeModule?.breadcrumbLabels ?? {}),
+    };
+    return labels;
+  }, [activeModule]);
+
   const userLabel = profile?.name || session?.user?.name || session?.user?.email || null;
   const userAvatarUrl = profile?.avatar ?? null;
-  const isDashboard = pathname === "/dashboard";
+  const isDashboard = pathname === "/dashboard" || pathname === "/dovrut";
+  const isHome = pathname === "/";
+  const showTasksChrome = activeModuleId === "tasks";
 
   return (
     <CloseRequestsProvider>
@@ -117,6 +152,30 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="topbar w-full px-3 py-3 sm:px-6 lg:px-8">
           <div className="mx-auto flex w-full max-w-screen-2xl items-center gap-2 sm:gap-3">
             <SideMenuTrigger state={sideMenu} className="shrink-0" />
+            {accessibleModules.length > 1 ? (
+              <div className="hidden items-center gap-1 rounded-full bg-surface-2 p-1 sm:flex">
+                {accessibleModules.map((module) => {
+                  const active = activeModuleId === module.id;
+                  const href =
+                    module.id === "dovrut" && moduleRoles.dovrut === "approver" && !isRealAdmin
+                      ? "/dovrut/approvals"
+                      : module.href;
+                  return (
+                    <Link
+                      key={module.id}
+                      href={href}
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                        active
+                          ? "bg-accent-primary text-white"
+                          : "text-text-secondary hover:bg-accent-primary/12 hover:text-accent-primary"
+                      }`}
+                    >
+                      {module.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
             <nav
               aria-label="פירורי לחם"
               className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -124,14 +183,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <ol className="flex w-max items-center gap-1.5 whitespace-nowrap text-xs sm:gap-2 sm:text-sm">
                 <li>
                   <Link
-                    href="/dashboard"
+                    href="/"
                     className="inline-flex items-center rounded-full bg-surface-2 px-3 py-1.5 font-semibold text-text-secondary transition hover:bg-accent-primary/12 hover:text-accent-primary"
                   >
-                    דף הבית
+                    פלטפורמה
                   </Link>
                 </li>
                 {segments.map((segment, index) => {
-                  if (segment === "dashboard") return null;
+                  if (segment === "dashboard" && index === 0) return null;
                   const href = getBreadcrumbHref(segments, index);
                   const label = routeLabel[segment] ?? segment;
                   return (
@@ -155,19 +214,27 @@ export function AppShell({ children }: { children: ReactNode }) {
               </ol>
             </nav>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <AdminCloseRequestsInbox />
+              {showTasksChrome ? <AdminCloseRequestsInbox /> : null}
               <ThemeToggle />
-              {isRealAdmin && !isImpersonating ? <AdminMessageComposer iconOnly /> : null}
-              <TelegramNotificationsPanel isAdmin={isRealAdmin && !isImpersonating} />
+              {showTasksChrome && isRealAdmin && !isImpersonating ? (
+                <AdminMessageComposer iconOnly />
+              ) : null}
+              {showTasksChrome ? (
+                <TelegramNotificationsPanel isAdmin={isRealAdmin && !isImpersonating} />
+              ) : null}
             </div>
-            <div className="shrink-0 ps-1 sm:ps-2">
-              <DailyPlannerLauncher />
-            </div>
+            {showTasksChrome && !isDashboard ? (
+              <div className="shrink-0 ps-1 sm:ps-2">
+                <DailyPlannerLauncher />
+              </div>
+            ) : null}
           </div>
         </header>
         <div
           className={`relative mx-auto flex w-full flex-1 flex-col ${
-            isDashboard ? "max-w-none px-0 pb-0 pt-0" : "max-w-screen-2xl px-4 pb-6 pt-5 sm:px-6 lg:px-8"
+            isDashboard || isHome
+              ? "max-w-none px-0 pb-0 pt-0"
+              : "max-w-screen-2xl px-4 pb-6 pt-5 sm:px-6 lg:px-8"
           }`}
         >
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>

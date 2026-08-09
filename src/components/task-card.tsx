@@ -2,7 +2,7 @@ import { Calendar, Flag, UserRound, FolderKanban } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
 import { domainCardStyle, domainKeyFromName, type DomainKey } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
-import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
+import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 
 interface TaskCardProps {
   task: TaskWithRelations;
@@ -42,7 +42,7 @@ export function TaskCard({ task }: TaskCardProps) {
         <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white">
           {domain.label}
         </span>
-        <TaskQuickStatus taskId={task.id} status={task.status} size="sm" />
+        <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
       </div>
 
       <div className={`px-4 py-4 ps-5 ${domain.body}`}>

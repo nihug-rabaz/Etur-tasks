@@ -23,12 +23,14 @@ export function SectionGroup({ section, domainSlug, toneClass, onTaskClick }: Se
   return (
     <section className="surface-card flex h-fit w-full flex-col self-start overflow-hidden">
       <div
-        className="flex items-center justify-between gap-2 px-4 py-3"
+        className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-4 sm:py-3"
         style={{ backgroundColor: domainHeaderColors[domainSlug] }}
       >
-        <h3 className="text-lg font-bold text-white">{section.name}</h3>
+        <h3 className="min-w-0 flex-1 text-base font-bold leading-snug text-white sm:text-lg">
+          {section.name}
+        </h3>
         <span
-          className="rounded-full px-3 py-1 text-xs font-bold text-white"
+          className="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold text-white sm:px-3 sm:text-xs"
           style={{ backgroundColor: "rgba(255,255,255,0.22)" }}
         >
           {section.projects.length} פרויקטים

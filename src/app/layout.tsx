@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist_Mono, Heebo, Secular_One } from "next/font/google";
+import { Fredoka, Geist_Mono, Heebo, Secular_One } from "next/font/google";
 import { Toaster } from "sonner";
 import { IntroSplash } from "@/components/intro-splash";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
@@ -23,6 +23,12 @@ const secularOne = Secular_One({
 const heebo = Heebo({
   variable: "--font-heebo",
   subsets: ["hebrew", "latin"],
+});
+
+const fredoka = Fredoka({
+  variable: "--font-plan-hand",
+  subsets: ["hebrew", "latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -72,7 +78,7 @@ export default async function RootLayout({
     <html
       lang="he"
       dir="rtl"
-      className={`${geistMono.variable} ${secularOne.variable} ${heebo.variable} h-full antialiased`}
+      className={`${geistMono.variable} ${secularOne.variable} ${heebo.variable} ${fredoka.variable} h-full antialiased`}
       data-font-scale={fontScale.preset}
       suppressHydrationWarning
       style={{

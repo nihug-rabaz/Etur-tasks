@@ -21,7 +21,7 @@ import { createPortal } from "react-dom";
 import { AssigneeMultiSelect, UserAvatarMark, type AssigneeOption } from "@/components/ui/assignee-select";
 import { TaskChatPanel } from "@/components/tasks/task-chat-panel";
 import { useCloseRequests } from "@/components/tasks/close-requests-context";
-import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
+import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 import { domainKeyFromName, domainMeta } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 
@@ -680,7 +680,7 @@ export function TaskDetailsModal({
                     </>
                   ) : (
                     <>
-                      <TaskQuickStatus
+                      <TaskStatusControls
                         taskId={taskId}
                         status={headerStatus}
                         onUpdated={() => {

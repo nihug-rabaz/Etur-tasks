@@ -54,33 +54,31 @@ export function ProjectExpandableCard({ project, domainSlug, toneClass, onTaskCl
         isDragging ? "" : "hover:-translate-y-0.5 hover:shadow-md"
       } ${isDropHover ? "ring-2 ring-accent-primary/55" : ""} ${toneClass}`}
     >
-      <div className="relative flex flex-col gap-2.5 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3.5">
+      <div className="relative flex flex-col gap-2.5 px-3 py-3 sm:px-4 sm:py-3.5">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="relative flex w-full min-w-0 flex-1 items-start gap-2.5 overflow-hidden text-start transition sm:items-center sm:justify-between sm:gap-3"
+          className="relative flex w-full min-w-0 items-start gap-2.5 text-start"
         >
-          <span className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2/90 text-text-secondary">
-              <FolderKanban size={14} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <TruncatedText
-                text={project.name}
-                className="text-base font-bold leading-snug text-text-primary [overflow-wrap:anywhere] sm:truncate sm:[overflow-wrap:normal]"
-              />
-              <span className="mt-0.5 block text-xs font-medium text-text-muted sm:mt-0">
-                {project.tasks.length} משימות בפרויקט
-              </span>
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2/90 text-text-secondary">
+            <FolderKanban size={14} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <TruncatedText
+              text={project.name}
+              className="line-clamp-2 text-base font-bold leading-snug text-text-primary [overflow-wrap:anywhere]"
+            />
+            <span className="mt-0.5 block text-xs font-medium text-text-muted">
+              {project.tasks.length} משימות בפרויקט
             </span>
           </span>
           <ChevronDown
             size={18}
-            className={`mt-1 shrink-0 text-text-secondary transition-transform duration-200 sm:mt-0 ${open ? "rotate-180" : ""}`}
+            className={`mt-1 shrink-0 text-text-secondary transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           />
         </button>
 
-        <span className="flex items-center justify-end gap-1.5 border-t border-border-weak/60 pt-2 sm:inline-flex sm:shrink-0 sm:items-center sm:gap-2 sm:border-t-0 sm:pt-0">
+        <span className="flex flex-wrap items-center justify-end gap-1.5 border-t border-border-weak/60 pt-2">
           <CreateTaskDrawer
             defaultSubtopicId={project.sectionId}
             defaultProjectId={project.id}
@@ -90,12 +88,10 @@ export function ProjectExpandableCard({ project, domainSlug, toneClass, onTaskCl
           <Link
             href={`/projects/${project.id}`}
             title="מעבר לפרויקט"
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-accent-primary/25 bg-accent-primary/15 px-2.5 py-2 text-xs font-bold text-accent-primary transition hover:bg-accent-primary/25 sm:rounded-lg sm:border-0 sm:bg-accent-primary/12 sm:px-2 sm:py-1 sm:font-semibold sm:hover:bg-accent-primary/20"
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-accent-primary/25 bg-accent-primary/15 px-2.5 py-2 text-xs font-bold text-accent-primary transition hover:bg-accent-primary/25"
           >
-            <span className="sm:hidden">לפרויקט</span>
-            <span className="hidden sm:inline">מעבר לפרויקט</span>
-            <ExternalLink size={14} strokeWidth={2.5} className="shrink-0 sm:hidden" />
-            <ExternalLink size={11} className="ms-1 hidden sm:inline" />
+            <span>לפרויקט</span>
+            <ExternalLink size={14} strokeWidth={2.5} className="shrink-0" />
           </Link>
         </span>
 
