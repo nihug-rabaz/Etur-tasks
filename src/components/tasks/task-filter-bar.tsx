@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Filter, Search, X } from "lucide-react";
 import {
   FilterOption,
@@ -16,6 +17,9 @@ interface TaskFilterBarProps {
   projectOptions: FilterOption[];
   assigneeOptions: FilterOption[];
   accentRingClass?: string;
+  extraFilters?: ReactNode;
+  hideProjectFilter?: boolean;
+  onClearExtra?: () => void;
 }
 
 const priorityOptions: Array<{ value: TaskPriority | "all"; label: string }> = [
@@ -43,11 +47,14 @@ export function TaskFilterBar({
   projectOptions,
   assigneeOptions,
   accentRingClass = "focus:ring-accent-primary/30",
+  extraFilters,
+  hideProjectFilter = false,
+  onClearExtra,
 }: TaskFilterBarProps) {
   const update = <K extends keyof TaskFilterState>(key: K, value: TaskFilterState[K]) =>
     onChange({ ...state, [key]: value });
 
-  const active = isTaskFilterActive(state);
+  const active = isTaskFilterActive(state) || Boolean(onClearExtra);
 
   return (
     <div className="space-y-3">
@@ -67,6 +74,8 @@ export function TaskFilterBar({
           <Filter size={14} />
           סינון
         </span>
+
+        {extraFilters}
 
         <select
           value={state.priority}
@@ -110,7 +119,7 @@ export function TaskFilterBar({
           </select>
         ) : null}
 
-        {projectOptions.length > 0 ? (
+        {!hideProjectFilter && projectOptions.length > 0 ? (
           <select
             value={state.project}
             onChange={(event) => update("project", event.target.value)}
@@ -145,7 +154,10 @@ export function TaskFilterBar({
         {active ? (
           <button
             type="button"
-            onClick={() => onChange(defaultTaskFilters)}
+            onClick={() => {
+              onChange(defaultTaskFilters);
+              onClearExtra?.();
+            }}
             className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2 hover:text-text-primary"
           >
             <X size={13} />

@@ -10,13 +10,6 @@ export async function GET() {
   }
 
   const moduleRoleService = new ModuleRoleService();
-  await moduleRoleService.ensureDefaultAccess(profile.id, profile.role);
   const roles = await moduleRoleService.getRolesForUser(profile.id);
-
-  if (profile.role === "admin") {
-    roles.tasks = roles.tasks ?? "admin";
-    roles.dovrut = roles.dovrut ?? "admin";
-  }
-
   return NextResponse.json({ roles });
 }

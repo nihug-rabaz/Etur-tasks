@@ -2,10 +2,12 @@
 
 import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { sanitizeCallbackUrl } from "@/lib/auth/callback-url";
 
-export function GoogleSignInForm() {
+export function GoogleSignInForm({ callbackUrl = "/" }: { callbackUrl?: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const safeCallbackUrl = sanitizeCallbackUrl(callbackUrl, "/");
 
   async function handleGoogleSignIn() {
     setLoading(true);
@@ -13,7 +15,7 @@ export function GoogleSignInForm() {
     try {
       await signIn(
         "google",
-        { callbackUrl: "/" },
+        { callbackUrl: safeCallbackUrl },
         { prompt: "select_account", access_type: "online" },
       );
     } catch {

@@ -4,6 +4,7 @@ import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
 import type { Profile, UserAccessStatus } from "@/types/models";
+import type { ModuleRole } from "@/shared/modules/types";
 import { ImpersonateUserButton } from "@/components/admin/impersonation-banner";
 import { UserPermissionsEditor } from "@/components/admin/user-permissions-editor";
 import { ProfileSettingsPanel } from "@/components/profile/profile-settings-panel";
@@ -17,6 +18,37 @@ type PermissionGroup = {
 };
 
 type StatusFilter = "all" | UserAccessStatus;
+type SystemFilter = "all" | "tasks" | "dovrut";
+
+const APP_DEFS: Array<{
+  id: "tasks" | "dovrut";
+  label: string;
+  roles: Array<{ value: ModuleRole; label: string; hint: string }>;
+}> = [
+  {
+    id: "tasks",
+    label: "ניהול משימות",
+    roles: [
+      { value: "user", label: "משתמש", hint: "יצירה ועדכון משימות לפי תחומי הגישה" },
+      { value: "viewer", label: "צופה", hint: "צפייה בלבד — בלי יצירה או עדכון" },
+      { value: "admin", label: "מנהל", hint: "ניהול מלא במודול כולל משתמשים והגדרות" },
+    ],
+  },
+  {
+    id: "dovrut",
+    label: "דוברות",
+    roles: [
+      {
+        value: "user",
+        label: "חפ״ש",
+        hint: "עורך תוכן: יצירה ועריכת קמפיינים, פרויקטים ופריטים — בלי אישורי שרשרת ובלי ניהול משתמשים",
+      },
+      { value: "viewer", label: "צופה", hint: "צפייה בתוכן בלבד — בלי עריכה" },
+      { value: "approver", label: "מאשר", hint: "גישה לתורי האישור בלבד (רמ״ח / רמ״ט / רבצ״ר)" },
+      { value: "admin", label: "מנהל", hint: "ניהול מלא במודול כולל משתמשים ומאשרים" },
+    ],
+  },
+];
 
 function resolveAccessStatus(user: Profile): UserAccessStatus {
   if (user.access_status === "pending" || user.access_status === "approved" || user.access_status === "rejected") {
@@ -25,13 +57,27 @@ function resolveAccessStatus(user: Profile): UserAccessStatus {
   return user.is_approved ? "approved" : "pending";
 }
 
+function roleShortLabel(moduleId: string, role: ModuleRole): string {
+  if (moduleId === "dovrut") {
+    if (role === "admin") return "מנהל";
+    if (role === "approver") return "מאשר";
+    if (role === "viewer") return "צופה";
+    return "חפ״ש";
+  }
+  if (role === "admin") return "מנהל";
+  if (role === "viewer") return "צופה";
+  return "משתמש";
+}
+
 interface UsersManagementPanelProps {
   users: Profile[];
   currentAdminId: string;
   permissionGroups: PermissionGroup[];
   permissionsByUser: Record<string, string[]>;
+  moduleRolesByUser: Record<string, Record<string, ModuleRole>>;
   updateRoleAction: (formData: FormData) => Promise<void>;
   syncPermissionsAction: (formData: FormData) => Promise<void>;
+  setModuleRoleAction: (formData: FormData) => Promise<void>;
   approveUserAction: (formData: FormData) => Promise<void>;
   setPendingAction: (formData: FormData) => Promise<void>;
   rejectUserAction: (formData: FormData) => Promise<void>;
@@ -42,8 +88,10 @@ export function UsersManagementPanel({
   currentAdminId,
   permissionGroups,
   permissionsByUser,
+  moduleRolesByUser,
   updateRoleAction,
   syncPermissionsAction,
+  setModuleRoleAction,
   approveUserAction,
   setPendingAction,
   rejectUserAction,
@@ -51,6 +99,7 @@ export function UsersManagementPanel({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [systemFilter, setSystemFilter] = useState<SystemFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [profileOverrides, setProfileOverrides] = useState<Record<string, { name: string; avatar: string | null }>>({});
 
@@ -60,11 +109,13 @@ export function UsersManagementPanel({
       const access = resolveAccessStatus(user);
       if (statusFilter === "all" && access === "rejected") return false;
       if (statusFilter !== "all" && access !== statusFilter) return false;
+      const roles = moduleRolesByUser[user.id] ?? {};
+      if (systemFilter !== "all" && !roles[systemFilter]) return false;
       if (!q) return true;
       const blob = `${user.name} ${user.email ?? ""}`.toLowerCase();
       return blob.includes(q);
     });
-  }, [users, query, statusFilter]);
+  }, [users, query, statusFilter, systemFilter, moduleRolesByUser]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-[#e6e9ef] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] dark:border-slate-700 dark:bg-[#1e1e1e]">
@@ -75,7 +126,7 @@ export function UsersManagementPanel({
               ניהול משתמשים
             </h1>
             <p className="mt-1 text-sm text-[#676879] dark:text-slate-400">
-              הרשאות, אישורים ותחומי גישה — במבט אחד.
+              אישורים, אפליקציות והרשאות — במבט אחד.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -126,7 +177,7 @@ export function UsersManagementPanel({
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-[#c5c7d0] bg-white px-3 py-2 text-sm font-medium text-[#323338] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
               <Filter size={16} className="text-[#676879]" />
-              סינון
+              סטטוס
             </span>
             {(
               [
@@ -151,14 +202,40 @@ export function UsersManagementPanel({
             ))}
           </div>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-[#c5c7d0] bg-white px-3 py-2 text-sm font-medium text-[#323338] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+            <Filter size={16} className="text-[#676879]" />
+            מערכת
+          </span>
+          {(
+            [
+              { key: "all" as const, label: "הכל" },
+              { key: "tasks" as const, label: "משימות" },
+              { key: "dovrut" as const, label: "דוברות" },
+            ] as const
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSystemFilter(key)}
+              className={`rounded-md px-3 py-2 text-xs font-semibold transition ${
+                systemFilter === key
+                  ? "bg-[#0073ea] text-white shadow-sm"
+                  : "bg-white text-[#676879] ring-1 ring-[#e6e9ef] hover:bg-[#f6f7fb] dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <p className="mt-3 text-xs font-medium text-[#676879] dark:text-slate-500">
           מציג: {filtered.length} {filtered.length === 1 ? "משתמש" : "משתמשים"}
-          {query.trim() || statusFilter !== "all" ? ` מתוך ${users.length}` : ""}
+          {query.trim() || statusFilter !== "all" || systemFilter !== "all" ? ` מתוך ${users.length}` : ""}
         </p>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] border-collapse text-sm">
+        <table className="w-full min-w-[980px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-[#e6e9ef] bg-[#f6f7fb] text-start dark:border-slate-700 dark:bg-slate-800/90">
               <th className="w-10 px-3 py-3" />
@@ -169,10 +246,13 @@ export function UsersManagementPanel({
                 אימייל
               </th>
               <th className="w-40 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
-                תפקיד
+                תפקיד מערכת
               </th>
               <th className="w-36 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
                 סטטוס
+              </th>
+              <th className="w-52 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
+                אפליקציות
               </th>
               <th className="w-44 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#676879] dark:text-slate-400">
                 תחומי גישה
@@ -191,6 +271,7 @@ export function UsersManagementPanel({
               const displayName = profileOverride?.name ?? user.name;
               const displayAvatar = profileOverride?.avatar ?? user.avatar;
               const avatarUrl = isRenderableAvatarUrl(displayAvatar) ? displayAvatar : null;
+              const moduleRoles = moduleRolesByUser[user.id] ?? {};
 
               return (
                 <Fragment key={user.id}>
@@ -265,6 +346,26 @@ export function UsersManagementPanel({
                       >
                         {access === "approved" ? "מאושר" : access === "rejected" ? "בוטל" : "ממתין"}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex flex-wrap gap-1.5">
+                        {APP_DEFS.map((app) => {
+                          const role = moduleRoles[app.id];
+                          return (
+                            <span
+                              key={app.id}
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                role
+                                  ? "bg-[#e7f1ff] text-[#0073ea] dark:bg-sky-950/40 dark:text-sky-300"
+                                  : "bg-[#f0f1f5] text-[#676879] dark:bg-slate-800 dark:text-slate-400"
+                              }`}
+                            >
+                              {app.id === "tasks" ? "משימות" : "דוברות"}
+                              {role ? ` · ${roleShortLabel(app.id, role)}` : " · לא"}
+                            </span>
+                          );
+                        })}
+                      </div>
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <button
@@ -350,8 +451,8 @@ export function UsersManagementPanel({
                   </tr>
                   {expanded ? (
                     <tr className="bg-[#fafbfc] dark:bg-slate-900/30">
-                      <td colSpan={7} className="border-b border-[#e6e9ef] px-4 py-4 dark:border-slate-700">
-                        <div className="grid gap-4 xl:grid-cols-2">
+                      <td colSpan={8} className="border-b border-[#e6e9ef] px-4 py-4 dark:border-slate-700">
+                        <div className="grid gap-4 xl:grid-cols-3">
                           <div>
                             <p className="mb-3 text-sm font-semibold text-[#323338] dark:text-slate-100">עריכת פרופיל</p>
                             <ProfileSettingsPanel
@@ -370,6 +471,73 @@ export function UsersManagementPanel({
                                 }));
                               }}
                             />
+                          </div>
+                          <div>
+                            <p className="mb-3 text-sm font-semibold text-[#323338] dark:text-slate-100">גישה לאפליקציות</p>
+                            <div className="space-y-3">
+                              {APP_DEFS.map((app) => {
+                                const currentRole = moduleRoles[app.id] ?? "user";
+                                const enabled = Boolean(moduleRoles[app.id]);
+                                return (
+                                  <form
+                                    key={app.id}
+                                    action={setModuleRoleAction}
+                                    className="rounded-xl border border-[#e6e9ef] bg-white p-3 dark:border-slate-700 dark:bg-slate-800/60"
+                                  >
+                                    <input type="hidden" name="userId" value={user.id} />
+                                    <input type="hidden" name="moduleId" value={app.id} />
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-sm font-semibold text-[#323338] dark:text-slate-100">
+                                        {app.label}
+                                      </span>
+                                      <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#676879]">
+                                        <input
+                                          type="checkbox"
+                                          name="enabled"
+                                          value="1"
+                                          defaultChecked={enabled}
+                                          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+                                          className="h-4 w-4 rounded border-[#c5c7d0]"
+                                        />
+                                        {enabled ? "כן" : "לא"}
+                                      </label>
+                                    </div>
+                                    <div className="relative mt-2">
+                                      <select
+                                        name="role"
+                                        defaultValue={currentRole}
+                                        disabled={!enabled}
+                                        onChange={(e) => {
+                                          const form = e.currentTarget.form;
+                                          if (!form) return;
+                                          const enabledInput = form.elements.namedItem("enabled") as HTMLInputElement | null;
+                                          if (enabledInput && !enabledInput.checked) {
+                                            enabledInput.checked = true;
+                                          }
+                                          form.requestSubmit();
+                                        }}
+                                        className="w-full cursor-pointer appearance-none rounded-md border border-[#c5c7d0] bg-white py-2 ps-3 pe-8 text-sm font-medium text-[#323338] outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                                      >
+                                        {app.roles.map((role) => (
+                                          <option key={role.value} value={role.value}>
+                                            {role.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <ChevronDown
+                                        size={14}
+                                        className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[#676879]"
+                                      />
+                                    </div>
+                                    {enabled ? (
+                                      <p className="mt-2 text-[11px] leading-snug text-[#676879] dark:text-slate-400">
+                                        {app.roles.find((role) => role.value === currentRole)?.hint}
+                                      </p>
+                                    ) : null}
+                                  </form>
+                                );
+                              })}
+                            </div>
                           </div>
                           <div>
                             <p className="mb-3 text-sm font-semibold text-[#323338] dark:text-slate-100">הרשאות תתי-נושא</p>
@@ -398,7 +566,6 @@ export function UsersManagementPanel({
           לא נמצאו משתמשים לפי הסינון.
         </div>
       ) : null}
-
     </div>
   );
 }

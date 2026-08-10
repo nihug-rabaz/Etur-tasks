@@ -25,7 +25,7 @@ export async function POST(
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  if (!accessService.canApprove(access.role, access.profile.role)) {
+  if (!accessService.canApprove(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await context.params;

@@ -123,37 +123,9 @@ export function DovrutDashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary">דוברות</h1>
-          <p className="mt-1 text-sm text-text-secondary">דשבורד פעילים · יצירה מהירה</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/dovrut/campaigns"
-            className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-text-primary dark:bg-slate-800"
-          >
-            קמפיינים
-          </Link>
-          <Link
-            href="/dovrut/projects"
-            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white"
-          >
-            פרויקטים
-          </Link>
-          <Link
-            href="/dovrut/items"
-            className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-text-primary dark:bg-slate-800"
-          >
-            פריטים
-          </Link>
-          <Link
-            href="/dovrut/approvals"
-            className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold text-text-primary dark:bg-slate-800"
-          >
-            אישורים
-          </Link>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold text-text-primary">דוברות</h1>
+        <p className="mt-1 text-sm text-text-secondary">דשבורד פעילים · יצירה מהירה</p>
       </div>
 
       <section className="grid gap-3 rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922] md:grid-cols-2">

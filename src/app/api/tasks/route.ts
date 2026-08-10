@@ -17,6 +17,10 @@ const taskSchema = z.object({
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
   status: z.enum(["in_progress", "completed"]).default("in_progress"),
+  origin: z.enum(["tasks", "dovrut"]).optional().default("tasks"),
+  dovrutCampaignId: z.string().uuid().nullable().optional(),
+  dovrutProjectId: z.string().uuid().nullable().optional(),
+  dovrutConceptId: z.string().uuid().nullable().optional(),
 });
 
 const taskPatchSchema = z.object({
@@ -67,18 +71,31 @@ export async function POST(request: Request) {
 
   const db = NeonDatabase.createClient();
   const primaryAssignee = payload.assignedToIds[0] ?? null;
+  const origin = payload.origin ?? "tasks";
+  const dovrutCampaignId = origin === "dovrut" ? payload.dovrutCampaignId ?? null : null;
+  const dovrutProjectId = origin === "dovrut" ? payload.dovrutProjectId ?? null : null;
+  const dovrutConceptId = origin === "dovrut" ? payload.dovrutConceptId ?? null : null;
+  const tasksProjectId = origin === "dovrut" ? null : payload.projectId ?? null;
+
   const rows = await db<Array<{ id: string }>>`
-    insert into tasks (title, description, subtopic_id, project_id, assigned_to, created_by, priority, status, due_date)
+    insert into tasks (
+      title, description, subtopic_id, project_id, assigned_to, created_by, priority, status, due_date,
+      origin, dovrut_campaign_id, dovrut_project_id, dovrut_concept_id
+    )
     values (
       ${payload.title},
       ${payload.description ?? null},
       ${subtopicIds[0]},
-      ${payload.projectId ?? null},
+      ${tasksProjectId},
       ${primaryAssignee},
       ${profile.id},
       ${payload.priority},
       ${initialStatus},
-      ${payload.dueDate ?? null}
+      ${payload.dueDate ?? null},
+      ${origin},
+      ${dovrutCampaignId},
+      ${dovrutProjectId},
+      ${dovrutConceptId}
     )
     returning id
   `;
@@ -96,6 +113,16 @@ export async function POST(request: Request) {
         on conflict (task_id, user_id) do nothing
       `;
     }
+  }
+
+  if (dovrutConceptId) {
+    const { DovrutConceptService } = await import("@/modules/dovrut/services/concept.service");
+    await new DovrutConceptService().linkTask(
+      dovrutConceptId,
+      taskId,
+      profile.name,
+      profile.email,
+    );
   }
 
   const subtopicRows = await db<Array<{ name: string }>>`

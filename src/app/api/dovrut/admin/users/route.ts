@@ -6,7 +6,7 @@ import { UserService } from "@/services/user.service";
 
 const putSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["admin", "user", "approver"]),
+  role: z.enum(["admin", "user", "approver", "viewer"]),
 });
 
 export async function GET() {

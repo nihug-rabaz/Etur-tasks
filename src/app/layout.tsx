@@ -89,7 +89,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <FontScaleRoot initialPreset={fontScale.preset} />
-        <IntroSplash />
+        {!profile ? <IntroSplash /> : null}
         {children}
         <PwaInstallPrompt />
         <Toaster richColors theme="light" />

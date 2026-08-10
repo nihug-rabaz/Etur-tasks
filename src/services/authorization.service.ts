@@ -59,7 +59,15 @@ export class AuthorizationService extends BaseService {
   public async ensureAuthenticated(): Promise<Profile> {
     const profile = await this.getCurrentProfile();
     if (!profile) {
-      redirect("/login");
+      const { headers } = await import("next/headers");
+      const pathname = (await headers()).get("x-etur-pathname") ?? "/";
+      const callback =
+        pathname.startsWith("/") &&
+        !pathname.startsWith("/login") &&
+        pathname !== "/"
+          ? `?callbackUrl=${encodeURIComponent(pathname)}`
+          : "";
+      redirect(`/login${callback}`);
     }
     const realProfile = await this.getRealProfile();
     await this.ensureAnyAdminExists(realProfile?.id);
@@ -73,7 +81,15 @@ export class AuthorizationService extends BaseService {
   public async ensureApproved(): Promise<Profile> {
     const profile = await this.ensureAuthenticated();
     if (!profile.is_approved) {
-      redirect("/pending-approval");
+      const { headers } = await import("next/headers");
+      const pathname = (await headers()).get("x-etur-pathname") ?? "/";
+      const callback =
+        pathname.startsWith("/") &&
+        !pathname.startsWith("/pending-approval") &&
+        pathname !== "/"
+          ? `?callbackUrl=${encodeURIComponent(pathname)}`
+          : "";
+      redirect(`/pending-approval${callback}`);
     }
     return profile;
   }
@@ -81,7 +97,15 @@ export class AuthorizationService extends BaseService {
   public async ensureAdmin(): Promise<Profile> {
     const profile = await this.getRealProfile();
     if (!profile) {
-      redirect("/login");
+      const { headers } = await import("next/headers");
+      const pathname = (await headers()).get("x-etur-pathname") ?? "/";
+      const callback =
+        pathname.startsWith("/") &&
+        !pathname.startsWith("/login") &&
+        pathname !== "/"
+          ? `?callbackUrl=${encodeURIComponent(pathname)}`
+          : "";
+      redirect(`/login${callback}`);
     }
     if (!profile.is_approved) {
       redirect("/pending-approval");

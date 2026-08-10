@@ -13,6 +13,7 @@ type TaskListFilters = {
   requiresNoProject?: boolean;
   taskId?: string;
   assigneeUserId?: string;
+  origin?: "tasks" | "dovrut" | null;
   orderBy?: "due_date_asc" | "updated_at_desc" | "updated_at_asc" | "created_at_desc";
   limit?: number;
 };
@@ -35,6 +36,7 @@ export class TaskService extends BaseService {
     const taskId = filters.taskId ?? null;
     const assigneeUserId = filters.assigneeUserId ?? null;
     const exactStatus = filters.exactStatus ?? null;
+    const origin = filters.origin ?? null;
     const limit = filters.limit ?? null;
 
     return db<TaskWithRelations[]>`
@@ -51,15 +53,25 @@ export class TaskService extends BaseService {
         t.due_date,
         t.created_at,
         t.updated_at,
+        t.origin,
+        t.dovrut_campaign_id,
+        t.dovrut_project_id,
+        t.dovrut_concept_id,
         s.name as subtopic_name,
         d.name as domain_name,
         p.name as project_name,
+        dc.name as dovrut_campaign_name,
+        dp.name as dovrut_project_name,
+        dcon.name as dovrut_concept_name,
         coalesce(agg.assignee_name, '') as assignee_name,
         coalesce(agg.assignee_ids, array[]::uuid[]) as assignee_ids
       from tasks t
       join subtopics s on s.id = t.subtopic_id
       join domains d on d.id = s.domain_id
       left join projects p on p.id = t.project_id
+      left join dovrut_campaigns dc on dc.id = t.dovrut_campaign_id
+      left join dovrut_projects dp on dp.id = t.dovrut_project_id
+      left join dovrut_concepts dcon on dcon.id = t.dovrut_concept_id
       left join (
         select
           ta.task_id,
@@ -82,6 +94,7 @@ export class TaskService extends BaseService {
         and (${projectId}::uuid is null or t.project_id = ${projectId}::uuid)
         and (not ${requiresNoProject}::boolean or t.project_id is null)
         and (${taskId}::uuid is null or t.id = ${taskId}::uuid)
+        and (${origin}::text is null or t.origin = ${origin})
         and (
           ${subtopicId}::uuid is null
           or t.subtopic_id = ${subtopicId}::uuid
@@ -179,6 +192,26 @@ export class TaskService extends BaseService {
       dueFrom: rangeStart,
       dueTo: rangeEnd,
       orderBy: "due_date_asc",
+    });
+  }
+
+  public async getDovrutTasks(
+    access: TaskAccessContext,
+    filters?: {
+      status?: string;
+      subtopicId?: string;
+      assigneeUserId?: string;
+      limit?: number;
+    },
+  ): Promise<TaskWithRelations[]> {
+    return this.queryTaskDetails(access, {
+      statusMode: "any",
+      exactStatus: filters?.status ?? null,
+      subtopicId: filters?.subtopicId,
+      assigneeUserId: filters?.assigneeUserId,
+      origin: "dovrut",
+      orderBy: "created_at_desc",
+      limit: filters?.limit,
     });
   }
 

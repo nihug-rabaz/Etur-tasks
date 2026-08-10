@@ -6,36 +6,42 @@ export const dovrutModule: AppModuleDefinition = {
   description: "קמפיינים, פרויקטים, פריטים וציר אישורים",
   href: "/dovrut",
   navItems: [
-    { label: "ראשי", href: "/dovrut", description: "סקירת דוברות", roles: ["admin", "user"] },
+    { label: "ראשי", href: "/dovrut", description: "סקירת דוברות", roles: ["admin", "user", "viewer"] },
     {
       label: "קמפיינים",
       href: "/dovrut/campaigns",
       description: "קמפיינים תקשורתיים",
-      roles: ["admin", "user"],
+      roles: ["admin", "user", "viewer"],
     },
     {
       label: "פרויקטים",
       href: "/dovrut/projects",
       description: "פרויקטים תחת קמפיינים",
-      roles: ["admin", "user"],
+      roles: ["admin", "user", "viewer"],
     },
     {
       label: "פריטים",
       href: "/dovrut/items",
       description: "כתבות ורשתות",
-      roles: ["admin", "user"],
+      roles: ["admin", "user", "viewer"],
+    },
+    {
+      label: "משימות כלליות",
+      href: "/dovrut/tasks",
+      description: "משימות שנוצרו בדוברות",
+      roles: ["admin", "user", "viewer"],
     },
     {
       label: "קהלי יעד",
       href: "/dovrut/audiences",
       description: "מסרים לקהל יעד ולתחום",
-      roles: ["admin", "user"],
+      roles: ["admin", "user", "viewer"],
     },
     {
       label: "חיפוש חדשות",
       href: "/dovrut/news",
       description: "חיפוש בגוגל חדשות",
-      roles: ["admin", "user"],
+      roles: ["admin", "user", "viewer"],
     },
     {
       label: "אישור פריטים",
@@ -64,9 +70,9 @@ export const dovrutModule: AppModuleDefinition = {
   ],
   adminNavItems: [
     {
-      label: "משתמשי מודול",
+      label: "משתמשים",
       href: "/dovrut/admin/users",
-      description: "תפקידים במודול דוברות (מנהל / חפ״ש / מאשר)",
+      description: "ניהול משתמשים, אפליקציות והרשאות",
     },
     {
       label: "ניהול מאשרים",
@@ -80,6 +86,7 @@ export const dovrutModule: AppModuleDefinition = {
     projects: "פרויקטים",
     concepts: "פריטים",
     items: "פריטים",
+    tasks: "משימות כלליות",
     audiences: "קהלי יעד",
     news: "חדשות",
     approvals: "אישורים",

@@ -1,5 +1,5 @@
-import { DovrutAdminUsersPage } from "@/modules/dovrut/pages/admin-pages";
+import { UsersAdminScreen } from "@/components/admin/users-admin-screen";
 
-export default function Page() {
-  return <DovrutAdminUsersPage />;
+export default async function DovrutAdminUsersPage() {
+  return <UsersAdminScreen />;
 }

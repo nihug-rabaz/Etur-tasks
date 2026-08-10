@@ -20,6 +20,7 @@ const ROLE_LABELS: Record<ModuleRole, string> = {
   admin: "מנהל",
   user: "חפ״ש",
   approver: "מאשר",
+  viewer: "צופה",
 };
 
 function looksLatinHeavy(name: string): boolean {
@@ -92,6 +93,7 @@ export function DovrutAdminUsersPage() {
           >
             <option value="admin">מנהל</option>
             <option value="user">חפ״ש</option>
+            <option value="viewer">צופה</option>
             <option value="approver">מאשר</option>
           </select>
         </div>

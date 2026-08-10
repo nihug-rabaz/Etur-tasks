@@ -21,12 +21,32 @@ export class DovrutNewsService {
     nextStartIndex: number;
     currentStart: number;
   }> {
-    const apiKey = process.env.GOOGLE_CUSTOM_SEARCH_API;
-    const engineId = process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID;
-    if (!apiKey || !engineId) {
-      throw new Error("Google Custom Search is not configured");
-    }
+    const apiKey =
+      process.env.GOOGLE_CUSTOM_SEARCH_API?.trim() ||
+      process.env.GOOGLE_CSE_API_KEY?.trim() ||
+      "";
+    const engineId =
+      process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID?.trim() ||
+      process.env.GOOGLE_CSE_CX?.trim() ||
+      "";
 
+    if (apiKey && engineId) {
+      return this.searchWithCustomSearch(input, apiKey, engineId);
+    }
+    return this.searchWithGoogleNewsRss(input);
+  }
+
+  private async searchWithCustomSearch(
+    input: {
+      q: string;
+      dateFilter?: string;
+      startDate?: string;
+      endDate?: string;
+      start?: number;
+    },
+    apiKey: string,
+    engineId: string,
+  ) {
     const start = Math.max(1, Math.min(91, input.start ?? 1));
     const params = new URLSearchParams({
       key: apiKey,
@@ -51,7 +71,7 @@ export class DovrutNewsService {
 
     const response = await fetch(`https://www.googleapis.com/customsearch/v1?${params.toString()}`);
     if (!response.ok) {
-      throw new Error("News search failed");
+      throw new Error("חיפוש החדשות נכשל (Google CSE)");
     }
     const data = (await response.json()) as {
       items?: {
@@ -90,5 +110,92 @@ export class DovrutNewsService {
       nextStartIndex,
       currentStart: start,
     };
+  }
+
+  private async searchWithGoogleNewsRss(input: {
+    q: string;
+    start?: number;
+  }) {
+    const start = Math.max(1, input.start ?? 1);
+    const pageSize = 10;
+    const page = Math.floor((start - 1) / pageSize);
+    const url = `https://news.google.com/rss/search?q=${encodeURIComponent(input.q)}&hl=he&gl=IL&ceid=IL:he`;
+    const response = await fetch(url, {
+      headers: { "User-Agent": "etur-tasks-news/1.0" },
+    });
+    if (!response.ok) {
+      throw new Error("חיפוש החדשות נכשל");
+    }
+    const xml = await response.text();
+    const items = this.parseRssItems(xml);
+    const slice = items.slice(page * pageSize, page * pageSize + pageSize);
+    const articles = slice.map((item, index) => ({
+      id: `${start}-${index}`,
+      title: item.title,
+      description: item.description,
+      url: item.link,
+      publishedAt: item.publishedAt,
+      source: item.source,
+      imageUrl: null as string | null,
+    }));
+
+    return {
+      articles,
+      totalResults: String(items.length),
+      query: input.q,
+      hasNextPage: (page + 1) * pageSize < items.length,
+      nextStartIndex: start + pageSize,
+      currentStart: start,
+    };
+  }
+
+  private parseRssItems(xml: string): Array<{
+    title: string;
+    description: string;
+    link: string;
+    publishedAt: string | null;
+    source: string;
+  }> {
+    const items: Array<{
+      title: string;
+      description: string;
+      link: string;
+      publishedAt: string | null;
+      source: string;
+    }> = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+      const title = this.readRssTag(block, "title");
+      const link = this.readRssTag(block, "link");
+      const description = this.stripHtml(this.readRssTag(block, "description"));
+      const publishedAt = this.readRssTag(block, "pubDate") || null;
+      const source = this.readRssTag(block, "source") || this.hostFromUrl(link);
+      if (!title || !link) continue;
+      items.push({ title, description, link, publishedAt, source });
+    }
+    return items;
+  }
+
+  private readRssTag(block: string, tag: string): string {
+    const cdata = new RegExp(`<${tag}[^>]*><!\\[CDATA\\[([\\s\\S]*?)\\]\\]><\\/${tag}>`, "i");
+    const plain = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i");
+    const cdataMatch = block.match(cdata);
+    if (cdataMatch?.[1]) return cdataMatch[1].trim();
+    const plainMatch = block.match(plain);
+    return plainMatch?.[1]?.replace(/<[^>]+>/g, "").trim() ?? "";
+  }
+
+  private stripHtml(value: string): string {
+    return value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  private hostFromUrl(url: string): string {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
   }
 }

@@ -1,4 +1,4 @@
-export type ModuleRole = "admin" | "user" | "approver";
+export type ModuleRole = "admin" | "user" | "approver" | "viewer";
 
 export interface ModuleNavItem {
   label: string;
@@ -44,7 +44,6 @@ export function canAccessModule(
   moduleId: string,
   access: ModuleAccessContext,
 ): boolean {
-  if (access.isPlatformAdmin) return true;
   return Boolean(access.moduleRoles[moduleId]);
 }
 
@@ -54,22 +53,27 @@ export function getModuleNavItems(
   options?: { isImpersonating?: boolean },
 ): ModuleNavItem[] {
   const role = access.moduleRoles[moduleDef.id];
-  const isAdmin =
-    access.isPlatformAdmin || role === "admin";
-  const showAdmin =
-    isAdmin && !options?.isImpersonating;
+  if (!role) return [];
 
-  if (role === "approver" && !access.isPlatformAdmin) {
+  const showAdmin = role === "admin" && !options?.isImpersonating;
+
+  if (role === "approver") {
     return moduleDef.navItems.filter(
       (item) => !item.adminOnly && (item.roles?.includes("approver") ?? false),
     );
   }
 
+  if (role === "viewer") {
+    return moduleDef.navItems.filter((item) => {
+      if (item.adminOnly) return false;
+      if (!item.roles) return true;
+      return item.roles.includes("viewer") || item.roles.includes("user");
+    });
+  }
+
   const base = moduleDef.navItems.filter((item) => {
     if (item.adminOnly && !showAdmin) return false;
     if (!item.roles) return true;
-    if (access.isPlatformAdmin) return true;
-    if (!role) return false;
     return item.roles.includes(role);
   });
 

@@ -90,7 +90,7 @@ export async function PUT(
   }
   if (
     parsed.data.approval_status &&
-    !accessService.canForceApproval(access.role, access.profile.role)
+    !accessService.canForceApproval(access.role)
   ) {
     return NextResponse.json({ error: "Only admin can set approval status" }, { status: 403 });
   }
@@ -118,7 +118,7 @@ export async function DELETE(
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  if (!accessService.canDelete(access.role, access.profile.role)) {
+  if (!accessService.canDelete(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await context.params;

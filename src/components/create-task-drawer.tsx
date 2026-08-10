@@ -23,6 +23,9 @@ interface OptionItem {
   name: string;
 }
 
+type DovrutProjectOption = OptionItem & { campaign_id: string | null };
+type DovrutConceptOption = OptionItem & { project_id: string };
+
 interface CreateTaskDrawerProps {
   triggerLabel?: string;
   defaultSubtopicId?: string;
@@ -31,6 +34,7 @@ interface CreateTaskDrawerProps {
   floating?: boolean;
   iconOnly?: boolean;
   accentHex?: string;
+  variant?: "tasks" | "dovrut";
 }
 
 const fieldClass =
@@ -73,12 +77,17 @@ export function CreateTaskDrawer({
   floating = false,
   iconOnly = false,
   accentHex,
+  variant = "tasks",
 }: CreateTaskDrawerProps) {
   const router = useRouter();
   const { canClose } = useCloseRequests();
+  const isDovrut = variant === "dovrut";
   const [open, setOpen] = useState(false);
   const [subtopics, setSubtopics] = useState<OptionItem[]>([]);
   const [projects, setProjects] = useState<Array<OptionItem & { subtopic_id: string; subtopic_ids?: string[] }>>([]);
+  const [dovrutCampaigns, setDovrutCampaigns] = useState<OptionItem[]>([]);
+  const [dovrutProjects, setDovrutProjects] = useState<DovrutProjectOption[]>([]);
+  const [dovrutConcepts, setDovrutConcepts] = useState<DovrutConceptOption[]>([]);
   const [users, setUsers] = useState<AssigneeOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
@@ -87,6 +96,9 @@ export function CreateTaskDrawer({
   const [title, setTitle] = useState("");
   const [subtopicIds, setSubtopicIds] = useState<string[]>(defaultSubtopicId ? [defaultSubtopicId] : []);
   const [projectId, setProjectId] = useState(defaultProjectId ?? "");
+  const [dovrutCampaignId, setDovrutCampaignId] = useState("");
+  const [dovrutProjectId, setDovrutProjectId] = useState("");
+  const [dovrutConceptId, setDovrutConceptId] = useState("");
   const [assignedToIds, setAssignedToIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
@@ -142,12 +154,47 @@ export function CreateTaskDrawer({
           }
           return nextSubtopics[0] ? [nextSubtopics[0].id] : [];
         });
+
+        if (isDovrut) {
+          const [campaignsRes, projectsRes, conceptsRes] = await Promise.all([
+            fetch("/api/dovrut/campaigns"),
+            fetch("/api/dovrut/projects"),
+            fetch("/api/dovrut/concepts"),
+          ]);
+          const campaignsData = campaignsRes.ok ? await campaignsRes.json() : { campaigns: [] };
+          const projectsData = projectsRes.ok ? await projectsRes.json() : { projects: [] };
+          const conceptsData = conceptsRes.ok ? await conceptsRes.json() : { concepts: [] };
+          setDovrutCampaigns(
+            (campaignsData.campaigns ?? []).map((item: { id: string; name: string }) => ({
+              id: item.id,
+              name: item.name,
+            })),
+          );
+          setDovrutProjects(
+            (projectsData.projects ?? []).map(
+              (item: { id: string; name: string; campaign_id?: string | null }) => ({
+                id: item.id,
+                name: item.name,
+                campaign_id: item.campaign_id ?? null,
+              }),
+            ),
+          );
+          setDovrutConcepts(
+            (conceptsData.concepts ?? conceptsData.items ?? []).map(
+              (item: { id: string; name: string; project_id: string }) => ({
+                id: item.id,
+                name: item.name,
+                project_id: item.project_id,
+              }),
+            ),
+          );
+        }
       } finally {
         setOptionsLoading(false);
       }
     };
-    loadOptions();
-  }, [open, defaultSubtopicId]);
+    void loadOptions();
+  }, [open, defaultSubtopicId, isDovrut]);
 
   const filteredProjects = useMemo(
     () =>
@@ -157,6 +204,16 @@ export function CreateTaskDrawer({
       }),
     [projects, subtopicIds],
   );
+
+  const filteredDovrutProjects = useMemo(() => {
+    if (!dovrutCampaignId) return dovrutProjects;
+    return dovrutProjects.filter((item) => item.campaign_id === dovrutCampaignId);
+  }, [dovrutProjects, dovrutCampaignId]);
+
+  const filteredDovrutConcepts = useMemo(() => {
+    if (!dovrutProjectId) return [];
+    return dovrutConcepts.filter((item) => item.project_id === dovrutProjectId);
+  }, [dovrutConcepts, dovrutProjectId]);
 
   const handleSubtopicIdsChange = (nextIds: string[]) => {
     setSubtopicIds(nextIds);
@@ -172,6 +229,34 @@ export function CreateTaskDrawer({
     if (!intersectsSubtopicIds(linkedIds, nextIds)) {
       setProjectId("");
     }
+  };
+
+  const handleDovrutCampaignChange = (nextId: string) => {
+    setDovrutCampaignId(nextId);
+    if (!nextId) return;
+    const project = dovrutProjects.find((item) => item.id === dovrutProjectId);
+    if (project && project.campaign_id && project.campaign_id !== nextId) {
+      setDovrutProjectId("");
+      setDovrutConceptId("");
+    }
+  };
+
+  const handleDovrutProjectChange = (nextId: string) => {
+    setDovrutProjectId(nextId);
+    setDovrutConceptId("");
+    if (!nextId) return;
+    const project = dovrutProjects.find((item) => item.id === nextId);
+    if (project?.campaign_id) setDovrutCampaignId(project.campaign_id);
+  };
+
+  const handleDovrutConceptChange = (nextId: string) => {
+    setDovrutConceptId(nextId);
+    if (!nextId) return;
+    const concept = dovrutConcepts.find((item) => item.id === nextId);
+    if (!concept) return;
+    setDovrutProjectId(concept.project_id);
+    const project = dovrutProjects.find((item) => item.id === concept.project_id);
+    if (project?.campaign_id) setDovrutCampaignId(project.campaign_id);
   };
 
   const handleSubmit = async () => {
@@ -191,12 +276,16 @@ export function CreateTaskDrawer({
       body: JSON.stringify({
         title,
         subtopicIds,
-        projectId: projectId || null,
+        projectId: isDovrut ? null : projectId || null,
         assignedToIds,
         dueDate: dueDate || null,
         description: description || null,
         priority,
         status,
+        origin: isDovrut ? "dovrut" : "tasks",
+        dovrutCampaignId: isDovrut ? dovrutCampaignId || null : null,
+        dovrutProjectId: isDovrut ? dovrutProjectId || null : null,
+        dovrutConceptId: isDovrut ? dovrutConceptId || null : null,
       }),
     });
     setLoading(false);
@@ -204,17 +293,20 @@ export function CreateTaskDrawer({
       setError("לא הצלחנו ליצור משימה, נסה שוב");
       return;
     }
-    toast.success("המשימה נוצרה בהצלחה 👍");
+    toast.success("המשימה נוצרה בהצלחה");
     setOpen(false);
     setTitle("");
     setDescription("");
+    setDovrutCampaignId("");
+    setDovrutProjectId("");
+    setDovrutConceptId("");
     router.refresh();
   };
 
   const openDrawer = (event?: MouseEvent) => {
     event?.stopPropagation();
     if (defaultSubtopicId) setSubtopicIds([defaultSubtopicId]);
-    if (defaultProjectId) setProjectId(defaultProjectId);
+    if (defaultProjectId && !isDovrut) setProjectId(defaultProjectId);
     setAssignedToIds([]);
     setOpen(true);
   };
@@ -228,10 +320,16 @@ export function CreateTaskDrawer({
           <Rocket size={22} strokeWidth={2} />
         </span>
         <div className="min-w-0 space-y-1.5">
-          <p className="text-xs font-semibold text-accent-primary">יצירה מהירה</p>
-          <h2 className="text-xl font-bold leading-tight text-text-primary sm:text-2xl">משימה חדשה במערכת</h2>
+          <p className="text-xs font-semibold text-accent-primary">
+            {isDovrut ? "משימת דוברות" : "יצירה מהירה"}
+          </p>
+          <h2 className="text-xl font-bold leading-tight text-text-primary sm:text-2xl">
+            {isDovrut ? "משימה חדשה בדוברות" : "משימה חדשה במערכת"}
+          </h2>
           <p className="text-sm leading-relaxed text-text-secondary">
-            הגדירו כותרת, שיוך ופרויקט — והמשימה תופיע בלוח מיד.
+            {isDovrut
+              ? "שיוך אופציונלי לקמפיין / פרויקט / פריט — או משימה כללית עצמאית. תתי-נושא מחברים גם למערכת המשימות."
+              : "הגדירו כותרת, שיוך ופרויקט — והמשימה תופיע בלוח מיד."}
           </p>
         </div>
       </div>
@@ -261,7 +359,7 @@ export function CreateTaskDrawer({
           }
           className={
             floating
-              ? `fixed bottom-6 right-6 z-30 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${accentHex ? "" : "bg-accent-orange"}`
+              ? `fixed bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${accentHex ? "" : "bg-accent-orange"}`
               : compact
                 ? `inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] sm:px-5 ${accentHex ? "" : "bg-accent-orange"}`
                 : `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] ${accentHex ? "" : "bg-accent-orange"}`
@@ -274,67 +372,120 @@ export function CreateTaskDrawer({
 
       <Drawer open={open} onClose={() => setOpen(false)} customHeader={drawerHeader}>
         <div className="space-y-5">
-          <FieldBlock
-            icon={<Layers size={14} className="text-accent-primary" />}
-            label="שם המשימה"
-          >
+          <FieldBlock icon={<Layers size={14} className="text-accent-primary" />} label="שם המשימה">
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && handleSubmit()}
+              onKeyDown={(event) => event.key === "Enter" && void handleSubmit()}
               placeholder="למשל: סיכום פגישה, אישור חומרים, מעקב אחר ספק…"
               className={`${fieldClass} text-base font-medium`}
             />
           </FieldBlock>
 
           <div className={cardClass}>
-            <p className="mb-3 text-sm font-semibold text-text-secondary">איפה זה יושב</p>
+            <p className="mb-3 text-sm font-semibold text-text-secondary">
+              {isDovrut ? "שיוך בדוברות (אופציונלי)" : "איפה זה יושב"}
+            </p>
             {optionsLoading ? (
-              <p className="mb-3 text-sm text-text-secondary">טוען תת-נושאים ופרויקטים…</p>
+              <p className="mb-3 text-sm text-text-secondary">טוען אפשרויות…</p>
             ) : null}
             {optionsError ? (
               <div className="mb-3 rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
                 {optionsError}
               </div>
             ) : null}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <FieldBlock
-                icon={<FolderKanban size={14} className="text-accent-cyan" />}
-                label="תתי-נושא"
-              >
-                <SubtopicMultiSelect
-                  options={subtopics}
-                  value={subtopicIds}
-                  onChange={handleSubtopicIdsChange}
-                  disabled={optionsLoading || subtopics.length === 0}
-                />
-              </FieldBlock>
-              <FieldBlock
-                icon={<FolderKanban size={14} className="text-accent-secondary" />}
-                label="פרויקט"
-              >
-                <select
-                  value={projectId}
-                  onChange={(event) => setProjectId(event.target.value)}
-                  disabled={optionsLoading || subtopicIds.length === 0}
-                  className={fieldClass}
-                >
-                  <option value="">ללא פרויקט</option>
-                  {filteredProjects.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </FieldBlock>
-            </div>
+
+            {isDovrut ? (
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,16rem)] lg:items-start">
+                <div className="grid gap-3">
+                  <FieldBlock icon={<FolderKanban size={14} className="text-accent-cyan" />} label="קמפיין">
+                    <select
+                      value={dovrutCampaignId}
+                      onChange={(event) => handleDovrutCampaignChange(event.target.value)}
+                      disabled={optionsLoading}
+                      className={fieldClass}
+                    >
+                      <option value="">ללא קמפיין</option>
+                      {dovrutCampaigns.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FieldBlock>
+                  <FieldBlock icon={<FolderKanban size={14} className="text-accent-secondary" />} label="פרויקט">
+                    <select
+                      value={dovrutProjectId}
+                      onChange={(event) => handleDovrutProjectChange(event.target.value)}
+                      disabled={optionsLoading}
+                      className={fieldClass}
+                    >
+                      <option value="">ללא פרויקט</option>
+                      {filteredDovrutProjects.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FieldBlock>
+                  <FieldBlock icon={<FolderKanban size={14} className="text-violet-500" />} label="פריט">
+                    <select
+                      value={dovrutConceptId}
+                      onChange={(event) => handleDovrutConceptChange(event.target.value)}
+                      disabled={optionsLoading || !dovrutProjectId}
+                      className={fieldClass}
+                    >
+                      <option value="">
+                        {dovrutProjectId ? "ללא פריט" : "בחרו פרויקט"}
+                      </option>
+                      {filteredDovrutConcepts.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FieldBlock>
+                </div>
+                <FieldBlock icon={<FolderKanban size={14} className="text-accent-cyan" />} label="תתי-נושא">
+                  <SubtopicMultiSelect
+                    options={subtopics}
+                    value={subtopicIds}
+                    onChange={handleSubtopicIdsChange}
+                    disabled={optionsLoading || subtopics.length === 0}
+                  />
+                </FieldBlock>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FieldBlock icon={<FolderKanban size={14} className="text-accent-cyan" />} label="תתי-נושא">
+                  <SubtopicMultiSelect
+                    options={subtopics}
+                    value={subtopicIds}
+                    onChange={handleSubtopicIdsChange}
+                    disabled={optionsLoading || subtopics.length === 0}
+                  />
+                </FieldBlock>
+                <FieldBlock icon={<FolderKanban size={14} className="text-accent-secondary" />} label="פרויקט">
+                  <select
+                    value={projectId}
+                    onChange={(event) => setProjectId(event.target.value)}
+                    disabled={optionsLoading || subtopicIds.length === 0}
+                    className={fieldClass}
+                  >
+                    <option value="">ללא פרויקט</option>
+                    {filteredProjects.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                </FieldBlock>
+              </div>
+            )}
           </div>
 
           <div className={`${cardClass} space-y-4`}>
-            <FieldBlock
-              icon={<Sparkles size={14} className="text-accent-secondary" />}
-              label="תיאור"
-            >
+            <FieldBlock icon={<Sparkles size={14} className="text-accent-secondary" />} label="תיאור">
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
@@ -373,7 +524,9 @@ export function CreateTaskDrawer({
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 סטטוס
               </p>
-              <div className={`grid gap-2 rounded-2xl border border-border-weak bg-surface-2/40 p-1.5 ${canClose ? "grid-cols-2" : "grid-cols-1"}`}>
+              <div
+                className={`grid gap-2 rounded-2xl border border-border-weak bg-surface-2/40 p-1.5 ${canClose ? "grid-cols-2" : "grid-cols-1"}`}
+              >
                 {STATUS_SEGMENTS.filter((item) => canClose || item.value !== "completed").map((item) => {
                   const active = status === item.value;
                   return (
@@ -398,16 +551,15 @@ export function CreateTaskDrawer({
           <div className={cardClass}>
             <p className="mb-3 text-sm font-semibold text-text-secondary">אנשים וזמן</p>
             <div className="space-y-4">
-              <FieldBlock
-                icon={<UserRound size={14} className="text-accent-primary" />}
-                label="שיוך למשתמשים"
-              >
-                <AssigneeMultiSelect value={assignedToIds} onChange={setAssignedToIds} users={users} menuMinWidth={360} />
+              <FieldBlock icon={<UserRound size={14} className="text-accent-primary" />} label="שיוך למשתמשים">
+                <AssigneeMultiSelect
+                  value={assignedToIds}
+                  onChange={setAssignedToIds}
+                  users={users}
+                  menuMinWidth={360}
+                />
               </FieldBlock>
-              <FieldBlock
-                icon={<CalendarClock size={14} className="text-accent-cyan" />}
-                label="תאריך יעד"
-              >
+              <FieldBlock icon={<CalendarClock size={14} className="text-accent-cyan" />} label="תאריך יעד">
                 <input
                   type="datetime-local"
                   value={dueDate}
@@ -436,7 +588,7 @@ export function CreateTaskDrawer({
               <button
                 type="button"
                 disabled={loading}
-                onClick={handleSubmit}
+                onClick={() => void handleSubmit()}
                 className="rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-6 py-3 text-sm font-bold text-white shadow-[0_10px_32px_rgba(79,70,229,0.35)] transition hover:shadow-[0_12px_36px_rgba(79,70,229,0.45)] disabled:opacity-55"
               >
                 {loading ? "יוצרים משימה…" : "יצירת משימה"}

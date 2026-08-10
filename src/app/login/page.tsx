@@ -114,7 +114,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
         ) : null}
         <div className="mt-6">
-          <GoogleSignInForm />
+          <GoogleSignInForm callbackUrl={pickParam(q, "callbackUrl") ?? "/"} />
         </div>
         <DevelopedByCredit className="mt-8 border-t border-border-weak/60 pt-5" />
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ImpersonationBanner, type ImpersonationViewState } from "@/components/admin/impersonation-banner";
 import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
@@ -11,7 +11,6 @@ import { AdminMessageComposer } from "@/components/notifications/admin-message-c
 import { CloseRequestsProvider } from "@/components/tasks/close-requests-context";
 import { AdminCloseRequestsInbox } from "@/components/tasks/admin-close-requests-inbox";
 import {
-  canAccessModule,
   getNavForPathname,
   listAccessibleModules,
   resolveActiveModuleId,
@@ -21,6 +20,7 @@ import {
 import { DevelopedByCredit } from "@/components/developed-by-credit";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TasksLiveSyncProvider } from "@/components/tasks/tasks-live-sync";
+import { writeLastModuleId } from "@/shared/modules/last-module";
 
 function getBreadcrumbHref(segments: string[], index: number): string | null {
   const href = `/${segments.slice(0, index + 1).join("/")}`;
@@ -46,6 +46,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/dovrut/approval/chief-rabbi",
     "/dovrut/admin/users",
     "/dovrut/admin/approvers",
+    "/dovrut/tasks",
   ]);
   if (exactRoutes.has(href)) return href;
 
@@ -67,10 +68,12 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const segments = pathname.split("/").filter(Boolean);
   const [session, setSession] = useState<SessionSnapshot | null>(null);
   const [profile, setProfile] = useState<ProfileSnapshot | null>(null);
   const [moduleRoles, setModuleRoles] = useState<Record<string, ModuleRole>>({});
+  const [moduleRolesLoaded, setModuleRolesLoaded] = useState(false);
   const [impersonation, setImpersonation] = useState<ImpersonationViewState>({
     active: false,
     actor: null,
@@ -92,9 +95,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const loadModuleRoles = useCallback(async () => {
     const response = await fetch("/api/modules/roles");
-    if (!response.ok) return;
+    if (!response.ok) {
+      setModuleRolesLoaded(true);
+      return;
+    }
     const data = (await response.json()) as { roles?: Record<string, ModuleRole> };
     setModuleRoles(data.roles ?? {});
+    setModuleRolesLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -154,11 +161,36 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isDashboard = pathname === "/dashboard" || pathname === "/dovrut";
   const isHome = pathname === "/";
   const showTasksChrome = activeModuleId === "tasks";
-  const canCreateTasks = canAccessModule("tasks", access) && !isImpersonating;
+  const hideCreateFab =
+    isHome ||
+    pathname === "/admin/users" ||
+    pathname === "/dovrut/admin/users";
+  const canEditDovrut =
+    moduleRoles.dovrut === "admin" || moduleRoles.dovrut === "user";
+  const canCreateTasksModule =
+    Boolean(moduleRoles.tasks) || (Boolean(session?.user) && !moduleRolesLoaded);
+  const showCreateFab =
+    !hideCreateFab &&
+    !isImpersonating &&
+    ((activeModuleId === "tasks" && canCreateTasksModule) ||
+      (activeModuleId === "dovrut" && canEditDovrut));
+
+  useEffect(() => {
+    if (activeModuleId) writeLastModuleId(activeModuleId);
+  }, [activeModuleId]);
+
+  useEffect(() => {
+    if (!moduleRolesLoaded || isHome) return;
+    if (activeModuleId === "tasks" && !moduleRoles.tasks) {
+      router.replace("/");
+    }
+  }, [moduleRolesLoaded, isHome, activeModuleId, moduleRoles.tasks, router]);
 
   return (
     <CloseRequestsProvider enabled={showTasksChrome}>
-      <TasksLiveSyncProvider enabled={showTasksChrome || pathname === "/dashboard"}>
+      <TasksLiveSyncProvider
+        enabled={showTasksChrome || pathname === "/dashboard" || pathname.startsWith("/dovrut/tasks")}
+      >
       <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
         <ImpersonationBanner state={impersonation} onStopped={loadProfile} />
         <SideMenu items={menuItems} userLabel={userLabel} userAvatarUrl={userAvatarUrl} state={sideMenu} />
@@ -178,6 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       key={module.id}
                       href={href}
                       prefetch={false}
+                      onClick={() => writeLastModuleId(module.id)}
                       className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
                         active
                           ? "bg-accent-primary text-white"
@@ -248,8 +281,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>
         </div>
-        {canCreateTasks ? (
-          <CreateTaskDrawer floating triggerLabel="משימה חדשה" />
+        {showCreateFab ? (
+          <CreateTaskDrawer
+            floating
+            variant={activeModuleId === "dovrut" ? "dovrut" : "tasks"}
+            triggerLabel="משימה חדשה"
+          />
         ) : null}
         <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
           <DevelopedByCredit compact />
