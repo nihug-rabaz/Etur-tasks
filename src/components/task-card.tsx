@@ -57,12 +57,17 @@ export function TaskCard({ task, enablePlanDrag = false }: TaskCardProps) {
             {domain.label}
           </span>
         </div>
-        <TaskStatusControls
-          taskId={task.id}
-          status={task.status}
-          size="sm"
-          domainSlug={domainKey ?? undefined}
-        />
+        <div
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <TaskStatusControls
+            taskId={task.id}
+            status={task.status}
+            size="sm"
+            domainSlug={domainKey ?? undefined}
+          />
+        </div>
       </div>
 
       <div className={`px-4 py-4 ps-5 ${domain.body}`}>

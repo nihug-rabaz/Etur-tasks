@@ -11,7 +11,11 @@ export function GoogleSignInForm() {
     setLoading(true);
     setError(false);
     try {
-      await signIn("google", { callbackUrl: "/dashboard" });
+      await signIn(
+        "google",
+        { callbackUrl: "/" },
+        { prompt: "select_account", access_type: "online" },
+      );
     } catch {
       setError(true);
       setLoading(false);

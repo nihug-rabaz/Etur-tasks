@@ -295,14 +295,20 @@ export function UpcomingTasksCalendar({
                   <Stack
                     key={selectedDay ?? "none"}
                     cards={[...selectedTasks].reverse().map((task) => (
-                      <button
+                      <div
                         key={task.id}
-                        type="button"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => onTaskClick({ id: task.id, title: task.title })}
-                        className="block h-full w-full text-start [&>article]:flex [&>article]:h-full [&>article]:flex-col [&>article>div:nth-of-type(2)]:flex-1"
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          onTaskClick({ id: task.id, title: task.title });
+                        }}
+                        className="block h-full w-full cursor-pointer text-start [&>article]:flex [&>article]:h-full [&>article]:flex-col [&>article>div:nth-of-type(2)]:flex-1"
                       >
                         <TaskCard task={task} />
-                      </button>
+                      </div>
                     ))}
                     randomRotation
                     sensitivity={110}

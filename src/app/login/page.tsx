@@ -71,7 +71,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           ברוך הבא
         </h1>
         <p className="mt-2 text-sm text-text-secondary">
-          התחבר כדי לנהל את משימות הצוות.
+          התחבר כדי לנהל את משימות הצוות. אפשר לבחור איזה חשבון Google להשתמש.
         </p>
         {authError && !spuriousGoogleError ? (
           <div
@@ -85,7 +85,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </p>
             ) : null}
             <p className="text-xs text-rose-800/95">
-              Redirect URIs (Google Cloud → Web client): העתק לפי ה-host שבכתובת הדפדפן עכשיו.
+              Redirect URIs (Google Cloud → Web client) — הוסיפו את כל הכתובות הרלוונטיות:
             </p>
             <code className="block break-all rounded-lg bg-white/90 px-2 py-1.5 text-xs text-stone-900">
               {callbackPrimary}
@@ -95,9 +95,21 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 {callbackAlt}
               </code>
             ) : null}
+            <code className="block break-all rounded-lg bg-white/90 px-2 py-1.5 text-xs text-stone-900">
+              https://etur-tasks.vercel.app/api/auth/callback/google
+            </code>
+            <code className="block break-all rounded-lg bg-white/90 px-2 py-1.5 text-xs text-stone-900">
+              https://etur.rabaz-idf.com/api/auth/callback/google
+            </code>
+            <code className="block break-all rounded-lg bg-white/90 px-2 py-1.5 text-xs text-stone-900">
+              https://etur.rabaz.co.il/api/auth/callback/google
+            </code>
+            <code className="block break-all rounded-lg bg-white/90 px-2 py-1.5 text-xs text-stone-900">
+              http://localhost:3000/api/auth/callback/google
+            </code>
             <p className="text-xs text-rose-800/90">
-              <code>NEXTAUTH_URL</code> חייב להתאים לכתובת הגלישה (ללא <code>/</code> בסוף). אם נכנסת דרך
-              כתובת רשת (למשל 192.168.x.x), אותה כתובת גם ב-Google וגם ב-env.
+              גם ב־Authorized JavaScript origins הוסיפו את אותם דומיינים (בלי הנתיב). ב־Vercel ודאו ש־
+              <code>NEXTAUTH_URL</code> תואם לכתובת שבה נכנסים (למשל https://etur-tasks.vercel.app).
             </p>
           </div>
         ) : null}
