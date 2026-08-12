@@ -788,3 +788,78 @@ textarea.hud-title {
     animation: none;
   }
 }
+
+@property --daily-plan-orbit-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.daily-plan-orbit {
+  --daily-plan-accent: #8b5cf6;
+  position: relative;
+  display: flex;
+  min-height: 0;
+  width: 100%;
+  flex: 1;
+  flex-direction: column;
+  border-radius: 1.5rem;
+  padding: 2px;
+}
+
+.daily-plan-orbit::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--daily-plan-orbit-angle),
+    color-mix(in srgb, var(--daily-plan-accent) 12%, transparent) 0deg,
+    color-mix(in srgb, var(--daily-plan-accent) 12%, transparent) 200deg,
+    color-mix(in srgb, var(--daily-plan-accent) 45%, transparent) 270deg,
+    var(--daily-plan-accent) 315deg,
+    white 345deg,
+    var(--daily-plan-accent) 358deg,
+    color-mix(in srgb, var(--daily-plan-accent) 12%, transparent) 360deg
+  );
+  animation: daily-plan-orbit-spin 3.6s linear infinite;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--daily-plan-accent) 40%, transparent));
+  z-index: 0;
+}
+
+.daily-plan-orbit--active::before {
+  animation-duration: 1.8s;
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--daily-plan-accent) 65%, transparent));
+}
+
+.daily-plan-orbit__ring {
+  display: none;
+}
+
+.daily-plan-orbit__panel {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  flex: 1;
+  border-radius: calc(1.5rem - 2px);
+  overflow: hidden;
+}
+
+@keyframes daily-plan-orbit-spin {
+  to {
+    --daily-plan-orbit-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-plan-orbit::before {
+    animation: none;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--daily-plan-accent) 35%, transparent),
+      var(--daily-plan-accent),
+      color-mix(in srgb, var(--daily-plan-accent) 35%, transparent)
+    );
+  }
+}

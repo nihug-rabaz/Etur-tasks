@@ -70,7 +70,6 @@ export function DailyPlanSidebar({
   const panelStyle = useMemo(
     () =>
       ({
-        borderColor: isOver ? accentHex : isDark ? `${accentHex}70` : `${accentHex}66`,
         background: isDark
           ? `color-mix(in srgb, ${accentHex} ${isOver ? 28 : 20}%, #181a22)`
           : `color-mix(in srgb, ${accentHex} ${isOver ? 24 : 18}%, var(--surface-1))`,
@@ -274,15 +273,19 @@ export function DailyPlanSidebar({
   };
 
   return (
-    <aside
-      aria-label="לו״ז יומי"
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      style={panelStyle}
-      className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-3xl border-2 transition-[border-color,background-color,box-shadow] duration-300"
+    <div
+      className={`daily-plan-orbit ${isOver ? "daily-plan-orbit--active" : ""}`}
+      style={{ ["--daily-plan-accent" as string]: accentHex }}
     >
+      <aside
+        aria-label="לו״ז יומי"
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={panelStyle}
+        className="daily-plan-orbit__panel flex min-h-0 w-full flex-col overflow-hidden transition-[background-color,box-shadow] duration-300"
+      >
       <header
         className="shrink-0 px-3 py-2.5"
         style={{ borderBottom: `1px solid ${isDark ? `${accentHex}50` : `${accentHex}40`}` }}
@@ -390,6 +393,7 @@ export function DailyPlanSidebar({
           {error}
         </p>
       ) : null}
-    </aside>
+      </aside>
+    </div>
   );
 }
