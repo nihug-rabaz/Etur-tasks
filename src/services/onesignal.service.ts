@@ -35,9 +35,41 @@ export class OneSignalService {
       errors?: unknown;
     };
     if (!response.ok || !data.id) {
-      throw new Error(this.formatError(data.errors) || "SEND_FAILED");
+      throw new Error(this.formatSendError(data.errors) || "SEND_FAILED");
     }
     return { notificationId: data.id };
+  }
+
+  public async hasPushSubscription(userId: string): Promise<boolean> {
+    if (!OneSignalServerConfig.isSendReady() || !userId) return false;
+
+    const response = await fetch(
+      `https://api.onesignal.com/apps/${OneSignalServerConfig.appId()}/users/by/external_id/${encodeURIComponent(userId)}`,
+      {
+        headers: {
+          Authorization: `Key ${OneSignalServerConfig.restApiKey()}`,
+        },
+        signal: AbortSignal.timeout(8000),
+      },
+    );
+    if (response.status === 404) return false;
+    if (!response.ok) return false;
+
+    const data = (await response.json().catch(() => null)) as {
+      subscriptions?: Array<{ type?: string; enabled?: boolean; token?: string }>;
+    } | null;
+    return Boolean(
+      data?.subscriptions?.some(
+        (subscription) => subscription.enabled !== false && Boolean(subscription.token),
+      ),
+    );
+  }
+
+  private formatSendError(errors: unknown): string {
+    if (errors && typeof errors === "object" && "invalid_aliases" in errors) {
+      return "USER_NOT_SUBSCRIBED";
+    }
+    return this.formatError(errors);
   }
 
   private formatError(errors: unknown): string {

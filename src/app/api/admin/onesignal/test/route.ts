@@ -15,13 +15,21 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const service = new OneSignalService();
   const allUsers = await new UserService().getUsers();
-  const users = allUsers
-    .filter((user) => user.is_approved)
-    .map((user) => ({ id: user.id, name: user.name, avatar: user.avatar }));
+  const approvedUsers = allUsers.filter((user) => user.is_approved);
+  const users = await Promise.all(
+    approvedUsers.map(async (user) => ({
+      id: user.id,
+      name: user.name,
+      avatar: user.avatar,
+      pushReady: await service.hasPushSubscription(user.id),
+    })),
+  );
   return NextResponse.json({
     configured: Boolean(OneSignalServerConfig.appId()),
     sendReady: OneSignalServerConfig.isSendReady(),
+    currentUserId: profile.id,
     users,
   });
 }
@@ -47,7 +55,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Send failed";
-    const status = message === "MISSING_REST_API_KEY" ? 503 : 502;
+    const status =
+      message === "MISSING_REST_API_KEY" ? 503 : message === "USER_NOT_SUBSCRIBED" ? 404 : 502;
     return NextResponse.json({ error: message }, { status });
   }
 }

@@ -58,10 +58,11 @@ export class OneSignalWebClient {
   }
 
   /** Ask the browser for push permission and opt the current device in. */
-  public static async requestOptIn(): Promise<boolean> {
+  public static async requestOptIn(externalId?: string): Promise<boolean> {
     const sdk = await this.whenReady();
     if (!sdk) return false;
     try {
+      if (externalId) await sdk.login(externalId);
       await sdk.Notifications.requestPermission();
       if (!sdk.User.PushSubscription.optedIn) {
         await sdk.User.PushSubscription.optIn();

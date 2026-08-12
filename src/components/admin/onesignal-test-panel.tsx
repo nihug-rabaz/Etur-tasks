@@ -9,11 +9,13 @@ interface Recipient {
   id: string;
   name: string;
   avatar: string | null;
+  pushReady?: boolean;
 }
 
 export function OneSignalTestPanel() {
   const [users, setUsers] = useState<Recipient[]>([]);
   const [userId, setUserId] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [sendReady, setSendReady] = useState(false);
   const [ready, setReady] = useState(false);
@@ -31,12 +33,17 @@ export function OneSignalTestPanel() {
           const data = (await response.json()) as {
             configured?: boolean;
             sendReady?: boolean;
+            currentUserId?: string;
             users?: Recipient[];
           };
           if (!cancelled) {
             setConfigured(Boolean(data.configured));
             setSendReady(Boolean(data.sendReady));
-            setUsers(Array.isArray(data.users) ? data.users : []);
+            const nextUsers = Array.isArray(data.users) ? data.users : [];
+            setUsers(nextUsers);
+            const adminId = data.currentUserId ?? "";
+            setCurrentUserId(adminId);
+            setUserId((current) => current || adminId);
           }
         }
       } catch {
@@ -61,7 +68,7 @@ export function OneSignalTestPanel() {
   const enableNotifications = async () => {
     setBusy("optin");
     try {
-      const enabled = await OneSignalWebClient.requestOptIn();
+      const enabled = await OneSignalWebClient.requestOptIn(currentUserId || undefined);
       setOptedIn(enabled);
       if (enabled) toast.success("התראות הדפדפן הופעלו");
       else toast.error("לא ניתן להפעיל התראות בכתובת הזו. השתמשו באתר הייצור.");
@@ -84,6 +91,12 @@ export function OneSignalTestPanel() {
         signal: AbortSignal.timeout(15000),
       });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (response.status === 404 || data.error === "USER_NOT_SUBSCRIBED") {
+        toast.error(
+          "המשתמש שנבחר לא אישר התראות באתר הייצור. הוא צריך להיכנס ל-etur.rabaz.co.il וללחוץ «הפעל התראות».",
+        );
+        return;
+      }
       if (response.status === 503) {
         toast.error("חסר ONESIGNAL_REST_API_KEY בשרת");
         return;
@@ -156,6 +169,7 @@ export function OneSignalTestPanel() {
         {users.map((user) => (
           <option key={user.id} value={user.id}>
             {user.name}
+            {user.pushReady ? " ✓ התראות פעילות" : " — לא מחובר להתראות"}
           </option>
         ))}
       </select>
@@ -185,7 +199,7 @@ export function OneSignalTestPanel() {
         </button>
         <button
           type="button"
-          disabled={busy !== null || !userId || !sendReady}
+          disabled={busy !== null || !userId || !sendReady || !users.find((user) => user.id === userId)?.pushReady}
           onClick={() => void sendTest()}
           className="inline-flex items-center gap-2 rounded-xl bg-accent-primary px-3 py-2 text-xs font-bold text-white transition hover:brightness-105 disabled:opacity-50"
         >
