@@ -1,3 +1,5 @@
+importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
+
 const CACHE = "etur-pwa-v1";
 const OFFLINE_URLS = ["/"];
 

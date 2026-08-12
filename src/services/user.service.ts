@@ -11,4 +11,14 @@ export class UserService extends BaseService {
     `;
     return data;
   }
+
+  public async getApprovedPickerUsers(): Promise<Array<{ id: string; name: string; avatar: string | null }>> {
+    const db = this.getDb();
+    return db<Array<{ id: string; name: string; avatar: string | null }>>`
+      select id, name, avatar
+      from profiles
+      where is_approved = true
+      order by name
+    `;
+  }
 }

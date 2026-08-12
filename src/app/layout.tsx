@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fredoka, Geist_Mono, Heebo, Secular_One } from "next/font/google";
 import { Toaster } from "sonner";
 import { IntroSplash } from "@/components/intro-splash";
+import { OneSignalBootstrap } from "@/components/onesignal/onesignal-bootstrap";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { FontScaleRoot } from "@/components/ui/font-scale-root";
 import { AuthorizationService } from "@/services/authorization.service";
@@ -89,6 +90,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <FontScaleRoot initialPreset={fontScale.preset} />
+        <OneSignalBootstrap externalId={profile?.id} />
         {!profile ? <IntroSplash /> : null}
         {children}
         <PwaInstallPrompt />
