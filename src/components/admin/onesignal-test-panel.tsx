@@ -14,6 +14,7 @@ interface Recipient {
 export function OneSignalTestPanel() {
   const [users, setUsers] = useState<Recipient[]>([]);
   const [userId, setUserId] = useState("");
+  const [configured, setConfigured] = useState<boolean | null>(null);
   const [sendReady, setSendReady] = useState(false);
   const [ready, setReady] = useState(false);
   const [optedIn, setOptedIn] = useState(false);
@@ -28,16 +29,21 @@ export function OneSignalTestPanel() {
         });
         if (response.ok) {
           const data = (await response.json()) as {
+            configured?: boolean;
             sendReady?: boolean;
             users?: Recipient[];
           };
           if (!cancelled) {
+            setConfigured(Boolean(data.configured));
             setSendReady(Boolean(data.sendReady));
             setUsers(Array.isArray(data.users) ? data.users : []);
           }
         }
       } catch {
-        if (!cancelled) setSendReady(false);
+        if (!cancelled) {
+          setConfigured(false);
+          setSendReady(false);
+        }
       }
 
       const enabled = await OneSignalWebClient.isOptedIn();
@@ -94,11 +100,26 @@ export function OneSignalTestPanel() {
     }
   };
 
-  if (!OneSignalWebClient.isConfigured()) {
+  const clientConfigured = OneSignalWebClient.isConfigured();
+
+  if (configured === null) {
     return (
       <article className="dashboard-glass rounded-3xl p-5 sm:p-6">
         <h2 className="text-lg font-bold text-text-primary">התראות דפדפן</h2>
-        <p className="mt-1 text-sm text-text-secondary">OneSignal לא מוגדר בסביבה זו.</p>
+        <p className="mt-1 text-sm text-text-secondary">טוען הגדרות OneSignal…</p>
+      </article>
+    );
+  }
+
+  if (!configured) {
+    return (
+      <article className="dashboard-glass rounded-3xl p-5 sm:p-6">
+        <h2 className="text-lg font-bold text-text-primary">התראות דפדפן</h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          OneSignal לא מוגדר. הוסיפו את NEXT_PUBLIC_ONESIGNAL_APP_ID, NEXT_PUBLIC_ONESIGNAL_SAFARI_WEB_ID
+          ו-ONESIGNAL_REST_API_KEY ל-.env.local (מקומי) או ל-Vercel Production, ואז הפעילו מחדש את השרת /
+          דיפלוי חדש.
+        </p>
       </article>
     );
   }
@@ -139,16 +160,23 @@ export function OneSignalTestPanel() {
         ))}
       </select>
 
+      {!clientConfigured ? (
+        <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+          השרת מוגדר, אבל הדפדפן עדיין לא רואה את המשתנים. הפעילו מחדש את npm run dev (מקומי) או הריצו
+          דיפלוי חדש (ייצור).
+        </p>
+      ) : null}
+
       {!sendReady ? (
         <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
-          חסר ONESIGNAL_REST_API_KEY ב־.env.local — בלי זה אי אפשר לשלוח.
+          חסר ONESIGNAL_REST_API_KEY — בלי זה אי אפשר לשלוח.
         </p>
       ) : null}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={busy !== null || optedIn}
+          disabled={busy !== null || optedIn || !clientConfigured}
           onClick={() => void enableNotifications()}
           className="inline-flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-xs font-bold text-text-primary transition hover:bg-surface-2/80 disabled:opacity-50"
         >

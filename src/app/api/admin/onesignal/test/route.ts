@@ -20,6 +20,7 @@ export async function GET() {
     .filter((user) => user.is_approved)
     .map((user) => ({ id: user.id, name: user.name, avatar: user.avatar }));
   return NextResponse.json({
+    configured: Boolean(OneSignalServerConfig.appId()),
     sendReady: OneSignalServerConfig.isSendReady(),
     users,
   });
