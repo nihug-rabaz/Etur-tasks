@@ -30,6 +30,21 @@ const updateSchema = z.object({
   requires_deputy_commander: z.boolean().optional(),
   requires_branch_head: z.boolean().optional(),
   target_audience: z.string().nullable().optional(),
+  target_audiences: z.array(z.string()).optional(),
+  domains: z.array(z.enum([
+    "kashrut",
+    "halacha",
+    "reut",
+    "tipuch",
+    "lehaka",
+    "zuq",
+    "masan",
+    "agam_hachsharot",
+    "logistic",
+    "field",
+  ])).optional(),
+  is_draft: z.boolean().optional(),
+  restore: z.boolean().optional(),
   link: z.string().nullable().optional(),
   details: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -66,6 +81,7 @@ export async function GET(
   const service = new DovrutConceptService();
   const concept = await service.getById(id);
   if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  await service.touchOpened(id);
   const activity = await service.listActivity(id);
   return NextResponse.json({ concept, item: concept, activity });
 }
@@ -88,6 +104,12 @@ export async function PUT(
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
+  if (parsed.data.restore) {
+    const ok = await new DovrutConceptService().restore(id);
+    if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const restored = await new DovrutConceptService().getById(id);
+    return NextResponse.json({ concept: restored, item: restored });
+  }
   if (
     parsed.data.approval_status &&
     !accessService.canForceApproval(access.role)
@@ -96,6 +118,7 @@ export async function PUT(
   }
   const existing = await new DovrutConceptService().getById(id);
   const patch = { ...parsed.data };
+  delete patch.restore;
   if (existing?.type === "social_media") {
     patch.link = null;
   }
@@ -110,7 +133,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const accessService = new DovrutAccessService();
@@ -118,15 +141,22 @@ export async function DELETE(
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  if (!accessService.canDelete(access.role)) {
+  const { searchParams } = new URL(request.url);
+  const purge = searchParams.get("purge") === "1";
+  if (purge && !accessService.canDelete(access.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!purge && !accessService.canEditContent(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { id } = await context.params;
-  const ok = await new DovrutConceptService().delete(
-    id,
-    access.profile.name,
-    access.profile.email,
-  );
+  const ok = purge
+    ? await new DovrutConceptService().purge(id)
+    : await new DovrutConceptService().softDelete(
+        id,
+        access.profile.name,
+        access.profile.email,
+      );
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

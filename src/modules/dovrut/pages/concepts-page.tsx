@@ -13,14 +13,16 @@ export function DovrutConceptsPage() {
   const [concepts, setConcepts] = useState<DovrutConcept[]>([]);
   const [query, setQuery] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
+  const [draftsOnly, setDraftsOnly] = useState(false);
 
   const load = useCallback(async () => {
-    const response = await fetch(
-      `/api/dovrut/concepts${activeOnly ? "?activeOnly=1" : ""}`,
-    );
+    const params = new URLSearchParams();
+    if (draftsOnly) params.set("drafts", "1");
+    else if (activeOnly) params.set("activeOnly", "1");
+    const response = await fetch(`/api/dovrut/concepts?${params.toString()}`);
     const data = await response.json();
     setConcepts(Array.isArray(data.concepts) ? data.concepts : []);
-  }, [activeOnly]);
+  }, [activeOnly, draftsOnly]);
 
   useEffect(() => {
     void load();
@@ -42,17 +44,33 @@ export function DovrutConceptsPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-text-primary">פריטים</h1>
+          <h1 className="text-xl font-bold text-text-primary">אייטמים</h1>
           <p className="mt-1 text-sm text-text-muted">כתבות, ראיונות ורשתות</p>
         </div>
-        <label className="flex items-center gap-2 text-xs font-bold">
-          <input
-            type="checkbox"
-            checked={activeOnly}
-            onChange={(e) => setActiveOnly(e.target.checked)}
-          />
-          פעילים בלבד
-        </label>
+        <div className="flex flex-wrap gap-3 text-xs font-bold">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={activeOnly}
+              onChange={(e) => {
+                setActiveOnly(e.target.checked);
+                if (e.target.checked) setDraftsOnly(false);
+              }}
+            />
+            פעילים בלבד
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={draftsOnly}
+              onChange={(e) => {
+                setDraftsOnly(e.target.checked);
+                if (e.target.checked) setActiveOnly(false);
+              }}
+            />
+            טיוטות
+          </label>
+        </div>
       </div>
       <input
         value={query}
@@ -84,7 +102,7 @@ export function DovrutConceptsPage() {
           </li>
         ))}
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm text-text-muted">אין פריטים</p>
+          <p className="py-8 text-center text-sm text-text-muted">אין אייטמים</p>
         ) : null}
       </ul>
     </div>

@@ -31,8 +31,12 @@ export class DovrutConceptService extends BaseService {
     type?: DovrutConceptType;
     approvalStatus?: DovrutApprovalStatus;
     activeOnly?: boolean;
+    drafts?: boolean;
+    deleted?: boolean;
   }): Promise<DovrutConcept[]> {
     const db = this.getDb();
+    const deletedOnly = Boolean(filters?.deleted);
+    const draftsOnly = Boolean(filters?.drafts);
     return db<DovrutConcept[]>`
       select c.*, p.name as project_name
       from dovrut_concepts c
@@ -40,6 +44,14 @@ export class DovrutConceptService extends BaseService {
       where (${filters?.projectId ?? null}::uuid is null or c.project_id = ${filters?.projectId ?? null})
         and (${filters?.type ?? null}::text is null or c.type = ${filters?.type ?? null})
         and (${filters?.approvalStatus ?? null}::text is null or c.approval_status = ${filters?.approvalStatus ?? null})
+        and (${deletedOnly}::boolean and c.deleted_at is not null
+          or not ${deletedOnly}::boolean and c.deleted_at is null)
+        and (
+          ${deletedOnly}::boolean
+          or ${draftsOnly}::boolean and c.is_draft
+          or ${Boolean(filters?.projectId)}::boolean and not ${draftsOnly}::boolean
+          or not ${draftsOnly}::boolean and not ${Boolean(filters?.projectId)}::boolean and not c.is_draft
+        )
         and (
           ${!(filters?.activeOnly ?? false)}::boolean
           or coalesce(c.work_status_article, c.work_status_social, 'planning') <> 'approved'
@@ -74,6 +86,9 @@ export class DovrutConceptService extends BaseService {
       requires_deputy_commander?: boolean;
       requires_branch_head?: boolean;
       target_audience?: string | null;
+      target_audiences?: string[];
+      domains?: DovrutDomain[];
+      is_draft?: boolean;
       link?: string | null;
       details?: string | null;
       notes?: string | null;
@@ -97,17 +112,30 @@ export class DovrutConceptService extends BaseService {
     };
     const approvalStatus = isArticle ? getInitialApprovalStatus(flags) : null;
     const needsBriefing = input.needs_briefing ?? true;
+    const audiences =
+      input.target_audiences?.length
+        ? input.target_audiences
+        : input.target_audience
+          ? [input.target_audience]
+          : [];
+    const domains =
+      input.domains?.length
+        ? input.domains
+        : input.domain
+          ? [input.domain]
+          : [];
     const rows = await db<DovrutConcept[]>`
       insert into dovrut_concepts (
-        name, project_id, type, domain, interviewees, media_outlet, interviewer, needs_briefing,
-        requires_chief_rabbi, requires_deputy_commander, requires_branch_head, target_audience,
+        name, project_id, type, domain, domains, interviewees, media_outlet, interviewer, needs_briefing,
+        requires_chief_rabbi, requires_deputy_commander, requires_branch_head, target_audience, target_audiences,
         link, details, notes, work_status_article, content_type, draft_text,
-        draft_images, draft_videos, partners, work_status_social, approval_status, created_by
+        draft_images, draft_videos, partners, work_status_social, approval_status, is_draft, created_by
       ) values (
         ${input.name},
         ${input.project_id},
         ${input.type},
-        ${isArticle ? input.domain ?? null : null},
+        ${isArticle ? domains[0] ?? null : null},
+        ${domains},
         ${isArticle ? input.interviewees ?? [] : []},
         ${isArticle ? input.media_outlet ?? null : null},
         ${isArticle ? input.interviewer ?? null : null},
@@ -115,7 +143,8 @@ export class DovrutConceptService extends BaseService {
         ${isArticle ? flags.requires_chief_rabbi : false},
         ${isArticle ? flags.requires_deputy_commander : false},
         ${isArticle ? flags.requires_branch_head : false},
-        ${input.target_audience ?? null},
+        ${audiences[0] ?? null},
+        ${audiences},
         ${isArticle ? input.link ?? null : null},
         ${input.details ?? null},
         ${input.notes ?? null},
@@ -127,6 +156,7 @@ export class DovrutConceptService extends BaseService {
         ${!isArticle ? input.partners ?? [] : []},
         ${!isArticle ? "planning" : null},
         ${approvalStatus},
+        ${Boolean(input.is_draft)},
         ${input.created_by}
       )
       returning *
@@ -136,7 +166,7 @@ export class DovrutConceptService extends BaseService {
       concept_id: created.id,
       project_id: created.project_id,
       action_type: "created",
-      details: "יצירת פריט",
+      details: "יצירת אייטם",
       user_name: actorName,
       user_email: actorEmail ?? null,
     });
@@ -158,10 +188,25 @@ export class DovrutConceptService extends BaseService {
         : patch.link !== undefined
           ? patch.link
           : existing.link;
+    const nextAudiences =
+      patch.target_audiences ??
+      (patch.target_audience !== undefined
+        ? patch.target_audience
+          ? [patch.target_audience]
+          : []
+        : existing.target_audiences ?? []);
+    const nextDomains =
+      patch.domains ??
+      (patch.domain !== undefined
+        ? patch.domain
+          ? [patch.domain]
+          : []
+        : existing.domains ?? []);
     const rows = await db<DovrutConcept[]>`
       update dovrut_concepts set
         name = ${patch.name ?? existing.name},
-        domain = ${patch.domain !== undefined ? patch.domain : existing.domain},
+        domain = ${nextDomains[0] ?? null},
+        domains = ${nextDomains},
         interviewees = ${patch.interviewees ?? existing.interviewees},
         media_outlet = ${patch.media_outlet !== undefined ? patch.media_outlet : existing.media_outlet},
         interviewer = ${patch.interviewer !== undefined ? patch.interviewer : existing.interviewer},
@@ -175,9 +220,9 @@ export class DovrutConceptService extends BaseService {
         requires_branch_head = ${
           patch.requires_branch_head ?? existing.requires_branch_head
         },
-        target_audience = ${
-          patch.target_audience !== undefined ? patch.target_audience : existing.target_audience
-        },
+        target_audience = ${nextAudiences[0] ?? null},
+        target_audiences = ${nextAudiences},
+        is_draft = ${patch.is_draft ?? existing.is_draft},
         link = ${nextLink},
         details = ${patch.details !== undefined ? patch.details : existing.details},
         notes = ${patch.notes !== undefined ? patch.notes : existing.notes},
@@ -221,7 +266,7 @@ export class DovrutConceptService extends BaseService {
       concept_id: id,
       project_id: existing.project_id,
       action_type: "updated",
-      details: "עדכון פריט",
+      details: "עדכון אייטם",
       user_name: actorName,
       user_email: actorEmail ?? null,
     });
@@ -229,6 +274,10 @@ export class DovrutConceptService extends BaseService {
   }
 
   public async delete(id: string, actorName: string, actorEmail?: string | null): Promise<boolean> {
+    return this.softDelete(id, actorName, actorEmail);
+  }
+
+  public async softDelete(id: string, actorName: string, actorEmail?: string | null): Promise<boolean> {
     const existing = await this.getById(id);
     if (!existing) return false;
     const db = this.getDb();
@@ -241,9 +290,52 @@ export class DovrutConceptService extends BaseService {
       user_email: actorEmail ?? null,
     });
     const rows = await db<{ id: string }[]>`
+      update dovrut_concepts
+      set deleted_at = now(), updated_at = now()
+      where id = ${id} and deleted_at is null
+      returning id
+    `;
+    return rows.length > 0;
+  }
+
+  public async restore(id: string): Promise<boolean> {
+    const db = this.getDb();
+    const rows = await db<{ id: string }[]>`
+      update dovrut_concepts
+      set deleted_at = null, updated_at = now()
+      where id = ${id} and deleted_at is not null
+      returning id
+    `;
+    return rows.length > 0;
+  }
+
+  public async purge(id: string): Promise<boolean> {
+    const db = this.getDb();
+    const rows = await db<{ id: string }[]>`
       delete from dovrut_concepts where id = ${id} returning id
     `;
     return rows.length > 0;
+  }
+
+  public async touchOpened(id: string): Promise<void> {
+    const db = this.getDb();
+    await db`
+      update dovrut_concepts
+      set last_opened_at = now()
+      where id = ${id} and deleted_at is null
+    `;
+  }
+
+  public async expireUnopened(days = 90): Promise<number> {
+    const db = this.getDb();
+    const rows = await db<{ id: string }[]>`
+      update dovrut_concepts
+      set deleted_at = now(), updated_at = now()
+      where deleted_at is null
+        and coalesce(last_opened_at, created_at) < now() - (${days}::int * interval '1 day')
+      returning id
+    `;
+    return rows.length;
   }
 
   public async applyApproval(input: {

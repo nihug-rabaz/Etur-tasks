@@ -1,7 +1,5 @@
-import { DovrutApprovalQueuePage } from "@/modules/dovrut/pages/approvals-page";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return (
-    <DovrutApprovalQueuePage status="waiting_branch_head" title="תור אישור רמ״ח" />
-  );
+  redirect("/dovrut/approvals?step=waiting_branch_head");
 }

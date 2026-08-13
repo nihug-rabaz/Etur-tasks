@@ -4,8 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut, Menu, Settings2, X } from "lucide-react";
 import { signOut } from "next-auth/react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { UserAvatarMark } from "@/components/ui/assignee-select";
+import {
+  rowsForNavPreview,
+  useDovrutNavPreview,
+  type DovrutNavPreviewRow,
+  type DovrutSidePreviewKey,
+} from "@/modules/dovrut/lib/nav-preview";
 
 export interface SideMenuItem {
   label: string;
@@ -13,6 +20,7 @@ export interface SideMenuItem {
   description?: string;
   ariaLabel?: string;
   icon?: ReactNode;
+  previewKey?: DovrutSidePreviewKey;
 }
 
 export interface SideMenuState {
@@ -73,18 +81,120 @@ interface SideMenuProps {
   state: SideMenuState;
 }
 
+function SideMenuHoverPreview({
+  anchor,
+  rows,
+  allHref,
+  allLabel,
+  onEnter,
+  onLeave,
+  onNavigate,
+}: {
+  anchor: HTMLElement | null;
+  rows: DovrutNavPreviewRow[];
+  allHref: string;
+  allLabel: string;
+  onEnter: () => void;
+  onLeave: () => void;
+  onNavigate: () => void;
+}) {
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!anchor) return;
+    const update = () => {
+      const rect = anchor.getBoundingClientRect();
+      const maxTop = Math.max(12, window.innerHeight - 320);
+      setPos({
+        top: Math.min(rect.top, maxTop),
+        right: window.innerWidth - rect.left + 8,
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [anchor]);
+
+  if (!mounted || !anchor) return null;
+
+  return createPortal(
+    <div
+      className="fixed z-[80] w-64 rounded-2xl border border-black/8 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-[#161922]"
+      style={{ top: pos.top, right: pos.right }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
+      {rows.length === 0 ? (
+        <p className="px-3 py-2 text-xs text-text-muted">אין רשומות פעילות</p>
+      ) : (
+        rows.map((row) => (
+          <Link
+            key={row.id}
+            href={row.href}
+            onClick={onNavigate}
+            className="block rounded-xl px-3 py-2 text-sm font-semibold text-text-primary hover:bg-violet-50 dark:hover:bg-violet-950/40"
+          >
+            {row.name}
+          </Link>
+        ))
+      )}
+      <Link
+        href={allHref}
+        onClick={onNavigate}
+        className="mt-1 block rounded-xl px-3 py-2 text-xs font-bold text-violet-700 hover:bg-violet-50 dark:hover:bg-violet-950/40"
+      >
+        לכל {allLabel} →
+      </Link>
+    </div>,
+    document.body,
+  );
+}
+
 export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, state }: SideMenuProps) {
   const pathname = usePathname();
   const { open, close } = state;
+  const [openPreview, setOpenPreview] = useState<DovrutSidePreviewKey | null>(null);
+  const { preview, loadPreview } = useDovrutNavPreview();
+  const closePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const itemRefs = useRef<Record<string, HTMLLIElement | null>>({});
+
+  const openPreviewMenu = (key: DovrutSidePreviewKey) => {
+    if (closePreviewTimer.current) clearTimeout(closePreviewTimer.current);
+    setOpenPreview(key);
+    void loadPreview();
+  };
+
+  const schedulePreviewClose = () => {
+    if (closePreviewTimer.current) clearTimeout(closePreviewTimer.current);
+    closePreviewTimer.current = setTimeout(() => setOpenPreview(null), 180);
+  };
 
   useEffect(() => {
     close();
+    setOpenPreview(null);
   }, [pathname, close]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setOpenPreview(null);
+      return;
+    }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key !== "Escape") return;
+      if (openPreview) {
+        setOpenPreview(null);
+        return;
+      }
+      close();
     };
     document.addEventListener("keydown", onKey);
     const previousOverflow = document.body.style.overflow;
@@ -93,7 +203,7 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previousOverflow;
     };
-  }, [open, close]);
+  }, [open, close, openPreview]);
 
   return (
     <>
@@ -127,12 +237,35 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
             <ul className="flex flex-col gap-2">
               {items.map((item, index) => {
                 const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                const previewOpen = Boolean(item.previewKey && openPreview === item.previewKey);
+                const previewRows = item.previewKey ? rowsForNavPreview(preview, item.previewKey) : [];
                 return (
-                  <li key={item.href}>
+                  <li
+                    key={item.href}
+                    ref={(node) => {
+                      itemRefs.current[item.href] = node;
+                    }}
+                    onMouseEnter={() => {
+                      if (item.previewKey) openPreviewMenu(item.previewKey);
+                    }}
+                    onMouseLeave={() => {
+                      if (item.previewKey) schedulePreviewClose();
+                    }}
+                  >
                     <Link
                       href={item.href}
                       prefetch={false}
-                      onClick={close}
+                      onClick={(event) => {
+                        if (item.previewKey) {
+                          const isTouch = window.matchMedia("(hover: none)").matches;
+                          if (isTouch && openPreview !== item.previewKey) {
+                            event.preventDefault();
+                            openPreviewMenu(item.previewKey);
+                            return;
+                          }
+                        }
+                        close();
+                      }}
                       aria-label={item.ariaLabel ?? item.label}
                       className={`group flex items-center justify-between gap-4 rounded-2xl px-4 py-3 transition ${
                         active
@@ -166,6 +299,17 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
                         ←
                       </span>
                     </Link>
+                    {previewOpen ? (
+                      <SideMenuHoverPreview
+                        anchor={itemRefs.current[item.href]}
+                        rows={previewRows}
+                        allHref={item.href}
+                        allLabel={item.label}
+                        onEnter={() => item.previewKey && openPreviewMenu(item.previewKey)}
+                        onLeave={schedulePreviewClose}
+                        onNavigate={close}
+                      />
+                    ) : null}
                   </li>
                 );
               })}

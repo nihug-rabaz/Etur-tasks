@@ -171,7 +171,7 @@ export function DovrutApproversAdminPage() {
         setResult(data.error || "שליחה נכשלה");
         return;
       }
-      setResult(`נשלחו ${data.sent} תזכורות Telegram · ${data.pendingCount} פריטים ממתינים`);
+      setResult(`נשלחו ${data.sent} תזכורות Telegram · ${data.pendingCount} אייטמים ממתינים`);
     } finally {
       setBusy(false);
     }

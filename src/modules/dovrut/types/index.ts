@@ -1,4 +1,4 @@
-export type DovrutProjectStatus = "active" | "completed" | "on_hold";
+export type DovrutProjectStatus = "active" | "completed" | "on_hold" | "draft";
 
 export type DovrutCampaignStatus = "active" | "completed" | "on_hold";
 
@@ -59,6 +59,8 @@ export interface DovrutProject {
   target_audiences: string[];
   status: DovrutProjectStatus;
   campaign_id: string | null;
+  ended_at: string | null;
+  deleted_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -71,6 +73,7 @@ export interface DovrutConcept {
   project_id: string;
   type: DovrutConceptType;
   domain: DovrutDomain | null;
+  domains: DovrutDomain[];
   interviewees: string[];
   media_outlet: string | null;
   interviewer: string | null;
@@ -79,6 +82,7 @@ export interface DovrutConcept {
   requires_deputy_commander: boolean;
   requires_branch_head: boolean;
   target_audience: string | null;
+  target_audiences: string[];
   link: string | null;
   details: string | null;
   notes: string | null;
@@ -94,6 +98,9 @@ export interface DovrutConcept {
   rejected_at_step: string | null;
   last_rejection_date: string | null;
   linked_task_id: string | null;
+  is_draft: boolean;
+  last_opened_at: string | null;
+  deleted_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

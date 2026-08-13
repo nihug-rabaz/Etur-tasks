@@ -5,3 +5,4 @@ export { DovrutNewsService } from "@/modules/dovrut/services/news.service";
 export { dovrutModule } from "@/modules/dovrut/module";
 export * from "@/modules/dovrut/types";
 export * from "@/modules/dovrut/lib/approval-flows";
+export * from "@/modules/dovrut/lib/audiences";

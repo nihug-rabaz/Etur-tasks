@@ -1,10 +1,5 @@
-import { DovrutApprovalQueuePage } from "@/modules/dovrut/pages/approvals-page";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return (
-    <DovrutApprovalQueuePage
-      status="waiting_deputy_commander"
-      title="תור אישור רמ״ט"
-    />
-  );
+  redirect("/dovrut/approvals?step=waiting_deputy_commander");
 }

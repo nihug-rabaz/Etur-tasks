@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { TaskDetailsModal } from "@/components/task-details-modal";
 import { TasksTable } from "@/components/tasks/tasks-table";
 import { TaskFilterBar } from "@/components/tasks/task-filter-bar";
@@ -11,7 +10,6 @@ import type { TaskWithRelations } from "@/types/models";
 
 interface DovrutTasksShellProps {
   tasks: TaskWithRelations[];
-  canCreate: boolean;
 }
 
 function withDovrutDisplayName(task: TaskWithRelations): TaskWithRelations {
@@ -43,7 +41,7 @@ function uniqueOptions(
 const selectClass =
   "min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none transition focus:ring-2 focus:ring-accent-primary/30 sm:flex-none";
 
-export function DovrutTasksShell({ tasks: initialTasks, canCreate }: DovrutTasksShellProps) {
+export function DovrutTasksShell({ tasks: initialTasks }: DovrutTasksShellProps) {
   const { subscribe } = useTasksLiveSync();
   const [tasks, setTasks] = useState(initialTasks);
   const [filters, setFilters] = useState(defaultTaskFilters);
@@ -101,10 +99,9 @@ export function DovrutTasksShell({ tasks: initialTasks, canCreate }: DovrutTasks
         <div>
           <h1 className="text-xl font-bold text-text-primary">משימות כלליות</h1>
           <p className="mt-1 text-sm text-text-muted">
-            משימות שנוצרו מתוך דוברות — עם שיוך אופציונלי לקמפיין / פרויקט / פריט, ותתי-נושא שמחברים גם למערכת המשימות.
+            משימות שנוצרו מתוך דוברות — עם שיוך אופציונלי לקמפיין / פרויקט / אייטם, ותתי-נושא שמחברים גם למערכת המשימות.
           </p>
         </div>
-        {canCreate ? <CreateTaskDrawer variant="dovrut" triggerLabel="משימה חדשה" /> : null}
       </div>
 
       <TaskFilterBar

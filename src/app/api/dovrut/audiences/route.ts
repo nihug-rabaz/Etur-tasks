@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { DOVRUT_AUDIENCES } from "@/modules/dovrut/lib/audiences";
 import { DovrutAccessService } from "@/modules/dovrut/services/access.service";
 import { DovrutAudienceMessageService } from "@/modules/dovrut/services/audience-message.service";
 
 const createSchema = z.object({
-  audience: z.string().min(1),
+  audience: z.enum(DOVRUT_AUDIENCES),
   domain: z
     .enum([
       "kashrut",

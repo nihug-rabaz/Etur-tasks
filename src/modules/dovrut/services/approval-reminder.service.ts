@@ -32,7 +32,7 @@ export class DovrutApprovalReminderService extends BaseService {
       .join("\n");
     const text = [
       `תזכורת דוברות · ${APPROVAL_STATUS_LABELS[approvalStatus]}`,
-      `${pending.length} פריטים ממתינים:`,
+      `${pending.length} אייטמים ממתינים:`,
       lines,
       "",
       "לאישור: /dovrut/approvals",

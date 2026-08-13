@@ -32,9 +32,14 @@ interface CreateTaskDrawerProps {
   defaultProjectId?: string | null;
   compact?: boolean;
   floating?: boolean;
+  floatingSide?: "start" | "end";
+  embedded?: boolean;
+  hideTrigger?: boolean;
   iconOnly?: boolean;
   accentHex?: string;
   variant?: "tasks" | "dovrut";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const fieldClass =
@@ -75,14 +80,24 @@ export function CreateTaskDrawer({
   defaultProjectId,
   compact = false,
   floating = false,
+  floatingSide = "end",
+  embedded = false,
+  hideTrigger = false,
   iconOnly = false,
   accentHex,
   variant = "tasks",
+  open: openProp,
+  onOpenChange,
 }: CreateTaskDrawerProps) {
   const router = useRouter();
   const { canClose } = useCloseRequests();
   const isDovrut = variant === "dovrut";
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (openProp === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const [subtopics, setSubtopics] = useState<OptionItem[]>([]);
   const [projects, setProjects] = useState<Array<OptionItem & { subtopic_id: string; subtopic_ids?: string[] }>>([]);
   const [dovrutCampaigns, setDovrutCampaigns] = useState<OptionItem[]>([]);
@@ -328,7 +343,7 @@ export function CreateTaskDrawer({
           </h2>
           <p className="text-sm leading-relaxed text-text-secondary">
             {isDovrut
-              ? "שיוך אופציונלי לקמפיין / פרויקט / פריט — או משימה כללית עצמאית. תתי-נושא מחברים גם למערכת המשימות."
+              ? "שיוך אופציונלי לקמפיין / פרויקט / אייטם — או משימה כללית עצמאית. תתי-נושא מחברים גם למערכת המשימות."
               : "הגדירו כותרת, שיוך ופרויקט — והמשימה תופיע בלוח מיד."}
           </p>
         </div>
@@ -338,7 +353,7 @@ export function CreateTaskDrawer({
 
   return (
     <>
-      {iconOnly ? (
+      {hideTrigger ? null : iconOnly ? (
         <button
           type="button"
           onClick={openDrawer}
@@ -351,6 +366,7 @@ export function CreateTaskDrawer({
       ) : (
         <button
           type="button"
+          dir={isDovrut ? "rtl" : undefined}
           onClick={() => openDrawer()}
           style={
             accentHex
@@ -358,15 +374,30 @@ export function CreateTaskDrawer({
               : undefined
           }
           className={
-            floating
-              ? `fixed bottom-6 right-6 z-[60] inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${accentHex ? "" : "bg-accent-orange"}`
+            floating && !embedded
+              ? `fixed bottom-6 z-[60] inline-flex w-fit items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${
+                  floatingSide === "start" ? "[inset-inline-start:1.5rem]" : "[inset-inline-end:1.5rem]"
+                } ${accentHex ? "" : "bg-accent-orange"}`
+              : floating && embedded
+                ? `inline-flex w-fit items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)] transition hover:brightness-105 hover:scale-[1.03] ${
+                    accentHex ? "" : "bg-accent-orange"
+                  }`
               : compact
                 ? `inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2.5 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] sm:px-5 ${accentHex ? "" : "bg-accent-orange"}`
                 : `inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold text-white shadow-[0_10px_24px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 hover:scale-[1.02] ${accentHex ? "" : "bg-accent-orange"}`
           }
         >
-          <Plus size={16} />
-          <span className={compact ? "hidden sm:inline" : undefined}>{triggerLabel}</span>
+          {isDovrut ? (
+            <>
+              <span>{triggerLabel}</span>
+              <Plus size={16} />
+            </>
+          ) : (
+            <>
+              <Plus size={16} />
+              <span className={compact ? "hidden sm:inline" : undefined}>{triggerLabel}</span>
+            </>
+          )}
         </button>
       )}
 
@@ -428,7 +459,7 @@ export function CreateTaskDrawer({
                       ))}
                     </select>
                   </FieldBlock>
-                  <FieldBlock icon={<FolderKanban size={14} className="text-violet-500" />} label="פריט">
+                  <FieldBlock icon={<FolderKanban size={14} className="text-violet-500" />} label="אייטם">
                     <select
                       value={dovrutConceptId}
                       onChange={(event) => handleDovrutConceptChange(event.target.value)}
@@ -436,7 +467,7 @@ export function CreateTaskDrawer({
                       className={fieldClass}
                     >
                       <option value="">
-                        {dovrutProjectId ? "ללא פריט" : "בחרו פרויקט"}
+                        {dovrutProjectId ? "ללא אייטם" : "בחרו פרויקט"}
                       </option>
                       {filteredDovrutConcepts.map((item) => (
                         <option key={item.id} value={item.id}>

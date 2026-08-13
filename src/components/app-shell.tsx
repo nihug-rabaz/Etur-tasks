@@ -19,6 +19,8 @@ import {
 } from "@/shared/modules/registry";
 import { DevelopedByCredit } from "@/components/developed-by-credit";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import { DovrutCreateFabStack } from "@/modules/dovrut/components/dovrut-create-fab-stack";
+import { previewKeyForHref } from "@/modules/dovrut/lib/nav-preview";
 import { TasksLiveSyncProvider } from "@/components/tasks/tasks-live-sync";
 import { writeLastModuleId } from "@/shared/modules/last-module";
 
@@ -47,6 +49,8 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/dovrut/admin/users",
     "/dovrut/admin/approvers",
     "/dovrut/tasks",
+    "/dovrut/projects/archive",
+    "/dovrut/recycle-bin",
   ]);
   if (exactRoutes.has(href)) return href;
 
@@ -145,6 +149,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         label: item.label,
         href: item.href,
         description: item.description,
+        previewKey: previewKeyForHref(item.href) ?? undefined,
       })),
     [moduleNavItems],
   );
@@ -281,12 +286,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>
         </div>
-        {showCreateFab ? (
-          <CreateTaskDrawer
-            floating
-            variant={activeModuleId === "dovrut" ? "dovrut" : "tasks"}
-            triggerLabel="משימה חדשה"
-          />
+        {showCreateFab && activeModuleId === "dovrut" ? (
+          <DovrutCreateFabStack showEntityCreates={!pathname.startsWith("/dovrut/tasks")} />
+        ) : showCreateFab ? (
+          <CreateTaskDrawer floating variant="tasks" triggerLabel="משימה חדשה" />
         ) : null}
         <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
           <DevelopedByCredit compact />

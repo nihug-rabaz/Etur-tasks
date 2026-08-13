@@ -8,6 +8,7 @@ import type {
   DovrutConcept,
   DovrutWorkStatus,
 } from "@/modules/dovrut/types";
+import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
 import {
   APPROVAL_STATUS_LABELS,
   DOMAIN_LABELS,
@@ -15,6 +16,7 @@ import {
   WORK_STATUS_ORDER,
   buildApprovalFlow,
 } from "@/modules/dovrut/lib/approval-flows";
+import { DOVRUT_AUDIENCES } from "@/modules/dovrut/lib/audiences";
 
 export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [concept, setConcept] = useState<DovrutConcept | null>(null);
@@ -23,7 +25,8 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [link, setLink] = useState("");
   const [mediaOutlet, setMediaOutlet] = useState("");
   const [interviewer, setInterviewer] = useState("");
-  const [targetAudience, setTargetAudience] = useState("");
+  const [audiences, setAudiences] = useState<string[]>([]);
+  const [domains, setDomains] = useState<string[]>([]);
   const [needsBriefing, setNeedsBriefing] = useState(true);
   const [requiresChief, setRequiresChief] = useState(true);
   const [requiresDeputy, setRequiresDeputy] = useState(true);
@@ -44,7 +47,8 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     setLink(next?.link ?? "");
     setMediaOutlet(next?.media_outlet ?? "");
     setInterviewer(next?.interviewer ?? "");
-    setTargetAudience(next?.target_audience ?? "");
+    setAudiences(next?.target_audiences?.length ? next.target_audiences : next?.target_audience ? [next.target_audience] : []);
+    setDomains(next?.domains?.length ? next.domains : next?.domain ? [next.domain] : []);
     setNeedsBriefing(Boolean(next?.needs_briefing));
     setRequiresChief(Boolean(next?.requires_chief_rabbi));
     setRequiresDeputy(Boolean(next?.requires_deputy_commander));
@@ -72,7 +76,10 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     try {
       const body: Record<string, unknown> = {
         notes,
-        target_audience: targetAudience.trim() || null,
+        target_audiences: audiences,
+        target_audience: audiences[0] ?? null,
+        domains,
+        domain: domains[0] ?? null,
         needs_briefing: needsBriefing,
         requires_chief_rabbi: requiresChief,
         requires_deputy_commander: requiresDeputy,
@@ -154,7 +161,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
       const response = await fetch("/api/dovrut/ai/wording", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: draftText, audience: targetAudience || undefined }),
+        body: JSON.stringify({ text: draftText, audience: audiences[0] || undefined }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -168,7 +175,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     }
   };
 
-  if (!concept) return <div className="text-sm text-text-muted">טוען פריט…</div>;
+  if (!concept) return <div className="text-sm text-text-muted">טוען אייטם…</div>;
 
   const currentWork =
     concept.type === "article_interview"
@@ -178,14 +185,35 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <div>
-        <Link href="/dovrut/items" className="text-xs font-bold text-violet-600">
-          ← חזרה לפריטים
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/dovrut/items" className="text-xs font-bold text-violet-600">
+            ← חזרה לאייטמים
+          </Link>
+          <button
+            type="button"
+            onClick={() =>
+              void fetch(`/api/dovrut/concepts/${conceptId}`, { method: "DELETE" }).then(() => {
+                window.location.href = "/dovrut/recycle-bin";
+              })
+            }
+            className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700"
+          >
+            מחק לסל מחזור
+          </button>
+        </div>
         <h1 className="mt-2 text-xl font-bold text-text-primary">{concept.name}</h1>
         <p className="mt-1 text-sm text-text-muted">
           {concept.project_name}
-          {concept.domain ? ` · ${DOMAIN_LABELS[concept.domain]}` : ""}
-          {concept.target_audience ? ` · קהל: ${concept.target_audience}` : ""}
+          {(concept.domains ?? []).length
+            ? ` · ${(concept.domains ?? []).map((value) => DOMAIN_LABELS[value] ?? value).join(", ")}`
+            : concept.domain
+              ? ` · ${DOMAIN_LABELS[concept.domain]}`
+              : ""}
+          {(concept.target_audiences ?? []).length
+            ? ` · קהל: ${(concept.target_audiences ?? []).join(", ")}`
+            : concept.target_audience
+              ? ` · קהל: ${concept.target_audience}`
+              : ""}
         </p>
       </div>
 
@@ -246,11 +274,17 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
       <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
         <h2 className="mb-3 text-sm font-extrabold">פרטים</h2>
         <div className="grid gap-2">
-          <input
-            value={targetAudience}
-            onChange={(event) => setTargetAudience(event.target.value)}
-            placeholder="קהל יעד"
-            className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+          <DovrutCheckboxGroup
+            label="קהלי יעד"
+            options={DOVRUT_AUDIENCES.map((value) => ({ value, label: value }))}
+            values={audiences}
+            onChange={setAudiences}
+          />
+          <DovrutCheckboxGroup
+            label="תחומים"
+            options={Object.entries(DOMAIN_LABELS).map(([value, label]) => ({ value, label }))}
+            values={domains}
+            onChange={setDomains}
           />
           {concept.type === "article_interview" ? (
             <>

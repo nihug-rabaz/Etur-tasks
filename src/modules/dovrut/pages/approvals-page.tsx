@@ -2,63 +2,115 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DovrutApprovalStatus, DovrutConcept } from "@/modules/dovrut/types";
 import { APPROVAL_STATUS_LABELS, DOMAIN_LABELS } from "@/modules/dovrut/lib/approval-flows";
 
+const STEPS: Array<{ id: "all" | DovrutApprovalStatus; label: string }> = [
+  { id: "all", label: "הכל" },
+  { id: "waiting_branch_head", label: "רמ״ח" },
+  { id: "waiting_deputy_commander", label: "רמ״ט" },
+  { id: "waiting_chief_rabbi", label: "רבצ״ר" },
+];
+
 export function DovrutApprovalsPage() {
   const searchParams = useSearchParams();
+  const [step, setStep] = useState<"all" | DovrutApprovalStatus>(
+    (searchParams.get("step") as DovrutApprovalStatus) || "all",
+  );
+  const [concepts, setConcepts] = useState<DovrutConcept[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("item"));
   const [code, setCode] = useState("");
-  const [concept, setConcept] = useState<DovrutConcept | null>(null);
-  const [projectName, setProjectName] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [approvedChief, setApprovedChief] = useState<DovrutConcept[]>([]);
 
-  const loadByCode = useCallback(async (rawCode: string) => {
-    setError("");
-    const [conceptId, step] = rawCode.trim().split(":");
+  const loadQueue = useCallback(async () => {
+    const query =
+      step === "all"
+        ? "/api/dovrut/concepts?activeOnly=1"
+        : `/api/dovrut/concepts?approvalStatus=${step}`;
+    const response = await fetch(query);
+    const data = await response.json();
+    const rows = Array.isArray(data.concepts) ? (data.concepts as DovrutConcept[]) : [];
+    setConcepts(
+      step === "all"
+        ? rows.filter((row) => row.approval_status && row.approval_status !== "approved")
+        : rows,
+    );
+  }, [step]);
+
+  const loadChiefApproved = useCallback(async () => {
+    if (step !== "waiting_chief_rabbi") {
+      setApprovedChief([]);
+      return;
+    }
+    const response = await fetch("/api/dovrut/concepts?approvalStatus=approved");
+    const data = await response.json();
+    const rows = Array.isArray(data.concepts) ? (data.concepts as DovrutConcept[]) : [];
+    setApprovedChief(rows.filter((row) => row.requires_chief_rabbi).slice(0, 12));
+  }, [step]);
+
+  useEffect(() => {
+    void loadQueue();
+    void loadChiefApproved();
+  }, [loadQueue, loadChiefApproved]);
+
+  useEffect(() => {
+    const fromStep = searchParams.get("step") as DovrutApprovalStatus | null;
+    if (fromStep) setStep(fromStep);
+    const fromItem = searchParams.get("item");
+    const fromCode = searchParams.get("code");
+    if (fromItem) setSelectedId(fromItem);
+    if (fromCode) {
+      const [conceptId] = fromCode.split(":");
+      if (conceptId) setSelectedId(conceptId);
+      setCode(fromCode);
+    }
+  }, [searchParams]);
+
+  const selected = useMemo(
+    () => concepts.find((row) => row.id === selectedId) ?? null,
+    [concepts, selectedId],
+  );
+
+  const loadByCode = async () => {
+    const [conceptId] = code.trim().split(":");
     if (!conceptId) {
       setError("קוד לא תקין");
       return;
     }
+    setError("");
     setBusy(true);
     try {
       const response = await fetch(`/api/dovrut/concepts/${conceptId}/for-approval`);
       const data = await response.json();
       if (!response.ok) {
         setError(data.error || "לא נמצא");
-        setConcept(null);
         return;
       }
-      if (step && data.concept?.approval_status && step !== data.concept.approval_status) {
-        setError("שלב האישור בקוד לא תואם לסטטוס הנוכחי");
-      }
-      setConcept(data.concept);
-      setProjectName(data.project?.name ?? data.concept?.project_name ?? "");
+      setSelectedId(data.concept.id);
+      setConcepts((current) => {
+        if (current.some((row) => row.id === data.concept.id)) return current;
+        return [data.concept, ...current];
+      });
     } finally {
       setBusy(false);
     }
-  }, []);
-
-  useEffect(() => {
-    const fromQuery = searchParams.get("code");
-    if (!fromQuery) return;
-    setCode(fromQuery);
-    void loadByCode(fromQuery);
-  }, [searchParams, loadByCode]);
+  };
 
   const act = async (action: "approve" | "reject") => {
-    if (!concept?.approval_status) return;
+    if (!selected?.approval_status) return;
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/dovrut/concepts/${concept.id}/approval`, {
+      const response = await fetch(`/api/dovrut/concepts/${selected.id}/approval`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action,
-          approvalStep: concept.approval_status,
+          approvalStep: selected.approval_status,
           rejectionReason: action === "reject" ? rejectionReason : undefined,
         }),
       });
@@ -67,123 +119,155 @@ export function DovrutApprovalsPage() {
         setError(data.error || "פעולה נכשלה");
         return;
       }
-      setConcept(data.concept);
       setRejectionReason("");
+      await loadQueue();
+      setSelectedId(data.concept?.id ?? selected.id);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <h1 className="text-xl font-bold text-text-primary">אישור פריטים</h1>
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+      <div>
+        <h1 className="text-xl font-bold text-text-primary">אישורי אייטמים</h1>
+        <p className="mt-1 text-sm text-text-muted">תור אחוד לפי רמ״ח, רמ״ט ורבצ״ר</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {STEPS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => {
+              setStep(item.id);
+              setSelectedId(null);
+            }}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold ${
+              step === item.id
+                ? "bg-violet-600 text-white"
+                : "bg-slate-100 text-text-primary dark:bg-slate-800"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
       <div className="flex gap-2">
         <input
           value={code}
           onChange={(event) => setCode(event.target.value)}
-          placeholder="הדביקו קוד אישור (id:step)"
+          placeholder="קוד אישור מטלגרם (id:step)"
           className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
         />
         <button
           type="button"
           disabled={busy}
-          onClick={() => void loadByCode(code)}
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white"
+          onClick={() => void loadByCode()}
+          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
         >
-          טען
+          טען קוד
         </button>
       </div>
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
-      {concept ? (
-        <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
-          <h2 className="text-lg font-extrabold text-text-primary">{concept.name}</h2>
-          <p className="mt-1 text-sm text-text-muted">
-            {projectName}
-            {concept.domain ? ` · ${DOMAIN_LABELS[concept.domain]}` : ""}
-          </p>
-          <p className="mt-2 text-sm font-bold text-violet-700">
-            {concept.approval_status
-              ? APPROVAL_STATUS_LABELS[concept.approval_status as DovrutApprovalStatus]
-              : "אין ציר אישורים"}
-          </p>
-          {concept.details ? (
-            <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">{concept.details}</p>
+      <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+        <ul className="space-y-2">
+          {concepts.map((concept) => (
+            <li key={concept.id}>
+              <button
+                type="button"
+                onClick={() => setSelectedId(concept.id)}
+                className={`w-full rounded-xl border px-4 py-3 text-start dark:border-white/10 ${
+                  selectedId === concept.id
+                    ? "border-violet-400 bg-violet-50 dark:bg-violet-950/40"
+                    : "border-black/8 bg-white dark:bg-[#161922]"
+                }`}
+              >
+                <p className="text-sm font-bold">{concept.name}</p>
+                <p className="text-[11px] text-text-muted">
+                  {concept.project_name}
+                  {concept.approval_status
+                    ? ` · ${APPROVAL_STATUS_LABELS[concept.approval_status]}`
+                    : ""}
+                </p>
+              </button>
+            </li>
+          ))}
+          {concepts.length === 0 ? (
+            <p className="py-8 text-center text-sm text-text-muted">אין אייטמים בתור</p>
           ) : null}
-          <textarea
-            value={rejectionReason}
-            onChange={(event) => setRejectionReason(event.target.value)}
-            placeholder="סיבת דחייה (אם רלוונטי)"
-            className="mt-4 min-h-20 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
-          />
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              disabled={busy || !concept.approval_status || concept.approval_status === "approved"}
-              onClick={() => void act("approve")}
-              className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
-            >
-              אשר
-            </button>
-            <button
-              type="button"
-              disabled={busy || !concept.approval_status || concept.approval_status === "approved"}
-              onClick={() => void act("reject")}
-              className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
-            >
-              דחה
-            </button>
-            <Link
-              href={`/dovrut/items/${concept.id}`}
-              className="ms-auto rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold dark:bg-slate-800"
-            >
-              לפרטים
-            </Link>
-          </div>
+        </ul>
+        <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+          {selected ? (
+            <>
+              <h2 className="text-lg font-extrabold text-text-primary">{selected.name}</h2>
+              <p className="mt-1 text-sm text-text-muted">
+                {selected.project_name}
+                {selected.domain ? ` · ${DOMAIN_LABELS[selected.domain]}` : ""}
+              </p>
+              <p className="mt-2 text-sm font-bold text-violet-700">
+                {selected.approval_status
+                  ? APPROVAL_STATUS_LABELS[selected.approval_status]
+                  : "אין ציר אישורים"}
+              </p>
+              {selected.details ? (
+                <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                  {selected.details}
+                </p>
+              ) : null}
+              <textarea
+                value={rejectionReason}
+                onChange={(event) => setRejectionReason(event.target.value)}
+                placeholder="סיבת דחייה (אם רלוונטי)"
+                className="mt-4 min-h-20 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={busy || !selected.approval_status || selected.approval_status === "approved"}
+                  onClick={() => void act("approve")}
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  אשר
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !selected.approval_status || selected.approval_status === "approved"}
+                  onClick={() => void act("reject")}
+                  className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  דחה
+                </button>
+                <Link
+                  href={`/dovrut/items/${selected.id}`}
+                  className="ms-auto rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold dark:bg-slate-800"
+                >
+                  לפרטים
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="py-10 text-center text-sm text-text-muted">בחרו אייטם מהתור</p>
+          )}
         </div>
+      </div>
+      {step === "waiting_chief_rabbi" && approvedChief.length > 0 ? (
+        <section>
+          <h2 className="mb-2 text-sm font-extrabold">אושרו ברבצ״ר לאחרונה</h2>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {approvedChief.map((item) => (
+              <li key={item.id}>
+                <Link
+                  href={`/dovrut/items/${item.id}`}
+                  className="block rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+                >
+                  <p className="text-sm font-bold">{item.name}</p>
+                  <p className="text-[11px] text-text-muted">{item.project_name}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
-    </div>
-  );
-}
-
-export function DovrutApprovalQueuePage({
-  status,
-  title,
-}: {
-  status: DovrutApprovalStatus;
-  title: string;
-}) {
-  const [concepts, setConcepts] = useState<DovrutConcept[]>([]);
-
-  const load = useCallback(async () => {
-    const response = await fetch(`/api/dovrut/concepts?approvalStatus=${status}`);
-    const data = await response.json();
-    setConcepts(Array.isArray(data.concepts) ? data.concepts : []);
-  }, [status]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-      <h1 className="text-xl font-bold text-text-primary">{title}</h1>
-      <p className="text-sm text-text-muted">{APPROVAL_STATUS_LABELS[status]}</p>
-      <ul className="space-y-2">
-        {concepts.map((concept) => (
-          <li key={concept.id}>
-            <Link
-              href={`/dovrut/approvals?code=${encodeURIComponent(`${concept.id}:${status}`)}`}
-              className="block rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
-            >
-              <p className="text-sm font-bold">{concept.name}</p>
-              <p className="text-[11px] text-text-muted">{concept.project_name}</p>
-            </Link>
-          </li>
-        ))}
-        {concepts.length === 0 ? (
-          <p className="py-8 text-center text-sm text-text-muted">אין פריטים בתור</p>
-        ) : null}
-      </ul>
     </div>
   );
 }

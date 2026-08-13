@@ -32,7 +32,7 @@ export function DovrutChiefRabbiDashboardPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div>
         <h1 className="text-xl font-bold text-text-primary">דשבורד רבצ״ר · הרב קובי</h1>
-        <p className="mt-1 text-sm text-text-muted">תור ממתינים + פריטים שאושרו ברבצ״ר</p>
+        <p className="mt-1 text-sm text-text-muted">תור ממתינים + אייטמים שאושרו ברבצ״ר</p>
       </div>
       <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
         <h2 className="mb-3 text-sm font-extrabold">ממתין לאישור רבצ״ר ({waiting.length})</h2>
@@ -54,7 +54,7 @@ export function DovrutChiefRabbiDashboardPage() {
             </li>
           ))}
           {waiting.length === 0 ? (
-            <p className="text-sm text-text-muted">אין פריטים ממתינים</p>
+            <p className="text-sm text-text-muted">אין אייטמים ממתינים</p>
           ) : null}
         </ul>
       </section>

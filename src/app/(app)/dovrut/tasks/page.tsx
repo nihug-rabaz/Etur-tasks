@@ -18,7 +18,6 @@ export default async function DovrutTasksPage() {
 
   const taskAccess = await authorizationService.getTaskAccessContext(profile);
   const tasks = await new TaskService().getDovrutTasks(taskAccess);
-  const canCreate = accessService.canEditContent(role);
 
-  return <DovrutTasksShell tasks={tasks} canCreate={canCreate} />;
+  return <DovrutTasksShell tasks={tasks} />;
 }

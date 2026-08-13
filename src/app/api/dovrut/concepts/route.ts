@@ -29,6 +29,9 @@ const createSchema = z.object({
   requires_deputy_commander: z.boolean().optional(),
   requires_branch_head: z.boolean().optional(),
   target_audience: z.string().nullable().optional(),
+  target_audiences: z.array(z.string()).optional(),
+  domains: z.array(domainEnum).optional(),
+  is_draft: z.boolean().optional(),
   link: z.string().nullable().optional(),
   details: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -50,6 +53,8 @@ export async function GET(request: Request) {
     type: (searchParams.get("type") as "article_interview" | "social_media" | null) ?? undefined,
     approvalStatus: (searchParams.get("approvalStatus") as never) ?? undefined,
     activeOnly: searchParams.get("activeOnly") === "1",
+    drafts: searchParams.get("drafts") === "1",
+    deleted: searchParams.get("deleted") === "1",
   });
   return NextResponse.json({ concepts, items: concepts });
 }
