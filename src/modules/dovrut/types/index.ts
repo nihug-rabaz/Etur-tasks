@@ -133,3 +133,21 @@ export interface DovrutAudienceMessage {
 }
 
 export type DovrutItem = DovrutConcept;
+
+export interface DovrutInquirySubject {
+  id: string;
+  name: string;
+  age: number | null;
+  hometown: string | null;
+  family_status: string | null;
+  enlistment_year: number | null;
+  years_in_role: number | null;
+  role_title: string | null;
+  previous_roles: string | null;
+  bio: string;
+  notes: string | null;
+  deleted_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}

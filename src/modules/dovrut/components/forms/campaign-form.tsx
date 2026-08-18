@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { emitDovrutMutated } from "@/modules/dovrut/lib/dovrut-fetch";
 import type { DovrutCampaignStatus } from "@/modules/dovrut/types";
 
 export function CampaignCreateForm({
@@ -37,6 +38,7 @@ export function CampaignCreateForm({
       setName("");
       setDescription("");
       setStatus("active");
+      emitDovrutMutated();
       onCreated?.();
     } finally {
       setSaving(false);

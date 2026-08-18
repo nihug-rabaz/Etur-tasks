@@ -5,6 +5,8 @@ import {
   getNextApprovalStatus,
   type ApprovalRequirementFlags,
 } from "@/modules/dovrut/lib/approval-flows";
+import type { DovrutListScope } from "@/modules/dovrut/lib/record-scope";
+import { DovrutProjectService } from "@/modules/dovrut/services/project.service";
 import type {
   DovrutActivityLog,
   DovrutApprovalStatus,
@@ -31,26 +33,26 @@ export class DovrutConceptService extends BaseService {
     type?: DovrutConceptType;
     approvalStatus?: DovrutApprovalStatus;
     activeOnly?: boolean;
-    drafts?: boolean;
-    deleted?: boolean;
+    scope?: DovrutListScope;
   }): Promise<DovrutConcept[]> {
     const db = this.getDb();
-    const deletedOnly = Boolean(filters?.deleted);
-    const draftsOnly = Boolean(filters?.drafts);
+    const scope = filters?.scope ?? "working";
+    const projectId = filters?.projectId || null;
+    const type = filters?.type ?? null;
+    const approvalStatus = filters?.approvalStatus ?? null;
     return db<DovrutConcept[]>`
       select c.*, p.name as project_name
       from dovrut_concepts c
       join dovrut_projects p on p.id = c.project_id
-      where (${filters?.projectId ?? null}::uuid is null or c.project_id = ${filters?.projectId ?? null})
-        and (${filters?.type ?? null}::text is null or c.type = ${filters?.type ?? null})
-        and (${filters?.approvalStatus ?? null}::text is null or c.approval_status = ${filters?.approvalStatus ?? null})
-        and (${deletedOnly}::boolean and c.deleted_at is not null
-          or not ${deletedOnly}::boolean and c.deleted_at is null)
+      where (${projectId}::uuid is null or c.project_id = ${projectId})
+        and (${type}::text is null or c.type = ${type})
+        and (${approvalStatus}::text is null or c.approval_status = ${approvalStatus})
         and (
-          ${deletedOnly}::boolean
-          or ${draftsOnly}::boolean and c.is_draft
-          or ${Boolean(filters?.projectId)}::boolean and not ${draftsOnly}::boolean
-          or not ${draftsOnly}::boolean and not ${Boolean(filters?.projectId)}::boolean and not c.is_draft
+          ${scope} = 'deleted' and c.deleted_at is not null
+          or ${scope} = 'drafts' and c.deleted_at is null and c.is_draft
+          or ${scope} = 'working' and c.deleted_at is null
+            and (not c.is_draft or ${projectId}::uuid is not null)
+          or ${scope} = 'archived' and false
         )
         and (
           ${!(filters?.activeOnly ?? false)}::boolean
@@ -170,6 +172,7 @@ export class DovrutConceptService extends BaseService {
       user_name: actorName,
       user_email: actorEmail ?? null,
     });
+    await new DovrutProjectService().touchUpdated(created.project_id);
     return (await this.getById(created.id))!;
   }
 
@@ -270,7 +273,43 @@ export class DovrutConceptService extends BaseService {
       user_name: actorName,
       user_email: actorEmail ?? null,
     });
-    return (await this.getById(rows[0].id))!;
+    return rows[0] ? this.withProjectName(rows[0], existing.project_name) : null;
+  }
+
+  public async updateWorkStatus(
+    id: string,
+    status: DovrutWorkStatus,
+    actorName: string,
+    actorEmail?: string | null,
+  ): Promise<DovrutConcept | null> {
+    const existing = await this.getById(id);
+    if (!existing || existing.deleted_at) return null;
+    const db = this.getDb();
+    const isArticle = existing.type === "article_interview";
+    const rows = await db<DovrutConcept[]>`
+      update dovrut_concepts set
+        work_status_article = ${isArticle ? status : existing.work_status_article},
+        work_status_social = ${isArticle ? existing.work_status_social : status},
+        updated_at = now()
+      where id = ${id} and deleted_at is null
+      returning *
+    `;
+    await this.writeLog({
+      concept_id: id,
+      project_id: existing.project_id,
+      action_type: "status_changed",
+      field_changed: isArticle ? "work_status_article" : "work_status_social",
+      old_value: (isArticle ? existing.work_status_article : existing.work_status_social) ?? null,
+      new_value: status,
+      details: "שינוי סטטוס עבודה",
+      user_name: actorName,
+      user_email: actorEmail ?? null,
+    });
+    return rows[0] ? this.withProjectName(rows[0], existing.project_name) : null;
+  }
+
+  private withProjectName(row: DovrutConcept, projectName?: string): DovrutConcept {
+    return { ...row, project_name: row.project_name ?? projectName };
   }
 
   public async delete(id: string, actorName: string, actorEmail?: string | null): Promise<boolean> {

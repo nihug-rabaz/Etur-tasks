@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
+import { emitDovrutMutated } from "@/modules/dovrut/lib/dovrut-fetch";
 import { DOVRUT_AUDIENCES } from "@/modules/dovrut/lib/audiences";
 import type { DovrutCampaign, DovrutProjectStatus } from "@/modules/dovrut/types";
 
@@ -57,6 +58,7 @@ export function ProjectCreateForm({
       setDescription("");
       setStatus("active");
       setAudiences([]);
+      emitDovrutMutated();
       onCreated?.();
     } finally {
       setSaving(false);

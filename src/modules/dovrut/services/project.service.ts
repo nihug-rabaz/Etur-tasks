@@ -1,37 +1,35 @@
 import { BaseService } from "@/services/base.service";
+import type { DovrutListScope } from "@/modules/dovrut/lib/record-scope";
 import type { DovrutProject, DovrutProjectStatus } from "@/modules/dovrut/types";
 
 export class DovrutProjectService extends BaseService {
   public async list(filters?: {
+    scope?: DovrutListScope;
     status?: DovrutProjectStatus;
-    archived?: boolean;
-    drafts?: boolean;
-    deleted?: boolean;
+    campaignId?: string;
   }): Promise<DovrutProject[]> {
     const db = this.getDb();
-    const deletedOnly = Boolean(filters?.deleted);
-    const draftsOnly = Boolean(filters?.drafts);
-    const archivedOnly = Boolean(filters?.archived);
+    const scope = filters?.scope ?? "working";
+    const status = filters?.status ?? null;
+    const campaignId = filters?.campaignId || null;
     return db<DovrutProject[]>`
       select p.*, c.name as campaign_name
       from dovrut_projects p
       left join dovrut_campaigns c on c.id = p.campaign_id
-      where (${deletedOnly}::boolean and p.deleted_at is not null
-        or not ${deletedOnly}::boolean and p.deleted_at is null)
-        and (
-          ${deletedOnly}::boolean
-          or ${draftsOnly}::boolean and p.status = 'draft'
-          or not ${draftsOnly}::boolean and p.status <> 'draft'
-        )
-        and (${archivedOnly}::boolean and p.status = 'completed'
-          or not ${archivedOnly}::boolean)
-        and (${filters?.status ?? null}::text is null or p.status = ${filters?.status ?? null})
+      where (
+        ${scope} = 'deleted' and p.deleted_at is not null
+        or ${scope} = 'drafts' and p.deleted_at is null and p.status = 'draft'
+        or ${scope} = 'archived' and p.deleted_at is null and p.status = 'completed'
+        or ${scope} = 'working' and p.deleted_at is null and p.status in ('active', 'on_hold')
+      )
+        and (${status}::text is null or p.status = ${status})
+        and (${campaignId}::uuid is null or p.campaign_id = ${campaignId})
       order by p.updated_at desc
     `;
   }
 
   public async listActive(): Promise<DovrutProject[]> {
-    return this.list({ status: "active" });
+    return this.list({ scope: "working", status: "active" });
   }
 
   public async getById(id: string, includeDeleted = false): Promise<DovrutProject | null> {
@@ -82,8 +80,8 @@ export class DovrutProjectService extends BaseService {
       ended_at: string | null;
     }>,
   ): Promise<DovrutProject | null> {
-    const existing = await this.getById(id);
-    if (!existing) return null;
+    const existing = await this.getById(id, true);
+    if (!existing || existing.deleted_at) return null;
     const nextStatus = input.status ?? existing.status;
     const endedAt =
       nextStatus === "completed"
@@ -96,16 +94,25 @@ export class DovrutProjectService extends BaseService {
       update dovrut_projects set
         name = ${input.name ?? existing.name},
         description = ${input.description !== undefined ? input.description : existing.description},
-        target_audiences = ${input.target_audiences ?? existing.target_audiences},
+        target_audiences = ${input.target_audiences ?? existing.target_audiences ?? []},
         status = ${nextStatus},
         campaign_id = ${
           input.campaign_id !== undefined ? input.campaign_id : existing.campaign_id
         },
         ended_at = ${endedAt},
         updated_at = now()
-      where id = ${id}
+      where id = ${id} and deleted_at is null
     `;
     return this.getById(id);
+  }
+
+  public async touchUpdated(id: string): Promise<void> {
+    const db = this.getDb();
+    await db`
+      update dovrut_projects
+      set updated_at = now()
+      where id = ${id} and deleted_at is null
+    `;
   }
 
   public async completeDueProjects(): Promise<number> {

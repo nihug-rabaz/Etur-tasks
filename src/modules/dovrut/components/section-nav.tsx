@@ -13,12 +13,16 @@ const ITEMS = [
   { href: "/dovrut/campaigns", label: "קמפיינים", key: "campaigns" },
   { href: "/dovrut/projects", label: "פרויקטים", key: "projects" },
   { href: "/dovrut/items", label: "אייטמים", key: "items" },
+  { href: "/dovrut/inquiry-subjects", label: "גורמי תחקורים", key: "inquiry" },
   { href: "/dovrut/tasks", label: "משימות", key: "tasks" },
   { href: "/dovrut/approvals", label: "אישורי אייטמים", key: "approvals" },
 ] as const satisfies ReadonlyArray<{ href: string; label: string; key: DovrutNavPreviewKey }>;
 
 function isActive(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  if (pathname === href) return true;
+  if (!pathname.startsWith(`${href}/`)) return false;
+  if (href === "/dovrut/projects" && pathname.startsWith("/dovrut/projects/archive")) return false;
+  return true;
 }
 
 export function DovrutSectionNav() {

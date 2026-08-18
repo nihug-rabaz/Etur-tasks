@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
+import { useDovrutMutatedReload } from "@/modules/dovrut/lib/use-dovrut-reload";
 import type { DovrutCampaign, DovrutConcept, DovrutProject } from "@/modules/dovrut/types";
 import {
   APPROVAL_STATUS_LABELS,
@@ -26,17 +28,14 @@ export function DovrutDashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [campaignsRes, projectsRes, conceptsRes] = await Promise.all([
-        fetch("/api/dovrut/campaigns"),
-        fetch("/api/dovrut/projects"),
-        fetch("/api/dovrut/concepts?activeOnly=1"),
+      const [campaignsData, projectsData, conceptsData] = await Promise.all([
+        dovrutFetch<{ campaigns: DovrutCampaign[] }>("/api/dovrut/campaigns"),
+        dovrutFetch<{ projects: DovrutProject[] }>("/api/dovrut/projects"),
+        dovrutFetch<{ concepts: DovrutConcept[] }>("/api/dovrut/concepts?activeOnly=1"),
       ]);
-      const campaignsData = await campaignsRes.json();
-      const projectsData = await projectsRes.json();
-      const conceptsData = await conceptsRes.json();
-      setCampaigns(Array.isArray(campaignsData.campaigns) ? campaignsData.campaigns : []);
-      setProjects(Array.isArray(projectsData.projects) ? projectsData.projects : []);
-      setConcepts(Array.isArray(conceptsData.concepts) ? conceptsData.concepts : []);
+      setCampaigns(campaignsData.campaigns);
+      setProjects(projectsData.projects);
+      setConcepts(conceptsData.concepts);
     } finally {
       setLoading(false);
     }
@@ -45,6 +44,7 @@ export function DovrutDashboardPage() {
   useEffect(() => {
     void load();
   }, [load]);
+  useDovrutMutatedReload(load);
 
   const activeCampaigns = useMemo(
     () => campaigns.filter((campaign) => campaign.status === "active"),

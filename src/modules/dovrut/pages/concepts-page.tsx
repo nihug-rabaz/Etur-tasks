@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
+import { useDovrutMutatedReload } from "@/modules/dovrut/lib/use-dovrut-reload";
 import type { DovrutConcept } from "@/modules/dovrut/types";
 import {
   APPROVAL_STATUS_LABELS,
@@ -15,18 +17,27 @@ export function DovrutConceptsPage() {
   const [activeOnly, setActiveOnly] = useState(true);
   const [draftsOnly, setDraftsOnly] = useState(false);
 
+  const [error, setError] = useState("");
+
   const load = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (draftsOnly) params.set("drafts", "1");
-    else if (activeOnly) params.set("activeOnly", "1");
-    const response = await fetch(`/api/dovrut/concepts?${params.toString()}`);
-    const data = await response.json();
-    setConcepts(Array.isArray(data.concepts) ? data.concepts : []);
+    try {
+      const params = new URLSearchParams();
+      if (draftsOnly) params.set("scope", "drafts");
+      else if (activeOnly) params.set("activeOnly", "1");
+      const data = await dovrutFetch<{ concepts: DovrutConcept[] }>(
+        `/api/dovrut/concepts?${params.toString()}`,
+      );
+      setConcepts(data.concepts);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "טעינה נכשלה");
+    }
   }, [activeOnly, draftsOnly]);
 
   useEffect(() => {
     void load();
   }, [load]);
+  useDovrutMutatedReload(load);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,6 +89,7 @@ export function DovrutConceptsPage() {
         placeholder="חיפוש לפי שם, מערכת, מראיין…"
         className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
       />
+      {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
       <ul className="space-y-2">
         {filtered.map((concept) => (
           <li key={concept.id}>

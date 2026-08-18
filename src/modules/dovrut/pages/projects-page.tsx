@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ProjectCreateForm } from "@/modules/dovrut/components/forms/project-form";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
+import { useDovrutMutatedReload } from "@/modules/dovrut/lib/use-dovrut-reload";
 import type { DovrutProject } from "@/modules/dovrut/types";
 
 export function DovrutProjectsPage() {
@@ -12,38 +13,45 @@ export function DovrutProjectsPage() {
   const [projects, setProjects] = useState<DovrutProject[]>([]);
   const [query, setQuery] = useState("");
   const [draftsOnly, setDraftsOnly] = useState(false);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (draftsOnly) params.set("drafts", "1");
-    const response = await fetch(`/api/dovrut/projects?${params.toString()}`);
-    const projectsData = await response.json();
-    setProjects(Array.isArray(projectsData.projects) ? projectsData.projects : []);
-  }, [draftsOnly]);
+    try {
+      const params = new URLSearchParams();
+      if (draftsOnly) params.set("scope", "drafts");
+      if (campaignFilter) params.set("campaignId", campaignFilter);
+      const data = await dovrutFetch<{ projects: DovrutProject[] }>(
+        `/api/dovrut/projects?${params.toString()}`,
+      );
+      setProjects(data.projects);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "טעינה נכשלה");
+    }
+  }, [draftsOnly, campaignFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+  useDovrutMutatedReload(load);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return projects.filter((project) => {
-      if (campaignFilter && project.campaign_id !== campaignFilter) return false;
-      if (!q) return true;
-      return (
+    if (!q) return projects;
+    return projects.filter(
+      (project) =>
         project.name.toLowerCase().includes(q) ||
         (project.description ?? "").toLowerCase().includes(q) ||
-        (project.campaign_name ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [projects, query, campaignFilter]);
+        (project.campaign_name ?? "").toLowerCase().includes(q),
+    );
+  }, [projects, query]);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-text-primary">פרויקטים תקשורתיים</h1>
-          <p className="mt-1 text-sm text-text-muted">תחת קמפיין · פרויקט ← אייטם</p>
+          <p className="mt-1 text-sm text-text-muted">תחת קמפיין · יצירה מהכפתור +</p>
           <Link href="/dovrut/projects/archive" className="mt-2 inline-block text-xs font-bold text-violet-700">
             לארכיון פרויקטים →
           </Link>
@@ -57,23 +65,13 @@ export function DovrutProjectsPage() {
           טיוטות
         </label>
       </div>
-
-      <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
-        <h2 className="mb-3 text-sm font-extrabold">פרויקט חדש</h2>
-        <ProjectCreateForm
-          layout="grid"
-          defaultCampaignId={campaignFilter}
-          onCreated={() => void load()}
-        />
-      </div>
-
+      {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="חיפוש פרויקט"
         className="rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
       />
-
       <ul className="space-y-2">
         {filtered.map((project) => (
           <li key={project.id}>

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseDovrutListScope } from "@/modules/dovrut/lib/record-scope";
 import { DovrutAccessService } from "@/modules/dovrut/services/access.service";
 import { DovrutConceptService } from "@/modules/dovrut/services/concept.service";
+
+const noStore = { headers: { "Cache-Control": "no-store, max-age=0" } };
 
 const domainEnum = z.enum([
   "kashrut",
@@ -53,10 +56,9 @@ export async function GET(request: Request) {
     type: (searchParams.get("type") as "article_interview" | "social_media" | null) ?? undefined,
     approvalStatus: (searchParams.get("approvalStatus") as never) ?? undefined,
     activeOnly: searchParams.get("activeOnly") === "1",
-    drafts: searchParams.get("drafts") === "1",
-    deleted: searchParams.get("deleted") === "1",
+    scope: parseDovrutListScope(searchParams),
   });
-  return NextResponse.json({ concepts, items: concepts });
+  return NextResponse.json({ concepts, items: concepts }, noStore);
 }
 
 export async function POST(request: Request) {

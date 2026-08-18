@@ -8,9 +8,9 @@ import { APPROVAL_STATUS_LABELS, DOMAIN_LABELS } from "@/modules/dovrut/lib/appr
 
 const STEPS: Array<{ id: "all" | DovrutApprovalStatus; label: string }> = [
   { id: "all", label: "הכל" },
-  { id: "waiting_branch_head", label: "רמ״ח" },
   { id: "waiting_deputy_commander", label: "רמ״ט" },
   { id: "waiting_chief_rabbi", label: "רבצ״ר" },
+  { id: "waiting_branch_head", label: "רמ״ח" },
 ];
 
 export function DovrutApprovalsPage() {

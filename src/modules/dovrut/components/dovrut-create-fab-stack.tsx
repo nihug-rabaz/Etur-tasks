@@ -112,11 +112,7 @@ export function DovrutCreateFabStack({
     <>
       <div
         ref={clusterRef}
-        className={`fixed bottom-24 right-5 z-[60] h-[280px] w-[280px] ${
-          expanded ? "pointer-events-auto" : "pointer-events-none"
-        }`}
-        onMouseEnter={openFan}
-        onMouseLeave={scheduleCloseFan}
+        className="pointer-events-none fixed bottom-24 right-5 z-[60] h-[280px] w-[280px]"
       >
         <div
           className="absolute"
@@ -135,7 +131,10 @@ export function DovrutCreateFabStack({
                   openFan();
                   setHovered(action.id);
                 }}
-                onMouseLeave={() => setHovered(null)}
+                onMouseLeave={() => {
+                  setHovered(null);
+                  scheduleCloseFan();
+                }}
                 onClick={() => {
                   setDrawer(action.id);
                   collapseFan();
@@ -166,6 +165,7 @@ export function DovrutCreateFabStack({
             setExpanded(true);
           }}
           onMouseEnter={openFan}
+          onMouseLeave={scheduleCloseFan}
           className="pointer-events-auto absolute bottom-0 right-0 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent-orange text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.7)] transition duration-300 hover:scale-110 hover:brightness-105"
         >
           <Plus size={26} strokeWidth={2.4} />

@@ -38,6 +38,12 @@ export const dovrutModule: AppModuleDefinition = {
       roles: ["admin", "user", "viewer"],
     },
     {
+      label: "גורמי תחקורים",
+      href: "/dovrut/inquiry-subjects",
+      description: "כרטיסי רקע לתדרוך ותחקור",
+      roles: ["admin", "user", "viewer"],
+    },
+    {
       label: "משימות כלליות",
       href: "/dovrut/tasks",
       description: "משימות שנוצרו בדוברות",
@@ -80,6 +86,7 @@ export const dovrutModule: AppModuleDefinition = {
     projects: "פרויקטים",
     concepts: "אייטמים",
     items: "אייטמים",
+    "inquiry-subjects": "גורמי תחקורים",
     tasks: "משימות כלליות",
     audiences: "מסרים",
     news: "חדשות",

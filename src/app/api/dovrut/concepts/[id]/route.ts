@@ -79,10 +79,9 @@ export async function GET(
   }
   const { id } = await context.params;
   const service = new DovrutConceptService();
-  const concept = await service.getById(id);
+  const [concept, activity] = await Promise.all([service.getById(id), service.listActivity(id)]);
   if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  await service.touchOpened(id);
-  const activity = await service.listActivity(id);
+  void service.touchOpened(id);
   return NextResponse.json({ concept, item: concept, activity });
 }
 
@@ -119,6 +118,23 @@ export async function PUT(
   const existing = await new DovrutConceptService().getById(id);
   const patch = { ...parsed.data };
   delete patch.restore;
+  const patchKeys = (Object.keys(patch) as Array<keyof typeof patch>).filter(
+    (key) => patch[key] !== undefined,
+  );
+  const workKey = patchKeys.find(
+    (key) => key === "work_status_article" || key === "work_status_social",
+  );
+  const workOnly = Boolean(workKey) && patchKeys.length === 1;
+  if (workOnly && workKey) {
+    const concept = await new DovrutConceptService().updateWorkStatus(
+      id,
+      patch[workKey] as "planning" | "production" | "waiting_approvals" | "approved",
+      access.profile.name,
+      access.profile.email,
+    );
+    if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ concept, item: concept });
+  }
   if (existing?.type === "social_media") {
     patch.link = null;
   }

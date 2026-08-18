@@ -2,33 +2,68 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ItemCreateForm } from "@/modules/dovrut/components/forms/item-form";
 import { DOMAIN_LABELS } from "@/modules/dovrut/lib/approval-flows";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
+import { useDovrutMutatedReload } from "@/modules/dovrut/lib/use-dovrut-reload";
 import type { DovrutConcept, DovrutConceptType, DovrutProject } from "@/modules/dovrut/types";
 
 export function DovrutProjectDetailsPage({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<DovrutProject | null>(null);
   const [concepts, setConcepts] = useState<DovrutConcept[]>([]);
   const [tab, setTab] = useState<"all" | DovrutConceptType>("all");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const [projectRes, conceptsRes] = await Promise.all([
-      fetch(`/api/dovrut/projects/${projectId}`),
-      fetch(`/api/dovrut/concepts?projectId=${projectId}`),
-    ]);
-    const projectData = await projectRes.json();
-    const conceptsData = await conceptsRes.json();
-    setProject(projectData.project ?? null);
-    setConcepts(Array.isArray(conceptsData.concepts) ? conceptsData.concepts : []);
+    try {
+      const [projectData, conceptsData] = await Promise.all([
+        dovrutFetch<{ project: DovrutProject | null }>(`/api/dovrut/projects/${projectId}`),
+        dovrutFetch<{ concepts: DovrutConcept[] }>(`/api/dovrut/concepts?projectId=${projectId}`),
+      ]);
+      setProject(projectData.project ?? null);
+      setConcepts(conceptsData.concepts);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "טעינה נכשלה");
+    }
   }, [projectId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+  useDovrutMutatedReload(load);
 
-  if (!project) {
+  const archive = async () => {
+    if (!window.confirm("לסיים את הפרויקט ולהעביר לארכיון?")) return;
+    setBusy(true);
+    try {
+      await dovrutFetch(`/api/dovrut/projects/${projectId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      window.location.href = "/dovrut/projects/archive";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ארכוב נכשל");
+      setBusy(false);
+    }
+  };
+
+  const moveToBin = async () => {
+    if (!window.confirm("להעביר את הפרויקט לסל מחזור?")) return;
+    setBusy(true);
+    try {
+      await dovrutFetch(`/api/dovrut/projects/${projectId}`, { method: "DELETE" });
+      window.location.href = "/dovrut/recycle-bin";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "מחיקה נכשלה");
+      setBusy(false);
+    }
+  };
+
+  if (!project && !error) {
     return <div className="text-sm text-text-muted">טוען פרויקט…</div>;
   }
+  if (!project) return <p className="text-sm text-rose-600">{error}</p>;
 
   const visible = concepts.filter((concept) => (tab === "all" ? true : concept.type === tab));
 
@@ -45,39 +80,27 @@ export function DovrutProjectDetailsPage({ projectId }: { projectId: string }) {
         {project.description ? (
           <p className="mt-1 text-sm text-text-secondary">{project.description}</p>
         ) : null}
+        {error ? <p className="mt-2 text-xs font-semibold text-rose-600">{error}</p> : null}
         <div className="mt-3 flex flex-wrap gap-2">
           {project.status !== "completed" ? (
             <button
               type="button"
-              onClick={() =>
-                void fetch(`/api/dovrut/projects/${projectId}`, {
-                  method: "PUT",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status: "completed" }),
-                }).then(() => load())
-              }
-              className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold dark:bg-slate-800"
+              disabled={busy}
+              onClick={() => void archive()}
+              className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold disabled:opacity-40 dark:bg-slate-800"
             >
               סיים ושלח לארכיון
             </button>
           ) : null}
           <button
             type="button"
-            onClick={() =>
-              void fetch(`/api/dovrut/projects/${projectId}`, { method: "DELETE" }).then(() => {
-                window.location.href = "/dovrut/recycle-bin";
-              })
-            }
-            className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700"
+            disabled={busy}
+            onClick={() => void moveToBin()}
+            className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-40"
           >
             מחק לסל מחזור
           </button>
         </div>
-      </div>
-
-      <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
-        <h2 className="mb-3 text-sm font-extrabold">אייטם חדש</h2>
-        <ItemCreateForm layout="grid" defaultProjectId={projectId} onCreated={() => void load()} />
       </div>
 
       <div className="flex gap-2">

@@ -2,32 +2,36 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { CampaignCreateForm } from "@/modules/dovrut/components/forms/campaign-form";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
+import { useDovrutMutatedReload } from "@/modules/dovrut/lib/use-dovrut-reload";
 import type { DovrutCampaign } from "@/modules/dovrut/types";
 
 export function DovrutCampaignsPage() {
   const [campaigns, setCampaigns] = useState<DovrutCampaign[]>([]);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/dovrut/campaigns");
-    const data = await response.json();
-    setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
+    try {
+      const data = await dovrutFetch<{ campaigns: DovrutCampaign[] }>("/api/dovrut/campaigns");
+      setCampaigns(data.campaigns);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "טעינה נכשלה");
+    }
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+  useDovrutMutatedReload(load);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div>
         <h1 className="text-xl font-bold text-text-primary">קמפיינים</h1>
-        <p className="mt-1 text-sm text-text-muted">קמפיין ← פרויקט ← אייטם</p>
+        <p className="mt-1 text-sm text-text-muted">קמפיין ← פרויקט ← אייטם · יצירה מהכפתור +</p>
       </div>
-      <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
-        <h2 className="mb-3 text-sm font-extrabold">קמפיין חדש</h2>
-        <CampaignCreateForm layout="grid" onCreated={() => void load()} />
-      </div>
+      {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
       <ul className="space-y-2">
         {campaigns.map((campaign) => (
           <li

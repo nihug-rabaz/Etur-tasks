@@ -15,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const campaigns = await new DovrutCampaignService().list();
-  return NextResponse.json({ campaigns });
+  return NextResponse.json({ campaigns }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
 
 export async function POST(request: Request) {

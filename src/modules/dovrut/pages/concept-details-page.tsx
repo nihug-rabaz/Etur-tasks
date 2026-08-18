@@ -9,6 +9,7 @@ import type {
   DovrutWorkStatus,
 } from "@/modules/dovrut/types";
 import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
 import {
   APPROVAL_STATUS_LABELS,
   DOMAIN_LABELS,
@@ -38,8 +39,10 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [message, setMessage] = useState("");
 
   const load = useCallback(async () => {
-    const response = await fetch(`/api/dovrut/concepts/${conceptId}`);
-    const data = await response.json();
+    const data = await dovrutFetch<{
+      concept: DovrutConcept | null;
+      activity: DovrutActivityLog[];
+    }>(`/api/dovrut/concepts/${conceptId}`);
     const next = data.concept ?? null;
     setConcept(next);
     setActivity(Array.isArray(data.activity) ? data.activity : []);
@@ -94,37 +97,34 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         body.draft_text = draftText;
         body.link = null;
       }
-      const response = await fetch(`/api/dovrut/concepts/${conceptId}`, {
+      await dovrutFetch(`/api/dovrut/concepts/${conceptId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!response.ok) {
-        setMessage("שמירה נכשלה");
-        return;
-      }
       setMessage("נשמר");
       await load();
+    } catch {
+      setMessage("שמירה נכשלה");
     } finally {
       setSaving(false);
     }
   };
 
   const setWorkStatus = async (status: DovrutWorkStatus) => {
-    setSaving(true);
+    if (!concept) return;
+    const previous = concept;
+    const field =
+      concept.type === "article_interview" ? "work_status_article" : "work_status_social";
+    setConcept({ ...concept, [field]: status });
     try {
-      const body =
-        concept?.type === "article_interview"
-          ? { work_status_article: status }
-          : { work_status_social: status };
-      await fetch(`/api/dovrut/concepts/${conceptId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      await load();
-    } finally {
-      setSaving(false);
+      const data = await dovrutFetch<{ concept: DovrutConcept }>(
+        `/api/dovrut/concepts/${conceptId}`,
+        { method: "PUT", body: JSON.stringify({ [field]: status }) },
+      );
+      if (data.concept) setConcept(data.concept);
+    } catch {
+      setConcept(previous);
+      setMessage("עדכון סטטוס נכשל");
     }
   };
 
@@ -224,7 +224,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
             <button
               key={value}
               type="button"
-              disabled={saving}
               onClick={() => void setWorkStatus(value)}
               className={`rounded-full px-3 py-1.5 text-xs font-bold ${
                 currentWork === value

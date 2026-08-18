@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { DovrutAccessService } from "@/modules/dovrut/services/access.service";
 import { DovrutCampaignService } from "@/modules/dovrut/services/campaign.service";
 import { DovrutConceptService } from "@/modules/dovrut/services/concept.service";
+import { DovrutInquirySubjectService } from "@/modules/dovrut/services/inquiry-subject.service";
 import { DovrutProjectService } from "@/modules/dovrut/services/project.service";
 import { AuthorizationService } from "@/services/authorization.service";
 import { TaskService } from "@/services/task.service";
@@ -14,10 +15,11 @@ export async function GET() {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
 
-  const [campaigns, projects, items] = await Promise.all([
+  const [campaigns, projects, items, subjects] = await Promise.all([
     new DovrutCampaignService().list(),
-    new DovrutProjectService().list({ status: "active" }),
+    new DovrutProjectService().list({ scope: "working", status: "active" }),
     new DovrutConceptService().list({ activeOnly: true }),
+    new DovrutInquirySubjectService().list(),
   ]);
 
   let tasks: Array<{ id: string; title: string }> = [];
@@ -34,18 +36,22 @@ export async function GET() {
     (item) => item.approval_status && item.approval_status !== "approved",
   );
 
-  return NextResponse.json({
-    campaigns: campaigns
-      .filter((row) => row.status === "active")
-      .slice(0, LIMIT)
-      .map((row) => ({ id: row.id, name: row.name })),
-    projects: projects.slice(0, LIMIT).map((row) => ({ id: row.id, name: row.name })),
-    items: items.slice(0, LIMIT).map((row) => ({ id: row.id, name: row.name })),
-    tasks,
-    approvals: pending.slice(0, LIMIT).map((row) => ({
-      id: row.id,
-      name: row.name,
-      approval_status: row.approval_status,
-    })),
-  });
+  return NextResponse.json(
+    {
+      campaigns: campaigns
+        .filter((row) => row.status === "active")
+        .slice(0, LIMIT)
+        .map((row) => ({ id: row.id, name: row.name })),
+      projects: projects.slice(0, LIMIT).map((row) => ({ id: row.id, name: row.name })),
+      items: items.slice(0, LIMIT).map((row) => ({ id: row.id, name: row.name })),
+      inquirySubjects: subjects.slice(0, LIMIT).map((row) => ({ id: row.id, name: row.name })),
+      tasks,
+      approvals: pending.slice(0, LIMIT).map((row) => ({
+        id: row.id,
+        name: row.name,
+        approval_status: row.approval_status,
+      })),
+    },
+    { headers: { "Cache-Control": "no-store, max-age=0" } },
+  );
 }

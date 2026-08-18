@@ -39,6 +39,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/dovrut/projects",
     "/dovrut/concepts",
     "/dovrut/items",
+    "/dovrut/inquiry-subjects",
     "/dovrut/campaigns",
     "/dovrut/audiences",
     "/dovrut/news",
@@ -61,6 +62,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     (segments[1] === "projects" ||
       segments[1] === "concepts" ||
       segments[1] === "items" ||
+      segments[1] === "inquiry-subjects" ||
       segments[1] === "campaigns")
   ) {
     return href;

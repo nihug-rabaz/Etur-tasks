@@ -1,10 +1,17 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { DOVRUT_MUTATED_EVENT } from "@/modules/dovrut/lib/dovrut-fetch";
 
-export type DovrutNavPreviewKey = "campaigns" | "projects" | "items" | "tasks" | "approvals";
+export type DovrutNavPreviewKey =
+  | "campaigns"
+  | "projects"
+  | "items"
+  | "inquiry"
+  | "tasks"
+  | "approvals";
 
-export type DovrutSidePreviewKey = "campaigns" | "projects" | "items";
+export type DovrutSidePreviewKey = "campaigns" | "projects" | "items" | "inquiry";
 
 export interface DovrutNavPreviewRow {
   id: string;
@@ -16,6 +23,7 @@ export interface DovrutNavPreview {
   campaigns: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; name: string }>;
   items: Array<{ id: string; name: string }>;
+  inquirySubjects: Array<{ id: string; name: string }>;
   tasks: Array<{ id: string; title: string }>;
   approvals: Array<{ id: string; name: string; approval_status: string | null }>;
 }
@@ -24,6 +32,7 @@ const SIDE_PREVIEW_HREFS: Record<DovrutSidePreviewKey, string> = {
   campaigns: "/dovrut/campaigns",
   projects: "/dovrut/projects",
   items: "/dovrut/items",
+  inquiry: "/dovrut/inquiry-subjects",
 };
 
 export function previewKeyForHref(href: string): DovrutSidePreviewKey | null {
@@ -59,6 +68,13 @@ export function rowsForNavPreview(
       href: `/dovrut/items/${row.id}`,
     }));
   }
+  if (key === "inquiry") {
+    return (preview.inquirySubjects ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      href: `/dovrut/inquiry-subjects/${row.id}`,
+    }));
+  }
   if (key === "tasks") {
     return preview.tasks.map((row) => ({
       id: row.id,
@@ -77,12 +93,19 @@ export function useDovrutNavPreview() {
   const [preview, setPreview] = useState<DovrutNavPreview | null>(null);
 
   const loadPreview = useCallback(async () => {
-    if (preview) return;
-    const response = await fetch("/api/dovrut/nav-preview");
+    const response = await fetch("/api/dovrut/nav-preview", { cache: "no-store" });
     if (!response.ok) return;
     const data = (await response.json()) as DovrutNavPreview;
     setPreview(data);
-  }, [preview]);
+  }, []);
+
+  useEffect(() => {
+    const onMutate = () => {
+      void loadPreview();
+    };
+    window.addEventListener(DOVRUT_MUTATED_EVENT, onMutate);
+    return () => window.removeEventListener(DOVRUT_MUTATED_EVENT, onMutate);
+  }, [loadPreview]);
 
   return { preview, loadPreview };
 }

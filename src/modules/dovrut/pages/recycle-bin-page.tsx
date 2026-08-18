@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
 import type { DovrutConcept, DovrutProject } from "@/modules/dovrut/types";
 
 export function DovrutRecycleBinPage() {
@@ -10,14 +11,17 @@ export function DovrutRecycleBinPage() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const [projectsRes, itemsRes] = await Promise.all([
-      fetch("/api/dovrut/projects?deleted=1"),
-      fetch("/api/dovrut/concepts?deleted=1"),
-    ]);
-    const projectsData = await projectsRes.json();
-    const itemsData = await itemsRes.json();
-    setProjects(Array.isArray(projectsData.projects) ? projectsData.projects : []);
-    setItems(Array.isArray(itemsData.concepts) ? itemsData.concepts : []);
+    try {
+      const [projectsData, itemsData] = await Promise.all([
+        dovrutFetch<{ projects: DovrutProject[] }>("/api/dovrut/projects?scope=deleted"),
+        dovrutFetch<{ concepts: DovrutConcept[] }>("/api/dovrut/concepts?scope=deleted"),
+      ]);
+      setProjects(projectsData.projects);
+      setItems(itemsData.concepts);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "טעינה נכשלה");
+    }
   }, []);
 
   useEffect(() => {
@@ -25,56 +29,68 @@ export function DovrutRecycleBinPage() {
   }, [load]);
 
   const restoreProject = async (id: string) => {
+    const snapshot = projects;
+    setProjects((rows) => rows.filter((row) => row.id !== id));
     setBusy(id);
     setError("");
     try {
-      const response = await fetch(`/api/dovrut/projects/${id}`, {
+      await dovrutFetch(`/api/dovrut/projects/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restore: true }),
       });
-      if (!response.ok) setError("שחזור פרויקט נכשל");
-      await load();
+    } catch {
+      setProjects(snapshot);
+      setError("שחזור פרויקט נכשל");
     } finally {
       setBusy(null);
     }
   };
 
   const purgeProject = async (id: string) => {
+    if (!window.confirm("למחוק את הפרויקט לצמיתות?")) return;
+    const snapshot = projects;
+    setProjects((rows) => rows.filter((row) => row.id !== id));
     setBusy(id);
     setError("");
     try {
-      const response = await fetch(`/api/dovrut/projects/${id}?purge=1`, { method: "DELETE" });
-      if (!response.ok) setError("מחיקה לצמיתות נכשלה");
-      await load();
+      await dovrutFetch(`/api/dovrut/projects/${id}?purge=1`, { method: "DELETE" });
+    } catch {
+      setProjects(snapshot);
+      setError("מחיקה לצמיתות נכשלה");
     } finally {
       setBusy(null);
     }
   };
 
   const restoreItem = async (id: string) => {
+    const snapshot = items;
+    setItems((rows) => rows.filter((row) => row.id !== id));
     setBusy(id);
     setError("");
     try {
-      const response = await fetch(`/api/dovrut/concepts/${id}`, {
+      await dovrutFetch(`/api/dovrut/concepts/${id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ restore: true }),
       });
-      if (!response.ok) setError("שחזור אייטם נכשל");
-      await load();
+    } catch {
+      setItems(snapshot);
+      setError("שחזור אייטם נכשל");
     } finally {
       setBusy(null);
     }
   };
 
   const purgeItem = async (id: string) => {
+    if (!window.confirm("למחוק את האייטם לצמיתות?")) return;
+    const snapshot = items;
+    setItems((rows) => rows.filter((row) => row.id !== id));
     setBusy(id);
     setError("");
     try {
-      const response = await fetch(`/api/dovrut/concepts/${id}?purge=1`, { method: "DELETE" });
-      if (!response.ok) setError("מחיקה לצמיתות נכשלה");
-      await load();
+      await dovrutFetch(`/api/dovrut/concepts/${id}?purge=1`, { method: "DELETE" });
+    } catch {
+      setItems(snapshot);
+      setError("מחיקה לצמיתות נכשלה");
     } finally {
       setBusy(null);
     }

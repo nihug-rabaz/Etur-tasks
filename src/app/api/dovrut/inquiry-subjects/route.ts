@@ -1,37 +1,30 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { parseDovrutListScope } from "@/modules/dovrut/lib/record-scope";
 import { DovrutAccessService } from "@/modules/dovrut/services/access.service";
-import { DovrutProjectService } from "@/modules/dovrut/services/project.service";
+import { DovrutInquirySubjectService } from "@/modules/dovrut/services/inquiry-subject.service";
 
 const noStore = { headers: { "Cache-Control": "no-store, max-age=0" } };
 
-const createSchema = z.object({
+const upsertSchema = z.object({
   name: z.string().min(1),
-  description: z.string().nullable().optional(),
-  target_audiences: z.array(z.string()).optional(),
-  status: z.enum(["active", "completed", "on_hold", "draft"]).optional(),
-  campaign_id: z.string().uuid().nullable().optional(),
+  age: z.number().int().positive().nullable().optional(),
+  hometown: z.string().nullable().optional(),
+  family_status: z.string().nullable().optional(),
+  enlistment_year: z.number().int().min(1948).max(2100).nullable().optional(),
+  years_in_role: z.number().nonnegative().nullable().optional(),
+  role_title: z.string().nullable().optional(),
+  previous_roles: z.string().nullable().optional(),
+  bio: z.string().optional(),
+  notes: z.string().nullable().optional(),
 });
 
-export async function GET(request: Request) {
+export async function GET() {
   const access = await new DovrutAccessService().requireDovrutAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") as
-    | "active"
-    | "completed"
-    | "on_hold"
-    | "draft"
-    | null;
-  const projects = await new DovrutProjectService().list({
-    scope: parseDovrutListScope(searchParams),
-    status: status ?? undefined,
-    campaignId: searchParams.get("campaignId") ?? undefined,
-  });
-  return NextResponse.json({ projects }, noStore);
+  const subjects = await new DovrutInquirySubjectService().list();
+  return NextResponse.json({ subjects }, noStore);
 }
 
 export async function POST(request: Request) {
@@ -43,16 +36,14 @@ export async function POST(request: Request) {
   if (!accessService.canEditContent(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-
   const body = await request.json().catch(() => null);
-  const parsed = createSchema.safeParse(body);
+  const parsed = upsertSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
-
-  const project = await new DovrutProjectService().create({
+  const subject = await new DovrutInquirySubjectService().create({
     ...parsed.data,
     created_by: access.profile.id,
   });
-  return NextResponse.json({ project }, { status: 201 });
+  return NextResponse.json({ subject }, { status: 201 });
 }

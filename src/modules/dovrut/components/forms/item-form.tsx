@@ -7,6 +7,7 @@ import {
   DOMAIN_LABELS,
   getInitialApprovalStatus,
 } from "@/modules/dovrut/lib/approval-flows";
+import { emitDovrutMutated } from "@/modules/dovrut/lib/dovrut-fetch";
 import { DOVRUT_AUDIENCES } from "@/modules/dovrut/lib/audiences";
 import type { DovrutConceptType, DovrutProject } from "@/modules/dovrut/types";
 
@@ -102,6 +103,7 @@ export function ItemCreateForm({
       setRequiresDeputy(DEFAULT_APPROVAL_FLAGS.requires_deputy_commander);
       setRequiresBranch(DEFAULT_APPROVAL_FLAGS.requires_branch_head);
       setIsDraft(false);
+      emitDovrutMutated();
       onCreated?.();
     } finally {
       setSaving(false);
