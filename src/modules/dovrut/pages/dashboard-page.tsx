@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DovrutDashboardSearch } from "@/modules/dovrut/components/dovrut-dashboard-search";
 import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
 import { useDovrutMutatedReload } from "@/modules/dovrut/lib/use-dovrut-reload";
 import type { DovrutCampaign, DovrutConcept, DovrutProject } from "@/modules/dovrut/types";
@@ -74,20 +75,27 @@ export function DovrutDashboardPage() {
         <p className="mt-1 text-sm text-text-secondary">קמפיינים, פרויקטים ואייטמים פעילים</p>
       </div>
 
+      <DovrutDashboardSearch />
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { label: "קמפיינים פעילים", value: activeCampaigns.length },
-          { label: "פרויקטים פעילים", value: activeProjects.length },
-          { label: "אייטמים פעילים", value: activeItems.length },
-          { label: "ממתינים לאישור", value: waitingApprovals.length },
+          { label: "קמפיינים פעילים", value: activeCampaigns.length, href: "/dovrut/campaigns" },
+          { label: "פרויקטים פעילים", value: activeProjects.length, href: "/dovrut/projects" },
+          { label: "אייטמים פעילים", value: activeItems.length, href: "/dovrut/items" },
+          {
+            label: "ממתינים לאישור",
+            value: waitingApprovals.length,
+            href: "/dovrut/approvals",
+          },
         ].map((item) => (
-          <div
+          <Link
             key={item.label}
-            className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]"
+            href={item.href}
+            className="rounded-2xl border border-black/8 bg-white p-4 transition hover:border-violet-300 dark:border-white/10 dark:bg-[#161922]"
           >
             <p className="text-xs font-semibold text-text-muted">{item.label}</p>
             <p className="mt-1 text-2xl font-extrabold text-text-primary">{item.value}</p>
-          </div>
+          </Link>
         ))}
       </div>
 

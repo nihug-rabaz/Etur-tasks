@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isDailyPlanToday } from "@/lib/daily-planner/hours";
 import { AuthorizationService } from "@/services/authorization.service";
 import { DailyPlanService } from "@/services/daily-plan.service";
 
@@ -38,6 +39,9 @@ export async function GET(request: Request) {
   }
 
   const dailyPlanService = new DailyPlanService();
+  if (isDailyPlanToday(planDate)) {
+    await dailyPlanService.rolloverIncompleteSlots(profile.id, planDate);
+  }
   const placements = await dailyPlanService.getPlacementsForTasks(
     taskIds,
     profile.id,

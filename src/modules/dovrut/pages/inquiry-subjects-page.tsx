@@ -52,6 +52,7 @@ export function DovrutInquirySubjectsPage() {
               <p className="mt-0.5 text-[11px] text-text-muted">
                 {[
                   subject.role_title,
+                  subject.rank,
                   subject.age != null ? `גיל ${subject.age}` : null,
                   subject.hometown,
                 ]
