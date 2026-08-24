@@ -23,9 +23,10 @@ export function sanitizeCallbackUrl(raw: string | null | undefined, fallback = F
   return value || fallback;
 }
 
-export function moduleIdFromPath(pathname: string): "tasks" | "dovrut" | null {
+export function moduleIdFromPath(pathname: string): "tasks" | "dovrut" | "agam" | null {
   if (pathname === "/" || pathname === "") return null;
   if (pathname === "/dovrut" || pathname.startsWith("/dovrut/")) return "dovrut";
+  if (pathname === "/agam" || pathname.startsWith("/agam/")) return "agam";
   if (
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||

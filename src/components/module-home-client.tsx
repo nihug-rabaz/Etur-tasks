@@ -56,7 +56,9 @@ export function ModuleHomeClient({ isPlatformAdmin }: { isPlatformAdmin: boolean
         const href =
           moduleId === "dovrut" && moduleRoles.dovrut === "approver"
             ? "/dovrut/approvals"
-            : requestedPath.startsWith("/dovrut") || requestedPath.startsWith("/dashboard")
+            : requestedPath.startsWith("/dovrut") ||
+                requestedPath.startsWith("/agam") ||
+                requestedPath.startsWith("/dashboard")
               ? requestedPath
               : targetModule
                 ? moduleEntryHref(targetModule.id, targetModule.href, moduleRoles[targetModule.id])
@@ -93,7 +95,7 @@ export function ModuleHomeClient({ isPlatformAdmin }: { isPlatformAdmin: boolean
           בחרו לאיזו אפליקציה להיכנס. הגישה נקבעת לפי ההרשאות שקיבלתם.
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {modules.map((module) => (
           <Link
             key={module.id}

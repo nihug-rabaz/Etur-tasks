@@ -21,6 +21,7 @@ const ROLE_LABELS: Record<ModuleRole, string> = {
   user: "חפ״ש",
   approver: "מאשר",
   viewer: "צופה",
+  ramad: "רמ״ד",
 };
 
 function looksLatinHeavy(name: string): boolean {

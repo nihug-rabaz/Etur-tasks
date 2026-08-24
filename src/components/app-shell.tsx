@@ -20,6 +20,7 @@ import {
 import { DevelopedByCredit } from "@/components/developed-by-credit";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { DovrutCreateFabStack } from "@/modules/dovrut/components/dovrut-create-fab-stack";
+import { AgamCreateFabStack } from "@/modules/agam/components/create-fab-stack";
 import { previewKeyForHref } from "@/modules/dovrut/lib/nav-preview";
 import { TasksLiveSyncProvider } from "@/components/tasks/tasks-live-sync";
 import { writeLastModuleId } from "@/shared/modules/last-module";
@@ -52,6 +53,11 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/dovrut/tasks",
     "/dovrut/projects/archive",
     "/dovrut/recycle-bin",
+    "/agam",
+    "/agam/candidates",
+    "/agam/candidates/archive",
+    "/agam/admin",
+    "/agam/admin/users",
   ]);
   if (exactRoutes.has(href)) return href;
 
@@ -65,6 +71,9 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
       segments[1] === "inquiry-subjects" ||
       segments[1] === "campaigns")
   ) {
+    return href;
+  }
+  if (section === "agam" && index === 1 && segments[1] === "candidates") {
     return href;
   }
   const isDynamicDetails =
@@ -165,22 +174,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const userLabel = profile?.name || session?.user?.name || session?.user?.email || null;
   const userAvatarUrl = profile?.avatar ?? null;
-  const isDashboard = pathname === "/dashboard" || pathname === "/dovrut";
+  const isDashboard = pathname === "/dashboard" || pathname === "/dovrut" || pathname === "/agam";
   const isHome = pathname === "/";
   const showTasksChrome = activeModuleId === "tasks";
   const hideCreateFab =
     isHome ||
     pathname === "/admin/users" ||
-    pathname === "/dovrut/admin/users";
+    pathname === "/dovrut/admin/users" ||
+    pathname === "/agam/admin/users";
   const canEditDovrut =
     moduleRoles.dovrut === "admin" || moduleRoles.dovrut === "user";
+  const canCreateAgam =
+    moduleRoles.agam === "admin" || moduleRoles.agam === "ramad" || moduleRoles.agam === "user";
   const canCreateTasksModule =
     Boolean(moduleRoles.tasks) || (Boolean(session?.user) && !moduleRolesLoaded);
   const showCreateFab =
     !hideCreateFab &&
     !isImpersonating &&
     ((activeModuleId === "tasks" && canCreateTasksModule) ||
-      (activeModuleId === "dovrut" && canEditDovrut));
+      (activeModuleId === "dovrut" && canEditDovrut) ||
+      (activeModuleId === "agam" && canCreateAgam));
 
   useEffect(() => {
     if (activeModuleId) writeLastModuleId(activeModuleId);
@@ -290,6 +303,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         {showCreateFab && activeModuleId === "dovrut" ? (
           <DovrutCreateFabStack showEntityCreates={!pathname.startsWith("/dovrut/tasks")} />
+        ) : showCreateFab && activeModuleId === "agam" ? (
+          <AgamCreateFabStack />
         ) : showCreateFab ? (
           <CreateTaskDrawer floating variant="tasks" triggerLabel="משימה חדשה" />
         ) : null}

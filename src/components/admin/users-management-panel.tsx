@@ -18,10 +18,10 @@ type PermissionGroup = {
 };
 
 type StatusFilter = "all" | UserAccessStatus;
-type SystemFilter = "all" | "tasks" | "dovrut";
+type SystemFilter = "all" | "tasks" | "dovrut" | "agam";
 
 const APP_DEFS: Array<{
-  id: "tasks" | "dovrut";
+  id: "tasks" | "dovrut" | "agam";
   label: string;
   roles: Array<{ value: ModuleRole; label: string; hint: string }>;
 }> = [
@@ -48,6 +48,16 @@ const APP_DEFS: Array<{
       { value: "admin", label: "מנהל", hint: "ניהול מלא במודול כולל משתמשים ומאשרים" },
     ],
   },
+  {
+    id: "agam",
+    label: "איתור קציני דת",
+    roles: [
+      { value: "user", label: "מעריך", hint: "מילוי ראיונות, הערכות, סמ״ח ומסמכים" },
+      { value: "ramad", label: "רמ״ד אומ״ץ", hint: "ארכיון, ייצוא CSV והחלטה סופית" },
+      { value: "viewer", label: "צופה", hint: "צפייה בתיקים בלבד" },
+      { value: "admin", label: "מנהל", hint: "ניהול מלא כולל שאלון, קריטריונים והגדרות" },
+    ],
+  },
 ];
 
 function resolveAccessStatus(user: Profile): UserAccessStatus {
@@ -63,6 +73,12 @@ function roleShortLabel(moduleId: string, role: ModuleRole): string {
     if (role === "approver") return "מאשר";
     if (role === "viewer") return "צופה";
     return "חפ״ש";
+  }
+  if (moduleId === "agam") {
+    if (role === "admin") return "מנהל";
+    if (role === "ramad") return "רמ״ד";
+    if (role === "viewer") return "צופה";
+    return "מעריך";
   }
   if (role === "admin") return "מנהל";
   if (role === "viewer") return "צופה";
@@ -212,6 +228,7 @@ export function UsersManagementPanel({
               { key: "all" as const, label: "הכל" },
               { key: "tasks" as const, label: "משימות" },
               { key: "dovrut" as const, label: "דוברות" },
+              { key: "agam" as const, label: "איתור קציני דת" },
             ] as const
           ).map(({ key, label }) => (
             <button

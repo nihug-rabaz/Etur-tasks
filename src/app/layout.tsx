@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Fredoka, Geist_Mono, Heebo, Secular_One } from "next/font/google";
 import { Toaster } from "sonner";
 import { IntroSplash } from "@/components/intro-splash";
@@ -74,6 +75,9 @@ export default async function RootLayout({
   const fontScale = profile
     ? await new ProfileService().getFontScale(profile.id)
     : getFontScaleOption("default");
+  const pathname = (await headers()).get("x-etur-pathname") ?? "";
+  const isPublicAgam =
+    pathname.startsWith("/agam/apply") || pathname.startsWith("/agam/upload");
 
   return (
     <html
@@ -91,9 +95,9 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <FontScaleRoot initialPreset={fontScale.preset} />
         <OneSignalBootstrap externalId={profile?.id} />
-        {!profile ? <IntroSplash /> : null}
+        {!profile && !isPublicAgam ? <IntroSplash /> : null}
         {children}
-        <PwaInstallPrompt />
+        {isPublicAgam ? null : <PwaInstallPrompt />}
         <Toaster richColors theme="light" />
       </body>
     </html>

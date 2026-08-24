@@ -6,11 +6,12 @@ import { NeonDatabase } from "@/lib/db/neon";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
 import type { ModuleRole } from "@/shared/modules/types";
 
-const MODULE_ROLES: ModuleRole[] = ["admin", "user", "viewer", "approver"];
+const MODULE_ROLES: ModuleRole[] = ["admin", "user", "viewer", "approver", "ramad"];
 
 function revalidateUsersPaths() {
   revalidatePath("/admin/users");
   revalidatePath("/dovrut/admin/users");
+  revalidatePath("/agam/admin/users");
 }
 
 export async function updateUserRoleAction(formData: FormData) {

@@ -1,4 +1,4 @@
-export type ModuleRole = "admin" | "user" | "approver" | "viewer";
+export type ModuleRole = "admin" | "user" | "approver" | "viewer" | "ramad";
 
 export interface ModuleNavItem {
   label: string;
@@ -26,6 +26,7 @@ export interface ModuleAccessContext {
 export function resolveActiveModuleId(pathname: string): string | null {
   if (pathname === "/" || pathname === "") return null;
   if (pathname.startsWith("/dovrut")) return "dovrut";
+  if (pathname.startsWith("/agam")) return "agam";
   if (
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/dashboard") ||
@@ -61,6 +62,14 @@ export function getModuleNavItems(
     return moduleDef.navItems.filter(
       (item) => !item.adminOnly && (item.roles?.includes("approver") ?? false),
     );
+  }
+
+  if (role === "ramad") {
+    return moduleDef.navItems.filter((item) => {
+      if (item.adminOnly) return false;
+      if (!item.roles) return true;
+      return item.roles.includes("ramad") || item.roles.includes("user");
+    });
   }
 
   if (role === "viewer") {
