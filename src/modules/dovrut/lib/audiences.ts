@@ -1,4 +1,4 @@
-export const DOVRUT_AUDIENCES = ["חרדים", "דתיים", "מסורתיים"] as const;
+export const DOVRUT_AUDIENCES = ["כללי", "חרדים", "דתיים", "מסורתיים"] as const;
 
 export type DovrutAudience = (typeof DOVRUT_AUDIENCES)[number];
 

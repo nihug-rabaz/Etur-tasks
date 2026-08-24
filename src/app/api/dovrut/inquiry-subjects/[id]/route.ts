@@ -3,13 +3,22 @@ import { z } from "zod";
 import { DovrutAccessService } from "@/modules/dovrut/services/access.service";
 import { DovrutInquirySubjectService } from "@/modules/dovrut/services/inquiry-subject.service";
 
+const dateString = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .nullable()
+  .optional();
+
 const upsertSchema = z.object({
   name: z.string().min(1).optional(),
-  age: z.number().int().positive().nullable().optional(),
+  rank: z.string().nullable().optional(),
+  age: z.number().int().nonnegative().nullable().optional(),
+  birth_date: dateString,
   hometown: z.string().nullable().optional(),
   family_status: z.string().nullable().optional(),
   enlistment_year: z.number().int().min(1948).max(2100).nullable().optional(),
   years_in_role: z.number().nonnegative().nullable().optional(),
+  role_started_at: dateString,
   role_title: z.string().nullable().optional(),
   previous_roles: z.string().nullable().optional(),
   bio: z.string().optional(),

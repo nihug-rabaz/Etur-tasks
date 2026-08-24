@@ -59,7 +59,7 @@ export function Drawer({ open, onClose, title, subtitle, customHeader, children 
             exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6">
               <div className="mb-6 flex shrink-0 items-start justify-between gap-3 border-b border-border-weak/70 pb-5">
                 <div className="min-w-0 flex-1 pe-2">
                   {customHeader ?? (

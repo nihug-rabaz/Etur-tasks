@@ -59,9 +59,9 @@ export function DovrutAccessGate({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] [&_input]:text-base [&_select]:text-base [&_textarea]:text-base">
       {role && role !== "approver" ? <DovrutSectionNav /> : null}
       {children}
-    </>
+    </div>
   );
 }

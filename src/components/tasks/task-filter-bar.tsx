@@ -38,7 +38,7 @@ const dueOptions: Array<{ value: TaskFilterState["due"]; label: string }> = [
 ];
 
 const selectClass =
-  "min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none transition focus:ring-2 focus:ring-accent-primary/30 sm:flex-none";
+  "w-full min-w-0 rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none transition focus:ring-2 focus:ring-accent-primary/30 sm:w-auto";
 
 export function TaskFilterBar({
   state,
@@ -69,87 +69,89 @@ export function TaskFilterBar({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <span className="inline-flex items-center gap-1.5 text-xs font-bold text-text-muted">
           <Filter size={14} />
           סינון
         </span>
 
-        {extraFilters}
+        <div className="grid grid-cols-2 gap-2 sm:contents">
+          {extraFilters}
 
-        <select
-          value={state.priority}
-          onChange={(event) => update("priority", event.target.value as TaskFilterState["priority"])}
-          className={selectClass}
-          aria-label="סינון לפי עדיפות"
-        >
-          {priorityOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={state.due}
-          onChange={(event) => update("due", event.target.value as TaskFilterState["due"])}
-          className={selectClass}
-          aria-label="סינון לפי תאריך יעד"
-        >
-          {dueOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        {subtopicOptions.length > 0 ? (
           <select
-            value={state.subtopic}
-            onChange={(event) => update("subtopic", event.target.value)}
+            value={state.priority}
+            onChange={(event) => update("priority", event.target.value as TaskFilterState["priority"])}
             className={selectClass}
-            aria-label="סינון לפי תת-נושא"
+            aria-label="סינון לפי עדיפות"
           >
-            <option value="all">כל תתי-הנושא</option>
-            {subtopicOptions.map((option) => (
+            {priorityOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-        ) : null}
 
-        {!hideProjectFilter && projectOptions.length > 0 ? (
           <select
-            value={state.project}
-            onChange={(event) => update("project", event.target.value)}
+            value={state.due}
+            onChange={(event) => update("due", event.target.value as TaskFilterState["due"])}
             className={selectClass}
-            aria-label="סינון לפי פרויקט"
+            aria-label="סינון לפי תאריך יעד"
           >
-            <option value="all">כל הפרויקטים</option>
-            {projectOptions.map((option) => (
+            {dueOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-        ) : null}
 
-        {assigneeOptions.length > 0 ? (
-          <select
-            value={state.assignee}
-            onChange={(event) => update("assignee", event.target.value)}
-            className={selectClass}
-            aria-label="סינון לפי משויך"
-          >
-            <option value="all">כל המשויכים</option>
-            {assigneeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        ) : null}
+          {subtopicOptions.length > 0 ? (
+            <select
+              value={state.subtopic}
+              onChange={(event) => update("subtopic", event.target.value)}
+              className={selectClass}
+              aria-label="סינון לפי תת-נושא"
+            >
+              <option value="all">כל תתי-הנושא</option>
+              {subtopicOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
+          {!hideProjectFilter && projectOptions.length > 0 ? (
+            <select
+              value={state.project}
+              onChange={(event) => update("project", event.target.value)}
+              className={selectClass}
+              aria-label="סינון לפי פרויקט"
+            >
+              <option value="all">כל הפרויקטים</option>
+              {projectOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
+          {assigneeOptions.length > 0 ? (
+            <select
+              value={state.assignee}
+              onChange={(event) => update("assignee", event.target.value)}
+              className={selectClass}
+              aria-label="סינון לפי משויך"
+            >
+              <option value="all">כל המשויכים</option>
+              {assigneeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
 
         {active ? (
           <button
@@ -158,7 +160,7 @@ export function TaskFilterBar({
               onChange(defaultTaskFilters);
               onClearExtra?.();
             }}
-            className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2 hover:text-text-primary"
+            className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2 hover:text-text-primary sm:ms-auto"
           >
             <X size={13} />
             נקה סינון

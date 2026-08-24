@@ -175,3 +175,13 @@ export function canFitDurationInHour(
 ): boolean {
   return findFreeStartInHour(hour, duration, occupied, ignoreStartMinute) !== null;
 }
+
+export const DAILY_PLAN_TIME_ZONE = "Asia/Jerusalem";
+
+export function dailyPlanTodayKey(timeZone = DAILY_PLAN_TIME_ZONE): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
+}
+
+export function isDailyPlanToday(planDate: string, timeZone = DAILY_PLAN_TIME_ZONE): boolean {
+  return planDate === dailyPlanTodayKey(timeZone);
+}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   findFreeStart,
+  isDailyPlanToday,
   MAX_DAILY_PLAN_TASK_DURATION,
   MIN_DAILY_PLAN_TASK_DURATION,
   normalizeTaskDuration,
@@ -48,6 +49,9 @@ export async function GET(request: Request) {
 
   const access = await authorizationService.getTaskAccessContext(profile);
   const dailyPlanService = new DailyPlanService();
+  if (isDailyPlanToday(planDate)) {
+    await dailyPlanService.rolloverIncompleteSlots(profile.id, planDate);
+  }
   const [slots, tasks, hours] = await Promise.all([
     dailyPlanService.getSlotsForDay(profile.id, planDate),
     dailyPlanService.getAssignableTasks(access, profile.id),
@@ -82,6 +86,9 @@ export async function PUT(request: Request) {
 
   const { planDate, taskId, mode } = parsed.data;
   const dailyPlanService = new DailyPlanService();
+  if (isDailyPlanToday(planDate)) {
+    await dailyPlanService.rolloverIncompleteSlots(profile.id, planDate);
+  }
 
   if (mode === "list") {
     if (parsed.data.action === "setDone" && taskId) {

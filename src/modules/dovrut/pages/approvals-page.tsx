@@ -128,11 +128,12 @@ export function DovrutApprovalsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <h1 className="text-xl font-bold text-text-primary">אישורי אייטמים</h1>
         <p className="mt-1 text-sm text-text-muted">תור אחוד לפי רמ״ח, רמ״ט ורבצ״ר</p>
       </div>
+
       <div className="flex flex-wrap gap-2">
         {STEPS.map((item) => (
           <button
@@ -152,23 +153,26 @@ export function DovrutApprovalsPage() {
           </button>
         ))}
       </div>
+
       <div className="flex gap-2">
         <input
           value={code}
           onChange={(event) => setCode(event.target.value)}
-          placeholder="קוד אישור מטלגרם (id:step)"
+          placeholder="קוד אישור (id:step)"
           className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
         />
         <button
           type="button"
           disabled={busy}
           onClick={() => void loadByCode()}
-          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+          className="shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
         >
-          טען קוד
+          טען
         </button>
       </div>
+
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
+
       <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
         <ul className="space-y-2">
           {concepts.map((concept) => (
@@ -176,13 +180,13 @@ export function DovrutApprovalsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedId(concept.id)}
-                className={`w-full rounded-xl border px-4 py-3 text-start dark:border-white/10 ${
+                className={`w-full min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-start dark:border-white/10 ${
                   selectedId === concept.id
                     ? "border-violet-400 bg-violet-50 dark:bg-violet-950/40"
                     : "border-black/8 bg-white dark:bg-[#161922]"
                 }`}
               >
-                <p className="text-sm font-bold">{concept.name}</p>
+                <p className="break-words text-sm font-bold">{concept.name}</p>
                 <p className="text-[11px] text-text-muted">
                   {concept.project_name}
                   {concept.approval_status
@@ -196,10 +200,11 @@ export function DovrutApprovalsPage() {
             <p className="py-8 text-center text-sm text-text-muted">אין אייטמים בתור</p>
           ) : null}
         </ul>
+
         <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
           {selected ? (
             <>
-              <h2 className="text-lg font-extrabold text-text-primary">{selected.name}</h2>
+              <h2 className="break-words text-lg font-extrabold text-text-primary">{selected.name}</h2>
               <p className="mt-1 text-sm text-text-muted">
                 {selected.project_name}
                 {selected.domain ? ` · ${DOMAIN_LABELS[selected.domain]}` : ""}
@@ -210,7 +215,7 @@ export function DovrutApprovalsPage() {
                   : "אין ציר אישורים"}
               </p>
               {selected.details ? (
-                <p className="mt-3 whitespace-pre-wrap text-sm text-text-secondary">
+                <p className="mt-3 whitespace-pre-wrap break-words text-sm text-text-secondary">
                   {selected.details}
                 </p>
               ) : null}
@@ -250,17 +255,18 @@ export function DovrutApprovalsPage() {
           )}
         </div>
       </div>
+
       {step === "waiting_chief_rabbi" && approvedChief.length > 0 ? (
         <section>
           <h2 className="mb-2 text-sm font-extrabold">אושרו ברבצ״ר לאחרונה</h2>
           <ul className="grid gap-2 sm:grid-cols-2">
             {approvedChief.map((item) => (
-              <li key={item.id}>
+              <li key={item.id} className="min-w-0">
                 <Link
                   href={`/dovrut/items/${item.id}`}
-                  className="block rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+                  className="block min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
                 >
-                  <p className="text-sm font-bold">{item.name}</p>
+                  <p className="break-words text-sm font-bold">{item.name}</p>
                   <p className="text-[11px] text-text-muted">{item.project_name}</p>
                 </Link>
               </li>

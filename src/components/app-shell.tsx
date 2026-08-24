@@ -211,7 +211,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TasksLiveSyncProvider
         enabled={showTasksChrome || pathname === "/dashboard" || pathname.startsWith("/dovrut/tasks")}
       >
-      <div className="relative flex min-h-screen flex-col bg-background text-text-primary transition-colors">
+      <div className="relative flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-text-primary transition-colors">
         <ImpersonationBanner state={impersonation} onStopped={loadProfile} />
         <SideMenu items={menuItems} userLabel={userLabel} userAvatarUrl={userAvatarUrl} state={sideMenu} />
         <header className="topbar w-full px-3 py-3 sm:px-6 lg:px-8">
@@ -293,10 +293,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <div
-          className={`relative mx-auto flex w-full flex-1 flex-col ${
+          className={`relative mx-auto flex w-full min-w-0 flex-1 flex-col ${
             isDashboard || isHome
               ? "max-w-none px-0 pb-0 pt-0"
-              : "max-w-screen-2xl px-4 pb-6 pt-5 sm:px-6 lg:px-8"
+              : "max-w-screen-2xl px-3 pb-6 pt-4 sm:px-6 sm:pt-5 lg:px-8"
           }`}
         >
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>

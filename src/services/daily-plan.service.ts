@@ -23,6 +23,62 @@ export interface DailyPlanSlotRow {
 export type TaskPlanPlacement = "bank" | "mine" | "other";
 
 export class DailyPlanService extends BaseService {
+  /** Move unfinished list items from earlier days onto the requested plan date. */
+  public async rolloverIncompleteSlots(userId: string, targetDate: string): Promise<void> {
+    const db = this.getDb();
+    const pastRows = await db<Array<{ plan_date: string; task_id: string; start_minute: number }>>`
+      select plan_date::text as plan_date, task_id, start_minute
+      from user_daily_plan_slots
+      where user_id = ${userId}
+        and plan_date < ${targetDate}::date
+        and is_done = false
+      order by plan_date asc, start_minute asc
+    `;
+    if (pastRows.length === 0) return;
+
+    const todayRows = await db<Array<{ task_id: string; start_minute: number }>>`
+      select task_id, start_minute
+      from user_daily_plan_slots
+      where user_id = ${userId}
+        and plan_date = ${targetDate}::date
+    `;
+    const usedTaskIds = new Set(todayRows.map((row) => row.task_id));
+    const usedMinutes = new Set(todayRows.map((row) => row.start_minute));
+
+    for (const row of pastRows) {
+      if (usedTaskIds.has(row.task_id)) {
+        await db`
+          delete from user_daily_plan_slots
+          where user_id = ${userId}
+            and plan_date = ${row.plan_date}::date
+            and task_id = ${row.task_id}
+        `;
+        continue;
+      }
+
+      let startMinute = row.start_minute;
+      while (usedMinutes.has(startMinute) && startMinute < 24 * 60) startMinute += 1;
+      if (startMinute >= 24 * 60) {
+        startMinute = 0;
+        while (usedMinutes.has(startMinute) && startMinute < 24 * 60) startMinute += 1;
+      }
+      if (startMinute >= 24 * 60) continue;
+
+      usedMinutes.add(startMinute);
+      usedTaskIds.add(row.task_id);
+
+      await db`
+        update user_daily_plan_slots
+        set plan_date = ${targetDate}::date,
+            start_minute = ${startMinute},
+            updated_at = now()
+        where user_id = ${userId}
+          and plan_date = ${row.plan_date}::date
+          and task_id = ${row.task_id}
+      `;
+    }
+  }
+
   /** Resolve whether each task is only in the bank, on my plan, or on someone else's plan today. */
   public async getPlacementsForTasks(
     taskIds: string[],

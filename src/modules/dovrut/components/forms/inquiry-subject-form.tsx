@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { dovrutFetch, emitDovrutMutated } from "@/modules/dovrut/lib/dovrut-fetch";
+import {
+  ageFromBirthDate,
+  DOVRUT_RANKS,
+  DOVRUT_ROLE_PRESETS,
+  toDateInputValue,
+  yearsFromRoleStart,
+} from "@/modules/dovrut/lib/inquiry-subjects";
 import type { DovrutInquirySubject } from "@/modules/dovrut/types";
 
 type InquiryDraft = {
   name: string;
-  age: string;
+  rank: string;
+  customRank: string;
+  birth_date: string;
   hometown: string;
   family_status: string;
   enlistment_year: string;
-  years_in_role: string;
+  role_started_at: string;
   role_title: string;
   previous_roles: string;
   bio: string;
@@ -20,11 +29,13 @@ type InquiryDraft = {
 function emptyDraft(): InquiryDraft {
   return {
     name: "",
-    age: "",
+    rank: "",
+    customRank: "",
+    birth_date: "",
     hometown: "",
     family_status: "",
     enlistment_year: "",
-    years_in_role: "",
+    role_started_at: "",
     role_title: "",
     previous_roles: "",
     bio: "",
@@ -33,13 +44,17 @@ function emptyDraft(): InquiryDraft {
 }
 
 function fromSubject(subject: DovrutInquirySubject): InquiryDraft {
+  const rankValue = subject.rank ?? "";
+  const isPreset = (DOVRUT_RANKS as readonly string[]).includes(rankValue) && rankValue !== "אחר";
   return {
     name: subject.name,
-    age: subject.age != null ? String(subject.age) : "",
+    rank: isPreset ? rankValue : rankValue ? "אחר" : "",
+    customRank: isPreset ? "" : rankValue,
+    birth_date: toDateInputValue(subject.birth_date),
     hometown: subject.hometown ?? "",
     family_status: subject.family_status ?? "",
     enlistment_year: subject.enlistment_year != null ? String(subject.enlistment_year) : "",
-    years_in_role: subject.years_in_role != null ? String(subject.years_in_role) : "",
+    role_started_at: toDateInputValue(subject.role_started_at),
     role_title: subject.role_title ?? "",
     previous_roles: subject.previous_roles ?? "",
     bio: subject.bio ?? "",
@@ -47,14 +62,24 @@ function fromSubject(subject: DovrutInquirySubject): InquiryDraft {
   };
 }
 
+function resolveRank(draft: InquiryDraft): string | null {
+  if (draft.rank === "אחר") return draft.customRank.trim() || null;
+  return draft.rank.trim() || null;
+}
+
 function toPayload(draft: InquiryDraft) {
+  const birthDate = draft.birth_date.trim() || null;
+  const roleStartedAt = draft.role_started_at.trim() || null;
   return {
     name: draft.name.trim(),
-    age: draft.age.trim() ? Number(draft.age) : null,
+    rank: resolveRank(draft),
+    birth_date: birthDate,
+    age: ageFromBirthDate(birthDate),
     hometown: draft.hometown.trim() || null,
     family_status: draft.family_status.trim() || null,
     enlistment_year: draft.enlistment_year.trim() ? Number(draft.enlistment_year) : null,
-    years_in_role: draft.years_in_role.trim() ? Number(draft.years_in_role) : null,
+    role_started_at: roleStartedAt,
+    years_in_role: yearsFromRoleStart(roleStartedAt),
     role_title: draft.role_title.trim() || null,
     previous_roles: draft.previous_roles.trim() || null,
     bio: draft.bio.trim(),
@@ -79,6 +104,12 @@ export function InquirySubjectForm({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const computedAge = useMemo(() => ageFromBirthDate(draft.birth_date || null), [draft.birth_date]);
+  const computedYears = useMemo(
+    () => yearsFromRoleStart(draft.role_started_at || null),
+    [draft.role_started_at],
+  );
 
   const setField = (key: keyof InquiryDraft, value: string) => {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -117,13 +148,68 @@ export function InquirySubjectForm({
         placeholder="שם מלא"
         className={`${FIELD_CLASS} sm:col-span-2`}
       />
-      <input
-        value={draft.age}
-        onChange={(event) => setField("age", event.target.value)}
-        placeholder="גיל"
-        inputMode="numeric"
-        className={FIELD_CLASS}
-      />
+      <div className="sm:col-span-2">
+        <label className="mb-1 block text-xs font-bold text-text-muted">דרגה</label>
+        <select
+          value={draft.rank}
+          onChange={(event) => setField("rank", event.target.value)}
+          className={FIELD_CLASS}
+        >
+          <option value="">בחרו דרגה</option>
+          {DOVRUT_RANKS.map((rank) => (
+            <option key={rank} value={rank}>
+              {rank}
+            </option>
+          ))}
+        </select>
+        {draft.rank === "אחר" ? (
+          <input
+            value={draft.customRank}
+            onChange={(event) => setField("customRank", event.target.value)}
+            placeholder="הקלידו דרגה"
+            className={`${FIELD_CLASS} mt-2`}
+          />
+        ) : null}
+      </div>
+      <div className="sm:col-span-2">
+        <label className="mb-1 block text-xs font-bold text-text-muted">תפקיד נוכחי</label>
+        <input
+          list="dovrut-role-presets"
+          value={draft.role_title}
+          onChange={(event) => setField("role_title", event.target.value)}
+          placeholder="רמ״ט / רמ״ח / רע״ן הלכה…"
+          className={FIELD_CLASS}
+        />
+        <datalist id="dovrut-role-presets">
+          {DOVRUT_ROLE_PRESETS.map((role) => (
+            <option key={role} value={role} />
+          ))}
+        </datalist>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-bold text-text-muted">תאריך לידה</label>
+        <input
+          type="date"
+          value={draft.birth_date}
+          onChange={(event) => setField("birth_date", event.target.value)}
+          className={FIELD_CLASS}
+        />
+        <p className="mt-1 text-[11px] font-semibold text-violet-700">
+          גיל מחושב: {computedAge != null ? computedAge : "—"}
+        </p>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-bold text-text-muted">תחילת תפקיד</label>
+        <input
+          type="date"
+          value={draft.role_started_at}
+          onChange={(event) => setField("role_started_at", event.target.value)}
+          className={FIELD_CLASS}
+        />
+        <p className="mt-1 text-[11px] font-semibold text-violet-700">
+          שנים בתפקיד: {computedYears != null ? computedYears : "—"}
+        </p>
+      </div>
       <input
         value={draft.hometown}
         onChange={(event) => setField("hometown", event.target.value)}
@@ -141,19 +227,6 @@ export function InquirySubjectForm({
         onChange={(event) => setField("enlistment_year", event.target.value)}
         placeholder="שנת גיוס"
         inputMode="numeric"
-        className={FIELD_CLASS}
-      />
-      <input
-        value={draft.years_in_role}
-        onChange={(event) => setField("years_in_role", event.target.value)}
-        placeholder="שנים בתפקיד"
-        inputMode="decimal"
-        className={FIELD_CLASS}
-      />
-      <input
-        value={draft.role_title}
-        onChange={(event) => setField("role_title", event.target.value)}
-        placeholder="תפקיד נוכחי"
         className={`${FIELD_CLASS} sm:col-span-2`}
       />
       <textarea

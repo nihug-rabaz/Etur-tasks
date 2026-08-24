@@ -68,12 +68,12 @@ export function DovrutProjectDetailsPage({ projectId }: { projectId: string }) {
   const visible = concepts.filter((concept) => (tab === "all" ? true : concept.type === tab));
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <Link href="/dovrut/projects" className="text-xs font-bold text-violet-600">
           ← חזרה לפרויקטים
         </Link>
-        <h1 className="mt-2 text-xl font-bold text-text-primary">{project.name}</h1>
+        <h1 className="mt-2 break-words text-xl font-bold text-text-primary">{project.name}</h1>
         {project.campaign_name ? (
           <p className="mt-1 text-xs font-semibold text-violet-700">קמפיין · {project.campaign_name}</p>
         ) : null}
@@ -103,7 +103,7 @@ export function DovrutProjectDetailsPage({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {[
           { id: "all", label: "הכל" },
           { id: "article_interview", label: "כתבות" },
@@ -131,7 +131,7 @@ export function DovrutProjectDetailsPage({ projectId }: { projectId: string }) {
               href={`/dovrut/items/${concept.id}`}
               className="block rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
             >
-              <p className="text-sm font-bold text-text-primary">{concept.name}</p>
+              <p className="break-words text-sm font-bold text-text-primary">{concept.name}</p>
               <p className="mt-0.5 text-[11px] text-text-muted">
                 {concept.type === "article_interview" ? "כתבה/ראיון" : "רשתות"}
                 {(concept.domains ?? []).length
