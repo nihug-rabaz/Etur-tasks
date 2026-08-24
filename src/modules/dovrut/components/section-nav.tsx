@@ -58,8 +58,8 @@ export function DovrutSectionNav() {
   return (
     <div className="sticky top-0 z-20 border-b border-black/8 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10">
       <div className="relative mx-auto w-full max-w-6xl">
-        <div className="overflow-x-auto overscroll-x-contain px-3 py-2.5 [scrollbar-width:none] sm:px-6 [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-max min-w-full flex-nowrap gap-1 sm:gap-2">
+        <div className="px-3 py-2 sm:overflow-x-auto sm:overscroll-x-contain sm:px-6 sm:py-2.5 sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
+        <div className="grid grid-cols-3 gap-1 sm:flex sm:w-max sm:min-w-full sm:flex-nowrap sm:gap-2">
           {ITEMS.map((item) => {
             const active = isActive(pathname, item.href);
             const open = openKey === item.key;
@@ -67,7 +67,7 @@ export function DovrutSectionNav() {
             return (
               <div
                 key={item.href}
-                className="relative shrink-0"
+                className="relative sm:shrink-0"
                 onMouseEnter={() => openMenu(item.key)}
                 onMouseLeave={scheduleClose}
                 onFocus={() => openMenu(item.key)}
@@ -75,7 +75,7 @@ export function DovrutSectionNav() {
                 <Link
                   href={item.href}
                   onClick={() => setOpenKey(null)}
-                  className={`inline-flex whitespace-nowrap rounded-xl px-2.5 py-1.5 text-xs font-bold transition sm:px-4 sm:py-2 sm:text-sm ${
+                  className={`flex w-full items-center justify-center whitespace-nowrap rounded-xl px-2 py-2 text-xs font-bold transition sm:inline-flex sm:w-auto sm:px-4 sm:py-2 sm:text-sm ${
                     active
                       ? "bg-violet-600 text-white"
                       : "bg-slate-100 text-text-primary hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700"
