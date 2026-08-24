@@ -97,7 +97,7 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
   if (!subject) return <p className="text-sm text-rose-600">{error}</p>;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <Link href="/dovrut/inquiry-subjects" className="text-xs font-bold text-violet-600">
           ← חזרה לגורמי תחקורים
@@ -105,7 +105,7 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             {subject.role_title ? (
-              <h1 className="text-3xl font-extrabold leading-tight text-violet-700 sm:text-4xl">
+              <h1 className="text-2xl font-extrabold leading-tight text-violet-700 sm:text-4xl">
                 {subject.role_title}
               </h1>
             ) : null}

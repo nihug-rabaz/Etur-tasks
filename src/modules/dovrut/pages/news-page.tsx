@@ -44,7 +44,7 @@ export function DovrutNewsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 px-3 py-4 sm:px-0 sm:py-0">
       <h1 className="text-xl font-bold text-text-primary">חיפוש חדשות</h1>
       <div className="flex gap-2">
         <input

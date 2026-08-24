@@ -41,13 +41,17 @@ const ACTIONS: Array<{
   },
 ];
 
-function arcPoint(index: number, total: number): { x: number; y: number; tilt: number } {
+function arcPoint(
+  index: number,
+  total: number,
+  radius: number,
+): { x: number; y: number; tilt: number } {
   const t = total === 1 ? 0.5 : index / (total - 1);
   const deg = START_DEG + t * (END_DEG - START_DEG);
   const rad = (deg * Math.PI) / 180;
   return {
-    x: Math.cos(rad) * RADIUS,
-    y: -Math.sin(rad) * RADIUS,
+    x: Math.cos(rad) * radius,
+    y: -Math.sin(rad) * radius,
     tilt: 180 - deg,
   };
 }
@@ -61,8 +65,11 @@ export function DovrutCreateFabStack({
   const [pinned, setPinned] = useState(false);
   const [hovered, setHovered] = useState<CarouselAction | null>(null);
   const [drawer, setDrawer] = useState<CarouselAction | null>(null);
+  const [compact, setCompact] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clusterRef = useRef<HTMLDivElement | null>(null);
+  const radius = compact ? 88 : RADIUS;
+  const hub = compact ? 48 : HUB;
 
   const openFan = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -86,6 +93,14 @@ export function DovrutCreateFabStack({
       }
     }, 180);
   };
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 640px)");
+    const sync = () => setCompact(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -112,14 +127,14 @@ export function DovrutCreateFabStack({
     <>
       <div
         ref={clusterRef}
-        className="pointer-events-none fixed bottom-24 right-5 z-[60] h-[280px] w-[280px]"
+        className="pointer-events-none fixed bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)+3.75rem))] right-3 z-[60] h-[220px] w-[220px] sm:bottom-24 sm:right-5 sm:h-[280px] sm:w-[280px]"
       >
         <div
           className="absolute"
-          style={{ right: HUB / 2, bottom: HUB / 2, width: 0, height: 0 }}
+          style={{ right: hub / 2, bottom: hub / 2, width: 0, height: 0 }}
         >
           {ACTIONS.map((action, index) => {
-            const point = arcPoint(index, ACTIONS.length);
+            const point = arcPoint(index, ACTIONS.length, radius);
             const active = hovered === action.id;
             return (
               <button
@@ -166,7 +181,7 @@ export function DovrutCreateFabStack({
           }}
           onMouseEnter={openFan}
           onMouseLeave={scheduleCloseFan}
-          className="pointer-events-auto absolute bottom-0 right-0 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent-orange text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.7)] transition duration-300 hover:scale-110 hover:brightness-105"
+          className="pointer-events-auto absolute bottom-0 right-0 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent-orange text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.7)] transition duration-300 hover:scale-110 hover:brightness-105 sm:h-14 sm:w-14"
         >
           <Plus size={26} strokeWidth={2.4} />
         </button>

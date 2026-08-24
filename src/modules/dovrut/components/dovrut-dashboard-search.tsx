@@ -129,8 +129,8 @@ export function DovrutDashboardSearch() {
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => setOpen(true)}
             aria-label="חיפוש בכל מערכת הדוברות"
-            placeholder="חיפוש בכל מערכת הדוברות — קמפיינים, פרויקטים, אייטמים, גורמי תחקורים…"
-            className="w-full rounded-2xl border border-black/8 bg-white py-3.5 ps-11 pe-10 text-sm text-text-primary shadow-sm outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-200 dark:border-white/10 dark:bg-[#161922] dark:focus:ring-violet-900/40"
+            placeholder="חיפוש בכל הדוברות…"
+            className="w-full min-w-0 rounded-2xl border border-black/8 bg-white py-3 ps-11 pe-10 text-sm text-text-primary shadow-sm outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-200 dark:border-white/10 dark:bg-[#161922] dark:focus:ring-violet-900/40 sm:py-3.5"
           />
           {query ? (
             <button

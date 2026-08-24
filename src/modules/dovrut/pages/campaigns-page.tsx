@@ -26,7 +26,7 @@ export function DovrutCampaignsPage() {
   useDovrutMutatedReload(load);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <h1 className="text-xl font-bold text-text-primary">קמפיינים</h1>
         <p className="mt-1 text-sm text-text-muted">קמפיין ← פרויקט ← אייטם · יצירה מהכפתור +</p>
@@ -36,10 +36,10 @@ export function DovrutCampaignsPage() {
         {campaigns.map((campaign) => (
           <li
             key={campaign.id}
-            className="rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+            className="min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
           >
-            <p className="text-sm font-bold">{campaign.name}</p>
-            <p className="text-[11px] text-text-muted">
+            <p className="break-words text-sm font-bold">{campaign.name}</p>
+            <p className="mt-0.5 line-clamp-2 break-words text-[11px] text-text-muted">
               {campaign.status}
               {campaign.description ? ` · ${campaign.description}` : ""}
             </p>
@@ -51,6 +51,9 @@ export function DovrutCampaignsPage() {
             </Link>
           </li>
         ))}
+        {campaigns.length === 0 ? (
+          <p className="py-8 text-center text-sm text-text-muted">אין קמפיינים</p>
+        ) : null}
       </ul>
     </div>
   );

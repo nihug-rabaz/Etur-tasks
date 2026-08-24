@@ -94,7 +94,7 @@ export function DovrutTasksShell({ tasks: initialTasks }: DovrutTasksShellProps)
   const hasExtraFilters = campaignFilter !== "all" || dovrutProjectFilter !== "all";
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4 px-3 py-4 sm:px-0 sm:py-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-text-primary">משימות כלליות</h1>

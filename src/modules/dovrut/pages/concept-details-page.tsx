@@ -183,7 +183,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
       : concept.work_status_social;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <div className="flex items-center justify-between gap-3">
           <Link href="/dovrut/items" className="text-xs font-bold text-violet-600">
@@ -201,7 +201,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
             מחק לסל מחזור
           </button>
         </div>
-        <h1 className="mt-2 text-xl font-bold text-text-primary">{concept.name}</h1>
+        <h1 className="mt-2 break-words text-xl font-bold text-text-primary">{concept.name}</h1>
         <p className="mt-1 text-sm text-text-muted">
           {concept.project_name}
           {(concept.domains ?? []).length

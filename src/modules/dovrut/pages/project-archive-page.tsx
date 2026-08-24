@@ -47,7 +47,7 @@ export function DovrutProjectArchivePage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <h1 className="text-xl font-bold text-text-primary">ארכיון פרויקטים</h1>
         <p className="mt-1 text-sm text-text-muted">פרויקטים שהסתיימו · חיפוש ומחיקה לסל מחזור</p>
@@ -56,32 +56,34 @@ export function DovrutProjectArchivePage() {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="חיפוש ארכיון"
-        className="rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
+        className="w-full rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
       />
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
       <ul className="space-y-2">
         {filtered.map((project) => (
           <li
             key={project.id}
-            className="flex items-center justify-between gap-3 rounded-2xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+            className="min-w-0 overflow-hidden rounded-2xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
           >
-            <div className="min-w-0">
-              <Link href={`/dovrut/projects/${project.id}`} className="text-sm font-extrabold">
-                {project.name}
-              </Link>
-              <p className="text-[11px] text-text-muted">
-                {project.campaign_name ? `${project.campaign_name} · ` : ""}
-                הסתיים: {project.ended_at ? new Date(project.ended_at).toLocaleDateString("he-IL") : "—"}
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <Link href={`/dovrut/projects/${project.id}`} className="break-words text-sm font-extrabold hover:underline">
+                  {project.name}
+                </Link>
+                <p className="mt-0.5 text-[11px] text-text-muted">
+                  {project.campaign_name ? `${project.campaign_name} · ` : ""}
+                  הסתיים: {project.ended_at ? new Date(project.ended_at).toLocaleDateString("he-IL") : "—"}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={busyId === project.id}
+                onClick={() => void moveToBin(project.id)}
+                className="shrink-0 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-40"
+              >
+                לסל
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={busyId === project.id}
-              onClick={() => void moveToBin(project.id)}
-              className="shrink-0 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-40"
-            >
-              לסל מחזור
-            </button>
           </li>
         ))}
         {filtered.length === 0 ? (

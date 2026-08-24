@@ -29,7 +29,7 @@ export function DovrutInquirySubjectsPage() {
   useDovrutMutatedReload(load);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <h1 className="text-xl font-bold text-text-primary">גורמי תחקורים</h1>
         <p className="mt-1 text-sm text-text-muted">
@@ -43,13 +43,13 @@ export function DovrutInquirySubjectsPage() {
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
       <ul className="grid gap-3 sm:grid-cols-2">
         {subjects.map((subject) => (
-          <li key={subject.id}>
+          <li key={subject.id} className="min-w-0">
             <Link
               href={`/dovrut/inquiry-subjects/${subject.id}`}
-              className="block rounded-2xl border border-black/8 bg-white px-4 py-3 transition hover:border-violet-300 dark:border-white/10 dark:bg-[#161922]"
+              className="block min-w-0 overflow-hidden rounded-2xl border border-black/8 bg-white px-4 py-3 transition hover:border-violet-300 dark:border-white/10 dark:bg-[#161922]"
             >
-              <p className="text-sm font-extrabold text-text-primary">{subject.name}</p>
-              <p className="mt-0.5 text-[11px] text-text-muted">
+              <p className="break-words text-sm font-extrabold text-text-primary">{subject.name}</p>
+              <p className="mt-0.5 break-words text-[11px] text-text-muted">
                 {[
                   subject.role_title,
                   subject.rank,
@@ -60,7 +60,7 @@ export function DovrutInquirySubjectsPage() {
                   .join(" · ")}
               </p>
               {subject.bio ? (
-                <p className="mt-2 line-clamp-3 text-xs text-text-secondary">{subject.bio}</p>
+                <p className="mt-2 line-clamp-3 break-words text-xs text-text-secondary">{subject.bio}</p>
               ) : null}
             </Link>
           </li>

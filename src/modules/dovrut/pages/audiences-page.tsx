@@ -65,11 +65,12 @@ export function DovrutAudiencesPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <h1 className="text-xl font-bold text-text-primary">מסרים</h1>
         <p className="mt-1 text-sm text-text-muted">מסרים לפי קהל יעד ותחום</p>
       </div>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -97,43 +98,46 @@ export function DovrutAudiencesPage() {
           </button>
         ))}
       </div>
+
       <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
         <h2 className="mb-3 text-sm font-extrabold">מסר חדש</h2>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <select
-            value={audience}
-            onChange={(e) => setAudience(e.target.value as DovrutAudience)}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
-          >
-            {DOVRUT_AUDIENCES.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-          <select
-            value={domain}
-            onChange={(e) => setDomain(e.target.value as DovrutDomain | "")}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
-          >
-            <option value="">ללא תחום</option>
-            {Object.entries(DOMAIN_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              value={audience}
+              onChange={(e) => setAudience(e.target.value as DovrutAudience)}
+              className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+            >
+              {DOVRUT_AUDIENCES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+            <select
+              value={domain}
+              onChange={(e) => setDomain(e.target.value as DovrutDomain | "")}
+              className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+            >
+              <option value="">ללא תחום</option>
+              {Object.entries(DOMAIN_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="כותרת מסר"
-            className="rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none sm:col-span-2 dark:bg-slate-800"
+            className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="גוף המסר"
-            className="min-h-24 rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none sm:col-span-2 dark:bg-slate-800"
+            className="min-h-24 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
           />
         </div>
         <button
@@ -146,6 +150,7 @@ export function DovrutAudiencesPage() {
         </button>
         {error ? <p className="mt-2 text-xs font-semibold text-rose-600">{error}</p> : null}
       </div>
+
       {(filter === "all" ? DOVRUT_AUDIENCES : [filter]).map((audienceName) => {
         const list = grouped.get(audienceName) ?? [];
         return (
@@ -160,14 +165,14 @@ export function DovrutAudiencesPage() {
                 {list.map((message) => (
                   <li
                     key={message.id}
-                    className="rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+                    className="min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
                   >
-                    <p className="text-sm font-bold">{message.title}</p>
+                    <p className="break-words text-sm font-bold">{message.title}</p>
                     <p className="text-[11px] text-text-muted">
                       {message.domain ? `תחום: ${DOMAIN_LABELS[message.domain]}` : "ללא תחום"}
                     </p>
                     {message.body ? (
-                      <p className="mt-1 text-sm text-text-secondary">{message.body}</p>
+                      <p className="mt-1 break-words text-sm text-text-secondary">{message.body}</p>
                     ) : null}
                   </li>
                 ))}
