@@ -66,10 +66,10 @@ export function AgamDashboardPage() {
             ניהול תהליך המיון לקורס קציני דת — משאלון מקדים ועד החלטה סופית.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
+            {role === "admin" || role === "ramad" || role === "user" ? <CreateCandidateDrawer /> : null}
             <Link href="/agam/candidates" className={primaryButtonClass}>
               לרשימת מועמדים
             </Link>
-            {role === "admin" || role === "ramad" || role === "user" ? <CreateCandidateDrawer /> : null}
             <button type="button" onClick={() => void copyApply()} className={secondaryButtonClass}>
               <Copy size={16} />
               העתקת קישור שאלון
