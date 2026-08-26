@@ -1,29 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { emitDovrutMutated } from "@/modules/dovrut/lib/dovrut-fetch";
-import type { DovrutCampaignStatus } from "@/modules/dovrut/types";
+import type { DovrutCampaign, DovrutCampaignStatus } from "@/modules/dovrut/types";
 
-export function CampaignCreateForm({
+const STATUS_OPTIONS: Array<{ value: DovrutCampaignStatus; label: string }> = [
+  { value: "active", label: "פעיל" },
+  { value: "on_hold", label: "מושהה" },
+  { value: "completed", label: "הושלם" },
+  { value: "draft", label: "טיוטה" },
+];
+
+export function CampaignForm({
+  campaign,
   layout = "stacked",
-  onCreated,
+  onSaved,
 }: {
+  campaign?: DovrutCampaign | null;
   layout?: "stacked" | "grid";
-  onCreated?: () => void;
+  onSaved?: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<DovrutCampaignStatus>("active");
+  const isEdit = Boolean(campaign);
+  const [name, setName] = useState(campaign?.name ?? "");
+  const [description, setDescription] = useState(campaign?.description ?? "");
+  const [status, setStatus] = useState<DovrutCampaignStatus>(campaign?.status ?? "active");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setName(campaign?.name ?? "");
+    setDescription(campaign?.description ?? "");
+    setStatus(campaign?.status ?? "active");
+  }, [campaign]);
 
   const submit = async () => {
     if (!name.trim()) return;
     setSaving(true);
     setError("");
     try {
-      const response = await fetch("/api/dovrut/campaigns", {
-        method: "POST",
+      const response = await fetch(isEdit ? `/api/dovrut/campaigns/${campaign!.id}` : "/api/dovrut/campaigns", {
+        method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
@@ -32,14 +48,16 @@ export function CampaignCreateForm({
         }),
       });
       if (!response.ok) {
-        setError("יצירת קמפיין נכשלה");
+        setError(isEdit ? "עדכון קמפיין נכשל" : "יצירת קמפיין נכשלה");
         return;
       }
-      setName("");
-      setDescription("");
-      setStatus("active");
+      if (!isEdit) {
+        setName("");
+        setDescription("");
+        setStatus("active");
+      }
       emitDovrutMutated();
-      onCreated?.();
+      onSaved?.();
     } finally {
       setSaving(false);
     }
@@ -58,9 +76,11 @@ export function CampaignCreateForm({
         onChange={(event) => setStatus(event.target.value as DovrutCampaignStatus)}
         className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
       >
-        <option value="active">פעיל</option>
-        <option value="on_hold">מושהה</option>
-        <option value="completed">הושלם</option>
+        {STATUS_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
       </select>
       <textarea
         value={description}
@@ -78,7 +98,7 @@ export function CampaignCreateForm({
           layout === "grid" ? "sm:col-span-2 w-fit" : ""
         }`}
       >
-        {saving ? "שומר…" : "צור קמפיין"}
+        {saving ? "שומר…" : isEdit ? "שמירת שינויים" : "צור קמפיין"}
       </button>
       {error ? (
         <p className={`text-xs font-semibold text-rose-600 ${layout === "grid" ? "sm:col-span-2" : ""}`}>
@@ -87,4 +107,14 @@ export function CampaignCreateForm({
       ) : null}
     </div>
   );
+}
+
+export function CampaignCreateForm({
+  layout = "stacked",
+  onCreated,
+}: {
+  layout?: "stacked" | "grid";
+  onCreated?: () => void;
+}) {
+  return <CampaignForm layout={layout} onSaved={onCreated} />;
 }

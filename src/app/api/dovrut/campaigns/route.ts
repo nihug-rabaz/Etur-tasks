@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { parseDovrutListScope } from "@/modules/dovrut/lib/record-scope";
 import { DovrutAccessService } from "@/modules/dovrut/services/access.service";
 import { DovrutCampaignService } from "@/modules/dovrut/services/campaign.service";
 
 const createSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
-  status: z.enum(["active", "completed", "on_hold"]).optional(),
+  status: z.enum(["active", "completed", "on_hold", "draft"]).optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   const access = await new DovrutAccessService().requireDovrutAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  const campaigns = await new DovrutCampaignService().list();
+  const scope = parseDovrutListScope(new URL(request.url).searchParams);
+  const campaigns = await new DovrutCampaignService().list(scope === "deleted" ? "deleted" : "working");
   return NextResponse.json({ campaigns }, { headers: { "Cache-Control": "no-store, max-age=0" } });
 }
 

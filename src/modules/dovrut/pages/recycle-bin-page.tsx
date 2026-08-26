@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { dovrutFetch } from "@/modules/dovrut/lib/dovrut-fetch";
-import type { DovrutConcept, DovrutProject } from "@/modules/dovrut/types";
+import type { DovrutCampaign, DovrutConcept, DovrutProject } from "@/modules/dovrut/types";
 
 export function DovrutRecycleBinPage() {
+  const [campaigns, setCampaigns] = useState<DovrutCampaign[]>([]);
   const [projects, setProjects] = useState<DovrutProject[]>([]);
   const [items, setItems] = useState<DovrutConcept[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -12,10 +13,12 @@ export function DovrutRecycleBinPage() {
 
   const load = useCallback(async () => {
     try {
-      const [projectsData, itemsData] = await Promise.all([
+      const [campaignsData, projectsData, itemsData] = await Promise.all([
+        dovrutFetch<{ campaigns: DovrutCampaign[] }>("/api/dovrut/campaigns?scope=deleted"),
         dovrutFetch<{ projects: DovrutProject[] }>("/api/dovrut/projects?scope=deleted"),
         dovrutFetch<{ concepts: DovrutConcept[] }>("/api/dovrut/concepts?scope=deleted"),
       ]);
+      setCampaigns(campaignsData.campaigns);
       setProjects(projectsData.projects);
       setItems(itemsData.concepts);
       setError("");
@@ -27,6 +30,41 @@ export function DovrutRecycleBinPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const restoreCampaign = async (id: string) => {
+    const snapshot = campaigns;
+    setCampaigns((rows) => rows.filter((row) => row.id !== id));
+    setBusy(id);
+    setError("");
+    try {
+      await dovrutFetch(`/api/dovrut/campaigns/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ restore: true }),
+      });
+      await load();
+    } catch {
+      setCampaigns(snapshot);
+      setError("שחזור קמפיין נכשל או שחלון 30 הימים הסתיים");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const purgeCampaign = async (id: string) => {
+    if (!window.confirm("למחוק את הקמפיין לצמיתות?")) return;
+    const snapshot = campaigns;
+    setCampaigns((rows) => rows.filter((row) => row.id !== id));
+    setBusy(id);
+    setError("");
+    try {
+      await dovrutFetch(`/api/dovrut/campaigns/${id}?purge=1`, { method: "DELETE" });
+    } catch {
+      setCampaigns(snapshot);
+      setError("מחיקה לצמיתות נכשלה");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const restoreProject = async (id: string) => {
     const snapshot = projects;
@@ -100,10 +138,26 @@ export function DovrutRecycleBinPage() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-3 py-4 sm:px-0 sm:py-0">
       <div>
         <h1 className="text-xl font-bold text-text-primary">סל מחזור</h1>
-        <p className="mt-1 text-sm text-text-muted">שחזור או מחיקה לצמיתות של פרויקטים ואייטמים</p>
+        <p className="mt-1 text-sm text-text-muted">
+          שחזור או מחיקה לצמיתות · קמפיינים ניתנים לשחזור עד 30 יום
+        </p>
       </div>
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
 
+      <RecycleBinSection
+        title="קמפיינים"
+        empty="אין קמפיינים בסל"
+        items={campaigns.map((c) => ({
+          id: c.id,
+          name: c.name,
+          meta: c.deleted_at
+            ? `נמחק ${new Date(c.deleted_at).toLocaleDateString("he-IL")} · שחזור עד 30 יום`
+            : "טיוטה",
+        }))}
+        busy={busy}
+        onRestore={(id) => void restoreCampaign(id)}
+        onPurge={(id) => void purgeCampaign(id)}
+      />
       <RecycleBinSection
         title="פרויקטים"
         empty="אין פרויקטים בסל"

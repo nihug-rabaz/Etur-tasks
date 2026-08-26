@@ -1,6 +1,6 @@
 export type DovrutProjectStatus = "active" | "completed" | "on_hold" | "draft";
 
-export type DovrutCampaignStatus = "active" | "completed" | "on_hold";
+export type DovrutCampaignStatus = "active" | "completed" | "on_hold" | "draft";
 
 export type DovrutConceptType = "article_interview" | "social_media";
 
@@ -47,6 +47,7 @@ export interface DovrutCampaign {
   name: string;
   description: string | null;
   status: DovrutCampaignStatus;
+  deleted_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -3,7 +3,8 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Drawer } from "@/components/ui/drawer";
-import { CampaignCreateForm } from "@/modules/dovrut/components/forms/campaign-form";
+import { CampaignCreateForm, CampaignForm } from "@/modules/dovrut/components/forms/campaign-form";
+import type { DovrutCampaign } from "@/modules/dovrut/types";
 
 export function CreateCampaignDrawer({
   onCreated,
@@ -45,5 +46,36 @@ export function CreateCampaignDrawer({
         />
       </Drawer>
     </>
+  );
+}
+
+export function EditCampaignDrawer({
+  campaign,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  campaign: DovrutCampaign | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+}) {
+  return (
+    <Drawer
+      open={open && Boolean(campaign)}
+      onClose={() => onOpenChange(false)}
+      title="עריכת קמפיין"
+      subtitle={campaign?.name}
+    >
+      {campaign ? (
+        <CampaignForm
+          campaign={campaign}
+          onSaved={() => {
+            onOpenChange(false);
+            onSaved?.();
+          }}
+        />
+      ) : null}
+    </Drawer>
   );
 }

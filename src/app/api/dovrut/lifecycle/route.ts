@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Env } from "@/lib/env";
+import { DovrutCampaignService } from "@/modules/dovrut/services/campaign.service";
 import { DovrutConceptService } from "@/modules/dovrut/services/concept.service";
 import { DovrutProjectService } from "@/modules/dovrut/services/project.service";
 
@@ -12,5 +13,6 @@ export async function GET(request: Request) {
 
   const archived = await new DovrutProjectService().completeDueProjects();
   const expiredItems = await new DovrutConceptService().expireUnopened(90);
-  return NextResponse.json({ ok: true, archived, expiredItems });
+  const purgedCampaigns = await new DovrutCampaignService().purgeExpired(30);
+  return NextResponse.json({ ok: true, archived, expiredItems, purgedCampaigns });
 }

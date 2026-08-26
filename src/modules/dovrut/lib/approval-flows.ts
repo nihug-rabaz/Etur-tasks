@@ -52,7 +52,7 @@ export const DOMAIN_LABELS: Record<string, string> = {
   reut: "רעות",
   tipuch: "טיפוח",
   lehaka: "להקה",
-  zuq: "צוק",
+  zuq: "זו״ק",
   masan: "מסע\"ן",
   agam_hachsharot: "אג\"ם הכשרות",
   logistic: "לוגיסטיקה",
