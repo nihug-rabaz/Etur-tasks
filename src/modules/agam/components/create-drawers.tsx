@@ -6,7 +6,7 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { ACCEPTED_FILE_TYPES, DOC_TYPES } from "@/modules/agam/lib/document-types";
+import { ACCEPTED_FILE_TYPES, DOC_TYPES, isCustomDocType } from "@/modules/agam/lib/document-types";
 import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate } from "@/modules/agam/types";
 
@@ -241,16 +241,21 @@ export function CreateDocumentDrawer({
 
   const submit = async () => {
     if (!candidateId || !file) return;
+    if (isCustomDocType(documentType) && !customType.trim()) {
+      toast.error("נא לציין סוג מסמך");
+      return;
+    }
     setUploading(true);
     try {
       const form = new FormData();
       form.set("candidateId", candidateId);
-      form.set("documentType", customType || documentType);
+      form.set("documentType", isCustomDocType(documentType) ? customType.trim() : documentType);
       form.set("file", file);
       await agamFetch("/api/agam/documents", { method: "POST", body: form });
       toast.success("המסמך הועלה");
       onOpenChange(false);
       setFile(null);
+      setCustomType("");
       router.push(`/agam/candidates/${candidateId}?stage=documents`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "העלאה נכשלה");
@@ -273,7 +278,7 @@ export function CreateDocumentDrawer({
             ))}
           </select>
         </label>
-        {documentType === "אחר" ? (
+        {isCustomDocType(documentType) ? (
           <input
             className={fieldClass}
             placeholder="סוג מותאם"

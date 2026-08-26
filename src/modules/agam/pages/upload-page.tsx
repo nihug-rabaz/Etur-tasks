@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ACCEPTED_FILE_TYPES, DOC_TYPES } from "@/modules/agam/lib/document-types";
+import { ACCEPTED_FILE_TYPES, DOC_TYPES, isCustomDocType } from "@/modules/agam/lib/document-types";
 import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import { AgamPublicChrome } from "@/modules/agam/components/public-chrome";
 
@@ -11,6 +11,7 @@ export function AgamUploadPage() {
   const [candidateId, setCandidateId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [documentType, setDocumentType] = useState(DOC_TYPES[0]);
+  const [customType, setCustomType] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,14 +34,15 @@ export function AgamUploadPage() {
   };
 
   const upload = async () => {
-    if (!candidateId || !file || !documentType) {
+    const resolvedType = isCustomDocType(documentType) ? customType.trim() : documentType;
+    if (!candidateId || !file || !resolvedType) {
       setError("נא לבחור סוג קובץ ולהעלות קובץ");
       return;
     }
     setLoading(true);
     const form = new FormData();
     form.set("candidateId", candidateId);
-    form.set("documentType", documentType);
+    form.set("documentType", resolvedType);
     form.set("file", file);
     const response = await fetch("/api/agam/public/upload", { method: "POST", body: form });
     setLoading(false);
@@ -99,6 +101,14 @@ export function AgamUploadPage() {
                 ))}
               </select>
             </label>
+            {isCustomDocType(documentType) ? (
+              <input
+                className={fieldClass}
+                placeholder="סוג מותאם"
+                value={customType}
+                onChange={(event) => setCustomType(event.target.value)}
+              />
+            ) : null}
             <input
               type="file"
               className={fieldClass}

@@ -25,22 +25,48 @@ export const STATUS_TONES: Record<string, string> = {
   not_passed: "bg-rose-500/15 text-rose-800 dark:text-rose-100",
 };
 
-export const THRESHOLD_TESTS = [
-  { key: "mikra", label: "מקראות ישראל", datum: "ציון" },
-  { key: "weapon", label: "בוחן נשק", datum: "ציון" },
-  { key: "run", label: "כושר ריצה", datum: "זמן" },
-  { key: "strength", label: "כושר כוח", datum: "חזרות" },
+export type AgamThresholdInputType = "score" | "time" | "count";
+
+export const THRESHOLD_TESTS: Array<{
+  key: string;
+  label: string;
+  inputType: AgamThresholdInputType;
+  inputLabel?: string;
+}> = [
+  { key: "mikraot_israel", label: "מקראות ישראל", inputType: "score", inputLabel: "ציון 1–100" },
+  { key: "weapon_test", label: "בוחן נשק", inputType: "score", inputLabel: "ציון 1–100" },
+  {
+    key: "fitness_run",
+    label: "כושר גופני – ריצה",
+    inputType: "time",
+    inputLabel: "זמן ריצה:",
+  },
+  {
+    key: "fitness_strength",
+    label: "כושר גופני – כוח",
+    inputType: "count",
+    inputLabel: "כמות שכיבות סמיכה:",
+  },
 ];
 
-export const PROFESSIONAL_DIMENSIONS = [
-  "מנהיגות",
-  "ידע הלכתי",
-  "תקשורת",
-  "יוזמה",
-  "עבודת צוות",
-  "התמודדות עם לחץ",
-  "דוגמה אישית",
+export const PROFESSIONAL_CRITERIA: Array<{ key: string; label: string }> = [
+  { key: "public_speaking", label: "עמידה ודיבור בפני קהל" },
+  { key: "content_preparation", label: "הכנת והעברת תוכן" },
+  { key: "odt_engagement", label: "ODT ומעורבות" },
+  { key: "command_experience", label: "התנסות פיקודית" },
+  { key: "self_confidence", label: "ביטחון עצמי" },
+  { key: "command_simulations", label: "סימולציות פיקודיות" },
+  {
+    key: "general_conduct",
+    label: "התנהלות כללית (השתתפות, מעורבות, עמידה בזמנים, יחס לעמיתים וכד׳)",
+  },
 ];
+
+export const RECOMMENDATION_TONES: Record<string, string> = {
+  ממליץ: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-100",
+  "ממליץ בהסתייגות": "bg-amber-500/15 text-amber-800 dark:text-amber-100",
+  "לא ממליץ": "bg-rose-500/15 text-rose-800 dark:text-rose-100",
+};
 
 export const RECOMMENDATIONS = ["ממליץ", "ממליץ בהסתייגות", "לא ממליץ"] as const;
 

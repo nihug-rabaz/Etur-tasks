@@ -1,16 +1,27 @@
-export const DOC_TYPES = ["קורות חיים", "תעודת זהות", "אישור רפואי", "המלצה", "אחר"];
+export const DOC_TYPES = [
+  "קורות חיים",
+  "אישור לימודים",
+  "אישור רפואי",
+  "גיליון ציונים",
+  "צילום תעודת זהות",
+  "מסמך אחר",
+];
 
 export const SOURCE_LABELS: Record<string, string> = {
-  candidate: "מועמד",
+  candidate: "המועמד",
   evaluator: "מעריך",
-  ramad: "רמ״ד",
-  admin: "מנהל",
+  ramad: "רמ״ד איתור",
+  admin: "מנהל מערכת",
 };
 
 export const ACCEPTED_FILE_TYPES = ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png";
 
 export const MAX_UPLOAD_BYTES_WITHOUT_BLOB = 100 * 1024;
 export const MAX_UPLOAD_BYTES_WITH_BLOB = 10 * 1024 * 1024;
+
+export function isCustomDocType(documentType: string): boolean {
+  return documentType === "מסמך אחר" || documentType === "אחר";
+}
 
 export function evalCondition(
   operator: string | null | undefined,

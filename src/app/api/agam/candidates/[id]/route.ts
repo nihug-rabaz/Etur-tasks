@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
 import { AgamInterviewService } from "@/modules/agam/services/interview.service";
-import { AgamDayEvaluationService } from "@/modules/agam/services/evaluation.service";
+import { AgamDayEvaluationService, AgamCriterionService } from "@/modules/agam/services/evaluation.service";
 import { AgamPrepDayService } from "@/modules/agam/services/prep-day.service";
 import { AgamSmachService } from "@/modules/agam/services/smach.service";
 import { AgamDocumentService } from "@/modules/agam/services/document.service";
@@ -24,7 +24,7 @@ export async function GET(
   if (!candidate) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  const [interviews, evaluations, prepDays, smach, documents, timeline, org, preQuestions] =
+  const [interviews, evaluations, prepDays, smach, documents, timeline, org, preQuestions, interviewQuestions, criteria] =
     await Promise.all([
       new AgamInterviewService().listByCandidate(id),
       new AgamDayEvaluationService().listByCandidate(id),
@@ -34,6 +34,8 @@ export async function GET(
       candidateService.listTimeline(id),
       new AgamOrgSettingsService().getSingleton(),
       new AgamQuestionService().listActive("pre_screening"),
+      new AgamQuestionService().listActive("interview"),
+      new AgamCriterionService().listActive(),
     ]);
   return NextResponse.json({
     candidate,
@@ -45,6 +47,8 @@ export async function GET(
     timeline,
     org,
     preQuestions,
+    interviewQuestions,
+    criteria,
     role: access.role,
     currentUserId: access.profile.id,
     currentUserName: access.profile.name,

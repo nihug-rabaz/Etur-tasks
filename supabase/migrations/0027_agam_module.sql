@@ -175,10 +175,13 @@ from (
   values
     ('pre_screening', 1, 'פרטים אישיים', 'שם מלא', 'full_name', 'text', null::text, true, null::text, null::text, null::text, 1, true),
     ('pre_screening', 1, 'פרטים אישיים', 'מספר אישי', 'personal_number', 'text', null, true, null, null, null, 2, true),
-    ('pre_screening', 1, 'פרטים אישיים', 'טלפון', 'phone', 'text', null, true, null, null, null, 3, true),
-    ('pre_screening', 2, 'רקע', 'האם שירתת בתפקיד פיקודי?', 'command_experience', 'select', '["כן","לא"]', true, null, null, null, 1, true),
-    ('pre_screening', 2, 'רקע', 'פרט על הניסיון הפיקודי', 'command_details', 'textarea', null, true, 'command_experience', 'eq', 'כן', 2, true),
-    ('pre_screening', 3, 'מוטיבציה', 'מדוע אתה מעוניין בקורס קציני דת?', 'motivation_text', 'textarea', null, true, null, null, null, 1, true),
+    ('pre_screening', 2, 'שירות', 'פיקוד', 'command', 'text', null, true, null, null, null, 1, true),
+    ('pre_screening', 2, 'שירות', 'יחידה', 'unit', 'text', null, true, null, null, null, 2, true),
+    ('pre_screening', 2, 'שירות', 'שם מפקד', 'commander_name', 'text', null, true, null, null, null, 3, true),
+    ('pre_screening', 2, 'שירות', 'שם קצין דת וחיילת שלישות', 'religious_officer_logistics', 'text', null, true, null, null, null, 4, true),
+    ('pre_screening', 3, 'פרטי קשר ותפקיד', 'אימייל אזרחי', 'civilian_email', 'text', null, true, null, null, null, 1, true),
+    ('pre_screening', 3, 'פרטי קשר ותפקיד', 'תפקיד', 'position', 'text', null, true, null, null, null, 2, true),
+    ('pre_screening', 3, 'פרטי קשר ותפקיד', 'פז״ם (חודשים בשירות)', 'pazam_months', 'number', null, true, null, null, null, 3, true),
     ('interview', 1, 'ראיון', 'רושם כללי מהמועמד', 'interview_impression', 'textarea', null, false, null, null, null, 1, true),
     ('interview', 1, 'ראיון', 'נקודות חוזק', 'interview_strengths', 'textarea', null, false, null, null, null, 2, true)
 ) as v(

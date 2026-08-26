@@ -96,14 +96,20 @@ export function PreparationDayStage({
         )}
       </div>
       {others.map((row) => (
-        <div key={row.id} className="dashboard-glass rounded-3xl p-5">
+        <div key={row.id} className="dashboard-glass space-y-2 rounded-3xl p-5">
           <p className="font-bold">{row.evaluator_name}</p>
-          <p className="mt-2 text-sm text-text-muted">
+          <p className="text-sm text-text-muted">
             מקרא {row.mikra_score ?? "—"} · שיחה {row.conversation_score ?? "—"} · דינמיקה{" "}
             {row.social_dynamics_score ?? "—"}
           </p>
+          {row.conversation_feedback ? (
+            <p className="text-sm text-text-secondary">שיחה: {row.conversation_feedback}</p>
+          ) : null}
+          {row.social_dynamics_feedback ? (
+            <p className="text-sm text-text-secondary">דינמיקה: {row.social_dynamics_feedback}</p>
+          ) : null}
           {row.general_impression ? (
-            <p className="mt-2 whitespace-pre-wrap text-sm">{row.general_impression}</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm">{row.general_impression}</p>
           ) : null}
         </div>
       ))}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { ACCEPTED_FILE_TYPES, DOC_TYPES, SOURCE_LABELS } from "@/modules/agam/lib/document-types";
+import { ACCEPTED_FILE_TYPES, DOC_TYPES, SOURCE_LABELS, isCustomDocType } from "@/modules/agam/lib/document-types";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamDocument } from "@/modules/agam/types";
@@ -26,16 +26,21 @@ export function DocumentsStage({
 
   const onUpload = async () => {
     if (!file) return;
+    if (isCustomDocType(documentType) && !customType.trim()) {
+      toast.error("נא לציין סוג מסמך");
+      return;
+    }
     setUploading(true);
     try {
       const form = new FormData();
       form.set("candidateId", candidateId);
-      form.set("documentType", customType || documentType);
+      form.set("documentType", isCustomDocType(documentType) ? customType.trim() : documentType);
       form.set("notes", notes);
       form.set("file", file);
       await agamFetch("/api/agam/documents", { method: "POST", body: form });
       setFile(null);
       setNotes("");
+      setCustomType("");
       toast.success("המסמך הועלה");
       onSaved();
     } catch (error) {
@@ -64,7 +69,7 @@ export function DocumentsStage({
               ))}
             </select>
           </label>
-          {documentType === "אחר" ? (
+          {isCustomDocType(documentType) ? (
             <input
               className={fieldClass}
               placeholder="סוג מותאם"
@@ -122,19 +127,29 @@ export function DocumentsStage({
                       {document.uploaded_by_name}
                     </p>
                   </div>
-                  {canEvaluate ? (
-                    <button
-                      type="button"
-                      className="text-xs font-bold text-rose-600"
-                      onClick={async () => {
-                        if (!confirm("למחוק מסמך?")) return;
-                        await agamFetch(`/api/agam/documents?id=${document.id}`, { method: "DELETE" });
-                        onSaved();
-                      }}
+                  <div className="flex items-center gap-3">
+                    <a
+                      href={document.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-bold text-accent-primary"
                     >
-                      מחיקה
-                    </button>
-                  ) : null}
+                      צפייה
+                    </a>
+                    {canEvaluate ? (
+                      <button
+                        type="button"
+                        className="text-xs font-bold text-rose-600"
+                        onClick={async () => {
+                          if (!confirm("למחוק מסמך?")) return;
+                          await agamFetch(`/api/agam/documents?id=${document.id}`, { method: "DELETE" });
+                          onSaved();
+                        }}
+                      >
+                        מחיקה
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 {canEvaluate ? (
                   <textarea

@@ -49,7 +49,7 @@ export function AgamApplyWizard() {
       body: JSON.stringify({
         fullName: form.full_name,
         personalNumber: form.personal_number,
-        phone: form.phone,
+        phone: form.phone ?? null,
         questionnaireData: form,
       }),
     });
