@@ -1,0 +1,39 @@
+{
+  "name": "Interview",
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05de\u05d5\u05e2\u05de\u05d3"
+    },
+    "evaluator_id": {
+      "type": "string",
+      "description": "\u05de\u05d6\u05d4\u05d4 \u05de\u05e2\u05e8\u05d9\u05da"
+    },
+    "evaluator_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05de\u05e2\u05e8\u05d9\u05da"
+    },
+    "interview_data": {
+      "type": "object",
+      "description": "\u05ea\u05e9\u05d5\u05d1\u05d5\u05ea \u05d4\u05e8\u05d9\u05d0\u05d9\u05d5\u05df (\u05de\u05e4\u05ea\u05d7: field_key)"
+    },
+    "evaluator_assessment": {
+      "type": "string",
+      "description": "\u05d4\u05ea\u05e8\u05e9\u05de\u05d5\u05ea \u05d5\u05d4\u05e2\u05e8\u05db\u05ea \u05d4\u05de\u05e2\u05e8\u05d9\u05da"
+    },
+    "recommendation": {
+      "type": "string",
+      "enum": [
+        "\u05de\u05de\u05dc\u05d9\u05e5",
+        "\u05de\u05de\u05dc\u05d9\u05e5 \u05d1\u05d4\u05e1\u05ea\u05d9\u05d9\u05d2\u05d5\u05ea",
+        "\u05dc\u05d0 \u05de\u05de\u05dc\u05d9\u05e5"
+      ],
+      "description": "\u05d4\u05de\u05dc\u05e6\u05ea \u05d4\u05de\u05e2\u05e8\u05d9\u05da"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "evaluator_id"
+  ]
+}

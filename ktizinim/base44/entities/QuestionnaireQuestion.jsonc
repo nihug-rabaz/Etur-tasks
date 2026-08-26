@@ -1,0 +1,88 @@
+{
+  "name": "QuestionnaireQuestion",
+  "type": "object",
+  "properties": {
+    "question_type": {
+      "type": "string",
+      "enum": [
+        "pre_screening",
+        "interview"
+      ],
+      "default": "pre_screening",
+      "description": "\u05e1\u05d5\u05d2 \u05e9\u05d0\u05dc\u05d5\u05df"
+    },
+    "section_number": {
+      "type": "number",
+      "description": "\u05de\u05e1\u05e4\u05e8 \u05e4\u05e8\u05e7"
+    },
+    "section_name": {
+      "type": "string",
+      "description": "\u05e9\u05dd \u05d4\u05e4\u05e8\u05e7"
+    },
+    "question_text": {
+      "type": "string",
+      "description": "\u05d8\u05e7\u05e1\u05d8 \u05d4\u05e9\u05d0\u05dc\u05d4"
+    },
+    "field_key": {
+      "type": "string",
+      "description": "\u05de\u05e4\u05ea\u05d7 \u05d9\u05d9\u05d7\u05d5\u05d3\u05d9 \u05dc\u05e9\u05d3\u05d4"
+    },
+    "field_type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "number",
+        "select",
+        "textarea"
+      ],
+      "description": "\u05e1\u05d5\u05d2 \u05d4\u05e9\u05d3\u05d4"
+    },
+    "options": {
+      "type": "string",
+      "description": "\u05d0\u05e4\u05e9\u05e8\u05d5\u05d9\u05d5\u05ea \u05d1\u05d7\u05d9\u05e8\u05d4 (JSON array string)"
+    },
+    "is_required": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u05e9\u05d3\u05d4 \u05d7\u05d5\u05d1\u05d4"
+    },
+    "condition_field": {
+      "type": "string",
+      "description": "\u05ea\u05e0\u05d0\u05d9 \u05d4\u05e6\u05d2\u05d4 - \u05e9\u05d3\u05d4"
+    },
+    "condition_operator": {
+      "type": "string",
+      "enum": [
+        "eq",
+        "neq",
+        "gt",
+        "lt",
+        "gte",
+        "lte"
+      ],
+      "default": "eq",
+      "description": "\u05d0\u05d5\u05e4\u05e8\u05d8\u05d5\u05e8 \u05ea\u05e0\u05d0\u05d9"
+    },
+    "condition_value": {
+      "type": "string",
+      "description": "\u05ea\u05e0\u05d0\u05d9 \u05d4\u05e6\u05d2\u05d4 - \u05e2\u05e8\u05da"
+    },
+    "sort_order": {
+      "type": "number",
+      "default": 0,
+      "description": "\u05e1\u05d3\u05e8 \u05d4\u05e6\u05d2\u05d4"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true,
+      "description": "\u05e4\u05e2\u05d9\u05dc"
+    }
+  },
+  "required": [
+    "question_text",
+    "field_key",
+    "field_type",
+    "section_number",
+    "question_type"
+  ]
+}
