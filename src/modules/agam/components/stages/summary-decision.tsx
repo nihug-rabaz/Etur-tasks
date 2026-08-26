@@ -128,10 +128,14 @@ export function SummaryDecision({
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           onBlur={async () => {
-            await agamFetch(`/api/agam/candidates/${candidate.id}`, {
-              method: "PATCH",
-              body: JSON.stringify({ ramad_notes: notes }),
-            });
+            try {
+              await agamFetch(`/api/agam/candidates/${candidate.id}`, {
+                method: "PATCH",
+                body: JSON.stringify({ ramad_notes: notes }),
+              });
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "שמירת הערות נכשלה");
+            }
           }}
           placeholder="הערות אישיות של רמ״ד איתור"
         />

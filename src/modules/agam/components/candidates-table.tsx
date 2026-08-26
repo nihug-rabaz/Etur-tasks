@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { CANDIDATE_EXPORT_FIELDS, downloadCsv, rowsToCsv } from "@/modules/agam/lib/csv";
+import { BASIC_CANDIDATE_COLUMNS, downloadCsv, rowsToCsv } from "@/modules/agam/lib/csv";
 import { STAGE_VIEWS, STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamStageKey, AgamStageSummary } from "@/modules/agam/types";
@@ -117,7 +117,7 @@ export function AgamCandidatesTable({
                       status: row.status,
                       ramad_notes: row.ramad_notes,
                     })),
-                    CANDIDATE_EXPORT_FIELDS.filter((field) => field.key !== "ramad_notes"),
+                    BASIC_CANDIDATE_COLUMNS.filter((field) => field.key !== "ramad_notes"),
                   );
                   downloadCsv("candidates.csv", csv);
                 }}
@@ -248,7 +248,11 @@ function CandidateActionBar({
 }) {
   const actions = [
     { href: `/agam/candidates/${candidateId}`, label: "תיק", icon: UserRound },
-    { href: `/agam/candidates/${candidateId}?stage=day_selection`, label: "מיונים", icon: CalendarCheck },
+    {
+      href: `/agam/candidates/${candidateId}/evaluation`,
+      label: "הערכה",
+      icon: CalendarCheck,
+    },
     { href: `/agam/candidates/${candidateId}?stage=preparation_day`, label: "מכין", icon: FileText },
     { href: `/agam/candidates/${candidateId}?stage=smach`, label: "סמ״ח", icon: Award },
     { href: `/agam/candidates/${candidateId}?stage=documents`, label: "מסמכים", icon: FolderOpen },

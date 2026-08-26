@@ -106,7 +106,7 @@ export function SmachStage({
         <div>
           <h2 className="text-2xl font-extrabold text-text-primary">הערכת סמ״ח</h2>
           <p className="mt-1 text-sm text-text-muted">
-            מבחני סף, הערכה מקצועית, ציון משוקלל והחלטה — כל מעריך ממלא טופס נפרד.
+            ההערכה שלך כמעריך. כל מעריך ממלא הערכה נפרדת.
           </p>
         </div>
         {canEvaluate ? (
@@ -211,29 +211,39 @@ export function SmachStage({
 
             <section className="space-y-2 rounded-2xl bg-surface-2 p-4">
               <h3 className="text-lg font-extrabold text-text-primary">חלק ג׳ — ציון משוקלל</h3>
-              <p className="text-xs text-text-muted">הזנה ידנית בטווח 0–100.</p>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                dir="ltr"
-                className={`${fieldClass} max-w-[140px] text-left`}
-                value={weightedScore}
-                onChange={(event) => setWeightedScore(event.target.value)}
-              />
+              <p className="text-xs text-text-muted">
+                הזנה ידנית. בעתיד יחושב אוטומטית על בסיס משקלי הקריטריונים.
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  dir="ltr"
+                  className={`${fieldClass} max-w-[140px] text-center text-lg font-bold`}
+                  placeholder="—"
+                  value={weightedScore}
+                  onChange={(event) => setWeightedScore(event.target.value)}
+                />
+                <span className="text-sm text-text-muted">ציון 0–100</span>
+              </div>
             </section>
 
-            <label className="block space-y-2 text-sm font-bold text-text-secondary">
-              חלק ד׳ — נקודות משמעותיות מתוך התהליך
+            <div className="space-y-2 rounded-2xl bg-surface-2 p-4">
+              <h3 className="text-lg font-extrabold text-text-primary">
+                חלק ד׳ — נקודות משמעותיות מתוך התהליך
+              </h3>
+              <p className="text-xs text-text-muted">ריכוז הנקודות המרכזיות שעלו במהלך הסמ״ח.</p>
               <textarea
                 className={fieldClass}
-                rows={4}
+                rows={5}
+                placeholder="נקודות משמעותיות..."
                 value={keyPoints}
                 onChange={(event) => setKeyPoints(event.target.value)}
               />
-            </label>
+            </div>
 
-            <section className="space-y-3">
+            <section className="space-y-3 rounded-2xl bg-surface-2 p-4">
               <h3 className="text-lg font-extrabold text-text-primary">חלק ה׳ — החלטת הסמ״ח</h3>
               <div className="flex flex-wrap gap-2">
                 {SMACH_DECISIONS.map((item) => (
@@ -247,13 +257,16 @@ export function SmachStage({
                   </button>
                 ))}
               </div>
-              <textarea
-                className={fieldClass}
-                rows={3}
-                placeholder="נימוק מפורט להחלטה"
-                value={decisionReasoning}
-                onChange={(event) => setDecisionReasoning(event.target.value)}
-              />
+              <div>
+                <p className="mb-1 text-xs font-bold text-text-muted">נימוק להחלטה</p>
+                <textarea
+                  className={fieldClass}
+                  rows={4}
+                  placeholder="נימוק מפורט להחלטה..."
+                  value={decisionReasoning}
+                  onChange={(event) => setDecisionReasoning(event.target.value)}
+                />
+              </div>
             </section>
 
             <button type="button" className={primaryButtonClass} onClick={() => void onSave()} disabled={saving}>

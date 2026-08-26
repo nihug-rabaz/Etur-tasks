@@ -60,71 +60,125 @@ export function PreparationDayStage({
   return (
     <div className="space-y-6">
       <div className="dashboard-glass space-y-4 rounded-3xl p-6">
-        <h2 className="text-2xl font-extrabold text-text-primary">היום המכין</h2>
+        <div>
+          <h2 className="text-2xl font-extrabold text-text-primary">הערכת היום המכין</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            ההערכה שלך כמעריך. כל מעריך ממלא הערכה נפרדת.
+          </p>
+        </div>
         {canEvaluate ? (
           <>
-            <ScoreBlock label="מקראות ישראל" value={mikraScore} onChange={setMikraScore} />
             <ScoreBlock
-              label="העברת שיחה"
+              title={'מבחן "מקראות ישראל"'}
+              subtitle="הזנת ציון בלבד"
+              value={mikraScore}
+              onChange={setMikraScore}
+            />
+            <ScoreBlock
+              title="התנסות בהעברת שיחה"
               value={conversationScore}
               onChange={setConversationScore}
               feedback={conversationFeedback}
               onFeedback={setConversationFeedback}
             />
             <ScoreBlock
-              label="דינמיקות חברתיות"
+              title="דינמיקות חברתיות"
               value={socialDynamicsScore}
               onChange={setSocialDynamicsScore}
               feedback={socialDynamicsFeedback}
               onFeedback={setSocialDynamicsFeedback}
             />
-            <label className="block space-y-2 text-sm font-bold text-text-secondary">
-              רושם כללי
+            <div className="space-y-2 rounded-xl bg-surface-2 p-4">
+              <h3 className="text-sm font-extrabold text-text-primary">
+                התרשמות כללית של המעריך מהמועמד לאורך היום
+              </h3>
+              <p className="text-xs text-text-muted">סיכום חופשי — ללא ציון</p>
               <textarea
                 className={fieldClass}
-                rows={4}
+                rows={5}
+                placeholder="כתוב סיכום חופשי של התרשמותך מהמועמד לאורך היום..."
                 value={generalImpression}
                 onChange={(event) => setGeneralImpression(event.target.value)}
               />
-            </label>
+            </div>
             <button type="button" className={primaryButtonClass} onClick={() => void onSave()} disabled={saving}>
-              {saving ? "שומר…" : "שמירה"}
+              {saving ? "שומר…" : mine ? "עדכון הערכה" : "שמירת הערכה"}
             </button>
           </>
         ) : (
           <p className="text-sm text-text-muted">צפייה בלבד.</p>
         )}
       </div>
-      {others.map((row) => (
-        <div key={row.id} className="dashboard-glass space-y-2 rounded-3xl p-5">
-          <p className="font-bold">{row.evaluator_name}</p>
-          <p className="text-sm text-text-muted">
-            מקרא {row.mikra_score ?? "—"} · שיחה {row.conversation_score ?? "—"} · דינמיקה{" "}
-            {row.social_dynamics_score ?? "—"}
-          </p>
-          {row.conversation_feedback ? (
-            <p className="text-sm text-text-secondary">שיחה: {row.conversation_feedback}</p>
-          ) : null}
-          {row.social_dynamics_feedback ? (
-            <p className="text-sm text-text-secondary">דינמיקה: {row.social_dynamics_feedback}</p>
-          ) : null}
-          {row.general_impression ? (
-            <p className="mt-1 whitespace-pre-wrap text-sm">{row.general_impression}</p>
-          ) : null}
+
+      {others.length > 0 ? (
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-text-secondary">
+            הערכות מעריכים נוספים ({others.length})
+          </h3>
+          {others.map((row) => (
+            <PrepReadOnlyCard key={row.id} evaluation={row} />
+          ))}
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
 
+function PrepReadOnlyCard({ evaluation }: { evaluation: AgamPrepDayEvaluation }) {
+  const scores = [
+    { label: "מקראות ישראל", value: evaluation.mikra_score },
+    { label: "העברת שיחה", value: evaluation.conversation_score },
+    { label: "דינמיקות חברתיות", value: evaluation.social_dynamics_score },
+  ];
+
+  return (
+    <article className="dashboard-glass space-y-4 rounded-3xl p-5">
+      <div>
+        <p className="font-extrabold text-text-primary">{evaluation.evaluator_name ?? "מעריך"}</p>
+        <p className="text-xs text-text-muted">
+          {new Date(evaluation.created_at).toLocaleDateString("he-IL")}
+        </p>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {scores.map((score) => (
+          <div key={score.label} className="rounded-xl bg-surface-2 p-3 text-center">
+            <p className="text-xl font-extrabold text-text-primary">{score.value ?? "—"}</p>
+            <p className="mt-0.5 text-[11px] text-text-muted">{score.label}</p>
+          </div>
+        ))}
+      </div>
+      {evaluation.conversation_feedback ? (
+        <div className="rounded-xl bg-surface-2 p-3 text-sm">
+          <p className="text-xs font-bold text-text-muted">התרשמות — העברת שיחה</p>
+          <p className="mt-1 whitespace-pre-wrap">{evaluation.conversation_feedback}</p>
+        </div>
+      ) : null}
+      {evaluation.social_dynamics_feedback ? (
+        <div className="rounded-xl bg-surface-2 p-3 text-sm">
+          <p className="text-xs font-bold text-text-muted">התרשמות — דינמיקות חברתיות</p>
+          <p className="mt-1 whitespace-pre-wrap">{evaluation.social_dynamics_feedback}</p>
+        </div>
+      ) : null}
+      {evaluation.general_impression ? (
+        <div className="border-t border-border-weak/60 pt-3">
+          <p className="text-xs font-bold text-text-muted">התרשמות כללית</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm">{evaluation.general_impression}</p>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function ScoreBlock({
-  label,
+  title,
+  subtitle,
   value,
   onChange,
   feedback,
   onFeedback,
 }: {
-  label: string;
+  title: string;
+  subtitle?: string;
   value: string;
   onChange: (value: string) => void;
   feedback?: string;
@@ -132,22 +186,26 @@ function ScoreBlock({
 }) {
   return (
     <div className="space-y-2 rounded-xl bg-surface-2 p-4">
-      <label className="block text-sm font-bold text-text-secondary">
-        {label} (1–100)
+      <h3 className="text-sm font-extrabold text-text-primary">{title}</h3>
+      {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
+      <div className="flex items-center gap-3">
         <input
           type="number"
           min={1}
           max={100}
           dir="ltr"
-          className={`${fieldClass} mt-2 max-w-[140px] text-left`}
+          className={`${fieldClass} max-w-[120px] text-center text-lg font-bold`}
+          placeholder="—"
           value={value}
           onChange={(event) => onChange(event.target.value)}
         />
-      </label>
+        <span className="text-sm text-text-muted">ציון 1–100</span>
+      </div>
       {onFeedback ? (
         <textarea
           className={fieldClass}
-          placeholder="משוב"
+          placeholder="התרשמות מילולית"
+          rows={3}
           value={feedback}
           onChange={(event) => onFeedback(event.target.value)}
         />

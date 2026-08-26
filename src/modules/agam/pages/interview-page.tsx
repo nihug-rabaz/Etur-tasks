@@ -97,10 +97,11 @@ export function AgamInterviewPage({
       })}
       <section className="dashboard-glass space-y-4 rounded-3xl p-6">
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
-          הערכת מראיין
+          התרשמות והערכת המעריך
           <textarea
             className={fieldClass}
             rows={4}
+            placeholder="כתוב התרשמות חופשית מהריאיון..."
             value={assessment}
             onChange={(event) => setAssessment(event.target.value)}
           />

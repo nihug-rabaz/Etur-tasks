@@ -3,14 +3,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { CANDIDATE_EXPORT_FIELDS, downloadCsv, rowsToCsv } from "@/modules/agam/lib/csv";
+import {
+  CANDIDATE_EXPORT_FIELDS,
+  INTERVIEW_STATIC_FIELDS,
+  STATIC_DAY_FIELDS,
+  buildCandidateContext,
+  buildDayCriterionFields,
+  buildInterviewQuestionFields,
+  buildPreScreeningFields,
+  downloadCsv,
+  rowsToCsv,
+  type ExportField,
+} from "@/modules/agam/lib/csv";
 import { CONDITION_OPERATORS, FIELD_TYPES } from "@/modules/agam/lib/questions";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type {
   AgamCandidate,
   AgamConditionOperator,
   AgamCriterion,
+  AgamDayEvaluation,
   AgamFieldType,
+  AgamInterview,
   AgamOrgSettings,
   AgamQuestion,
 } from "@/modules/agam/types";
@@ -92,7 +105,9 @@ export function AgamAdminPage() {
       ) : null}
       {tab === "criteria" ? <CriteriaTab criteria={criteria} onChanged={() => void load()} /> : null}
       {tab === "settings" ? <SettingsTab org={settings} onChanged={() => void load()} /> : null}
-      {tab === "export" ? <ExportTab candidates={candidates} /> : null}
+      {tab === "export" ? (
+        <ExportTab candidates={candidates} questions={questions} criteria={criteria} />
+      ) : null}
     </div>
   );
 }
@@ -588,51 +603,115 @@ function SettingsTab({
   );
 }
 
-function ExportTab({ candidates }: { candidates: AgamCandidate[] }) {
-  const [selected, setSelected] = useState<string[]>(CANDIDATE_EXPORT_FIELDS.map((field) => field.key));
-  const columns = useMemo(
-    () => CANDIDATE_EXPORT_FIELDS.filter((field) => selected.includes(field.key)),
-    [selected],
-  );
+function ExportTab({
+  candidates,
+  questions,
+  criteria,
+}: {
+  candidates: AgamCandidate[];
+  questions: AgamQuestion[];
+  criteria: AgamCriterion[];
+}) {
+  const [interviews, setInterviews] = useState<AgamInterview[]>([]);
+  const [dayEvals, setDayEvals] = useState<AgamDayEvaluation[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    void agamFetch<{ interviews: AgamInterview[]; dayEvals: AgamDayEvaluation[] }>("/api/agam/export")
+      .then((data) => {
+        setInterviews(data.interviews ?? []);
+        setDayEvals(data.dayEvals ?? []);
+      })
+      .catch(() => toast.error("טעינת נתוני ייצוא נכשלה"))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const groups = useMemo(() => {
+    const preFields = buildPreScreeningFields(questions);
+    const interviewFields = [...INTERVIEW_STATIC_FIELDS, ...buildInterviewQuestionFields(questions)];
+    const dayFields = [...STATIC_DAY_FIELDS, ...buildDayCriterionFields(criteria)];
+    return [
+      { title: "פרטי מועמד", fields: CANDIDATE_EXPORT_FIELDS },
+      { title: "שאלון מקדים", fields: preFields },
+      { title: "ריאיון", fields: interviewFields },
+      { title: "יום מיונים", fields: dayFields },
+    ];
+  }, [questions, criteria]);
+
+  const allFields = useMemo(() => groups.flatMap((group) => group.fields), [groups]);
+  const selectedFields = allFields.filter((field) => selected[field.key]);
+
+  const toggle = (key: string) =>
+    setSelected((current) => ({ ...current, [key]: !current[key] }));
+
+  const toggleAll = (fields: ExportField[], value: boolean) => {
+    setSelected((current) => {
+      const next = { ...current };
+      for (const field of fields) next[field.key] = value;
+      return next;
+    });
+  };
+
+  if (!loaded) return <p className="text-sm text-text-muted">טוען שדות ייצוא…</p>;
 
   return (
-    <div className="dashboard-glass space-y-4 rounded-3xl p-6">
-      <div className="flex flex-wrap gap-2">
-        {CANDIDATE_EXPORT_FIELDS.map((field) => (
-          <button
-            key={field.key}
-            type="button"
-            className={selected.includes(field.key) ? primaryButtonClass : secondaryButtonClass}
-            onClick={() =>
-              setSelected((current) =>
-                current.includes(field.key)
-                  ? current.filter((key) => key !== field.key)
-                  : [...current, field.key],
-              )
-            }
-          >
-            {field.label}
-          </button>
-        ))}
-      </div>
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <div key={group.title} className="dashboard-glass space-y-3 rounded-3xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-extrabold text-text-primary">{group.title}</h3>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => toggleAll(group.fields, true)}
+              >
+                הכל
+              </button>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => toggleAll(group.fields, false)}
+              >
+                נקה
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {group.fields.map((field) => (
+              <button
+                key={field.key}
+                type="button"
+                className={selected[field.key] ? primaryButtonClass : secondaryButtonClass}
+                onClick={() => toggle(field.key)}
+              >
+                {field.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
       <button
         type="button"
         className={primaryButtonClass}
+        disabled={selectedFields.length === 0}
         onClick={() => {
           const csv = rowsToCsv(
-            candidates.map((row) => ({
-              full_name: row.full_name,
-              personal_number: row.personal_number,
-              phone: row.phone,
-              status: row.status,
-              ramad_notes: row.ramad_notes,
-            })),
-            columns,
+            candidates.map((candidate) => {
+              const ctx = buildCandidateContext(candidate, interviews, dayEvals);
+              const row: Record<string, unknown> = {};
+              for (const field of selectedFields) {
+                row[field.key] = field.get(candidate, ctx);
+              }
+              return row;
+            }),
+            selectedFields.map((field) => ({ key: field.key, label: field.label })),
           );
-          downloadCsv("candidates.csv", csv);
+          downloadCsv(`דוח_מועמדים_${new Date().toISOString().slice(0, 10)}.csv`, csv);
         }}
       >
-        הורדת CSV
+        ייצוא CSV ({selectedFields.length} שדות)
       </button>
     </div>
   );

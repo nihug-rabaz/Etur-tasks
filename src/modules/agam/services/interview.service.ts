@@ -11,6 +11,14 @@ export class AgamInterviewService extends BaseService {
     `;
   }
 
+  public async listAll(): Promise<AgamInterview[]> {
+    const db = this.getDb();
+    return db<AgamInterview[]>`
+      select * from agam_interviews
+      order by created_at desc
+    `;
+  }
+
   public async getById(id: string): Promise<AgamInterview | null> {
     const db = this.getDb();
     const rows = await db<AgamInterview[]>`

@@ -116,8 +116,8 @@ export class AgamCandidateService extends BaseService {
           ${input.stage_key ?? null}
         )
       `;
-    } catch {
-      return;
+    } catch (error) {
+      console.error("[agam] addTimeline failed", error);
     }
   }
 

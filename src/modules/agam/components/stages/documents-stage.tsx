@@ -18,7 +18,7 @@ export function DocumentsStage({
   canEvaluate: boolean;
   onSaved: () => void;
 }) {
-  const [documentType, setDocumentType] = useState(DOC_TYPES[0]);
+  const [documentType, setDocumentType] = useState("");
   const [customType, setCustomType] = useState("");
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -26,6 +26,10 @@ export function DocumentsStage({
 
   const onUpload = async () => {
     if (!file) return;
+    if (!documentType) {
+      toast.error("נא לבחור סוג מסמך");
+      return;
+    }
     if (isCustomDocType(documentType) && !customType.trim()) {
       toast.error("נא לציין סוג מסמך");
       return;
@@ -41,6 +45,7 @@ export function DocumentsStage({
       setFile(null);
       setNotes("");
       setCustomType("");
+      setDocumentType("");
       toast.success("המסמך הועלה");
       onSaved();
     } catch (error) {
@@ -54,7 +59,10 @@ export function DocumentsStage({
     <div className="space-y-6">
       {canEvaluate ? (
         <div className="dashboard-glass space-y-4 rounded-3xl p-6">
-          <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
+          <div>
+            <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
+            <p className="mt-1 text-sm text-text-muted">ניהול מסמכי המועמד</p>
+          </div>
           <label className="block space-y-2 text-sm font-bold text-text-secondary">
             סוג מסמך
             <select
@@ -62,6 +70,7 @@ export function DocumentsStage({
               value={documentType}
               onChange={(event) => setDocumentType(event.target.value)}
             >
+              <option value="">בחרו סוג מסמך</option>
               {DOC_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -72,7 +81,7 @@ export function DocumentsStage({
           {isCustomDocType(documentType) ? (
             <input
               className={fieldClass}
-              placeholder="סוג מותאם"
+              placeholder="שם סוג מסמך מותאם"
               value={customType}
               onChange={(event) => setCustomType(event.target.value)}
             />
@@ -136,14 +145,27 @@ export function DocumentsStage({
                     >
                       צפייה
                     </a>
+                    <a
+                      href={document.file_url}
+                      download={document.name}
+                      className="text-xs font-bold text-text-secondary"
+                    >
+                      הורדה
+                    </a>
                     {canEvaluate ? (
                       <button
                         type="button"
                         className="text-xs font-bold text-rose-600"
                         onClick={async () => {
                           if (!confirm("למחוק מסמך?")) return;
-                          await agamFetch(`/api/agam/documents?id=${document.id}`, { method: "DELETE" });
-                          onSaved();
+                          try {
+                            await agamFetch(`/api/agam/documents?id=${document.id}`, {
+                              method: "DELETE",
+                            });
+                            onSaved();
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
+                          }
                         }}
                       >
                         מחיקה
@@ -157,10 +179,14 @@ export function DocumentsStage({
                     defaultValue={document.notes ?? ""}
                     placeholder="הערות"
                     onBlur={async (event) => {
-                      await agamFetch("/api/agam/documents", {
-                        method: "PATCH",
-                        body: JSON.stringify({ id: document.id, notes: event.target.value }),
-                      });
+                      try {
+                        await agamFetch("/api/agam/documents", {
+                          method: "PATCH",
+                          body: JSON.stringify({ id: document.id, notes: event.target.value }),
+                        });
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : "שמירת הערות נכשלה");
+                      }
                     }}
                   />
                 ) : document.notes ? (

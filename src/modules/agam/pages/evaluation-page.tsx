@@ -29,7 +29,12 @@ export function AgamEvaluationPage({
     )
       .then((json) => {
         setCriteria(json.criteria ?? []);
-        setScores(json.evaluation?.scores_data ?? {});
+        const loadedScores = json.evaluation?.scores_data ?? {};
+        const defaults =
+          Object.keys(loadedScores).length > 0
+            ? loadedScores
+            : ScoringEngine.defaultScores(json.criteria ?? []);
+        setScores(defaults);
         setFeedback(json.evaluation?.feedback_data ?? {});
         setFinalScore(json.evaluation?.final_score ?? 70);
         setFinalFeedback(json.evaluation?.final_feedback ?? "");
@@ -79,7 +84,13 @@ export function AgamEvaluationPage({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
       <div className="dashboard-glass rounded-3xl p-6">
         <h1 className="text-3xl font-extrabold text-text-primary">הערכת יום מיונים</h1>
-        <p className="mt-2 text-sm text-text-secondary">ציון משוקלל: {liveWeighted ?? "—"}</p>
+        <p className="mt-2 text-sm text-text-secondary">
+          ציון משוקלל מחושב אוטומטית:{" "}
+          <span className="font-extrabold text-accent-primary">{liveWeighted ?? "—"}</span>
+        </p>
+        <p className="mt-1 text-xs text-text-muted">
+          כל קריטריון מדורג 1–5 לפי משקלו. ציון חסר נספר כ־0 בחישוב המשוקלל.
+        </p>
         <Link href={`/agam/candidates/${candidateId}?stage=day_selection`} className="mt-2 inline-block text-xs font-bold text-accent-primary">
           חזרה ליום המיונים
         </Link>
@@ -134,7 +145,7 @@ export function AgamEvaluationPage({
         </label>
         <textarea
           className={fieldClass}
-          placeholder="סיכום"
+          placeholder="הערה מסכמת חופשית"
           value={finalFeedback}
           onChange={(event) => setFinalFeedback(event.target.value)}
         />

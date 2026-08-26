@@ -81,6 +81,14 @@ export class AgamDayEvaluationService extends BaseService {
     `;
   }
 
+  public async listAll(): Promise<AgamDayEvaluation[]> {
+    const db = this.getDb();
+    return db<AgamDayEvaluation[]>`
+      select * from agam_day_evaluations
+      order by created_at desc
+    `;
+  }
+
   public async getById(id: string): Promise<AgamDayEvaluation | null> {
     const db = this.getDb();
     const rows = await db<AgamDayEvaluation[]>`

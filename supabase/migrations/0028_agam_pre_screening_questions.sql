@@ -8,6 +8,7 @@ insert into public.agam_questionnaire_questions (
 values
   ('pre_screening', 1, 'פרטים אישיים', 'שם מלא', 'full_name', 'text', null, true, null, null, null, 1, true),
   ('pre_screening', 1, 'פרטים אישיים', 'מספר אישי', 'personal_number', 'text', null, true, null, null, null, 2, true),
+  ('pre_screening', 1, 'פרטים אישיים', 'טלפון', 'phone', 'text', null, true, null, null, null, 3, true),
   ('pre_screening', 2, 'שירות', 'פיקוד', 'command', 'text', null, true, null, null, null, 1, true),
   ('pre_screening', 2, 'שירות', 'יחידה', 'unit', 'text', null, true, null, null, null, 2, true),
   ('pre_screening', 2, 'שירות', 'שם מפקד', 'commander_name', 'text', null, true, null, null, null, 3, true),

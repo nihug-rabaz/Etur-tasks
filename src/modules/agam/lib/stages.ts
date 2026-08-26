@@ -6,11 +6,33 @@ export const AGAM_STAGES: Array<{
   description: string;
   ramadOnly?: boolean;
 }> = [
-  { key: "day_selection", name: "יום המיונים", description: "ראיונות והערכת קריטריונים" },
-  { key: "preparation_day", name: "היום המכין", description: "ציוני מקרא, שיחה ודינמיקה" },
-  { key: "smach", name: "סמ״ח", description: "מבחני סף והערכה מקצועית" },
-  { key: "documents", name: "מסמכים", description: "העלאה וניהול קבצים" },
-  { key: "final_decision", name: "החלטה סופית", description: "עבר / לא עבר ודוח PDF", ramadOnly: true },
+  {
+    key: "day_selection",
+    name: "יום המיונים",
+    description: "ריאיונות והערכות יום מיונים",
+  },
+  {
+    key: "preparation_day",
+    name: "היום המכין",
+    description:
+      "הערכת היום המכין — מקראות ישראל, העברת שיחה, דינמיקות חברתיות והתרשמות כללית",
+  },
+  {
+    key: "smach",
+    name: "סמ״ח",
+    description: "הערכת סמ״ח — מבחני סף, הערכה מקצועית, ציון משוקלל והחלטה",
+  },
+  {
+    key: "documents",
+    name: "מסמכים",
+    description: "ניהול מסמכי המועמד",
+  },
+  {
+    key: "final_decision",
+    name: "החלטה סופית",
+    description: "החלטת מעבר ודוח סופי",
+    ramadOnly: true,
+  },
 ];
 
 export const STATUS_LABELS: Record<string, string> = {
@@ -72,10 +94,40 @@ export const RECOMMENDATIONS = ["ממליץ", "ממליץ בהסתייגות", "
 
 export const SMACH_DECISIONS = ["מומלץ", "מומלץ בהסתייגות", "לא מומלץ"] as const;
 
-export const STAGE_VIEWS: Array<{ key: AgamStageKey; label: string; columnHeader: string }> = [
-  { key: "day_selection", label: "יום מיונים", columnHeader: "סיכום מיונים" },
-  { key: "preparation_day", label: "היום המכין", columnHeader: "סיכום מכין" },
-  { key: "smach", label: "סמ״ח", columnHeader: "סיכום סמ״ח" },
-  { key: "documents", label: "מסמכים", columnHeader: "מסמכים" },
-  { key: "final_decision", label: "החלטה", columnHeader: "החלטה" },
+export const STAGE_VIEWS: Array<{
+  key: AgamStageKey;
+  label: string;
+  columnHeader: string;
+  actionLabel: string;
+}> = [
+  {
+    key: "day_selection",
+    label: "יום המיונים",
+    columnHeader: "ציון יום מיונים",
+    actionLabel: "הערכת יום מיונים",
+  },
+  {
+    key: "preparation_day",
+    label: "היום המכין",
+    columnHeader: "ממוצע היום המכין",
+    actionLabel: "הערכת היום המכין",
+  },
+  {
+    key: "smach",
+    label: "סמ״ח",
+    columnHeader: "סמ״ח",
+    actionLabel: "הערכת סמ״ח",
+  },
+  {
+    key: "documents",
+    label: "מסמכים",
+    columnHeader: "מסמכים",
+    actionLabel: "פתח מסמכים",
+  },
+  {
+    key: "final_decision",
+    label: "החלטה סופית",
+    columnHeader: "החלטה",
+    actionLabel: "פתח החלטה סופית",
+  },
 ];

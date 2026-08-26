@@ -84,7 +84,9 @@ export function AgamApplyWizard() {
         <div className="dashboard-glass w-full max-w-md rounded-3xl p-8 text-center">
           <CheckCircle2 className="mx-auto text-emerald-600" size={48} />
           <h1 className="mt-4 text-3xl font-extrabold text-text-primary">תודה!</h1>
-          <p className="mt-2 text-sm text-text-secondary">השאלון התקבל בהצלחה.</p>
+          <p className="mt-2 text-sm text-text-secondary">
+            השאלון התקבל בהצלחה. מחכים לפגוש אותך ביום המיונים.
+          </p>
         </div>
       </AgamPublicChrome>
     );
@@ -94,7 +96,9 @@ export function AgamApplyWizard() {
     <AgamPublicChrome>
       <div className="dashboard-glass w-full max-w-2xl rounded-3xl p-8">
         <p className="text-sm font-bold text-accent-primary">שאלון מקדים</p>
-        <h1 className="mt-2 text-3xl font-extrabold text-text-primary">איתור קציני דת</h1>
+        <h1 className="mt-2 text-3xl font-extrabold text-text-primary">
+          שאלון לקראת יום מיונים לקורס קציני דת
+        </h1>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-surface-2">
           <div className="h-full bg-accent-primary transition-all" style={{ width: `${progress}%` }} />
         </div>
