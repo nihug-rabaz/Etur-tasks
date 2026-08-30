@@ -46,9 +46,18 @@ export function PwaInstallPrompt() {
   const [visible, setVisible] = useState(false);
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
 
-  // Registers the service worker that makes the app installable.
+  // Registers the service worker in production only; clears stale workers in development.
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
+    if (process.env.NODE_ENV !== "production") {
+      void navigator.serviceWorker.getRegistrations().then((regs) =>
+        Promise.all(regs.map((registration) => registration.unregister())),
+      );
+      if (typeof caches !== "undefined") {
+        void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+      }
+      return;
+    }
     const register = () => navigator.serviceWorker.register("/sw.js").catch(() => undefined);
     if (document.readyState === "complete") register();
     else window.addEventListener("load", register, { once: true });

@@ -5,9 +5,11 @@ export class AgamCandidateService extends BaseService {
   public async list(archived: boolean, limit = 200): Promise<AgamCandidate[]> {
     const db = this.getDb();
     return db<AgamCandidate[]>`
-      select * from agam_candidates
-      where archived = ${archived}
-      order by created_at desc
+      select cand.*, c.name as cycle_name
+      from agam_candidates cand
+      left join agam_cycles c on c.id = cand.cycle_id
+      where cand.archived = ${archived}
+      order by cand.created_at desc
       limit ${limit}
     `;
   }
@@ -50,20 +52,43 @@ export class AgamCandidateService extends BaseService {
     phone?: string | null;
     questionnaire_data?: Record<string, unknown> | null;
     created_by_id?: string | null;
+    cycle_id?: string | null;
   }): Promise<AgamCandidate> {
     const db = this.getDb();
     const rows = await db<AgamCandidate[]>`
-      insert into agam_candidates (full_name, personal_number, phone, questionnaire_data, created_by_id)
+      insert into agam_candidates (full_name, personal_number, phone, questionnaire_data, created_by_id, cycle_id)
       values (
         ${input.full_name},
         ${input.personal_number},
         ${input.phone ?? null},
         ${input.questionnaire_data ?? null},
-        ${input.created_by_id ?? null}
+        ${input.created_by_id ?? null},
+        ${input.cycle_id ?? null}
       )
       returning *
     `;
     return rows[0];
+  }
+
+  public async setCycle(id: string, cycleId: string | null): Promise<boolean> {
+    const db = this.getDb();
+    const rows = await db<{ id: string }[]>`
+      update agam_candidates
+      set cycle_id = ${cycleId}, updated_at = now()
+      where id = ${id}
+      returning id
+    `;
+    return rows.length > 0;
+  }
+
+  public async listUnassigned(limit = 300): Promise<AgamCandidate[]> {
+    const db = this.getDb();
+    return db<AgamCandidate[]>`
+      select * from agam_candidates
+      where archived = false and cycle_id is null
+      order by full_name
+      limit ${limit}
+    `;
   }
 
   public async setArchived(id: string, archived: boolean): Promise<void> {

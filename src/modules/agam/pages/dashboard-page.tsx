@@ -11,13 +11,28 @@ import { primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui"
 import type { AgamCandidate, AgamOrgSettings } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
-export function AgamDashboardPage() {
-  const [candidates, setCandidates] = useState<AgamCandidate[]>([]);
-  const [settings, setSettings] = useState<AgamOrgSettings | null>(null);
-  const [role, setRole] = useState<ModuleRole | null>(null);
-  const [loaded, setLoaded] = useState(false);
+export function AgamDashboardPage({
+  initialCandidates = [],
+  initialSettings = null,
+  initialRole = null,
+}: {
+  initialCandidates?: AgamCandidate[];
+  initialSettings?: AgamOrgSettings | null;
+  initialRole?: ModuleRole | null;
+}) {
+  const [candidates, setCandidates] = useState<AgamCandidate[]>(initialCandidates);
+  const [settings, setSettings] = useState<AgamOrgSettings | null>(initialSettings);
+  const [role, setRole] = useState<ModuleRole | null>(initialRole);
+  const [loaded, setLoaded] = useState(Boolean(initialRole));
 
   useEffect(() => {
+    if (initialRole) {
+      setCandidates(initialCandidates);
+      setSettings(initialSettings);
+      setRole(initialRole);
+      setLoaded(true);
+      return;
+    }
     void Promise.all([
       agamFetch<{ candidates: AgamCandidate[]; role: ModuleRole }>("/api/agam/candidates"),
       agamFetch<{ settings: AgamOrgSettings | null }>("/api/agam/settings"),
@@ -29,7 +44,7 @@ export function AgamDashboardPage() {
       })
       .catch(() => toast.error("טעינת המועמדים נכשלה"))
       .finally(() => setLoaded(true));
-  }, []);
+  }, [initialCandidates, initialRole, initialSettings]);
 
   const isRamad = role === "admin" || role === "ramad";
   const stats = {
@@ -67,7 +82,10 @@ export function AgamDashboardPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             {role === "admin" || role === "ramad" || role === "user" ? <CreateCandidateDrawer /> : null}
-            <Link href="/agam/candidates" className={primaryButtonClass}>
+            <Link href="/agam/cycles" className={primaryButtonClass}>
+              מחזורי מועמדים
+            </Link>
+            <Link href="/agam/candidates" className={secondaryButtonClass}>
               לרשימת מועמדים
             </Link>
             <button type="button" onClick={() => void copyApply()} className={secondaryButtonClass}>

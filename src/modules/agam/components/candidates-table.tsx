@@ -64,7 +64,8 @@ export function AgamCandidatesTable({
       const matchesQuery =
         !q ||
         row.full_name.toLowerCase().includes(q) ||
-        row.personal_number.toLowerCase().includes(q);
+        row.personal_number.toLowerCase().includes(q) ||
+        (row.cycle_name ?? "").toLowerCase().includes(q);
       const matchesStatus = status === "all" || row.status === status;
       return matchesQuery && matchesStatus;
     });
@@ -171,6 +172,9 @@ export function AgamCandidatesTable({
               >
                 <div>
                   <p className="font-bold text-text-primary">{candidate.full_name}</p>
+                  {candidate.cycle_name ? (
+                    <p className="text-xs font-semibold text-accent-primary">{candidate.cycle_name}</p>
+                  ) : null}
                   {candidate.phone ? (
                     <p className="text-xs text-text-muted" dir="ltr">
                       {candidate.phone}

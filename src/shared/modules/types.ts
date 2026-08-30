@@ -45,6 +45,7 @@ export function canAccessModule(
   moduleId: string,
   access: ModuleAccessContext,
 ): boolean {
+  if (access.isPlatformAdmin) return true;
   return Boolean(access.moduleRoles[moduleId]);
 }
 
@@ -53,7 +54,7 @@ export function getModuleNavItems(
   access: ModuleAccessContext,
   options?: { isImpersonating?: boolean },
 ): ModuleNavItem[] {
-  const role = access.moduleRoles[moduleDef.id];
+  const role = access.moduleRoles[moduleDef.id] ?? (access.isPlatformAdmin ? "admin" : undefined);
   if (!role) return [];
 
   const showAdmin = role === "admin" && !options?.isImpersonating;

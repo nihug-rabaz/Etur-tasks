@@ -77,11 +77,15 @@ export function CreateCandidateDrawer({
   open: openProp,
   onOpenChange,
   onCreated,
+  cycleId = null,
+  stayOnSuccess = false,
 }: {
   hideTrigger?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   onCreated?: (id: string) => void;
+  cycleId?: string | null;
+  stayOnSuccess?: boolean;
 }) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -100,7 +104,12 @@ export function CreateCandidateDrawer({
     try {
       const data = await agamFetch<{ candidate: AgamCandidate }>("/api/agam/candidates", {
         method: "POST",
-        body: JSON.stringify({ fullName, personalNumber, phone: phone || null }),
+        body: JSON.stringify({
+          fullName,
+          personalNumber,
+          phone: phone || null,
+          cycleId: cycleId || null,
+        }),
       });
       toast.success("המועמד נוצר");
       setOpen(false);
@@ -108,7 +117,9 @@ export function CreateCandidateDrawer({
       setPersonalNumber("");
       setPhone("");
       onCreated?.(data.candidate.id);
-      router.push(`/agam/candidates/${data.candidate.id}`);
+      if (!stayOnSuccess) {
+        router.push(`/agam/candidates/${data.candidate.id}`);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "יצירה נכשלה");
     } finally {

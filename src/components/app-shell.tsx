@@ -54,6 +54,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/dovrut/projects/archive",
     "/dovrut/recycle-bin",
     "/agam",
+    "/agam/cycles",
     "/agam/candidates",
     "/agam/candidates/archive",
     "/agam/admin",
@@ -73,7 +74,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
   ) {
     return href;
   }
-  if (section === "agam" && index === 1 && segments[1] === "candidates") {
+  if (section === "agam" && index === 1 && (segments[1] === "candidates" || segments[1] === "cycles")) {
     return href;
   }
   const isDynamicDetails =

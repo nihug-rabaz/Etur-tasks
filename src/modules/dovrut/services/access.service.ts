@@ -21,7 +21,11 @@ export class DovrutAccessService {
     const profile = await this.requireProfile();
     if (!profile) return { error: "Unauthorized" as const, status: 401 as const };
 
-    const role = await this.getModuleRole(profile.id);
+    let role = await this.getModuleRole(profile.id);
+    if (!role) {
+      const real = await this.authorizationService.getRealProfile();
+      if (real?.role === "admin") role = "admin";
+    }
     if (!role) return { error: "Forbidden" as const, status: 403 as const };
 
     if (minRole === "admin" && role !== "admin") {

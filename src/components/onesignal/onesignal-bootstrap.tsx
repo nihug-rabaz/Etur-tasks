@@ -5,7 +5,9 @@ import { useEffect } from "react";
 import { OneSignalWebClient } from "@/lib/onesignal/onesignal-web-client";
 
 export function OneSignalBootstrap({ externalId }: { externalId?: string }) {
-  OneSignalWebClient.bootstrap();
+  useEffect(() => {
+    OneSignalWebClient.bootstrap();
+  }, []);
 
   useEffect(() => {
     if (!externalId) return;

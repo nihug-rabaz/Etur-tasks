@@ -3,35 +3,51 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import {
   listAccessibleModules,
   type ModuleAccessContext,
   type ModuleRole,
 } from "@/shared/modules/registry";
-import { writeLastModuleId } from "@/shared/modules/last-module";
-import { moduleIdFromPath, sanitizeCallbackUrl } from "@/lib/auth/callback-url";
+import { readLastModuleId, writeLastModuleId } from "@/shared/modules/last-module";
 
 function moduleEntryHref(moduleId: string, href: string, role?: ModuleRole): string {
   if (moduleId === "dovrut" && role === "approver") return "/dovrut/approvals";
   return href;
 }
 
-export function ModuleHomeClient({ isPlatformAdmin }: { isPlatformAdmin: boolean }) {
+export function ModuleHomeClient({
+  isPlatformAdmin,
+  initialRoles = {},
+}: {
+  isPlatformAdmin: boolean;
+  initialRoles?: Record<string, ModuleRole>;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const redirected = useRef(false);
-  const [moduleRoles, setModuleRoles] = useState<Record<string, ModuleRole>>({});
-  const [loaded, setLoaded] = useState(false);
+  const [moduleRoles, setModuleRoles] = useState<Record<string, ModuleRole>>(initialRoles);
+  const [loaded, setLoaded] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     void fetch("/api/modules/roles")
-      .then((response) => response.json())
-      .then((data: { roles?: Record<string, ModuleRole> }) => {
-        setModuleRoles(data.roles ?? {});
+      .then(async (response) => {
+        if (!response.ok) return { roles: initialRoles };
+        return (await response.json()) as { roles?: Record<string, ModuleRole> };
       })
-      .finally(() => setLoaded(true));
-  }, []);
+      .then((data) => {
+        if (cancelled) return;
+        setModuleRoles(data.roles ?? initialRoles);
+      })
+      .catch(() => {
+        if (!cancelled) setModuleRoles(initialRoles);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialRoles]);
 
   const access: ModuleAccessContext = useMemo(
     () => ({
@@ -41,48 +57,23 @@ export function ModuleHomeClient({ isPlatformAdmin }: { isPlatformAdmin: boolean
     [isPlatformAdmin, moduleRoles],
   );
   const modules = useMemo(() => listAccessibleModules(access), [access]);
-  const onlyModule = modules.length === 1 ? modules[0] : null;
-  const requestedPath = sanitizeCallbackUrl(searchParams.get("callbackUrl"), "");
 
   useEffect(() => {
-    if (!loaded || redirected.current) return;
+    if (!loaded || redirected.current || modules.length === 0) return;
 
-    if (requestedPath) {
-      const moduleId = moduleIdFromPath(requestedPath);
-      if (moduleId && moduleRoles[moduleId]) {
-        redirected.current = true;
-        writeLastModuleId(moduleId);
-        const targetModule = modules.find((module) => module.id === moduleId);
-        const href =
-          moduleId === "dovrut" && moduleRoles.dovrut === "approver"
-            ? "/dovrut/approvals"
-            : requestedPath.startsWith("/dovrut") ||
-                requestedPath.startsWith("/agam") ||
-                requestedPath.startsWith("/dashboard")
-              ? requestedPath
-              : targetModule
-                ? moduleEntryHref(targetModule.id, targetModule.href, moduleRoles[targetModule.id])
-                : requestedPath;
-        router.replace(href);
-        return;
-      }
-      redirected.current = true;
-      router.replace("/");
-      return;
-    }
+    const lastId = readLastModuleId();
+    const preferred = lastId ? modules.find((module) => module.id === lastId) : null;
+    if (!preferred || modules.length < 2) return;
 
-    if (!onlyModule) return;
     redirected.current = true;
-    writeLastModuleId(onlyModule.id);
-    router.replace(
-      moduleEntryHref(onlyModule.id, onlyModule.href, moduleRoles[onlyModule.id]),
-    );
-  }, [loaded, onlyModule, moduleRoles, modules, requestedPath, router]);
+    writeLastModuleId(preferred.id);
+    router.replace(moduleEntryHref(preferred.id, preferred.href, moduleRoles[preferred.id]));
+  }, [loaded, modules, moduleRoles, router]);
 
-  if (!loaded || onlyModule || requestedPath) {
+  if (!loaded) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-sm text-text-muted">
-        מעביר למערכת…
+        טוען מערכות…
       </div>
     );
   }

@@ -25,11 +25,19 @@ export function DovrutAccessGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      const rolesRes = await fetch("/api/modules/roles");
+      const [rolesRes, sessionRes] = await Promise.all([
+        fetch("/api/modules/roles"),
+        fetch("/api/auth/session"),
+      ]);
       if (cancelled) return;
 
       const rolesData = rolesRes.ok ? await rolesRes.json() : { roles: {} };
-      const nextRole = (rolesData.roles?.dovrut as ModuleRole | undefined) ?? null;
+      const sessionData = sessionRes.ok ? await sessionRes.json() : null;
+      const isPlatformAdmin =
+        sessionData?.user?.role === "admin" || Boolean(sessionData?.user?.isAdmin);
+      const nextRole =
+        (rolesData.roles?.dovrut as ModuleRole | undefined) ??
+        (isPlatformAdmin ? "admin" : null);
 
       if (!nextRole) {
         router.replace("/");

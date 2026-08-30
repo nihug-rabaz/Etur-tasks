@@ -13,6 +13,7 @@ export class OneSignalWebClient {
   /** Queue OneSignal.init before the CDN script finishes loading. */
   public static bootstrap(): void {
     if (typeof window === "undefined" || this.started || !this.isConfigured()) return;
+    if (process.env.NODE_ENV !== "production") return;
     this.started = true;
     this.readyPromise = new Promise((resolve) => {
       this.resolveReady = resolve;

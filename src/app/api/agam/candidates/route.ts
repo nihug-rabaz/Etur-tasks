@@ -8,11 +8,14 @@ export async function GET(request: Request) {
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
-  const archived = new URL(request.url).searchParams.get("archived") === "1";
+  const url = new URL(request.url);
+  const archived = url.searchParams.get("archived") === "1";
+  const unassigned = url.searchParams.get("unassigned") === "1";
   if (archived && !new AgamAccessService().canRamad(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const candidates = await new AgamCandidateService().list(archived);
+  const service = new AgamCandidateService();
+  const candidates = unassigned ? await service.listUnassigned() : await service.list(archived);
   return NextResponse.json({
     candidates,
     role: access.role,
@@ -24,6 +27,7 @@ const createSchema = z.object({
   fullName: z.string().min(2),
   personalNumber: z.string().min(2),
   phone: z.string().optional().nullable(),
+  cycleId: z.string().uuid().optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -49,6 +53,7 @@ export async function POST(request: Request) {
     personal_number: parsed.data.personalNumber,
     phone: parsed.data.phone,
     created_by_id: access.profile.id,
+    cycle_id: parsed.data.cycleId,
   });
   await service.addTimeline({
     candidate_id: candidate.id,

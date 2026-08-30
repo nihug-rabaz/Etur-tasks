@@ -6,6 +6,7 @@ import type { ModuleRole } from "@/shared/modules/types";
 
 const ITEMS: Array<{ href: string; label: string; roles: ModuleRole[] }> = [
   { href: "/agam", label: "ראשי", roles: ["admin", "user", "ramad", "viewer"] },
+  { href: "/agam/cycles", label: "מחזורים", roles: ["admin", "user", "ramad", "viewer"] },
   { href: "/agam/candidates", label: "מועמדים", roles: ["admin", "user", "ramad", "viewer"] },
   { href: "/agam/candidates/archive", label: "ארכיון", roles: ["admin", "ramad"] },
   { href: "/agam/admin", label: "ניהול", roles: ["admin"] },
@@ -18,6 +19,9 @@ function isActive(pathname: string, href: string): boolean {
       pathname === "/agam/candidates" ||
       (pathname.startsWith("/agam/candidates/") && !pathname.startsWith("/agam/candidates/archive"))
     );
+  }
+  if (href === "/agam/cycles") {
+    return pathname === "/agam/cycles" || pathname.startsWith("/agam/cycles/");
   }
   if (pathname === href) return true;
   return pathname.startsWith(`${href}/`);

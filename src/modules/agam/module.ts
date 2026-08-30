@@ -13,6 +13,12 @@ export const agamModule: AppModuleDefinition = {
       roles: ["admin", "user", "ramad", "viewer"],
     },
     {
+      label: "מחזורים",
+      href: "/agam/cycles",
+      description: "ניהול מחזורי מועמדים",
+      roles: ["admin", "user", "ramad", "viewer"],
+    },
+    {
       label: "מועמדים",
       href: "/agam/candidates",
       description: "תיקי מועמדים ושלבי מיון",
@@ -39,6 +45,7 @@ export const agamModule: AppModuleDefinition = {
   ],
   breadcrumbLabels: {
     agam: "איתור קציני דת",
+    cycles: "מחזורים",
     candidates: "מועמדים",
     archive: "ארכיון",
     interview: "ראיון",

@@ -37,9 +37,22 @@ export interface AgamCandidate {
   status: AgamCandidateStatus;
   ramad_notes: string | null;
   archived: boolean;
+  cycle_id: string | null;
   created_by_id: string | null;
   created_at: string;
   updated_at: string;
+  cycle_name?: string | null;
+}
+
+export interface AgamCycle {
+  id: string;
+  name: string;
+  cycle_date: string;
+  notes: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+  candidate_count?: number;
 }
 
 export interface AgamOrgSettings {
