@@ -7,6 +7,8 @@ import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamDocument } from "@/modules/agam/types";
 
+const REQUIRED_DOCS = ["חווד 870", "סכמר - רק למי שצריך", "אישור רפואי", "צילום תעודת זהות"];
+
 export function DocumentsStage({
   candidateId,
   documents,
@@ -23,6 +25,8 @@ export function DocumentsStage({
   const [notes, setNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const hasDocument = (type: string) =>
+    documents.some((document) => (document.document_type ?? "").includes(type) || document.name.includes(type));
 
   const onUpload = async () => {
     if (!file) return;
@@ -57,6 +61,24 @@ export function DocumentsStage({
 
   return (
     <div className="space-y-6">
+      <div className="dashboard-glass rounded-3xl p-6">
+        <h2 className="text-2xl font-extrabold text-text-primary">תיקיית מסמכים</h2>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          {REQUIRED_DOCS.map((type) => {
+            const exists = hasDocument(type.replace(" - רק למי שצריך", ""));
+            return (
+              <div
+                key={type}
+                className={`rounded-xl px-3 py-2 text-sm font-bold ${
+                  exists ? "bg-emerald-500/15 text-emerald-700" : "bg-amber-500/15 text-amber-700"
+                }`}
+              >
+                {type}: {exists ? "הועלה" : "חסר"}
+              </div>
+            );
+          })}
+        </div>
+      </div>
       {canEvaluate ? (
         <div className="dashboard-glass space-y-4 rounded-3xl p-6">
           <div>

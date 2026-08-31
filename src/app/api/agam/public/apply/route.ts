@@ -10,6 +10,17 @@ const applySchema = z.object({
   questionnaireData: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
+function boolFromQuestion(value: unknown): boolean | null {
+  if (value === true || value === "כן" || value === "yes") return true;
+  if (value === false || value === "לא" || value === "no") return false;
+  return null;
+}
+
+function numberFromQuestion(value: unknown): number | null {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
 export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for") ?? "anon";
   if (!checkRateLimit(`agam-apply:${ip}`, 20, 60_000)) {
@@ -21,11 +32,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
     }
     const service = new AgamCandidateService();
+    const questionnaire = parsed.data.questionnaireData ?? {};
     const candidate = await service.create({
       full_name: parsed.data.fullName,
       personal_number: parsed.data.personalNumber,
       phone: parsed.data.phone,
-      questionnaire_data: parsed.data.questionnaireData,
+      command: typeof questionnaire.command === "string" ? questionnaire.command : null,
+      direct_commander_name:
+        typeof questionnaire.direct_commander_name === "string" ? questionnaire.direct_commander_name : null,
+      planning_index: numberFromQuestion(questionnaire.planning_index),
+      dapar: numberFromQuestion(questionnaire.dapar),
+      needs_sakmar: boolFromQuestion(questionnaire.needs_sakmar),
+      mabdak_approval: boolFromQuestion(questionnaire.mabdak_approval),
+      medical_issue: boolFromQuestion(questionnaire.medical_issue),
+      internet_test: boolFromQuestion(questionnaire.internet_test),
+      questionnaire_data: questionnaire,
     });
     await service.addTimeline({
       candidate_id: candidate.id,

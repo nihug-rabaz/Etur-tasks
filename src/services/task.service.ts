@@ -13,7 +13,7 @@ type TaskListFilters = {
   requiresNoProject?: boolean;
   taskId?: string;
   assigneeUserId?: string;
-  origin?: "tasks" | "dovrut" | null;
+  origin?: "tasks" | "dovrut" | "agam" | null;
   orderBy?: "due_date_asc" | "updated_at_desc" | "updated_at_asc" | "created_at_desc";
   limit?: number;
 };

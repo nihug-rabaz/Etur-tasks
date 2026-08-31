@@ -2,31 +2,28 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { CalendarDays, Plus, UserPlus, Users } from "lucide-react";
+import { Archive, CalendarDays, Plus, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
+import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
+import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
-import type { AgamCandidate, AgamCycle } from "@/modules/agam/types";
+import type { AgamCandidate, AgamCycle, AgamLinkedTask } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
 function formatCycleDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("he-IL", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatAgamDate(value);
 }
 
 type CyclePayload = {
   cycle: AgamCycle;
   candidates: AgamCandidate[];
   role: ModuleRole;
+  currentUserId: string;
 };
 
 export function AgamCycleDetailPage() {
@@ -38,11 +35,14 @@ export function AgamCycleDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [tasks, setTasks] = useState<AgamLinkedTask[]>([]);
 
   const load = useCallback(async () => {
     try {
       const data = await agamFetch<CyclePayload>(`/api/agam/cycles/${id}`);
       setPayload(data);
+      const tasksData = await agamFetch<{ tasks: AgamLinkedTask[] }>(`/api/agam/tasks?cycleId=${id}`);
+      setTasks(tasksData.tasks ?? []);
     } catch {
       toast.error("טעינת המחזור נכשלה");
       setPayload(null);
@@ -92,6 +92,20 @@ export function AgamCycleDetailPage() {
     }
   };
 
+  const archiveCycle = async () => {
+    if (!window.confirm("להעביר את כל המחזור לארכיון?")) return;
+    try {
+      await agamFetch(`/api/agam/cycles/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ archived: true }),
+      });
+      toast.success("המחזור הועבר לארכיון");
+      router.push("/agam/cycles?archived=1");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "העברה לארכיון נכשלה");
+    }
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
       <header className="dashboard-glass rounded-3xl p-6 sm:p-8">
@@ -108,6 +122,7 @@ export function AgamCycleDetailPage() {
               <h1 className="mt-1 text-3xl font-extrabold text-text-primary">{cycle.name}</h1>
               <p className="mt-2 text-sm font-semibold text-text-secondary">
                 {formatCycleDate(cycle.cycle_date)}
+                {cycle.cohort_year ? ` · שנתון ${cycle.cohort_year}` : ""}
               </p>
               {cycle.notes ? <p className="mt-2 max-w-2xl text-sm text-text-muted">{cycle.notes}</p> : null}
             </div>
@@ -127,6 +142,16 @@ export function AgamCycleDetailPage() {
                   מועמד חדש
                 </button>
               </>
+            ) : null}
+            {canDelete ? (
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => void archiveCycle()}
+              >
+                <Archive size={16} />
+                ארכיון מחזור
+              </button>
             ) : null}
             {canDelete ? (
               <button
@@ -205,6 +230,15 @@ export function AgamCycleDetailPage() {
         )}
       </section>
 
+      <CycleTasksCard
+        cycleId={id}
+        tasks={tasks}
+        currentUserId={payload.currentUserId}
+        canEvaluate={canEdit}
+        canAdmin={canDelete}
+        onSaved={() => void load()}
+      />
+
       <EditCycleDrawer
         cycle={cycle}
         open={editOpen}
@@ -229,6 +263,74 @@ export function AgamCycleDetailPage() {
   );
 }
 
+function CycleTasksCard({
+  cycleId,
+  tasks,
+  currentUserId,
+  canEvaluate,
+  canAdmin,
+  onSaved,
+}: {
+  cycleId: string;
+  tasks: AgamLinkedTask[];
+  currentUserId: string;
+  canEvaluate: boolean;
+  canAdmin: boolean;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await agamFetch("/api/agam/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title, dueDate: dueDate || null, cycleId }),
+      });
+      setTitle("");
+      setDueDate("");
+      toast.success("המשימה נוספה גם לאפליקציית המשימות");
+      onSaved();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "יצירת משימה נכשלה");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="dashboard-glass rounded-3xl p-6">
+      <h2 className="text-xl font-extrabold text-text-primary">משימות כלל המחזור</h2>
+      {canEvaluate ? (
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
+          <input className={fieldClass} placeholder="משימה חדשה למחזור" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input type="date" className={`${fieldClass} text-left`} dir="ltr" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          <button type="button" className={primaryButtonClass} disabled={saving || title.trim().length < 2} onClick={() => void submit()}>
+            {saving ? "יוצר..." : "הוספה"}
+          </button>
+        </div>
+      ) : null}
+      <ul className="mt-4 space-y-2">
+        {tasks.length === 0 ? (
+          <li className="text-sm text-text-muted">אין משימות למחזור.</li>
+        ) : (
+          tasks.map((task) => (
+            <AgamTaskRow
+              key={task.id}
+              task={task}
+              currentUserId={currentUserId}
+              canAdmin={canAdmin}
+              onSaved={onSaved}
+            />
+          ))
+        )}
+      </ul>
+    </section>
+  );
+}
+
 function EditCycleDrawer({
   cycle,
   open,
@@ -242,12 +344,14 @@ function EditCycleDrawer({
 }) {
   const [name, setName] = useState(cycle.name);
   const [cycleDate, setCycleDate] = useState(cycle.cycle_date.slice(0, 10));
+  const [cohortYear, setCohortYear] = useState(cycle.cohort_year?.toString() ?? "");
   const [notes, setNotes] = useState(cycle.notes ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setName(cycle.name);
     setCycleDate(cycle.cycle_date.slice(0, 10));
+    setCohortYear(cycle.cohort_year?.toString() ?? "");
     setNotes(cycle.notes ?? "");
   }, [cycle]);
 
@@ -256,7 +360,12 @@ function EditCycleDrawer({
     try {
       await agamFetch(`/api/agam/cycles/${cycle.id}`, {
         method: "PUT",
-        body: JSON.stringify({ name, cycleDate, notes: notes || null }),
+        body: JSON.stringify({
+          name,
+          cycleDate,
+          cohortYear: cohortYear ? Number(cohortYear) : null,
+          notes: notes || null,
+        }),
       });
       toast.success("המחזור עודכן");
       onOpenChange(false);
@@ -283,6 +392,16 @@ function EditCycleDrawer({
             className={`${fieldClass} text-left`}
             value={cycleDate}
             onChange={(event) => setCycleDate(event.target.value)}
+          />
+        </label>
+        <label className="block space-y-2 text-sm font-bold text-text-secondary">
+          שנתון
+          <input
+            type="number"
+            dir="ltr"
+            className={`${fieldClass} text-left`}
+            value={cohortYear}
+            onChange={(event) => setCohortYear(event.target.value)}
           />
         </label>
         <label className="block space-y-2 text-sm font-bold text-text-secondary">

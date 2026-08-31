@@ -1,4 +1,5 @@
 export type AgamCandidateStatus = "pending" | "passed" | "not_passed";
+export type AgamRankColor = "green" | "orange" | "red";
 
 export type AgamQuestionType = "pre_screening" | "interview";
 
@@ -33,6 +34,17 @@ export interface AgamCandidate {
   full_name: string;
   personal_number: string;
   phone: string | null;
+  command: string | null;
+  direct_commander_name: string | null;
+  gaps: string | null;
+  planning_index: number | null;
+  dapar: number | null;
+  rank_color: AgamRankColor | null;
+  needs_sakmar: boolean | null;
+  mabdak_approval: boolean | null;
+  medical_issue: boolean | null;
+  internet_test: boolean | null;
+  pre_bahad1_checklist: Record<string, boolean>;
   questionnaire_data: Record<string, unknown> | null;
   status: AgamCandidateStatus;
   ramad_notes: string | null;
@@ -48,11 +60,39 @@ export interface AgamCycle {
   id: string;
   name: string;
   cycle_date: string;
+  cohort_year: number | null;
+  archived: boolean;
   notes: string | null;
   created_by_id: string | null;
   created_at: string;
   updated_at: string;
   candidate_count?: number;
+}
+
+export interface AgamTimelineEventItem {
+  id: string;
+  title: string;
+  event_date: string;
+  event_type: "hasbara" | "selection_day" | "prep_day" | "smach" | "mabdak" | "bahad1" | "general";
+  notes: string | null;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgamLinkedTask {
+  id: string;
+  title: string;
+  description: string | null;
+  priority: "low" | "medium" | "high";
+  status: "in_progress" | "completed";
+  due_date: string | null;
+  created_by: string;
+  agam_candidate_id: string | null;
+  agam_cycle_id: string | null;
+  cycle_name?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AgamOrgSettings {
@@ -172,6 +212,7 @@ export interface AgamTimelineItem {
   description: string | null;
   actor_name: string | null;
   stage_key: string | null;
+  created_by_id: string | null;
   created_at: string;
 }
 

@@ -28,6 +28,16 @@ const createSchema = z.object({
   personalNumber: z.string().min(2),
   phone: z.string().optional().nullable(),
   cycleId: z.string().uuid().optional().nullable(),
+  command: z.string().optional().nullable(),
+  directCommanderName: z.string().optional().nullable(),
+  gaps: z.string().optional().nullable(),
+  planningIndex: z.number().int().optional().nullable(),
+  dapar: z.number().int().optional().nullable(),
+  rankColor: z.enum(["green", "orange", "red"]).optional().nullable(),
+  needsSakmar: z.boolean().optional().nullable(),
+  mabdakApproval: z.boolean().optional().nullable(),
+  medicalIssue: z.boolean().optional().nullable(),
+  internetTest: z.boolean().optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -52,6 +62,16 @@ export async function POST(request: Request) {
     full_name: parsed.data.fullName,
     personal_number: parsed.data.personalNumber,
     phone: parsed.data.phone,
+    command: parsed.data.command,
+    direct_commander_name: parsed.data.directCommanderName,
+    gaps: parsed.data.gaps,
+    planning_index: parsed.data.planningIndex,
+    dapar: parsed.data.dapar,
+    rank_color: parsed.data.rankColor,
+    needs_sakmar: parsed.data.needsSakmar,
+    mabdak_approval: parsed.data.mabdakApproval,
+    medical_issue: parsed.data.medicalIssue,
+    internet_test: parsed.data.internetTest,
     created_by_id: access.profile.id,
     cycle_id: parsed.data.cycleId,
   });

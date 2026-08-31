@@ -20,13 +20,16 @@ export async function GET(
     cycle,
     candidates,
     role: access.role,
+    currentUserId: access.profile.id,
   });
 }
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
   cycleDate: z.string().min(4).optional(),
+  cohortYear: z.number().int().nullable().optional(),
   notes: z.string().nullable().optional(),
+  archived: z.boolean().optional(),
   assignCandidateIds: z.array(z.string().uuid()).optional(),
   unassignCandidateId: z.string().uuid().optional(),
 });
@@ -58,10 +61,14 @@ export async function PUT(
   if (parsed.data.unassignCandidateId) {
     await service.unassignCandidate(id, parsed.data.unassignCandidateId);
   }
+  if (parsed.data.archived !== undefined) {
+    await service.setArchived(id, parsed.data.archived);
+  }
 
   const cycle = await service.update(id, {
     name: parsed.data.name,
     cycle_date: parsed.data.cycleDate,
+    cohort_year: parsed.data.cohortYear,
     notes: parsed.data.notes,
   });
   const candidates = await service.listCandidates(id);

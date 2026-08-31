@@ -17,7 +17,7 @@ const taskSchema = z.object({
   description: z.string().nullable().optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
   status: z.enum(["in_progress", "completed"]).default("in_progress"),
-  origin: z.enum(["tasks", "dovrut"]).optional().default("tasks"),
+  origin: z.enum(["tasks", "dovrut", "agam"]).optional().default("tasks"),
   dovrutCampaignId: z.string().uuid().nullable().optional(),
   dovrutProjectId: z.string().uuid().nullable().optional(),
   dovrutConceptId: z.string().uuid().nullable().optional(),

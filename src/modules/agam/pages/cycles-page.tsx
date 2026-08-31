@@ -1,26 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Plus, Users } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Archive, CalendarDays, Plus, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
+import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCycle } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
 function formatCycleDate(value: string): string {
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("he-IL", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return formatAgamDate(value);
 }
 
 export function AgamCyclesPage() {
+  const searchParams = useSearchParams();
+  const archived = searchParams.get("archived") === "1";
   const [cycles, setCycles] = useState<AgamCycle[]>([]);
   const [role, setRole] = useState<ModuleRole | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -28,7 +26,9 @@ export function AgamCyclesPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await agamFetch<{ cycles: AgamCycle[]; role: ModuleRole }>("/api/agam/cycles");
+      const data = await agamFetch<{ cycles: AgamCycle[]; role: ModuleRole }>(
+        `/api/agam/cycles${archived ? "?archived=1" : ""}`,
+      );
       setCycles(data.cycles);
       setRole(data.role);
     } catch {
@@ -36,7 +36,7 @@ export function AgamCyclesPage() {
     } finally {
       setLoaded(true);
     }
-  }, []);
+  }, [archived]);
 
   useEffect(() => {
     void load();
@@ -50,16 +50,26 @@ export function AgamCyclesPage() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-extrabold text-text-primary">מחזורי מועמדים</h1>
+          <h1 className="text-3xl font-extrabold text-text-primary">
+            {archived ? "ארכיון מחזורים" : "מחזורי מועמדים"}
+          </h1>
           <p className="mt-1 text-sm text-text-secondary">
             ניהול מחזורים לפי תאריך — יצירת מועמדים חדשים ושיוך מועמדים קיימים
           </p>
         </div>
         {canEdit ? (
-          <button type="button" className={primaryButtonClass} onClick={() => setCreateOpen(true)}>
-            <Plus size={16} />
-            מחזור חדש
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Link href={archived ? "/agam/cycles" : "/agam/cycles?archived=1"} className={secondaryButtonClass}>
+              <Archive size={16} />
+              {archived ? "מחזורים פעילים" : "ארכיון מחזורים"}
+            </Link>
+            {!archived ? (
+              <button type="button" className={primaryButtonClass} onClick={() => setCreateOpen(true)}>
+                <Plus size={16} />
+                מחזור חדש
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -96,6 +106,7 @@ export function AgamCyclesPage() {
               </h2>
               <p className="mt-1 text-sm font-semibold text-text-secondary">
                 {formatCycleDate(cycle.cycle_date)}
+                {cycle.cohort_year ? ` · שנתון ${cycle.cohort_year}` : ""}
               </p>
               {cycle.notes ? (
                 <p className="mt-3 line-clamp-2 text-xs text-text-muted">{cycle.notes}</p>
@@ -128,6 +139,7 @@ function CreateCycleDrawer({
 }) {
   const [name, setName] = useState("");
   const [cycleDate, setCycleDate] = useState("");
+  const [cohortYear, setCohortYear] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -136,12 +148,18 @@ function CreateCycleDrawer({
     try {
       const data = await agamFetch<{ cycle: AgamCycle }>("/api/agam/cycles", {
         method: "POST",
-        body: JSON.stringify({ name, cycleDate, notes: notes || null }),
+        body: JSON.stringify({
+          name,
+          cycleDate,
+          cohortYear: cohortYear ? Number(cohortYear) : null,
+          notes: notes || null,
+        }),
       });
       toast.success("המחזור נוצר");
       onOpenChange(false);
       setName("");
       setCycleDate("");
+      setCohortYear("");
       setNotes("");
       onCreated?.(data.cycle.id);
     } catch (error) {
@@ -171,6 +189,16 @@ function CreateCycleDrawer({
             className={`${fieldClass} text-left`}
             value={cycleDate}
             onChange={(event) => setCycleDate(event.target.value)}
+          />
+        </label>
+        <label className="block space-y-2 text-sm font-bold text-text-secondary">
+          שנתון
+          <input
+            type="number"
+            dir="ltr"
+            className={`${fieldClass} text-left`}
+            value={cohortYear}
+            onChange={(event) => setCohortYear(event.target.value)}
           />
         </label>
         <label className="block space-y-2 text-sm font-bold text-text-secondary">

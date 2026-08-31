@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import {
   Archive,
+  AlertTriangle,
   Award,
   CalendarCheck,
+  FileSpreadsheet,
   FileText,
   FolderOpen,
   Gavel,
@@ -14,10 +16,22 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { BASIC_CANDIDATE_COLUMNS, downloadCsv, rowsToCsv } from "@/modules/agam/lib/csv";
+import { BASIC_CANDIDATE_COLUMNS, downloadExcel } from "@/modules/agam/lib/csv";
 import { STAGE_VIEWS, STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamStageKey, AgamStageSummary } from "@/modules/agam/types";
+
+const RANK_COLOR_TONES: Record<string, string> = {
+  green: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-100",
+  orange: "bg-orange-500/15 text-orange-700 dark:text-orange-100",
+  red: "bg-rose-500/15 text-rose-700 dark:text-rose-100",
+};
+
+const RANK_COLOR_LABELS: Record<string, string> = {
+  green: "ירוק",
+  orange: "כתום",
+  red: "אדום",
+};
 
 export function AgamCandidatesTable({
   candidates,
@@ -110,20 +124,41 @@ export function AgamCandidatesTable({
                 type="button"
                 className={secondaryButtonClass}
                 onClick={() => {
-                  const csv = rowsToCsv(
-                    filtered.map((row) => ({
-                      full_name: row.full_name,
-                      personal_number: row.personal_number,
-                      phone: row.phone,
-                      status: row.status,
-                      ramad_notes: row.ramad_notes,
-                    })),
-                    BASIC_CANDIDATE_COLUMNS.filter((field) => field.key !== "ramad_notes"),
-                  );
-                  downloadCsv("candidates.csv", csv);
+                  const questionnaireKeys = [
+                    ...new Set(
+                      filtered.flatMap((row) =>
+                        Object.keys((row.questionnaire_data ?? {}) as Record<string, unknown>),
+                      ),
+                    ),
+                  ];
+                  const columns = [
+                    ...BASIC_CANDIDATE_COLUMNS,
+                    { key: "command", label: "פיקוד" },
+                    { key: "direct_commander_name", label: "שם המפקד הישיר" },
+                    { key: "gaps", label: "פערים" },
+                    { key: "planning_index", label: "מדד תכנוני" },
+                    { key: "dapar", label: "דפ״ר" },
+                    { key: "rank_color", label: "דירוג צבע" },
+                    { key: "needs_sakmar", label: "צריך סכמר" },
+                    { key: "mabdak_approval", label: "אישור למבדק" },
+                    { key: "medical_issue", label: "בעיה רפואית" },
+                    ...questionnaireKeys.map((key) => ({ key: `q.${key}`, label: `שאלון: ${key}` })),
+                  ];
+                  const rows = filtered.map((row) => {
+                    const questionnaire = (row.questionnaire_data ?? {}) as Record<string, unknown>;
+                    const base: Record<string, unknown> = {
+                      ...row,
+                      needs_sakmar: row.needs_sakmar == null ? "" : row.needs_sakmar ? "כן" : "לא",
+                      mabdak_approval: row.mabdak_approval == null ? "" : row.mabdak_approval ? "כן" : "לא",
+                      medical_issue: row.medical_issue == null ? "" : row.medical_issue ? "כן" : "לא",
+                    };
+                    for (const key of questionnaireKeys) base[`q.${key}`] = questionnaire[key];
+                    return base;
+                  });
+                  downloadExcel(`candidates_${new Date().toISOString().slice(0, 10)}.xls`, rows, columns);
                 }}
               >
-                CSV
+                ייצוא לאקסל
               </button>
             </>
           ) : null}
@@ -168,7 +203,7 @@ export function AgamCandidatesTable({
             return (
               <div
                 key={candidate.id}
-                className="grid gap-3 border-b border-black/8 px-4 py-4 last:border-b-0 dark:border-white/10 md:grid-cols-[1.3fr_1fr_0.7fr_1fr_2fr_auto] md:items-center"
+                className="grid gap-3 border-b border-black/8 px-4 py-4 last:border-b-0 dark:border-white/10 md:grid-cols-[1.3fr_1fr_0.7fr_0.7fr_1fr_2fr_auto] md:items-center"
               >
                 <div>
                   <p className="font-bold text-text-primary">{candidate.full_name}</p>
@@ -187,6 +222,21 @@ export function AgamCandidatesTable({
                 <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${STATUS_TONES[candidate.status]}`}>
                   {STATUS_LABELS[candidate.status]}
                 </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {candidate.rank_color ? (
+                    <span className={`inline-flex items-center justify-center w-fit rounded-full px-2.5 py-1 text-xs font-bold ${RANK_COLOR_TONES[candidate.rank_color]}`}>
+                      {RANK_COLOR_LABELS[candidate.rank_color]}
+                    </span>
+                  ) : null}
+                  {(candidate.planning_index === 1 || candidate.planning_index === 2) &&
+                  candidate.dapar != null &&
+                  candidate.dapar < 30 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-bold text-rose-700">
+                      <AlertTriangle size={12} />
+                      חריג
+                    </span>
+                  ) : null}
+                </div>
                 <div className="text-sm">
                   {stageView === "overview" ? (
                     <span className="text-text-muted">—</span>
@@ -201,7 +251,7 @@ export function AgamCandidatesTable({
                     <span className="text-text-muted">אין נתונים</span>
                   )}
                 </div>
-                <CandidateActionBar candidateId={candidate.id} canDecide={isRamad || isAdmin} />
+                <CandidateActionBar candidate={candidate} canDecide={isRamad || isAdmin} />
                 <div className="flex gap-1">
                   {isRamad ? (
                     <button
@@ -244,29 +294,46 @@ export function AgamCandidatesTable({
 }
 
 function CandidateActionBar({
-  candidateId,
+  candidate,
   canDecide,
 }: {
-  candidateId: string;
+  candidate: AgamCandidate;
   canDecide: boolean;
 }) {
   const actions = [
-    { href: `/agam/candidates/${candidateId}`, label: "תיק", icon: UserRound },
+    { href: `/agam/candidates/${candidate.id}`, label: "תיק", icon: UserRound },
     {
-      href: `/agam/candidates/${candidateId}/evaluation`,
+      href: `/agam/candidates/${candidate.id}/evaluation`,
       label: "הערכה",
       icon: CalendarCheck,
     },
-    { href: `/agam/candidates/${candidateId}?stage=preparation_day`, label: "מכין", icon: FileText },
-    { href: `/agam/candidates/${candidateId}?stage=smach`, label: "סמ״ח", icon: Award },
-    { href: `/agam/candidates/${candidateId}?stage=documents`, label: "מסמכים", icon: FolderOpen },
+    { href: `/agam/candidates/${candidate.id}?stage=preparation_day`, label: "מכין", icon: FileText },
+    { href: `/agam/candidates/${candidate.id}?stage=smach`, label: "סמ״ח", icon: Award },
+    { href: `/agam/candidates/${candidate.id}?stage=documents`, label: "מסמכים", icon: FolderOpen },
     {
-      href: `/agam/candidates/${candidateId}?stage=final_decision`,
+      href: `/agam/candidates/${candidate.id}?stage=final_decision`,
       label: "החלטה",
       icon: Gavel,
       disabled: !canDecide,
     },
   ];
+
+  const handleExport = () => {
+    const questionnaire = (candidate.questionnaire_data ?? {}) as Record<string, unknown>;
+    const questionnaireKeys = Object.keys(questionnaire);
+    const columns = [
+      ...BASIC_CANDIDATE_COLUMNS,
+      ...questionnaireKeys.map((key) => ({ key: `q.${key}`, label: `שאלון: ${key}` })),
+    ];
+    const row: Record<string, unknown> = {
+      ...candidate,
+      needs_sakmar: candidate.needs_sakmar == null ? "" : candidate.needs_sakmar ? "כן" : "לא",
+      mabdak_approval: candidate.mabdak_approval == null ? "" : candidate.mabdak_approval ? "כן" : "לא",
+      medical_issue: candidate.medical_issue == null ? "" : candidate.medical_issue ? "כן" : "לא",
+    };
+    for (const key of questionnaireKeys) row[`q.${key}`] = questionnaire[key];
+    downloadExcel(`${candidate.full_name}_${candidate.personal_number}.xls`, [row], columns);
+  };
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -294,6 +361,14 @@ function CandidateActionBar({
           </Link>
         );
       })}
+      <button
+        type="button"
+        onClick={handleExport}
+        className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-[11px] font-bold text-text-primary hover:bg-accent-primary/12 hover:text-accent-primary"
+      >
+        <FileSpreadsheet size={12} />
+        אקסל
+      </button>
     </div>
   );
 }

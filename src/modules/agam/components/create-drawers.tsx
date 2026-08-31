@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
@@ -97,6 +97,18 @@ export function CreateCandidateDrawer({
   const [fullName, setFullName] = useState("");
   const [personalNumber, setPersonalNumber] = useState("");
   const [phone, setPhone] = useState("");
+  const [command, setCommand] = useState("");
+  const [directCommanderName, setDirectCommanderName] = useState("");
+  const [gaps, setGaps] = useState("");
+  const [planningIndex, setPlanningIndex] = useState("");
+  const [dapar, setDapar] = useState("");
+  const [needsSakmar, setNeedsSakmar] = useState("");
+  const [mabdakApproval, setMabdakApproval] = useState("");
+  const [medicalIssue, setMedicalIssue] = useState("");
+  const isExceptional =
+    (planningIndex === "1" || planningIndex === "2") &&
+    dapar !== "" &&
+    Number(dapar) < 30;
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
@@ -109,6 +121,14 @@ export function CreateCandidateDrawer({
           personalNumber,
           phone: phone || null,
           cycleId: cycleId || null,
+          command: command || null,
+          directCommanderName: directCommanderName || null,
+          gaps: gaps || null,
+          planningIndex: planningIndex ? Number(planningIndex) : null,
+          dapar: dapar ? Number(dapar) : null,
+          needsSakmar: needsSakmar ? needsSakmar === "yes" : null,
+          mabdakApproval: mabdakApproval ? mabdakApproval === "yes" : null,
+          medicalIssue: medicalIssue ? medicalIssue === "yes" : null,
         }),
       });
       toast.success("המועמד נוצר");
@@ -116,6 +136,14 @@ export function CreateCandidateDrawer({
       setFullName("");
       setPersonalNumber("");
       setPhone("");
+      setCommand("");
+      setDirectCommanderName("");
+      setGaps("");
+      setPlanningIndex("");
+      setDapar("");
+      setNeedsSakmar("");
+      setMabdakApproval("");
+      setMedicalIssue("");
       onCreated?.(data.candidate.id);
       if (!stayOnSuccess) {
         router.push(`/agam/candidates/${data.candidate.id}`);
@@ -164,6 +192,77 @@ export function CreateCandidateDrawer({
               onChange={(event) => setPhone(event.target.value)}
             />
           </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              פיקוד
+              <input className={fieldClass} value={command} onChange={(event) => setCommand(event.target.value)} />
+            </label>
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              שם המפקד הישיר
+              <input
+                className={fieldClass}
+                value={directCommanderName}
+                onChange={(event) => setDirectCommanderName(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="block space-y-2 text-sm font-bold text-text-secondary">
+            פערים
+            <textarea
+              className={fieldClass}
+              rows={3}
+              value={gaps}
+              onChange={(event) => setGaps(event.target.value)}
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              מדד תכנוני
+              <input
+                type="number"
+                className={`${fieldClass} text-left`}
+                dir="ltr"
+                value={planningIndex}
+                onChange={(event) => setPlanningIndex(event.target.value)}
+              />
+            </label>
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              דפ״ר
+              <input
+                type="number"
+                className={`${fieldClass} text-left`}
+                dir="ltr"
+                value={dapar}
+                onChange={(event) => setDapar(event.target.value)}
+              />
+            </label>
+          </div>
+          {isExceptional ? (
+            <div className="flex items-start gap-2 rounded-2xl bg-rose-500/12 p-3 text-sm font-bold text-rose-700">
+              <AlertTriangle size={18} />
+              חייל חריג: מדד תכנוני {planningIndex} ודפ״ר מתחת ל-30
+            </div>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ["needsSakmar", "צריך סכמר", needsSakmar, setNeedsSakmar],
+              ["mabdakApproval", "אישור למבדק", mabdakApproval, setMabdakApproval],
+              ["medicalIssue", "בעיה רפואית", medicalIssue, setMedicalIssue],
+            ].map(([key, label, value, setter]) => (
+              <label key={String(key)} className="block space-y-2 text-sm font-bold text-text-secondary">
+                {String(label)}
+                <select
+                  className={fieldClass}
+                  value={String(value)}
+                  onChange={(event) => (setter as (next: string) => void)(event.target.value)}
+                >
+                  <option value="">לא סומן</option>
+                  <option value="yes">כן</option>
+                  <option value="no">לא</option>
+                </select>
+              </label>
+            ))}
+          </div>
           <button
             type="button"
             className={primaryButtonClass}

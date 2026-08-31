@@ -33,6 +33,27 @@ export function downloadCsv(filename: string, csvString: string): void {
   URL.revokeObjectURL(url);
 }
 
+export function downloadExcel(filename: string, rows: Array<Record<string, unknown>>, columns: Array<{ key: string; label: string }>): void {
+  const escapeHtml = (value: unknown) =>
+    String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  const header = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("");
+  const body = rows
+    .map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(row[column.key])}</td>`).join("")}</tr>`)
+    .join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8" /></head><body><table>${header ? `<tr>${header}</tr>` : ""}${body}</table></body></html>`;
+  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export type ExportField = {
   key: string;
   label: string;
@@ -67,6 +88,35 @@ export const CANDIDATE_EXPORT_FIELDS: ExportField[] = [
     label: "סטטוס",
     group: "candidate",
     get: (c) => STATUS_LABELS[c.status] ?? c.status,
+  },
+  { key: "candidate.command", label: "פיקוד", group: "candidate", get: (c) => c.command },
+  {
+    key: "candidate.direct_commander_name",
+    label: "שם המפקד הישיר",
+    group: "candidate",
+    get: (c) => c.direct_commander_name,
+  },
+  { key: "candidate.gaps", label: "פערים", group: "candidate", get: (c) => c.gaps },
+  { key: "candidate.planning_index", label: "מדד תכנוני", group: "candidate", get: (c) => c.planning_index },
+  { key: "candidate.dapar", label: "דפ״ר", group: "candidate", get: (c) => c.dapar },
+  { key: "candidate.rank_color", label: "דירוג צבע", group: "candidate", get: (c) => c.rank_color },
+  {
+    key: "candidate.needs_sakmar",
+    label: "צריך סכמר",
+    group: "candidate",
+    get: (c) => (c.needs_sakmar == null ? "" : c.needs_sakmar ? "כן" : "לא"),
+  },
+  {
+    key: "candidate.mabdak_approval",
+    label: "אישור למבדק",
+    group: "candidate",
+    get: (c) => (c.mabdak_approval == null ? "" : c.mabdak_approval ? "כן" : "לא"),
+  },
+  {
+    key: "candidate.medical_issue",
+    label: "בעיה רפואית",
+    group: "candidate",
+    get: (c) => (c.medical_issue == null ? "" : c.medical_issue ? "כן" : "לא"),
   },
   {
     key: "candidate.ramad_notes",

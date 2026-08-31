@@ -2,27 +2,41 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ComponentType } from "react";
-import { CheckCircle2, Copy, Hourglass, Users, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Copy, Hourglass, Plus, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
+import { AgamTaskRow } from "@/modules/agam/components/task-row";
+import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
-import { primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
-import type { AgamCandidate, AgamOrgSettings } from "@/modules/agam/types";
+import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import type { AgamCandidate, AgamCycle, AgamLinkedTask, AgamOrgSettings, AgamTimelineEventItem } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
 export function AgamDashboardPage({
   initialCandidates = [],
   initialSettings = null,
   initialRole = null,
+  initialTimelineEvents = [],
+  initialGeneralTasks = [],
+  initialCycles = [],
+  initialCurrentUserId = "",
 }: {
   initialCandidates?: AgamCandidate[];
   initialSettings?: AgamOrgSettings | null;
   initialRole?: ModuleRole | null;
+  initialTimelineEvents?: AgamTimelineEventItem[];
+  initialGeneralTasks?: AgamLinkedTask[];
+  initialCycles?: AgamCycle[];
+  initialCurrentUserId?: string;
 }) {
   const [candidates, setCandidates] = useState<AgamCandidate[]>(initialCandidates);
   const [settings, setSettings] = useState<AgamOrgSettings | null>(initialSettings);
   const [role, setRole] = useState<ModuleRole | null>(initialRole);
+  const [timelineEvents, setTimelineEvents] = useState<AgamTimelineEventItem[]>(initialTimelineEvents);
+  const [generalTasks, setGeneralTasks] = useState<AgamLinkedTask[]>(initialGeneralTasks);
+  const [cycles, setCycles] = useState<AgamCycle[]>(initialCycles);
+  const [currentUserId, setCurrentUserId] = useState(initialCurrentUserId);
   const [loaded, setLoaded] = useState(Boolean(initialRole));
 
   useEffect(() => {
@@ -30,21 +44,32 @@ export function AgamDashboardPage({
       setCandidates(initialCandidates);
       setSettings(initialSettings);
       setRole(initialRole);
+      setTimelineEvents(initialTimelineEvents);
+      setGeneralTasks(initialGeneralTasks);
+      setCycles(initialCycles);
+      setCurrentUserId(initialCurrentUserId);
       setLoaded(true);
       return;
     }
     void Promise.all([
-      agamFetch<{ candidates: AgamCandidate[]; role: ModuleRole }>("/api/agam/candidates"),
+      agamFetch<{ candidates: AgamCandidate[]; role: ModuleRole; currentUserId: string }>("/api/agam/candidates"),
       agamFetch<{ settings: AgamOrgSettings | null }>("/api/agam/settings"),
+      agamFetch<{ events: AgamTimelineEventItem[] }>("/api/agam/timeline"),
+      agamFetch<{ tasks: AgamLinkedTask[] }>("/api/agam/tasks?general=1"),
+      agamFetch<{ cycles: AgamCycle[] }>("/api/agam/cycles"),
     ])
-      .then(([candidatesData, settingsData]) => {
+      .then(([candidatesData, settingsData, timelineData, tasksData, cyclesData]) => {
         setCandidates(candidatesData.candidates);
         setRole(candidatesData.role);
         setSettings(settingsData.settings);
+        setTimelineEvents(timelineData.events ?? []);
+        setGeneralTasks(tasksData.tasks ?? []);
+        setCycles(cyclesData.cycles ?? []);
+        setCurrentUserId(candidatesData.currentUserId ?? "");
       })
       .catch(() => toast.error("טעינת המועמדים נכשלה"))
       .finally(() => setLoaded(true));
-  }, [initialCandidates, initialRole, initialSettings]);
+  }, [initialCandidates, initialCurrentUserId, initialCycles, initialGeneralTasks, initialRole, initialSettings, initialTimelineEvents]);
 
   const isRamad = role === "admin" || role === "ramad";
   const stats = {
@@ -115,6 +140,25 @@ export function AgamDashboardPage({
         </section>
       ) : null}
 
+      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <TimelineCard events={timelineEvents} canEdit={role === "admin" || role === "ramad" || role === "user"} onChanged={() => {
+          void agamFetch<{ events: AgamTimelineEventItem[] }>("/api/agam/timeline")
+            .then((data) => setTimelineEvents(data.events ?? []))
+            .catch(() => toast.error("טעינת ציר הזמן נכשלה"));
+        }} />
+        <GeneralTasksCard
+          tasks={generalTasks}
+          cycles={cycles}
+          currentUserId={currentUserId}
+          canEdit={role === "admin" || role === "ramad" || role === "user"}
+          canAdmin={role === "admin" || role === "ramad"}
+          onChanged={() => {
+          void agamFetch<{ tasks: AgamLinkedTask[] }>("/api/agam/tasks?general=1")
+            .then((data) => setGeneralTasks(data.tasks ?? []))
+            .catch(() => toast.error("טעינת המשימות נכשלה"));
+        }} />
+      </section>
+
       <article className="dashboard-glass rounded-3xl p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-text-primary">מועמדים אחרונים</h2>
@@ -168,5 +212,155 @@ function StatCard({
       </div>
       <p className="mt-3 text-3xl font-extrabold text-text-primary">{value}</p>
     </div>
+  );
+}
+
+function TimelineCard({
+  events,
+  canEdit,
+  onChanged,
+}: {
+  events: AgamTimelineEventItem[];
+  canEdit: boolean;
+  onChanged: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventType, setEventType] = useState<AgamTimelineEventItem["event_type"]>("general");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await agamFetch("/api/agam/timeline", {
+        method: "POST",
+        body: JSON.stringify({ title, eventDate, eventType }),
+      });
+      setTitle("");
+      setEventDate("");
+      setEventType("general");
+      toast.success("האירוע נוסף לציר הזמן");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "שמירת אירוע נכשלה");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <article className="dashboard-glass rounded-3xl p-6">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-text-primary">ציר זמן</h2>
+        <CalendarDays size={18} className="text-accent-primary" />
+      </div>
+      {canEdit ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_150px]">
+          <input className={fieldClass} placeholder="שם האירוע" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <input type="date" className={`${fieldClass} text-left`} dir="ltr" value={eventDate} onChange={(event) => setEventDate(event.target.value)} />
+          <select className={fieldClass} value={eventType} onChange={(event) => setEventType(event.target.value as AgamTimelineEventItem["event_type"])}>
+            <option value="hasbara">כנס הסברה</option>
+            <option value="selection_day">יום מיונים</option>
+            <option value="prep_day">יום מכין</option>
+            <option value="smach">סמח</option>
+            <option value="mabdak">מבדק</option>
+            <option value="bahad1">בה״ד 1</option>
+            <option value="general">כללי</option>
+          </select>
+          <button type="button" className={primaryButtonClass} disabled={saving || title.trim().length < 2 || !eventDate} onClick={() => void submit()}>
+            <Plus size={16} />
+            {saving ? "מוסיף..." : "הוספה"}
+          </button>
+        </div>
+      ) : null}
+      <ol className="mt-5 space-y-3">
+        {events.length === 0 ? (
+          <li className="text-sm text-text-muted">אין אירועים בציר הזמן.</li>
+        ) : (
+          events.map((event) => (
+            <li key={event.id} className="border-s-2 border-accent-primary/30 ps-4">
+              <p className="text-xs font-bold text-accent-primary">{formatAgamDate(event.event_date)}</p>
+              <p className="mt-1 font-bold text-text-primary">{event.title}</p>
+              {event.notes ? <p className="text-xs text-text-muted">{event.notes}</p> : null}
+            </li>
+          ))
+        )}
+      </ol>
+    </article>
+  );
+}
+
+function GeneralTasksCard({
+  tasks,
+  cycles,
+  currentUserId,
+  canEdit,
+  canAdmin,
+  onChanged,
+}: {
+  tasks: AgamLinkedTask[];
+  cycles: AgamCycle[];
+  currentUserId: string;
+  canEdit: boolean;
+  canAdmin: boolean;
+  onChanged: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [cycleId, setCycleId] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await agamFetch("/api/agam/tasks", {
+        method: "POST",
+        body: JSON.stringify({ title, cycleId: cycleId || null }),
+      });
+      setTitle("");
+      setCycleId("");
+      toast.success("המשימה נוספה גם לאפליקציית המשימות");
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "יצירת משימה נכשלה");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <article className="dashboard-glass rounded-3xl p-6">
+      <h2 className="text-lg font-bold text-text-primary">משימות כלליות</h2>
+      {canEdit ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_180px_auto]">
+          <input className={fieldClass} placeholder="משימה לכלל המחזור/המערכת" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <select className={fieldClass} value={cycleId} onChange={(event) => setCycleId(event.target.value)}>
+            <option value="">ללא מחזור</option>
+            {cycles.map((cycle) => (
+              <option key={cycle.id} value={cycle.id}>
+                {cycle.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" className={primaryButtonClass} disabled={saving || title.trim().length < 2} onClick={() => void submit()}>
+            {saving ? "..." : "+"}
+          </button>
+        </div>
+      ) : null}
+      <ul className="mt-4 space-y-2">
+        {tasks.length === 0 ? (
+          <li className="text-sm text-text-muted">אין משימות כלליות.</li>
+        ) : (
+          tasks.slice(0, 8).map((task) => (
+            <AgamTaskRow
+              key={task.id}
+              task={task}
+              currentUserId={currentUserId}
+              canAdmin={canAdmin}
+              onSaved={onChanged}
+            />
+          ))
+        )}
+      </ul>
+    </article>
   );
 }

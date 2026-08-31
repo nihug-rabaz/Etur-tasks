@@ -64,10 +64,12 @@ export interface Task {
   due_date: string | null;
   created_at: string;
   updated_at: string;
-  origin?: "tasks" | "dovrut";
+  origin?: "tasks" | "dovrut" | "agam";
   dovrut_campaign_id?: string | null;
   dovrut_project_id?: string | null;
   dovrut_concept_id?: string | null;
+  agam_candidate_id?: string | null;
+  agam_cycle_id?: string | null;
 }
 
 export interface TaskWithRelations extends Task {

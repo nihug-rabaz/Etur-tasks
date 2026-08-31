@@ -11,8 +11,7 @@ import {
   buildDayCriterionFields,
   buildInterviewQuestionFields,
   buildPreScreeningFields,
-  downloadCsv,
-  rowsToCsv,
+  downloadExcel,
   type ExportField,
 } from "@/modules/agam/lib/csv";
 import { CONDITION_OPERATORS, FIELD_TYPES } from "@/modules/agam/lib/questions";
@@ -697,21 +696,22 @@ function ExportTab({
         className={primaryButtonClass}
         disabled={selectedFields.length === 0}
         onClick={() => {
-          const csv = rowsToCsv(
-            candidates.map((candidate) => {
-              const ctx = buildCandidateContext(candidate, interviews, dayEvals);
-              const row: Record<string, unknown> = {};
-              for (const field of selectedFields) {
-                row[field.key] = field.get(candidate, ctx);
-              }
-              return row;
-            }),
+          const rows = candidates.map((candidate) => {
+            const ctx = buildCandidateContext(candidate, interviews, dayEvals);
+            const row: Record<string, unknown> = {};
+            for (const field of selectedFields) {
+              row[field.key] = field.get(candidate, ctx);
+            }
+            return row;
+          });
+          downloadExcel(
+            `agam_candidates_${new Date().toISOString().slice(0, 10)}.xls`,
+            rows,
             selectedFields.map((field) => ({ key: field.key, label: field.label })),
           );
-          downloadCsv(`דוח_מועמדים_${new Date().toISOString().slice(0, 10)}.csv`, csv);
         }}
       >
-        ייצוא CSV ({selectedFields.length} שדות)
+        ייצוא Excel ({selectedFields.length} שדות)
       </button>
     </div>
   );
