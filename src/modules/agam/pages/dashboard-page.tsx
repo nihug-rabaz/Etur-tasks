@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ComponentType } from "react";
-import { CalendarDays, CheckCircle2, Copy, Hourglass, Plus, Users, XCircle } from "lucide-react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { Activity, CalendarDays, CalendarCheck, CheckCircle2, ClipboardCheck, Copy, Flag, GraduationCap, Hourglass, MessageCircle, Plus, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
@@ -228,6 +228,7 @@ function TimelineCard({
   const [eventDate, setEventDate] = useState("");
   const [eventType, setEventType] = useState<AgamTimelineEventItem["event_type"]>("general");
   const [saving, setSaving] = useState(false);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const submit = async () => {
     setSaving(true);
@@ -246,6 +247,47 @@ function TimelineCard({
     } finally {
       setSaving(false);
     }
+  };
+
+  const sorted = useMemo(
+    () =>
+      [...events].sort((a, b) => {
+        const da = a.event_date || "";
+        const db = b.event_date || "";
+        if (da !== db) return da.localeCompare(db);
+        return a.title.localeCompare(b.title);
+      }),
+    [events],
+  );
+
+  const EVENT_TYPE_LABELS: Record<string, string> = {
+    hasbara: "כנס הסברה",
+    selection_day: "יום מיונים",
+    prep_day: "יום מכין",
+    smach: "סמ״ח",
+    mabdak: "מבדק",
+    bahad1: "בה״ד 1",
+    general: "כללי",
+  };
+
+  const EVENT_TYPE_TONES: Record<string, string> = {
+    hasbara: "bg-sky-500/15 text-sky-700 dark:text-sky-100",
+    selection_day: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-100",
+    prep_day: "bg-teal-500/15 text-teal-700 dark:text-teal-100",
+    smach: "bg-purple-500/15 text-purple-700 dark:text-purple-100",
+    mabdak: "bg-amber-500/15 text-amber-700 dark:text-amber-100",
+    bahad1: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-100",
+    general: "bg-surface-2 text-text-secondary",
+  };
+
+  const EVENT_ICONS: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+    hasbara: MessageCircle,
+    selection_day: CalendarCheck,
+    prep_day: GraduationCap,
+    smach: Activity,
+    mabdak: ClipboardCheck,
+    bahad1: Flag,
+    general: CalendarDays,
   };
 
   return (
@@ -273,19 +315,56 @@ function TimelineCard({
           </button>
         </div>
       ) : null}
-      <ol className="mt-5 space-y-3">
-        {events.length === 0 ? (
-          <li className="text-sm text-text-muted">אין אירועים בציר הזמן.</li>
-        ) : (
-          events.map((event) => (
-            <li key={event.id} className="border-s-2 border-accent-primary/30 ps-4">
-              <p className="text-xs font-bold text-accent-primary">{formatAgamDate(event.event_date)}</p>
-              <p className="mt-1 font-bold text-text-primary">{event.title}</p>
-              {event.notes ? <p className="text-xs text-text-muted">{event.notes}</p> : null}
-            </li>
-          ))
-        )}
-      </ol>
+      {sorted.length === 0 ? (
+        <p className="mt-4 text-sm text-text-muted">אין אירועים בציר הזמן.</p>
+      ) : (
+        <div className="mt-4 -mx-2 overflow-x-auto pb-2">
+          <div className="relative min-w-full px-2">
+            <div className="absolute inset-x-4 top-6 h-0.5 rounded-full bg-black/10 dark:bg-white/10" />
+            <div className="flex gap-4">
+              {sorted.map((event) => {
+                const eventDateValue = event.event_date || "";
+                const isPast = eventDateValue < today;
+                const isToday = eventDateValue === today;
+                const Icon = EVENT_ICONS[event.event_type] ?? CalendarDays;
+                return (
+                  <div
+                    key={event.id}
+                    className={`relative flex w-[220px] shrink-0 flex-col rounded-2xl border p-4 transition ${
+                      isToday
+                        ? "border-accent-primary/40 bg-accent-primary/5"
+                        : isPast
+                          ? "border-black/8 bg-surface-1/60 opacity-70 dark:border-white/10"
+                          : "border-black/8 bg-surface-2 dark:border-white/10"
+                    }`}
+                  >
+                    <div className="absolute -top-2 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-background">
+                      <span
+                        className={`block h-full w-full rounded-full ${
+                          isToday
+                            ? "bg-accent-primary"
+                            : isPast
+                              ? "bg-text-muted"
+                              : "bg-accent-primary/60"
+                        }`}
+                      />
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-bold text-text-muted">{formatAgamDate(eventDateValue)}</span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${EVENT_TYPE_TONES[event.event_type] ?? EVENT_TYPE_TONES.general}`}>
+                        <Icon size={12} />
+                        {EVENT_TYPE_LABELS[event.event_type] ?? "כללי"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm font-extrabold text-text-primary line-clamp-2">{event.title}</p>
+                    {event.notes ? <p className="mt-1 text-xs text-text-muted line-clamp-3">{event.notes}</p> : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </article>
   );
 }
