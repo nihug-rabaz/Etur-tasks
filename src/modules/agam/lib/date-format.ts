@@ -4,8 +4,9 @@ function pad(value: number): string {
 
 export function formatAgamDateTime(value: string | null | undefined): string {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+  const text = String(value);
+  const date = new Date(text);
+  if (Number.isNaN(date.getTime())) return text;
   return [
     `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`,
     `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
@@ -14,7 +15,8 @@ export function formatAgamDateTime(value: string | null | undefined): string {
 
 export function formatAgamDate(value: string | null | undefined): string {
   if (!value) return "";
-  const normalized = value.includes("T") ? value : `${value}T00:00:00`;
+  const text = String(value);
+  const normalized = text.includes("T") ? text : `${text}T00:00:00`;
   const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return value;
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
