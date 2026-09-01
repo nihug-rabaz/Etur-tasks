@@ -73,4 +73,21 @@ export class AgamInterviewService extends BaseService {
     `;
     return rows[0] ?? null;
   }
+
+  public async updateOwned(
+    id: string,
+    candidateId: string,
+    evaluatorId: string,
+    allowOverride: boolean,
+    input: {
+      interview_data: Record<string, unknown> | null;
+      evaluator_assessment: string | null;
+      recommendation: AgamRecommendation | null;
+    },
+  ): Promise<AgamInterview | null> {
+    const existing = await this.getById(id);
+    if (!existing || existing.candidate_id !== candidateId) return null;
+    if (!allowOverride && existing.evaluator_id !== evaluatorId) return null;
+    return this.update(id, input);
+  }
 }

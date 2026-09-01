@@ -44,11 +44,20 @@ export async function POST(request: Request) {
   }
   const interviewService = new AgamInterviewService();
   if (parsed.data.interviewId) {
-    await interviewService.update(parsed.data.interviewId, {
-      interview_data: parsed.data.interviewData,
-      evaluator_assessment: parsed.data.evaluatorAssessment,
-      recommendation: parsed.data.recommendation,
-    });
+    const updated = await interviewService.updateOwned(
+      parsed.data.interviewId,
+      parsed.data.candidateId,
+      access.profile.id,
+      accessService.canRamad(access.role),
+      {
+        interview_data: parsed.data.interviewData,
+        evaluator_assessment: parsed.data.evaluatorAssessment,
+        recommendation: parsed.data.recommendation,
+      },
+    );
+    if (!updated) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   } else {
     await interviewService.create({
       candidate_id: parsed.data.candidateId,

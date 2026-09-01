@@ -62,6 +62,9 @@ export async function PUT(
     await service.unassignCandidate(id, parsed.data.unassignCandidateId);
   }
   if (parsed.data.archived !== undefined) {
+    if (!accessService.canRamad(access.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     await service.setArchived(id, parsed.data.archived);
   }
 

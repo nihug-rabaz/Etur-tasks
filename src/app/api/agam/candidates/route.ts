@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { normalizePhone } from "@/modules/agam/lib/phone";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
 
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
   const candidate = await service.create({
     full_name: parsed.data.fullName,
     personal_number: parsed.data.personalNumber,
-    phone: parsed.data.phone,
+    phone: normalizePhone(parsed.data.phone),
     command: parsed.data.command,
     direct_commander_name: parsed.data.directCommanderName,
     gaps: parsed.data.gaps,

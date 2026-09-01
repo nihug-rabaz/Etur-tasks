@@ -9,6 +9,7 @@ export function AgamUploadPage() {
   const [personalNumber, setPersonalNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [candidateId, setCandidateId] = useState<string | null>(null);
+  const [uploadToken, setUploadToken] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [documentType, setDocumentType] = useState(DOC_TYPES[0]);
   const [customType, setCustomType] = useState("");
@@ -25,23 +26,25 @@ export function AgamUploadPage() {
       body: JSON.stringify({ personalNumber, phone }),
     });
     setLoading(false);
-    const data = (await response.json()) as { id?: string; error?: string };
+    const data = (await response.json()) as { id?: string; uploadToken?: string; error?: string };
     if (!response.ok) {
       setError(data.error ?? "אימות נכשל");
       return;
     }
     setCandidateId(data.id ?? null);
+    setUploadToken(data.uploadToken ?? null);
   };
 
   const upload = async () => {
     const resolvedType = isCustomDocType(documentType) ? customType.trim() : documentType;
-    if (!candidateId || !file || !resolvedType) {
+    if (!candidateId || !uploadToken || !file || !resolvedType) {
       setError("נא לבחור סוג קובץ ולהעלות קובץ");
       return;
     }
     setLoading(true);
     const form = new FormData();
     form.set("candidateId", candidateId);
+    form.set("uploadToken", uploadToken);
     form.set("documentType", resolvedType);
     form.set("file", file);
     const response = await fetch("/api/agam/public/upload", { method: "POST", body: form });

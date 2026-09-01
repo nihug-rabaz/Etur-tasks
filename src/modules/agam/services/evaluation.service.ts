@@ -111,6 +111,13 @@ export class AgamDayEvaluationService extends BaseService {
     const weighted = ScoringEngine.calcWeightedScore(input.scores_data, input.criteria);
     const db = this.getDb();
     if (input.id) {
+      const existing = await this.getById(input.id);
+      if (!existing || existing.candidate_id !== input.candidate_id) {
+        throw new Error("EVAL_NOT_FOUND");
+      }
+      if (existing.evaluator_id !== input.evaluator_id) {
+        throw new Error("EVAL_FORBIDDEN");
+      }
       const rows = await db<AgamDayEvaluation[]>`
         update agam_day_evaluations set
           scores_data = ${input.scores_data},

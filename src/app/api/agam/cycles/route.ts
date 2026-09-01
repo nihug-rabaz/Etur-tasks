@@ -4,11 +4,15 @@ import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCycleService } from "@/modules/agam/services/cycle.service";
 
 export async function GET(request: Request) {
-  const access = await new AgamAccessService().requireAgamAccess();
+  const accessService = new AgamAccessService();
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const archived = new URL(request.url).searchParams.get("archived") === "1";
+  if (archived && !accessService.canRamad(access.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const cycles = await new AgamCycleService().list(archived);
   return NextResponse.json({ cycles, role: access.role });
 }

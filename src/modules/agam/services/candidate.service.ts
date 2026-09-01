@@ -1,4 +1,5 @@
 import { BaseService } from "@/services/base.service";
+import { normalizePhone, phonesMatch } from "@/modules/agam/lib/phone";
 import type {
   AgamCandidate,
   AgamCandidateStatus,
@@ -20,10 +21,6 @@ export class AgamCandidateService extends BaseService {
     `;
   }
 
-  public async listRecent(limit = 8): Promise<AgamCandidate[]> {
-    return this.list(false, limit);
-  }
-
   public async getById(id: string): Promise<AgamCandidate | null> {
     const db = this.getDb();
     const rows = await db<AgamCandidate[]>`
@@ -40,10 +37,10 @@ export class AgamCandidateService extends BaseService {
     const db = this.getDb();
     const rows = await db<AgamCandidate[]>`
       select * from agam_candidates
-      where personal_number = ${personalNumber} and phone = ${phone}
-      limit 1
+      where personal_number = ${personalNumber}
+      limit 5
     `;
-    return rows[0] ?? null;
+    return rows.find((row) => phonesMatch(row.phone, phone)) ?? null;
   }
 
   public async findByPersonalNumber(personalNumber: string): Promise<AgamCandidate | null> {
@@ -84,7 +81,7 @@ export class AgamCandidateService extends BaseService {
       values (
         ${input.full_name},
         ${input.personal_number},
-        ${input.phone ?? null},
+        ${normalizePhone(input.phone)},
         ${input.command ?? null},
         ${input.direct_commander_name ?? null},
         ${input.gaps ?? null},
@@ -214,7 +211,13 @@ export class AgamCandidateService extends BaseService {
         )
       `;
     } catch (error) {
-      console.error("[agam] addTimeline failed", error);
+      console.error("[agam] addTimeline failed", {
+        candidateId: input.candidate_id,
+        eventType: input.event_type,
+        title: input.title,
+        error,
+      });
+      throw error;
     }
   }
 

@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
+import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
+import { canEvaluate } from "@/modules/agam/lib/permissions";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCycle } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
@@ -42,7 +44,7 @@ export function AgamCyclesPage() {
     void load();
   }, [load]);
 
-  const canEdit = role === "admin" || role === "ramad" || role === "user";
+  const canEdit = canEvaluate(role);
 
   if (!loaded) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
 
@@ -181,16 +183,7 @@ function CreateCycleDrawer({
             onChange={(event) => setName(event.target.value)}
           />
         </label>
-        <label className="block space-y-2 text-sm font-bold text-text-secondary">
-          תאריך
-          <input
-            type="date"
-            dir="ltr"
-            className={`${fieldClass} text-left`}
-            value={cycleDate}
-            onChange={(event) => setCycleDate(event.target.value)}
-          />
-        </label>
+        <TimelineDatePicker value={cycleDate} onChange={setCycleDate} label="תאריך" />
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           שנתון
           <input

@@ -60,10 +60,14 @@ export async function POST(request: Request) {
   return NextResponse.json({ event }, { status: 201 });
 }
 
+function rejectAuth(result: { error: { error: string; status: number } }) {
+  return NextResponse.json({ error: result.error.error }, { status: result.error.status });
+}
+
 export async function DELETE(request: Request) {
   const authorized = await authorize(request);
-  if ("error" in authorized) {
-    return NextResponse.json({ error: authorized.error.error }, { status: authorized.error.status });
+  if ("error" in authorized && authorized.error) {
+    return rejectAuth(authorized as { error: { error: string; status: number } });
   }
   await new AgamTimelineEventService().delete(authorized.event.id);
   return NextResponse.json({ ok: true });
@@ -78,8 +82,8 @@ const patchSchema = z.object({
 
 export async function PATCH(request: Request) {
   const authorized = await authorize(request);
-  if ("error" in authorized) {
-    return NextResponse.json({ error: authorized.error.error }, { status: authorized.error.status });
+  if ("error" in authorized && authorized.error) {
+    return rejectAuth(authorized as { error: { error: string; status: number } });
   }
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

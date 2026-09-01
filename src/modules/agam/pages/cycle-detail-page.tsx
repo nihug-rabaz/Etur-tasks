@@ -11,6 +11,8 @@ import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
+import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
+import { canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamCycle, AgamLinkedTask } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
@@ -65,8 +67,8 @@ export function AgamCycleDetailPage() {
   }
 
   const { cycle, candidates, role } = payload;
-  const canEdit = role === "admin" || role === "ramad" || role === "user";
-  const canDelete = role === "admin" || role === "ramad";
+  const canEdit = canEvaluate(role);
+  const canDelete = canRamad(role);
 
   const removeCandidate = async (candidateId: string) => {
     try {
@@ -306,7 +308,7 @@ function CycleTasksCard({
       {canEvaluate ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
           <input className={fieldClass} placeholder="משימה חדשה למחזור" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <input type="date" className={`${fieldClass} text-left`} dir="ltr" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          <TimelineDatePicker value={dueDate} onChange={setDueDate} label="תאריך יעד" />
           <button type="button" className={primaryButtonClass} disabled={saving || title.trim().length < 2} onClick={() => void submit()}>
             {saving ? "יוצר..." : "הוספה"}
           </button>
@@ -384,16 +386,7 @@ function EditCycleDrawer({
           שם
           <input className={fieldClass} value={name} onChange={(event) => setName(event.target.value)} />
         </label>
-        <label className="block space-y-2 text-sm font-bold text-text-secondary">
-          תאריך
-          <input
-            type="date"
-            dir="ltr"
-            className={`${fieldClass} text-left`}
-            value={cycleDate}
-            onChange={(event) => setCycleDate(event.target.value)}
-          />
-        </label>
+        <TimelineDatePicker value={cycleDate} onChange={setCycleDate} label="תאריך" />
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           שנתון
           <input

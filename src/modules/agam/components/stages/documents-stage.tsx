@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { ACCEPTED_FILE_TYPES, DOC_TYPES, SOURCE_LABELS, isCustomDocType } from "@/modules/agam/lib/document-types";
+import { documentDownloadHref } from "@/modules/agam/lib/document-download";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamDocument } from "@/modules/agam/types";
@@ -145,7 +146,7 @@ export function DocumentsStage({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <a
-                      href={document.file_url}
+                      href={documentDownloadHref(document.id)}
                       target="_blank"
                       rel="noreferrer"
                       className="font-bold text-accent-primary hover:underline"
@@ -160,7 +161,7 @@ export function DocumentsStage({
                   </div>
                   <div className="flex items-center gap-3">
                     <a
-                      href={document.file_url}
+                      href={documentDownloadHref(document.id)}
                       target="_blank"
                       rel="noreferrer"
                       className="text-xs font-bold text-accent-primary"
@@ -168,7 +169,7 @@ export function DocumentsStage({
                       צפייה
                     </a>
                     <a
-                      href={document.file_url}
+                      href={documentDownloadHref(document.id)}
                       download={document.name}
                       className="text-xs font-bold text-text-secondary"
                     >

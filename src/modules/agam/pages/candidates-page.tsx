@@ -6,6 +6,7 @@ import { AgamCandidatesTable } from "@/modules/agam/components/candidates-table"
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import type { AgamCandidate } from "@/modules/agam/types";
+import { canAdmin, canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
 import type { ModuleRole } from "@/shared/modules/types";
 
 export function AgamCandidatesPage({ archived }: { archived: boolean }) {
@@ -44,14 +45,14 @@ export function AgamCandidatesPage({ archived }: { archived: boolean }) {
           </h1>
           <p className="mt-1 text-sm text-text-secondary">חיפוש, סינון וניווט מהיר לכל שלבי התהליך</p>
         </div>
-        {!archived && (role === "admin" || role === "ramad" || role === "user") ? (
+        {!archived && canEvaluate(role) ? (
           <CreateCandidateDrawer onCreated={() => void load()} />
         ) : null}
       </div>
       <AgamCandidatesTable
         candidates={candidates}
-        isRamad={role === "admin" || role === "ramad"}
-        isAdmin={role === "admin"}
+        isRamad={canRamad(role)}
+        isAdmin={canAdmin(role)}
         showArchived={archived}
         onChanged={() => void load()}
       />

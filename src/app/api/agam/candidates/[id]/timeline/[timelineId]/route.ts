@@ -2,19 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
+import { assessmentCategoryLabel } from "@/modules/agam/lib/assessment-categories";
 
 const noteSchema = z.object({
   description: z.string().trim().min(2),
   category: z.enum(["interview", "day_selection", "preparation_day", "smach", "other"]).default("other"),
 });
-
-const categoryLabels: Record<string, string> = {
-  interview: "ראיונות",
-  day_selection: "יום מיונים",
-  preparation_day: "היום המכין",
-  smach: "סמ״ח",
-  other: "אחר",
-};
 
 async function authorize(
   candidateId: string,
@@ -36,14 +29,18 @@ async function authorize(
   return { access, service, note };
 }
 
+function rejectAuth(result: { error: { error: string; status: number } }) {
+  return NextResponse.json({ error: result.error.error }, { status: result.error.status });
+}
+
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string; timelineId: string }> },
 ) {
   const { id, timelineId } = await context.params;
   const authorized = await authorize(id, timelineId);
-  if ("error" in authorized) {
-    return NextResponse.json({ error: authorized.error.error }, { status: authorized.error.status });
+  if ("error" in authorized && authorized.error) {
+    return rejectAuth(authorized as { error: { error: string; status: number } });
   }
 
   const parsed = noteSchema.safeParse(await request.json().catch(() => null));
@@ -52,7 +49,7 @@ export async function PATCH(
   }
 
   await authorized.service.updateTimelineItem(timelineId, {
-    title: `הערכת צוות חדשה - ${categoryLabels[parsed.data.category] ?? "אחר"}`,
+    title: `הערכת צוות חדשה - ${assessmentCategoryLabel(parsed.data.category)}`,
     description: parsed.data.description,
     stage_key: parsed.data.category,
   });
@@ -66,8 +63,8 @@ export async function DELETE(
 ) {
   const { id, timelineId } = await context.params;
   const authorized = await authorize(id, timelineId);
-  if ("error" in authorized) {
-    return NextResponse.json({ error: authorized.error.error }, { status: authorized.error.status });
+  if ("error" in authorized && authorized.error) {
+    return rejectAuth(authorized as { error: { error: string; status: number } });
   }
 
   await authorized.service.deleteTimelineItem(timelineId);

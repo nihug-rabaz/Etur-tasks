@@ -16,6 +16,10 @@ import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDateTime } from "@/modules/agam/lib/date-format";
 import { SOURCE_LABELS } from "@/modules/agam/lib/document-types";
 import { groupQuestionsBySection } from "@/modules/agam/lib/questions";
+import { ASSESSMENT_CATEGORIES } from "@/modules/agam/lib/assessment-categories";
+import { documentDownloadHref } from "@/modules/agam/lib/document-download";
+import { canEvaluate as roleCanEvaluate, canModifyTimelineEvent, canRamad as roleCanRamad } from "@/modules/agam/lib/permissions";
+import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import {
   AGAM_STAGES,
@@ -73,14 +77,6 @@ const RANK_COLORS: Record<string, { label: string; className: string }> = {
   red: { label: "אדום", className: "bg-rose-500/15 text-rose-700 dark:text-rose-100" },
 };
 
-const ASSESSMENT_CATEGORIES = [
-  { value: "interview", label: "ראיונות" },
-  { value: "day_selection", label: "יום מיונים" },
-  { value: "preparation_day", label: "היום המכין" },
-  { value: "smach", label: "סמ״ח" },
-  { value: "other", label: "אחר" },
-] as const;
-
 const BAHAD1_CHECKLIST = [
   "אישור רפואי בתוקף",
   "אישור למבדק",
@@ -130,8 +126,8 @@ export function AgamCandidateFilePage() {
   if (!payload) return <p className="p-6 text-sm text-rose-600">המועמד לא נמצא.</p>;
 
   const { candidate, role } = payload;
-  const canEvaluate = role === "admin" || role === "ramad" || role === "user";
-  const canRamad = role === "admin" || role === "ramad";
+  const canEvaluate = roleCanEvaluate(role);
+  const canRamad = roleCanRamad(role);
   const visibleStages = AGAM_STAGES.filter((item) => !item.ramadOnly || canRamad);
 
   if (stage === "final_decision" && !canRamad) {
@@ -445,7 +441,7 @@ function Overview({
               </div>
             ))
           )}
-          <AssessmentNoteList notes={interviewNotes} currentUserId={currentUserId} canRamad={canRamad} candidateId={candidateId} onSaved={onSaved} />
+          <AssessmentNoteList notes={interviewNotes} currentUserId={currentUserId} role={payload.role} candidateId={candidateId} onSaved={onSaved} />
         </EvalGroup>
 
         <EvalGroup title={`יום מיונים (${payload.evaluations.length + daySelectionNotes.length})`}>
@@ -461,7 +457,7 @@ function Overview({
               </div>
             ))
           )}
-          <AssessmentNoteList notes={daySelectionNotes} currentUserId={currentUserId} canRamad={canRamad} candidateId={candidateId} onSaved={onSaved} />
+          <AssessmentNoteList notes={daySelectionNotes} currentUserId={currentUserId} role={payload.role} candidateId={candidateId} onSaved={onSaved} />
         </EvalGroup>
 
         <EvalGroup title={`היום המכין (${payload.prepDays.length + prepNotes.length})`}>
@@ -489,7 +485,7 @@ function Overview({
               </div>
             ))
           )}
-          <AssessmentNoteList notes={prepNotes} currentUserId={currentUserId} canRamad={canRamad} candidateId={candidateId} onSaved={onSaved} />
+          <AssessmentNoteList notes={prepNotes} currentUserId={currentUserId} role={payload.role} candidateId={candidateId} onSaved={onSaved} />
         </EvalGroup>
 
         <EvalGroup title={`סמ״ח (${payload.smach.length + smachNotes.length})`}>
@@ -498,11 +494,11 @@ function Overview({
           ) : (
             payload.smach.map((row) => <SmachReadOnlyCard key={row.id} evaluation={row} />)
           )}
-          <AssessmentNoteList notes={smachNotes} currentUserId={currentUserId} canRamad={canRamad} candidateId={candidateId} onSaved={onSaved} />
+          <AssessmentNoteList notes={smachNotes} currentUserId={currentUserId} role={payload.role} candidateId={candidateId} onSaved={onSaved} />
         </EvalGroup>
         {otherNotes.length > 0 ? (
           <EvalGroup title={`אחר (${otherNotes.length})`}>
-            <AssessmentNoteList notes={otherNotes} currentUserId={currentUserId} canRamad={canRamad} candidateId={candidateId} onSaved={onSaved} />
+            <AssessmentNoteList notes={otherNotes} currentUserId={currentUserId} role={payload.role} candidateId={candidateId} onSaved={onSaved} />
           </EvalGroup>
         ) : null}
       </section>
@@ -521,7 +517,7 @@ function Overview({
                 <div>
                   <a
                     className="font-bold text-accent-primary hover:underline"
-                    href={document.file_url}
+                    href={documentDownloadHref(document.id)}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -535,7 +531,7 @@ function Overview({
                 </div>
                 <a
                   className="text-xs font-bold text-accent-primary"
-                  href={document.file_url}
+                  href={documentDownloadHref(document.id)}
                   target="_blank"
                   rel="noreferrer"
                   download
@@ -555,7 +551,7 @@ function Overview({
         >
           {STATUS_LABELS[payload.candidate.status]}
         </span>
-        {payload.candidate.ramad_notes ? (
+        {canRamad && payload.candidate.ramad_notes ? (
           <p className="mt-3 whitespace-pre-wrap text-sm">{payload.candidate.ramad_notes}</p>
         ) : (
           <p className="mt-2 text-sm text-text-muted">אין הערות רמ״ד.</p>
@@ -619,6 +615,24 @@ function CandidateProfileCard({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
+
+  const resetFromCandidate = () => {
+    setCommand(candidate.command ?? "");
+    setDirectCommanderName(candidate.direct_commander_name ?? "");
+    setGaps(candidate.gaps ?? "");
+    setPlanningIndex(candidate.planning_index?.toString() ?? "");
+    setDapar(candidate.dapar?.toString() ?? "");
+    setRankColor(candidate.rank_color ?? "");
+    setNeedsSakmar(candidate.needs_sakmar == null ? "" : candidate.needs_sakmar ? "yes" : "no");
+    setMabdakApproval(candidate.mabdak_approval == null ? "" : candidate.mabdak_approval ? "yes" : "no");
+    setMedicalIssue(candidate.medical_issue == null ? "" : candidate.medical_issue ? "yes" : "no");
+    setInternetTest(candidate.internet_test == null ? "" : candidate.internet_test ? "yes" : "no");
+    setChecklist(candidate.pre_bahad1_checklist ?? {});
+  };
+
+  useEffect(() => {
+    if (!editing) resetFromCandidate();
+  }, [candidate.id, candidate.updated_at, editing]);
 
   const save = async () => {
     setSaving(true);
@@ -705,6 +719,7 @@ function CandidateProfileCard({
                 type="button"
                 className={primaryButtonClass}
                 onClick={() => {
+                  resetFromCandidate();
                   setEditing(false);
                   setShowCancelPopup(false);
                 }}
@@ -965,7 +980,7 @@ function CandidateTasksCard({
       {canEvaluate ? (
         <div className="mt-3 space-y-2">
           <input className={fieldClass} placeholder="משימה חדשה" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <input type="date" className={`${fieldClass} text-left`} dir="ltr" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+          <TimelineDatePicker value={dueDate} onChange={setDueDate} label="תאריך יעד" />
           <button type="button" className={`${primaryButtonClass} w-full`} disabled={saving || title.trim().length < 2} onClick={() => void createTask()}>
             {saving ? "יוצר..." : "הוספת משימה"}
           </button>
@@ -993,13 +1008,13 @@ function CandidateTasksCard({
 function AssessmentNoteList({
   notes,
   currentUserId,
-  canRamad,
+  role,
   candidateId,
   onSaved,
 }: {
   notes: AgamTimelineItem[];
   currentUserId: string;
-  canRamad: boolean;
+  role: ModuleRole;
   candidateId: string;
   onSaved: () => void;
 }) {
@@ -1007,7 +1022,7 @@ function AssessmentNoteList({
   const [editText, setEditText] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const canEdit = (note: AgamTimelineItem) => canRamad || note.created_by_id === currentUserId;
+  const canEdit = (note: AgamTimelineItem) => canModifyTimelineEvent(role, note.created_by_id, currentUserId);
 
   const startEdit = (note: AgamTimelineItem) => {
     setEditingNoteId(note.id);

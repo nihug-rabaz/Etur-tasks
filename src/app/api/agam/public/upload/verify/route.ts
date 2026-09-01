@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
-import { checkRateLimit } from "@/modules/agam/lib/rate-limit";
+import { checkRateLimit, clientIp } from "@/modules/agam/lib/rate-limit";
+import { createPublicUploadToken } from "@/modules/agam/lib/public-upload-token";
 
 const schema = z.object({
   personalNumber: z.string().min(2),
@@ -9,7 +10,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const ip = request.headers.get("x-forwarded-for") ?? "anon";
+  const ip = clientIp(request);
   if (!checkRateLimit(`agam-upload-verify:${ip}`, 30, 60_000)) {
     return NextResponse.json({ error: "יותר מדי בקשות" }, { status: 429 });
   }
@@ -24,5 +25,8 @@ export async function POST(request: Request) {
   if (!candidate) {
     return NextResponse.json({ error: "לא נמצא מועמד תואם" }, { status: 404 });
   }
-  return NextResponse.json({ id: candidate.id });
+  return NextResponse.json({
+    id: candidate.id,
+    uploadToken: createPublicUploadToken(candidate.id),
+  });
 }

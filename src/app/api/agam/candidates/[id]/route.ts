@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
+import { redactCandidateForRole } from "@/modules/agam/lib/candidate-redaction";
+import { assessmentCategoryLabel } from "@/modules/agam/lib/assessment-categories";
 import { AgamInterviewService } from "@/modules/agam/services/interview.service";
 import { AgamDayEvaluationService, AgamCriterionService } from "@/modules/agam/services/evaluation.service";
 import { AgamPrepDayService } from "@/modules/agam/services/prep-day.service";
@@ -40,7 +42,7 @@ export async function GET(
       new AgamCriterionService().listActive(),
     ]);
   return NextResponse.json({
-    candidate,
+    candidate: redactCandidateForRole(candidate, access.role),
     interviews,
     evaluations,
     prepDays,
@@ -138,17 +140,10 @@ export async function PATCH(
   }
   if (parsed.data.timeline_note?.trim()) {
     const category = parsed.data.timeline_note_category ?? "other";
-    const categoryLabels: Record<string, string> = {
-      interview: "ראיונות",
-      day_selection: "יום מיונים",
-      preparation_day: "היום המכין",
-      smach: "סמ״ח",
-      other: "אחר",
-    };
     await service.addTimeline({
       candidate_id: id,
       event_type: "note",
-      title: `הערכת צוות חדשה - ${categoryLabels[category] ?? "אחר"}`,
+      title: `הערכת צוות חדשה - ${assessmentCategoryLabel(category)}`,
       description: parsed.data.timeline_note.trim(),
       actor_name: access.profile.name,
       stage_key: category,

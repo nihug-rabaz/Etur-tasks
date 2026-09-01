@@ -1,6 +1,7 @@
-import { put } from "@vercel/blob";
+import { getDownloadUrl, put } from "@vercel/blob";
 import { BaseService } from "@/services/base.service";
 import { Env } from "@/lib/env";
+import { sanitizeFileName, validateUploadFile } from "@/modules/agam/lib/file-validation";
 import {
   MAX_UPLOAD_BYTES_WITH_BLOB,
   MAX_UPLOAD_BYTES_WITHOUT_BLOB,
@@ -8,6 +9,13 @@ import {
 import type { AgamDocument, AgamUploadSource } from "@/modules/agam/types";
 
 export class AgamDocumentService extends BaseService {
+  public async getById(id: string): Promise<AgamDocument | null> {
+    const db = this.getDb();
+    const rows = await db<AgamDocument[]>`
+      select * from agam_candidate_documents where id = ${id} limit 1
+    `;
+    return rows[0] ?? null;
+  }
   public async listByCandidate(candidateId: string): Promise<AgamDocument[]> {
     const db = this.getDb();
     return db<AgamDocument[]>`
@@ -45,31 +53,45 @@ export class AgamDocumentService extends BaseService {
     return rows[0];
   }
 
-  public async updateNotes(id: string, notes: string): Promise<void> {
+  public async updateNotes(id: string, notes: string): Promise<boolean> {
     const db = this.getDb();
-    await db`
+    const rows = await db<{ id: string }[]>`
       update agam_candidate_documents set notes = ${notes}, updated_at = now() where id = ${id}
+      returning id
     `;
+    return rows.length > 0;
   }
 
-  public async delete(id: string): Promise<void> {
+  public async delete(id: string): Promise<boolean> {
     const db = this.getDb();
-    await db`delete from agam_candidate_documents where id = ${id}`;
+    const rows = await db<{ id: string }[]>`
+      delete from agam_candidate_documents where id = ${id} returning id
+    `;
+    return rows.length > 0;
   }
 
   public async storeFile(candidateId: string, file: File): Promise<string> {
+    validateUploadFile(file);
+    const safeName = sanitizeFileName(file.name);
     const token = Env.get("BLOB_READ_WRITE_TOKEN");
     const maxBytes = token ? MAX_UPLOAD_BYTES_WITH_BLOB : MAX_UPLOAD_BYTES_WITHOUT_BLOB;
     if (file.size > maxBytes) {
       throw new Error(token ? "FILE_TOO_LARGE" : "BLOB_REQUIRED");
     }
     if (token) {
-      const blob = await put(`agam/${candidateId}/${file.name}`, file, {
-        access: "public",
+      const blob = await put(`agam/${candidateId}/${Date.now()}-${safeName}`, file, {
+        access: "private",
         token,
       });
       return blob.url;
     }
     throw new Error("BLOB_REQUIRED");
+  }
+
+  public resolveDownloadUrl(fileUrl: string): string {
+    if (!fileUrl.includes("blob.vercel-storage.com")) {
+      return fileUrl;
+    }
+    return getDownloadUrl(fileUrl);
   }
 }

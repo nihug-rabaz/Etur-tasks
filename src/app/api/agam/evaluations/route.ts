@@ -38,17 +38,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
   const criteria = await new AgamCriterionService().listActive();
-  await new AgamDayEvaluationService().save({
-    id: parsed.data.evalId,
-    candidate_id: parsed.data.candidateId,
-    evaluator_id: access.profile.id,
-    evaluator_name: access.profile.name,
-    scores_data: parsed.data.scoresData,
-    feedback_data: parsed.data.feedbackData,
-    final_score: parsed.data.finalScore,
-    final_feedback: parsed.data.finalFeedback,
-    criteria,
-  });
+  try {
+    await new AgamDayEvaluationService().save({
+      id: parsed.data.evalId,
+      candidate_id: parsed.data.candidateId,
+      evaluator_id: access.profile.id,
+      evaluator_name: access.profile.name,
+      scores_data: parsed.data.scoresData,
+      feedback_data: parsed.data.feedbackData,
+      final_score: parsed.data.finalScore,
+      final_feedback: parsed.data.finalFeedback,
+      criteria,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (message === "EVAL_NOT_FOUND") {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+    if (message === "EVAL_FORBIDDEN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    throw error;
+  }
   await new AgamCandidateService().addTimeline({
     candidate_id: parsed.data.candidateId,
     event_type: "evaluation",
