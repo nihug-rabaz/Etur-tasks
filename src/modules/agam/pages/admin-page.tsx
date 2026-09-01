@@ -12,6 +12,7 @@ import {
   buildInterviewQuestionFields,
   buildPreScreeningFields,
   downloadExcel,
+  exportColumnLabel,
   type ExportField,
 } from "@/modules/agam/lib/csv";
 import { CONDITION_OPERATORS, FIELD_TYPES } from "@/modules/agam/lib/questions";
@@ -705,9 +706,9 @@ function ExportTab({
             return row;
           });
           downloadExcel(
-            `agam_candidates_${new Date().toISOString().slice(0, 10)}.xls`,
+            `agam_candidates_${new Date().toISOString().slice(0, 10)}.xlsx`,
             rows,
-            selectedFields.map((field) => ({ key: field.key, label: field.label })),
+            selectedFields.map((field) => ({ key: field.key, label: exportColumnLabel(field) })),
           );
         }}
       >

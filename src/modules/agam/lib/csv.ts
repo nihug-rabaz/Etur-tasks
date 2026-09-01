@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import { STATUS_LABELS } from "@/modules/agam/lib/stages";
 import type {
   AgamCandidate,
@@ -6,6 +7,69 @@ import type {
   AgamInterview,
   AgamQuestion,
 } from "@/modules/agam/types";
+
+export type ExportField = {
+  key: string;
+  label: string;
+  group: "candidate" | "pre_screening" | "interview" | "day";
+  get: (candidate: AgamCandidate, ctx: ExportContext) => unknown;
+};
+
+export type ExportContext = {
+  interview?: AgamInterview;
+  dayFinal: {
+    final_score: number | "";
+    weighted_score: number | "";
+    final_feedback: string;
+  };
+  criterionScoreAvg: (key: string) => number | "";
+  criterionFeedback: (key: string) => string;
+  questionnaireValue: (fieldKey: string) => string;
+  interviewAnswer: (fieldKey: string) => string;
+};
+
+const EXPORT_GROUP_PREFIX: Record<ExportField["group"], string> = {
+  candidate: "מועמד",
+  pre_screening: "שאלון",
+  interview: "ראיון",
+  day: "יום מיונים",
+};
+
+const QUESTIONNAIRE_FIELD_LABELS: Record<string, string> = {
+  full_name: "שם מלא",
+  personal_number: "מספר אישי",
+  phone: "טלפון",
+  command: "פיקוד",
+  direct_commander_name: "שם המפקד הישיר",
+  planning_index: "מדד תכנוני",
+  dapar: "דפ״ר",
+  needs_sakmar: "צריך סכמר",
+  mabdak_approval: "אישור למבדק",
+  medical_issue: "בעיה רפואית",
+  internet_test: "מבדק אינטרנט",
+  gaps: "פערים",
+};
+
+export function exportColumnLabel(field: Pick<ExportField, "group" | "label">): string {
+  return `${EXPORT_GROUP_PREFIX[field.group]}: ${field.label}`;
+}
+
+export function questionnaireFieldLabel(questions: AgamQuestion[], fieldKey: string): string {
+  const question = questions.find(
+    (row) => row.question_type === "pre_screening" && row.field_key === fieldKey,
+  );
+  return question?.question_text ?? QUESTIONNAIRE_FIELD_LABELS[fieldKey] ?? fieldKey;
+}
+
+export function buildQuestionnaireExportColumns(
+  questions: AgamQuestion[],
+  keys: string[],
+): Array<{ key: string; label: string }> {
+  return keys.map((key) => ({
+    key: `q.${key}`,
+    label: `שאלון: ${questionnaireFieldLabel(questions, key)}`,
+  }));
+}
 
 export function rowsToCsv(
   rows: Array<Record<string, unknown>>,
@@ -33,46 +97,38 @@ export function downloadCsv(filename: string, csvString: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function downloadExcel(filename: string, rows: Array<Record<string, unknown>>, columns: Array<{ key: string; label: string }>): void {
-  const escapeHtml = (value: unknown) =>
-    String(value == null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  const header = columns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join("");
-  const body = rows
-    .map((row) => `<tr>${columns.map((column) => `<td>${escapeHtml(row[column.key])}</td>`).join("")}</tr>`)
-    .join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8" /></head><body><table>${header ? `<tr>${header}</tr>` : ""}${body}</table></body></html>`;
-  const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+export function downloadExcel(
+  filename: string,
+  rows: Array<Record<string, unknown>>,
+  columns: Array<{ key: string; label: string }>,
+): void {
+  const normalizedFilename = filename.toLowerCase().endsWith(".xlsx") ? filename : filename.replace(/\.xls(x)?$/i, ".xlsx");
+  const headerRow = columns.map((column) => column.label);
+  const bodyRows = rows.map((row) =>
+    columns.map((column) => {
+      const value = row[column.key];
+      if (value == null) return "";
+      if (typeof value === "boolean") return value ? "כן" : "לא";
+      return value;
+    }),
+  );
+  const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...bodyRows]);
+  worksheet["!cols"] = columns.map((column) => ({
+    wch: Math.min(48, Math.max(12, column.label.length + 4)),
+  }));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "מועמדים");
+  const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = filename;
+  link.download = normalizedFilename;
   link.click();
   URL.revokeObjectURL(url);
 }
-
-export type ExportField = {
-  key: string;
-  label: string;
-  group: "candidate" | "pre_screening" | "interview" | "day";
-  get: (candidate: AgamCandidate, ctx: ExportContext) => unknown;
-};
-
-export type ExportContext = {
-  interview?: AgamInterview;
-  dayFinal: {
-    final_score: number | "";
-    weighted_score: number | "";
-    final_feedback: string;
-  };
-  criterionScoreAvg: (key: string) => number | "";
-  criterionFeedback: (key: string) => string;
-  questionnaireValue: (fieldKey: string) => string;
-  interviewAnswer: (fieldKey: string) => string;
-};
 
 export const CANDIDATE_EXPORT_FIELDS: ExportField[] = [
   { key: "candidate.full_name", label: "שם מלא", group: "candidate", get: (c) => c.full_name },
@@ -257,8 +313,45 @@ export function buildCandidateContext(
   };
 }
 
+export function buildCandidateListExportRow(
+  candidate: AgamCandidate,
+  questionnaireKeys: string[],
+): Record<string, unknown> {
+  const questionnaire = (candidate.questionnaire_data ?? {}) as Record<string, unknown>;
+  const row: Record<string, unknown> = {};
+  const emptyContext = {
+    dayFinal: { final_score: "", weighted_score: "", final_feedback: "" },
+    criterionScoreAvg: () => "",
+    criterionFeedback: () => "",
+    questionnaireValue: () => "",
+    interviewAnswer: () => "",
+  } satisfies ExportContext;
+
+  for (const field of CANDIDATE_EXPORT_FIELDS) {
+    row[field.key.replace("candidate.", "")] = field.get(candidate, emptyContext);
+  }
+  for (const key of questionnaireKeys) {
+    const value = questionnaire[key];
+    row[`q.${key}`] = value == null ? "" : value;
+  }
+  return row;
+}
+
 /** Backward-compatible alias used by candidates table basic export. */
 export const BASIC_CANDIDATE_COLUMNS = CANDIDATE_EXPORT_FIELDS.map((field) => ({
   key: field.key.replace("candidate.", ""),
-  label: field.label,
+  label: exportColumnLabel(field),
 }));
+
+export function buildCandidateListExportColumns(
+  questions: AgamQuestion[],
+  questionnaireKeys: string[],
+): Array<{ key: string; label: string }> {
+  return [
+    ...CANDIDATE_EXPORT_FIELDS.map((field) => ({
+      key: field.key.replace("candidate.", ""),
+      label: exportColumnLabel(field),
+    })),
+    ...buildQuestionnaireExportColumns(questions, questionnaireKeys),
+  ];
+}

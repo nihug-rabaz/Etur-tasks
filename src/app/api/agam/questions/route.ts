@@ -21,9 +21,13 @@ const bodySchema = z.object({
 });
 
 export async function GET() {
-  const access = await new AgamAccessService().requireAgamAccess("admin");
+  const accessService = new AgamAccessService();
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  if (!accessService.canRamad(access.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const questions = await new AgamQuestionService().listAll();
   return NextResponse.json({ questions });

@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { BASIC_CANDIDATE_COLUMNS, downloadExcel } from "@/modules/agam/lib/csv";
+import {
+  buildCandidateListExportColumns,
+  buildCandidateListExportRow,
+  downloadExcel,
+} from "@/modules/agam/lib/csv";
+import type { AgamQuestion } from "@/modules/agam/types";
 import { STAGE_VIEWS, STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamStageKey, AgamStageSummary } from "@/modules/agam/types";
@@ -124,38 +129,25 @@ export function AgamCandidatesTable({
                 type="button"
                 className={secondaryButtonClass}
                 onClick={() => {
-                  const questionnaireKeys = [
-                    ...new Set(
-                      filtered.flatMap((row) =>
-                        Object.keys((row.questionnaire_data ?? {}) as Record<string, unknown>),
-                      ),
-                    ),
-                  ];
-                  const columns = [
-                    ...BASIC_CANDIDATE_COLUMNS,
-                    { key: "command", label: "פיקוד" },
-                    { key: "direct_commander_name", label: "שם המפקד הישיר" },
-                    { key: "gaps", label: "פערים" },
-                    { key: "planning_index", label: "מדד תכנוני" },
-                    { key: "dapar", label: "דפ״ר" },
-                    { key: "rank_color", label: "דירוג צבע" },
-                    { key: "needs_sakmar", label: "צריך סכמר" },
-                    { key: "mabdak_approval", label: "אישור למבדק" },
-                    { key: "medical_issue", label: "בעיה רפואית" },
-                    ...questionnaireKeys.map((key) => ({ key: `q.${key}`, label: `שאלון: ${key}` })),
-                  ];
-                  const rows = filtered.map((row) => {
-                    const questionnaire = (row.questionnaire_data ?? {}) as Record<string, unknown>;
-                    const base: Record<string, unknown> = {
-                      ...row,
-                      needs_sakmar: row.needs_sakmar == null ? "" : row.needs_sakmar ? "כן" : "לא",
-                      mabdak_approval: row.mabdak_approval == null ? "" : row.mabdak_approval ? "כן" : "לא",
-                      medical_issue: row.medical_issue == null ? "" : row.medical_issue ? "כן" : "לא",
-                    };
-                    for (const key of questionnaireKeys) base[`q.${key}`] = questionnaire[key];
-                    return base;
-                  });
-                  downloadExcel(`candidates_${new Date().toISOString().slice(0, 10)}.xls`, rows, columns);
+                  void (async () => {
+                    try {
+                      const { questions } = await agamFetch<{ questions: AgamQuestion[] }>("/api/agam/questions");
+                      const questionnaireKeys = [
+                        ...new Set(
+                          filtered.flatMap((row) =>
+                            Object.keys((row.questionnaire_data ?? {}) as Record<string, unknown>),
+                          ),
+                        ),
+                      ];
+                      const columns = buildCandidateListExportColumns(questions ?? [], questionnaireKeys);
+                      const rows = filtered.map((candidate) =>
+                        buildCandidateListExportRow(candidate, questionnaireKeys),
+                      );
+                      downloadExcel(`candidates_${new Date().toISOString().slice(0, 10)}.xlsx`, rows, columns);
+                    } catch {
+                      toast.error("ייצוא לאקסל נכשל");
+                    }
+                  })();
                 }}
               >
                 ייצוא לאקסל
@@ -319,20 +311,18 @@ function CandidateActionBar({
   ];
 
   const handleExport = () => {
-    const questionnaire = (candidate.questionnaire_data ?? {}) as Record<string, unknown>;
-    const questionnaireKeys = Object.keys(questionnaire);
-    const columns = [
-      ...BASIC_CANDIDATE_COLUMNS,
-      ...questionnaireKeys.map((key) => ({ key: `q.${key}`, label: `שאלון: ${key}` })),
-    ];
-    const row: Record<string, unknown> = {
-      ...candidate,
-      needs_sakmar: candidate.needs_sakmar == null ? "" : candidate.needs_sakmar ? "כן" : "לא",
-      mabdak_approval: candidate.mabdak_approval == null ? "" : candidate.mabdak_approval ? "כן" : "לא",
-      medical_issue: candidate.medical_issue == null ? "" : candidate.medical_issue ? "כן" : "לא",
-    };
-    for (const key of questionnaireKeys) row[`q.${key}`] = questionnaire[key];
-    downloadExcel(`${candidate.full_name}_${candidate.personal_number}.xls`, [row], columns);
+    void (async () => {
+      try {
+        const { questions } = await agamFetch<{ questions: AgamQuestion[] }>("/api/agam/questions");
+        const questionnaire = (candidate.questionnaire_data ?? {}) as Record<string, unknown>;
+        const questionnaireKeys = Object.keys(questionnaire);
+        const columns = buildCandidateListExportColumns(questions ?? [], questionnaireKeys);
+        const row = buildCandidateListExportRow(candidate, questionnaireKeys);
+        downloadExcel(`${candidate.full_name}_${candidate.personal_number}.xlsx`, [row], columns);
+      } catch {
+        toast.error("ייצוא לאקסל נכשל");
+      }
+    })();
   };
 
   return (
