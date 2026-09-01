@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
-import { Activity, CalendarDays, CalendarCheck, CheckCircle2, ClipboardCheck, Copy, Flag, GraduationCap, Hourglass, MessageCircle, Plus, Users, XCircle } from "lucide-react";
+import { Activity, CalendarDays, CalendarCheck, CheckCircle2, ClipboardCheck, Copy, Flag, GraduationCap, Hourglass, MessageCircle, Pencil, Plus, Trash2, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
@@ -141,11 +141,17 @@ export function AgamDashboardPage({
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <TimelineCard events={timelineEvents} canEdit={role === "admin" || role === "ramad" || role === "user"} onChanged={() => {
-          void agamFetch<{ events: AgamTimelineEventItem[] }>("/api/agam/timeline")
-            .then((data) => setTimelineEvents(data.events ?? []))
-            .catch(() => toast.error("טעינת ציר הזמן נכשלה"));
-        }} />
+        <TimelineCard
+          events={timelineEvents}
+          canEdit={role === "admin" || role === "ramad" || role === "user"}
+          currentUserId={currentUserId}
+          role={role}
+          onChanged={() => {
+            void agamFetch<{ events: AgamTimelineEventItem[] }>("/api/agam/timeline")
+              .then((data) => setTimelineEvents(data.events ?? []))
+              .catch(() => toast.error("טעינת ציר הזמן נכשלה"));
+          }}
+        />
         <GeneralTasksCard
           tasks={generalTasks}
           cycles={cycles}
@@ -218,17 +224,33 @@ function StatCard({
 function TimelineCard({
   events,
   canEdit,
+  currentUserId,
+  role,
   onChanged,
 }: {
   events: AgamTimelineEventItem[];
   canEdit: boolean;
+  currentUserId: string;
+  role: ModuleRole | null;
   onChanged: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventType, setEventType] = useState<AgamTimelineEventItem["event_type"]>("general");
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editType, setEditType] = useState<AgamTimelineEventItem["event_type"]>("general");
+  const [editNotes, setEditNotes] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const canModify = (event: AgamTimelineEventItem) => {
+    if (!role) return false;
+    return role === "admin" || role === "ramad" || event.created_by_id === currentUserId;
+  };
 
   const submit = async () => {
     setSaving(true);
@@ -244,6 +266,49 @@ function TimelineCard({
       onChanged();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "שמירת אירוע נכשלה");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const startEdit = (event: AgamTimelineEventItem) => {
+    setEditingId(event.id);
+    setEditTitle(event.title);
+    setEditDate(event.event_date || "");
+    setEditType(event.event_type);
+    setEditNotes(event.notes ?? "");
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    setSaving(true);
+    try {
+      await agamFetch(`/api/agam/timeline?id=${editingId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title: editTitle, eventDate: editDate, eventType: editType, notes: editNotes || null }),
+      });
+      toast.success("האירוע עודכן");
+      setEditingId(null);
+      setEditing(false);
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "עדכון אירוע נכשל");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingId) return;
+    setSaving(true);
+    try {
+      await agamFetch(`/api/agam/timeline?id=${deletingId}`, { method: "DELETE" });
+      toast.success("האירוע נמחק");
+      setDeletingId(null);
+      onChanged();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "מחיקת אירוע נכשלה");
     } finally {
       setSaving(false);
     }
@@ -323,10 +388,11 @@ function TimelineCard({
             <div className="absolute inset-x-4 top-6 h-0.5 rounded-full bg-black/10 dark:bg-white/10" />
             <div className="flex gap-4">
               {sorted.map((event) => {
-                const eventDateValue = event.event_date || "";
+                const eventDateValue = String(event.event_date || "");
                 const isPast = eventDateValue < today;
                 const isToday = eventDateValue === today;
                 const Icon = EVENT_ICONS[event.event_type] ?? CalendarDays;
+                const editable = canModify(event);
                 return (
                   <div
                     key={event.id}
@@ -349,15 +415,114 @@ function TimelineCard({
                         }`}
                       />
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-text-muted">{formatAgamDate(eventDateValue)}</span>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${EVENT_TYPE_TONES[event.event_type] ?? EVENT_TYPE_TONES.general}`}>
-                        <Icon size={12} />
-                        {EVENT_TYPE_LABELS[event.event_type] ?? "כללי"}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm font-extrabold text-text-primary line-clamp-2">{event.title}</p>
-                    {event.notes ? <p className="mt-1 text-xs text-text-muted line-clamp-3">{event.notes}</p> : null}
+                    {editingId === event.id && editing ? (
+                      <div className="mt-2 space-y-2">
+                        <input
+                          className={fieldClass}
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          placeholder="כותרת"
+                        />
+                        <input
+                          type="date"
+                          className={`${fieldClass} text-left`}
+                          dir="ltr"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                        />
+                        <select
+                          className={fieldClass}
+                          value={editType}
+                          onChange={(e) => setEditType(e.target.value as AgamTimelineEventItem["event_type"])}
+                        >
+                          {Object.entries(EVENT_TYPE_LABELS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                          ))}
+                        </select>
+                        <textarea
+                          className={fieldClass}
+                          rows={3}
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          placeholder="הערות"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className={primaryButtonClass}
+                            disabled={saving}
+                            onClick={() => void saveEdit()}
+                          >
+                            {saving ? "שומר..." : "שמירה"}
+                          </button>
+                          <button
+                            type="button"
+                            className={secondaryButtonClass}
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditing(false);
+                            }}
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-text-muted">{formatAgamDate(eventDateValue)}</span>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${EVENT_TYPE_TONES[event.event_type] ?? EVENT_TYPE_TONES.general}`}>
+                            <Icon size={12} />
+                            {EVENT_TYPE_LABELS[event.event_type] ?? "כללי"}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm font-extrabold text-text-primary line-clamp-2">{event.title}</p>
+                        {event.notes ? <p className="mt-1 text-xs text-text-muted line-clamp-3">{event.notes}</p> : null}
+                        {editable ? (
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(event)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-2 hover:text-text-primary"
+                              aria-label="ערוך אירוע"
+                              title="ערוך אירוע"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            {deletingId === event.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => confirmDelete()}
+                                  disabled={saving}
+                                  className="rounded-lg bg-rose-600 px-2 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                                >
+                                  {saving ? "מוחק..." : "מחק"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeletingId(null)}
+                                  disabled={saving}
+                                  className="rounded-lg bg-surface-2 px-2 py-1 text-[11px] font-bold text-text-secondary"
+                                >
+                                  ביטול
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeletingId(event.id)}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-500/10"
+                                aria-label="מחק אירוע"
+                                title="מחק אירוע"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 );
               })}
