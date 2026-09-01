@@ -252,10 +252,10 @@ function TimelineCard({
   const sorted = useMemo(
     () =>
       [...events].sort((a, b) => {
-        const da = a.event_date || "";
-        const db = b.event_date || "";
+        const da = String(a.event_date ?? "");
+        const db = String(b.event_date ?? "");
         if (da !== db) return da.localeCompare(db);
-        return a.title.localeCompare(b.title);
+        return String(a.title ?? "").localeCompare(String(b.title ?? ""));
       }),
     [events],
   );
