@@ -20,7 +20,7 @@ import { ASSESSMENT_CATEGORIES } from "@/modules/agam/lib/assessment-categories"
 import { documentDownloadHref } from "@/modules/agam/lib/document-download";
 import { canEvaluate as roleCanEvaluate, canModifyTimelineEvent, canRamad as roleCanRamad } from "@/modules/agam/lib/permissions";
 import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { cardClass, fieldClass, innerCardClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import {
   AGAM_STAGES,
   RECOMMENDATION_TONES,
@@ -133,14 +133,14 @@ export function AgamCandidateFilePage() {
   if (stage === "final_decision" && !canRamad) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <div className="dashboard-glass rounded-3xl p-8 text-center">דף זה זמין לרמ״ד בלבד</div>
+        <div className={`${panelClass} p-8 text-center`}>דף זה זמין לרמ״ד בלבד</div>
       </div>
     );
   }
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <header className="dashboard-glass rounded-3xl p-6">
+      <header className={`${panelClass} p-6`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <Link href="/agam/candidates" className="text-xs font-bold text-accent-primary">
@@ -310,7 +310,7 @@ function Overview({
                 ? `/agam/candidates/${payload.candidate.id}?stage=${item.hrefStage}`
                 : `/agam/candidates/${payload.candidate.id}`
             }
-            className="dashboard-glass block rounded-3xl p-5 transition hover:-translate-y-0.5"
+            className={`${panelClass} block p-5 transition hover:-translate-y-0.5`}
           >
             <p className="text-xl font-extrabold text-text-primary">{item.label}</p>
             <p className="mt-1 text-xs text-text-muted">{item.detail}</p>
@@ -333,7 +333,7 @@ function Overview({
         </div>
       </section>
 
-      <section className="dashboard-glass rounded-3xl p-6">
+      <section className={`${panelClass} p-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-2xl font-extrabold text-text-primary">שאלון מקדים</h2>
           <div className="flex flex-wrap items-center gap-2">
@@ -389,7 +389,7 @@ function Overview({
                     ) : (
                       <dl className="grid gap-3 sm:grid-cols-2">
                         {section.items.map((question) => (
-                          <div key={question.id} className="rounded-xl bg-surface-2 px-3 py-2">
+                          <div key={question.id} className={innerCardClass}>
                             <dt className="text-xs text-text-muted">{question.question_text}</dt>
                             <dd className="mt-1 text-sm font-bold">
                               {String(data[question.field_key] ?? "—")}
@@ -413,14 +413,14 @@ function Overview({
         ) : null}
       </section>
 
-      <section className="dashboard-glass space-y-4 rounded-3xl p-6">
+      <section className={`${panelClass} space-y-4 p-6`}>
         <h2 className="text-2xl font-extrabold text-text-primary">הערכות</h2>
         <EvalGroup title={`ראיונות (${payload.interviews.length + interviewNotes.length})`}>
           {payload.interviews.length === 0 ? (
             interviewNotes.length === 0 ? <p className="text-sm text-text-muted">אין ראיונות.</p> : null
           ) : (
             payload.interviews.map((interview) => (
-              <div key={interview.id} className="rounded-xl bg-surface-2 px-3 py-2">
+              <div key={interview.id} className={innerCardClass}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-bold">{interview.evaluator_name ?? "מעריך"}</p>
                   {interview.recommendation ? (
@@ -449,7 +449,7 @@ function Overview({
             daySelectionNotes.length === 0 ? <p className="text-sm text-text-muted">אין הערכות.</p> : null
           ) : (
             payload.evaluations.map((evaluation) => (
-              <div key={evaluation.id} className="flex items-center justify-between rounded-xl bg-surface-2 px-3 py-2">
+              <div key={evaluation.id} className={`flex items-center justify-between ${innerCardClass}`}>
                 <p className="text-sm font-bold">{evaluation.evaluator_name ?? "מעריך"}</p>
                 <p className="text-lg font-extrabold text-accent-primary">
                   {evaluation.final_score ?? evaluation.weighted_score ?? "—"}
@@ -465,7 +465,7 @@ function Overview({
             prepNotes.length === 0 ? <p className="text-sm text-text-muted">אין הערכות.</p> : null
           ) : (
             payload.prepDays.map((row) => (
-              <div key={row.id} className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+              <div key={row.id} className={`${innerCardClass} text-sm`}>
                 <p className="font-bold">{row.evaluator_name ?? "מעריך"}</p>
                 <p className="mt-1 text-xs text-text-muted">
                   מקרא {row.mikra_score ?? "—"} · שיחה {row.conversation_score ?? "—"} · דינמיקה{" "}
@@ -503,7 +503,7 @@ function Overview({
         ) : null}
       </section>
 
-      <section className="dashboard-glass rounded-3xl p-6">
+      <section className={`${panelClass} p-6`}>
         <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
         {payload.documents.length === 0 ? (
           <p className="mt-2 text-sm text-text-muted">אין מסמכים.</p>
@@ -512,7 +512,7 @@ function Overview({
             {payload.documents.map((document) => (
               <li
                 key={document.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2"
+                className={`flex flex-wrap items-center justify-between gap-2 ${innerCardClass}`}
               >
                 <div>
                   <a
@@ -544,7 +544,7 @@ function Overview({
         )}
       </section>
 
-      <section className="dashboard-glass rounded-3xl p-6">
+      <section className={`${panelClass} p-6`}>
         <h2 className="text-2xl font-extrabold text-text-primary">החלטה סופית</h2>
         <span
           className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold ${STATUS_TONES[payload.candidate.status]}`}
@@ -558,14 +558,14 @@ function Overview({
         )}
       </section>
 
-      <section className="dashboard-glass rounded-3xl p-6">
+      <section className={`${panelClass} p-6`}>
         <h2 className="text-2xl font-extrabold text-text-primary">ציר זמן</h2>
         {payload.timeline.length === 0 ? (
           <p className="mt-2 text-sm text-text-muted">אין אירועים.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {payload.timeline.map((item) => (
-              <li key={item.id} className="rounded-xl bg-surface-2 px-3 py-2">
+              <li key={item.id} className={innerCardClass}>
                 <p className="text-sm font-bold">
                   {TIMELINE_ICONS[item.event_type] ?? "•"} {item.title}
                 </p>
@@ -665,7 +665,7 @@ function CandidateProfileCard({
   };
 
   return (
-    <section className="dashboard-glass rounded-3xl p-6">
+    <section className={`${panelClass} p-6`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-extrabold text-text-primary">תיק מועמד מלא</h2>
@@ -711,7 +711,7 @@ function CandidateProfileCard({
 
       {showCancelPopup ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="dashboard-glass rounded-3xl p-6 max-w-sm w-full mx-4">
+          <div className={`${panelClass} p-6 max-w-sm w-full mx-4`}>
             <p className="text-sm font-bold text-text-primary">בטל שינויים?</p>
             <p className="mt-1 text-xs text-text-muted">השינויים לא נשמרו. האם לבטל עריכה?</p>
             <div className="mt-4 flex gap-2">
@@ -848,14 +848,14 @@ function CandidateProfileCard({
                   <option value="no">{String(label)} - לא</option>
                 </select>
               ))}
-              <div className="sm:col-span-2 rounded-2xl bg-surface-2 p-4">
+              <div className={`sm:col-span-2 ${cardClass}`}>
                 <div className="mb-3 flex items-center gap-2 text-sm font-extrabold text-text-primary">
                   <ClipboardList size={16} />
                   לפני כניסה לבה״ד 1
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {BAHAD1_CHECKLIST.map((item) => (
-                    <label key={item} className="flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2 text-sm font-bold">
+                    <label key={item} className="ui-card flex items-center gap-2 rounded-xl bg-surface-1 px-3 py-2 text-sm font-bold">
                       <input
                         type="checkbox"
                         checked={Boolean(checklist[item])}
@@ -891,7 +891,7 @@ function QuickAssessmentCard({
   const [saving, setSaving] = useState(false);
   if (!canEvaluate) return null;
   return (
-    <section className="dashboard-glass rounded-3xl p-5">
+    <section className={`${panelClass} p-5`}>
       <div className="flex items-center gap-2">
         <Plus size={18} className="text-accent-primary" />
         <h2 className="text-lg font-extrabold text-text-primary">הערכה חדשה</h2>
@@ -975,7 +975,7 @@ function CandidateTasksCard({
   };
 
   return (
-    <section className="dashboard-glass rounded-3xl p-5">
+    <section className={`${panelClass} p-5`}>
       <h2 className="text-lg font-extrabold text-text-primary">משימות מועמד</h2>
       {canEvaluate ? (
         <div className="mt-3 space-y-2">
@@ -1066,7 +1066,7 @@ function AssessmentNoteList({
   return (
     <>
       {notes.map((note) => (
-        <div key={note.id} className="rounded-xl bg-surface-2 px-3 py-2">
+        <div key={note.id} className={innerCardClass}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-bold">{note.actor_name ?? "צוות"}</p>
             {canEdit(note) ? (

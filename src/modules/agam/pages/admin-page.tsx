@@ -16,7 +16,7 @@ import {
   type ExportField,
 } from "@/modules/agam/lib/csv";
 import { CONDITION_OPERATORS, FIELD_TYPES } from "@/modules/agam/lib/questions";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { dividerClass, fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type {
   AgamCandidate,
   AgamConditionOperator,
@@ -211,9 +211,9 @@ function QuestionsTab({
           onChanged();
         }}
       />
-      <div className="dashboard-glass divide-y divide-black/8 rounded-3xl p-4 dark:divide-white/10">
+      <div className={`${panelClass} p-4`}>
         {questions.map((question) => (
-          <div key={question.id} className="space-y-3 py-3">
+          <div key={question.id} className={`space-y-3 py-3 ${dividerClass}`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-bold">{question.question_text}</p>
@@ -280,7 +280,7 @@ function QuestionEditor({
   onSubmit: () => Promise<void>;
 }) {
   return (
-    <div className="dashboard-glass grid gap-3 rounded-3xl p-4 sm:grid-cols-2">
+    <div className={`${panelClass} grid gap-3 p-4 sm:grid-cols-2`}>
       <input
         className={`${fieldClass} sm:col-span-2`}
         placeholder="טקסט שאלה"
@@ -416,7 +416,7 @@ function CriteriaTab({
 
   return (
     <div className="space-y-4">
-      <div className="dashboard-glass rounded-3xl p-4">
+      <div className={`${panelClass} p-4`}>
         <p className={weightSum === 100 ? "text-sm text-emerald-700" : "text-sm text-amber-700"}>
           סכום משקלים פעילים: {weightSum}% {weightSum !== 100 ? "(מומלץ 100%)" : ""}
         </p>
@@ -464,9 +464,9 @@ function CriteriaTab({
           הוספה
         </button>
       </div>
-      <div className="dashboard-glass divide-y divide-black/8 rounded-3xl p-4 dark:divide-white/10">
+      <div className={`${panelClass} p-4`}>
         {criteria.map((row) => (
-          <div key={row.id} className="space-y-3 py-3">
+          <div key={row.id} className={`space-y-3 py-3 ${dividerClass}`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-bold">
@@ -571,7 +571,7 @@ function SettingsTab({
   const [logoUrl, setLogoUrl] = useState(org?.logo_url ?? "/logo-mador-omtz.png");
 
   return (
-    <div className="dashboard-glass space-y-4 rounded-3xl p-6">
+    <div className={`${panelClass} space-y-4 p-6`}>
       <label className="block space-y-2 text-sm font-bold text-text-secondary">
         שם יחידה
         <input className={fieldClass} value={unitName} onChange={(event) => setUnitName(event.target.value)} />
@@ -658,7 +658,7 @@ function ExportTab({
   return (
     <div className="space-y-4">
       {groups.map((group) => (
-        <div key={group.title} className="dashboard-glass space-y-3 rounded-3xl p-6">
+        <div key={group.title} className={`${panelClass} space-y-3 p-6`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-extrabold text-text-primary">{group.title}</h3>
             <div className="flex gap-2">

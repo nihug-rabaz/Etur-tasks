@@ -174,7 +174,7 @@ function CalendarPanel({
   }, [viewYear]);
 
   const navButtonClass =
-    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 transition hover:bg-white/20";
+    "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.25)] transition hover:bg-white/20";
 
   return (
     <div className="agam-date-picker overflow-hidden rounded-2xl border-2 border-accent-primary/20 bg-white dark:bg-[#171923]">
@@ -332,7 +332,7 @@ function CalendarPanel({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-7 border-b border-black/8 bg-[#f4f2fb] dark:border-white/10 dark:bg-[#1f2230]">
+          <div className="ui-divider grid grid-cols-7 bg-[#f4f2fb] dark:bg-[#1f2230]">
             {WEEKDAYS.map((day, index) => (
               <div
                 key={day}
@@ -375,7 +375,7 @@ function CalendarPanel({
         </>
       )}
 
-      <div className="flex items-center justify-between gap-2 border-t border-black/8 bg-surface-2/50 px-3 py-2.5 dark:border-white/10 dark:bg-[#141722]">
+      <div className="ui-divider-top flex items-center justify-between gap-2 bg-surface-2/50 px-3 py-2.5 dark:bg-[#141722]">
         <button
           type="button"
           onClick={onToday}
@@ -393,7 +393,7 @@ function CalendarPanel({
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-bold text-text-secondary transition hover:text-text-primary dark:border-white/12 dark:bg-[#1c1f2b]"
+          className="ui-card inline-flex items-center gap-1 rounded-lg bg-white px-3 py-2 text-xs font-bold text-text-secondary transition hover:text-text-primary dark:bg-[#1c1f2b]"
         >
           <X size={14} />
           סגור
@@ -557,8 +557,8 @@ export function TimelineDatePicker({
           }}
           aria-expanded={open}
           aria-haspopup="dialog"
-          className={`${fieldClass} flex min-h-[3rem] w-full items-center justify-between gap-3 border border-black/8 text-start transition dark:border-white/10 ${
-            open ? "ring-2 ring-accent-primary/40" : "hover:border-accent-primary/30"
+          className={`${fieldClass} flex min-h-[3rem] w-full items-center justify-between gap-3 text-start transition ${
+            open ? "ring-2 ring-accent-primary/40" : ""
           }`}
         >
           <span className={value ? "font-bold text-text-primary" : "text-text-muted"} dir="ltr">

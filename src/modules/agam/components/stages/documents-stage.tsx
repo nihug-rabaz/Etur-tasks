@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ACCEPTED_FILE_TYPES, DOC_TYPES, SOURCE_LABELS, isCustomDocType } from "@/modules/agam/lib/document-types";
 import { documentDownloadHref } from "@/modules/agam/lib/document-download";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, innerCardClass, panelClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamDocument } from "@/modules/agam/types";
 
 const REQUIRED_DOCS = ["חווד 870", "סכמר - רק למי שצריך", "אישור רפואי", "צילום תעודת זהות"];
@@ -62,7 +62,7 @@ export function DocumentsStage({
 
   return (
     <div className="space-y-6">
-      <div className="dashboard-glass rounded-3xl p-6">
+      <div className={`${panelClass} p-6`}>
         <h2 className="text-2xl font-extrabold text-text-primary">תיקיית מסמכים</h2>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {REQUIRED_DOCS.map((type) => {
@@ -81,7 +81,7 @@ export function DocumentsStage({
         </div>
       </div>
       {canEvaluate ? (
-        <div className="dashboard-glass space-y-4 rounded-3xl p-6">
+        <div className={`${panelClass} space-y-4 p-6`}>
           <div>
             <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
             <p className="mt-1 text-sm text-text-muted">ניהול מסמכי המועמד</p>
@@ -131,18 +131,18 @@ export function DocumentsStage({
           </button>
         </div>
       ) : (
-        <div className="dashboard-glass rounded-3xl p-6">
+        <div className={`${panelClass} p-6`}>
           <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
         </div>
       )}
 
-      <div className="dashboard-glass rounded-3xl p-6">
+      <div className={`${panelClass} p-6`}>
         {documents.length === 0 ? (
           <p className="text-sm text-text-muted">אין מסמכים.</p>
         ) : (
           <ul className="space-y-3">
             {documents.map((document) => (
-              <li key={document.id} className="rounded-xl bg-surface-2 p-3">
+              <li key={document.id} className={innerCardClass}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <a

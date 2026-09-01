@@ -19,7 +19,7 @@ import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-pick
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { canModifyTimelineEvent } from "@/modules/agam/lib/permissions";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { dividerTopClass, fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamTimelineEventItem } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
@@ -320,7 +320,7 @@ export function AgamTimelineStrip({
 
   return (
     <>
-      <section className="relative">
+      <section className={`${panelClass} relative p-5`}>
         <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <CalendarDays size={15} className="text-accent-primary" />
@@ -492,7 +492,7 @@ export function AgamTimelineStrip({
             })()}
 
             {canModify(viewEvent) ? (
-              <div className="flex flex-wrap gap-2 border-t border-black/8 pt-4 dark:border-white/10">
+              <div className={`flex flex-wrap gap-2 pt-4 ${dividerTopClass}`}>
                 <button type="button" className={secondaryButtonClass} onClick={() => openEdit(viewEvent)}>
                   <Pencil size={14} />
                   עריכה

@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       where (td.due_date at time zone ${ISRAEL_TZ})::date
             = ((now() at time zone ${ISRAEL_TZ})::date + interval '1 day')::date
         and td.status <> 'completed'
-        and p.telegram_id is not null
+        and p.is_approved = true
     `;
 
     const tomorrowTasks = new Map<
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
   if (isMorningSummaryDue(hour, minute, morningMessageTime)) {
     const linkedUsers = await sql<Array<{ id: string; name: string }>>`
       select id, name from profiles
-      where telegram_id is not null and is_approved = true
+      where is_approved = true
       order by name
     `;
 
@@ -169,7 +169,7 @@ export async function GET(request: Request) {
       where (td.due_date at time zone ${ISRAEL_TZ})::date
             = (now() at time zone ${ISRAEL_TZ})::date
         and td.status <> 'completed'
-        and p.telegram_id is not null
+        and p.is_approved = true
         and p.is_approved = true
       order by p.name, td.due_date asc nulls last, td.title
     `;
@@ -203,7 +203,6 @@ export async function GET(request: Request) {
         and (ce.starts_at at time zone ${ISRAEL_TZ})::date <= (now() at time zone ${ISRAEL_TZ})::date
         and coalesce((ce.ends_at at time zone ${ISRAEL_TZ})::date, (ce.starts_at at time zone ${ISRAEL_TZ})::date)
             >= (now() at time zone ${ISRAEL_TZ})::date
-        and p.telegram_id is not null
         and p.is_approved = true
       order by p.name, ce.starts_at asc, ce.title
     `;

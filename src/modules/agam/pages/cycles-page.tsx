@@ -10,7 +10,7 @@ import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { canEvaluate } from "@/modules/agam/lib/permissions";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCycle } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
@@ -76,7 +76,7 @@ export function AgamCyclesPage() {
       </div>
 
       {cycles.length === 0 ? (
-        <div className="dashboard-glass rounded-3xl p-10 text-center">
+        <div className={`${panelClass} p-10 text-center`}>
           <CalendarDays className="mx-auto text-accent-primary" size={36} />
           <p className="mt-4 text-lg font-extrabold text-text-primary">עדיין אין מחזורים</p>
           <p className="mt-2 text-sm text-text-muted">צרו מחזור ראשון כדי לקבץ מועמדים לפי מועד מיון.</p>
@@ -92,7 +92,7 @@ export function AgamCyclesPage() {
             <Link
               key={cycle.id}
               href={`/agam/cycles/${cycle.id}`}
-              className="dashboard-glass group flex flex-col rounded-3xl p-6 transition hover:-translate-y-0.5 hover:ring-2 hover:ring-accent-primary/30"
+              className={`${panelClass} group flex flex-col p-6 transition hover:-translate-y-0.5 hover:ring-2 hover:ring-accent-primary/30`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-primary/12 text-accent-primary">

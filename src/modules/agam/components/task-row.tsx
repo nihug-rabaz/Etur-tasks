@@ -5,7 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDateTime } from "@/modules/agam/lib/date-format";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, innerCardClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamLinkedTask } from "@/modules/agam/types";
 
 export function AgamTaskRow({
@@ -75,7 +75,7 @@ export function AgamTaskRow({
   };
 
   return (
-    <li className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+    <li className={`${innerCardClass} text-sm`}>
       {editing ? (
         <div className="space-y-2">
           <input className={fieldClass} value={title} onChange={(event) => setTitle(event.target.value)} />

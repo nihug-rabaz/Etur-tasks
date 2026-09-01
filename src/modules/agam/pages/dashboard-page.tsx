@@ -10,7 +10,7 @@ import { AgamTimelineStrip } from "@/modules/agam/components/timeline-strip";
 import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
 import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass, dividerClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamCycle, AgamLinkedTask, AgamOrgSettings, AgamTimelineEventItem } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
@@ -88,7 +88,7 @@ export function AgamDashboardPage({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <article className="dashboard-glass flex flex-col gap-6 rounded-3xl p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+      <article className={`${panelClass} flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8`}>
         <div>
           <p className="text-sm font-bold text-accent-primary">הרבנות הצבאית</p>
           <h1 className="mt-2 text-3xl font-extrabold text-text-primary sm:text-4xl">
@@ -157,7 +157,7 @@ export function AgamDashboardPage({
         }}
       />
 
-      <article className="dashboard-glass rounded-3xl p-6">
+      <article className={`${panelClass} p-6`}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-text-primary">מועמדים אחרונים</h2>
           <Link href="/agam/candidates" className="text-xs font-bold text-accent-primary">
@@ -167,9 +167,9 @@ export function AgamDashboardPage({
         {recent.length === 0 ? (
           <p className="text-sm text-text-muted">אין מועמדים עדיין.</p>
         ) : (
-          <ul className="divide-y divide-black/8 dark:divide-white/10">
+          <ul>
             {recent.map((candidate) => (
-              <li key={candidate.id}>
+              <li key={candidate.id} className={dividerClass}>
                 <Link
                   href={`/agam/candidates/${candidate.id}`}
                   className="flex items-center justify-between gap-3 py-3 transition hover:opacity-80"
@@ -203,7 +203,7 @@ function StatCard({
   value: number;
 }) {
   return (
-    <div className="dashboard-glass rounded-3xl p-5">
+    <div className={`${panelClass} p-5`}>
       <div className="flex items-center justify-between">
         <p className="text-sm text-text-secondary">{label}</p>
         <Icon size={16} className="text-accent-primary" />
@@ -251,7 +251,7 @@ function GeneralTasksCard({
   };
 
   return (
-    <article className="dashboard-glass rounded-3xl p-6">
+    <article className={`${panelClass} p-6`}>
       <h2 className="text-lg font-bold text-text-primary">משימות כלליות</h2>
       {canEdit ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_180px_auto]">

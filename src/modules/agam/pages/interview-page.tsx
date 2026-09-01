@@ -7,7 +7,7 @@ import { AgamQuestionField } from "@/modules/agam/components/question-field";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { groupQuestionsBySection, isQuestionVisible } from "@/modules/agam/lib/questions";
 import { RECOMMENDATIONS } from "@/modules/agam/lib/stages";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamInterview, AgamQuestion, AgamRecommendation } from "@/modules/agam/types";
 
 export function AgamInterviewPage({
@@ -69,7 +69,7 @@ export function AgamInterviewPage({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <div className="dashboard-glass rounded-3xl p-6">
+      <div className={`${panelClass} p-6`}>
         <h1 className="text-3xl font-extrabold text-text-primary">טופס ראיון</h1>
         <Link
           href={`/agam/candidates/${candidateId}?stage=day_selection`}
@@ -82,7 +82,7 @@ export function AgamInterviewPage({
         const visible = section.items.filter((question) => isQuestionVisible(question, data));
         if (visible.length === 0) return null;
         return (
-          <section key={num} className="dashboard-glass space-y-4 rounded-3xl p-6">
+          <section key={num} className={`${panelClass} space-y-4 p-6`}>
             <h2 className="font-bold text-text-primary">{section.name}</h2>
             {visible.map((question) => (
               <AgamQuestionField
@@ -95,7 +95,7 @@ export function AgamInterviewPage({
           </section>
         );
       })}
-      <section className="dashboard-glass space-y-4 rounded-3xl p-6">
+      <section className={`${panelClass} space-y-4 p-6`}>
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           התרשמות והערכת המעריך
           <textarea

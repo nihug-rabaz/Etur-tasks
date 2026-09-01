@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   RECOMMENDATION_TONES,
 } from "@/modules/agam/lib/stages";
-import { primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { innerCardClass, panelClass, primaryButtonClass, secondaryButtonClass, dividerClass, dividerTopClass } from "@/modules/agam/lib/ui";
 import type {
   AgamCandidate,
   AgamCriterion,
@@ -48,7 +48,7 @@ export function DaySelectionStage({
 
   return (
     <div className="space-y-6">
-      <div className="dashboard-glass rounded-3xl p-6">
+      <div className={`${panelClass} p-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-extrabold text-text-primary">יום המיונים</h2>
@@ -65,7 +65,7 @@ export function DaySelectionStage({
             </div>
           ) : null}
         </div>
-        <div className="mt-5 flex gap-1 overflow-x-auto border-b border-border-weak/70">
+        <div className={`mt-5 flex gap-1 overflow-x-auto ${dividerClass}`}>
           {tabs.map((item) => (
             <button
               key={item.id}
@@ -84,7 +84,7 @@ export function DaySelectionStage({
       </div>
 
       {tab === "questionnaire" ? (
-        <section className="dashboard-glass rounded-3xl p-6">
+        <section className={`${panelClass} p-6`}>
           {preQuestions.length === 0 ? (
             <p className="text-sm text-text-muted">אין שאלות מוגדרות.</p>
           ) : (
@@ -112,12 +112,12 @@ export function DaySelectionStage({
             </Link>
           ) : null}
           {interviews.length === 0 ? (
-            <div className="dashboard-glass rounded-3xl p-8 text-center text-sm text-text-muted">
+            <div className={`${panelClass} p-8 text-center text-sm text-text-muted`}>
               אין ראיונות עדיין
             </div>
           ) : (
             interviews.map((interview) => (
-              <article key={interview.id} className="dashboard-glass rounded-3xl p-6">
+              <article key={interview.id} className={`${panelClass} p-6`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-extrabold text-text-primary">
@@ -151,7 +151,7 @@ export function DaySelectionStage({
                 <div className="mt-4 space-y-3">
                   {Object.entries(interview.interview_data ?? {}).map(([key, value]) =>
                     value ? (
-                      <div key={key} className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+                      <div key={key} className={`${innerCardClass} text-sm`}>
                         <p className="text-xs font-bold text-text-muted">
                           {interviewLabelByKey[key] ?? key}
                         </p>
@@ -160,7 +160,7 @@ export function DaySelectionStage({
                     ) : null,
                   )}
                   {interview.evaluator_assessment ? (
-                    <div className="border-t border-border-weak/60 pt-3">
+                    <div className={`pt-3 ${dividerTopClass}`}>
                       <p className="text-xs font-bold text-text-muted">התרשמות המעריך</p>
                       <p className="mt-1 whitespace-pre-wrap text-sm">{interview.evaluator_assessment}</p>
                     </div>
@@ -180,12 +180,12 @@ export function DaySelectionStage({
             </Link>
           ) : null}
           {evaluations.length === 0 ? (
-            <div className="dashboard-glass rounded-3xl p-8 text-center text-sm text-text-muted">
+            <div className={`${panelClass} p-8 text-center text-sm text-text-muted`}>
               אין הערכות עדיין
             </div>
           ) : (
             evaluations.map((evaluation) => (
-              <article key={evaluation.id} className="dashboard-glass rounded-3xl p-6">
+              <article key={evaluation.id} className={`${panelClass} p-6`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-extrabold text-text-primary">
@@ -214,7 +214,7 @@ export function DaySelectionStage({
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {criteria.map((criterion) => (
-                    <div key={criterion.key} className="rounded-xl bg-surface-2 p-3 text-center">
+                    <div key={criterion.key} className={`${innerCardClass} text-center`}>
                       <p className="text-xl font-extrabold">
                         {evaluation.scores_data?.[criterion.key] ?? "—"}
                       </p>
@@ -228,7 +228,7 @@ export function DaySelectionStage({
                   ))}
                 </div>
                 {evaluation.final_feedback ? (
-                  <p className="mt-4 border-t border-border-weak/60 pt-3 text-sm text-text-secondary">
+                  <p className={`mt-4 pt-3 text-sm text-text-secondary ${dividerTopClass}`}>
                     {evaluation.final_feedback}
                   </p>
                 ) : null}

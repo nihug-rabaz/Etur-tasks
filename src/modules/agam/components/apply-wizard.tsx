@@ -5,7 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { AgamPublicChrome } from "@/modules/agam/components/public-chrome";
 import { AgamQuestionField } from "@/modules/agam/components/question-field";
 import { groupQuestionsBySection, isQuestionVisible } from "@/modules/agam/lib/questions";
-import { primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamQuestion } from "@/modules/agam/types";
 
 export function AgamApplyWizard() {
@@ -73,7 +73,7 @@ export function AgamApplyWizard() {
   if (questions.length === 0) {
     return (
       <AgamPublicChrome>
-        <div className="dashboard-glass rounded-3xl p-8 text-center">השאלון אינו זמין כרגע.</div>
+        <div className={`${panelClass} p-8 text-center`}>השאלון אינו זמין כרגע.</div>
       </AgamPublicChrome>
     );
   }
@@ -81,7 +81,7 @@ export function AgamApplyWizard() {
   if (done) {
     return (
       <AgamPublicChrome>
-        <div className="dashboard-glass w-full max-w-md rounded-3xl p-8 text-center">
+        <div className={`${panelClass} w-full max-w-md p-8 text-center`}>
           <CheckCircle2 className="mx-auto text-emerald-600" size={48} />
           <h1 className="mt-4 text-3xl font-extrabold text-text-primary">תודה!</h1>
           <p className="mt-2 text-sm text-text-secondary">
@@ -94,7 +94,7 @@ export function AgamApplyWizard() {
 
   return (
     <AgamPublicChrome>
-      <div className="dashboard-glass w-full max-w-2xl rounded-3xl p-8">
+      <div className={`${panelClass} w-full max-w-2xl p-8`}>
         <p className="text-sm font-bold text-accent-primary">שאלון מקדים</p>
         <h1 className="mt-2 text-3xl font-extrabold text-text-primary">
           שאלון לקראת יום מיונים לקורס קציני דת

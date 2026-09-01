@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CalendarDays, Plus, UserPlus, Users } from "lucide-react";
+import { Archive, CalendarDays, FolderOpen, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
@@ -13,7 +13,7 @@ import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
 import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { cardClass, chipClass, dangerChipClass, fieldClass, innerCardClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamCycle, AgamLinkedTask } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
@@ -61,7 +61,7 @@ export function AgamCycleDetailPage() {
   if (!payload) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <div className="dashboard-glass rounded-3xl p-8 text-center">המחזור לא נמצא.</div>
+        <div className={`${panelClass} p-8 text-center`}>המחזור לא נמצא.</div>
       </div>
     );
   }
@@ -110,7 +110,7 @@ export function AgamCycleDetailPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <header className="dashboard-glass rounded-3xl p-6 sm:p-8">
+      <header className={`${panelClass} p-6 sm:p-8`}>
         <Link href="/agam/cycles" className="text-xs font-bold text-accent-primary">
           חזרה למחזורים
         </Link>
@@ -172,10 +172,10 @@ export function AgamCycleDetailPage() {
         </div>
       </header>
 
-      <section className="dashboard-glass rounded-3xl p-6">
+      <section className={`${panelClass} p-6`}>
         <h2 className="text-xl font-extrabold text-text-primary">מועמדים במחזור</h2>
         {candidates.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-surface-2 px-4 py-10 text-center">
+          <div className={`mt-6 ${cardClass} py-10 text-center`}>
             <p className="text-sm text-text-muted">אין מועמדים במחזור זה עדיין.</p>
             {canEdit ? (
               <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -189,9 +189,9 @@ export function AgamCycleDetailPage() {
             ) : null}
           </div>
         ) : (
-          <ul className="mt-4 divide-y divide-border-weak/60">
+          <ul className="mt-4 space-y-2">
             {candidates.map((candidate) => (
-              <li key={candidate.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <li key={candidate.id} className={`flex flex-wrap items-center justify-between gap-3 ${innerCardClass}`}>
                 <div className="min-w-0">
                   <Link
                     href={`/agam/candidates/${candidate.id}`}
@@ -204,24 +204,23 @@ export function AgamCycleDetailPage() {
                     {candidate.phone ? ` · ${candidate.phone}` : ""}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_TONES[candidate.status]}`}
                   >
                     {STATUS_LABELS[candidate.status]}
                   </span>
-                  <Link
-                    href={`/agam/candidates/${candidate.id}`}
-                    className="text-xs font-bold text-accent-primary"
-                  >
+                  <Link href={`/agam/candidates/${candidate.id}`} className={chipClass}>
+                    <FolderOpen size={13} />
                     תיק
                   </Link>
                   {canEdit ? (
                     <button
                       type="button"
-                      className="text-xs font-bold text-rose-600"
+                      className={dangerChipClass}
                       onClick={() => void removeCandidate(candidate.id)}
                     >
+                      <Trash2 size={13} />
                       הסרה
                     </button>
                   ) : null}
@@ -303,7 +302,7 @@ function CycleTasksCard({
   };
 
   return (
-    <section className="dashboard-glass rounded-3xl p-6">
+    <section className={`${panelClass} p-6`}>
       <h2 className="text-xl font-extrabold text-text-primary">משימות כלל המחזור</h2>
       {canEvaluate ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px_auto]">
@@ -492,7 +491,7 @@ function AssignCandidatesDrawer({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <div className="max-h-72 overflow-y-auto rounded-xl bg-surface-2">
+        <div className="ui-card max-h-72 overflow-y-auto rounded-xl bg-surface-2/80">
           {filtered.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-text-muted">אין מועמדים פנויים לשיוך.</p>
           ) : (

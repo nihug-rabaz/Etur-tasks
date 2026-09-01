@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
+import { cardClass, innerCardClass, panelClass, fieldClass, primaryButtonClass, dividerTopClass } from "@/modules/agam/lib/ui";
 import type { AgamPrepDayEvaluation } from "@/modules/agam/types";
 
 export function PreparationDayStage({
@@ -59,7 +59,7 @@ export function PreparationDayStage({
 
   return (
     <div className="space-y-6">
-      <div className="dashboard-glass space-y-4 rounded-3xl p-6">
+      <div className={`${panelClass} space-y-4 p-6`}>
         <div>
           <h2 className="text-2xl font-extrabold text-text-primary">הערכת היום המכין</h2>
           <p className="mt-1 text-sm text-text-muted">
@@ -88,7 +88,7 @@ export function PreparationDayStage({
               feedback={socialDynamicsFeedback}
               onFeedback={setSocialDynamicsFeedback}
             />
-            <div className="space-y-2 rounded-xl bg-surface-2 p-4">
+            <div className={`${cardClass} space-y-2`}>
               <h3 className="text-sm font-extrabold text-text-primary">
                 התרשמות כללית של המעריך מהמועמד לאורך היום
               </h3>
@@ -132,7 +132,7 @@ function PrepReadOnlyCard({ evaluation }: { evaluation: AgamPrepDayEvaluation })
   ];
 
   return (
-    <article className="dashboard-glass space-y-4 rounded-3xl p-5">
+    <article className={`${panelClass} space-y-4 p-5`}>
       <div>
         <p className="font-extrabold text-text-primary">{evaluation.evaluator_name ?? "מעריך"}</p>
         <p className="text-xs text-text-muted">
@@ -141,26 +141,26 @@ function PrepReadOnlyCard({ evaluation }: { evaluation: AgamPrepDayEvaluation })
       </div>
       <div className="grid grid-cols-3 gap-2">
         {scores.map((score) => (
-          <div key={score.label} className="rounded-xl bg-surface-2 p-3 text-center">
+          <div key={score.label} className={`${innerCardClass} text-center`}>
             <p className="text-xl font-extrabold text-text-primary">{score.value ?? "—"}</p>
             <p className="mt-0.5 text-[11px] text-text-muted">{score.label}</p>
           </div>
         ))}
       </div>
       {evaluation.conversation_feedback ? (
-        <div className="rounded-xl bg-surface-2 p-3 text-sm">
+        <div className={`${innerCardClass} text-sm`}>
           <p className="text-xs font-bold text-text-muted">התרשמות — העברת שיחה</p>
           <p className="mt-1 whitespace-pre-wrap">{evaluation.conversation_feedback}</p>
         </div>
       ) : null}
       {evaluation.social_dynamics_feedback ? (
-        <div className="rounded-xl bg-surface-2 p-3 text-sm">
+        <div className={`${innerCardClass} text-sm`}>
           <p className="text-xs font-bold text-text-muted">התרשמות — דינמיקות חברתיות</p>
           <p className="mt-1 whitespace-pre-wrap">{evaluation.social_dynamics_feedback}</p>
         </div>
       ) : null}
       {evaluation.general_impression ? (
-        <div className="border-t border-border-weak/60 pt-3">
+        <div className={`pt-3 ${dividerTopClass}`}>
           <p className="text-xs font-bold text-text-muted">התרשמות כללית</p>
           <p className="mt-1 whitespace-pre-wrap text-sm">{evaluation.general_impression}</p>
         </div>
@@ -185,7 +185,7 @@ function ScoreBlock({
   onFeedback?: (value: string) => void;
 }) {
   return (
-    <div className="space-y-2 rounded-xl bg-surface-2 p-4">
+    <div className={`${cardClass} space-y-2`}>
       <h3 className="text-sm font-extrabold text-text-primary">{title}</h3>
       {subtitle ? <p className="text-xs text-text-muted">{subtitle}</p> : null}
       <div className="flex items-center gap-3">

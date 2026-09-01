@@ -6,7 +6,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { RECOMMENDATION_TONES, STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type {
   AgamCandidate,
   AgamCandidateStatus,
@@ -100,7 +100,7 @@ export function SummaryDecision({
 
   return (
     <div className="space-y-6">
-      <div className="dashboard-glass space-y-4 rounded-3xl p-6">
+      <div className={`${panelClass} space-y-4 p-6`}>
         <h2 className="text-2xl font-extrabold text-text-primary">החלטת רמ״ד</h2>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={primaryButtonClass} onClick={() => void decide("passed")}>

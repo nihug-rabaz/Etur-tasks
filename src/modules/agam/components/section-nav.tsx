@@ -32,7 +32,7 @@ export function AgamSectionNav({ role }: { role: ModuleRole | null }) {
   const items = ITEMS.filter((item) => (role ? item.roles.includes(role) : false));
 
   return (
-    <div className="sticky top-0 z-20 border-b border-black/8 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10 sm:px-6">
+    <div className="sticky top-0 z-20 bg-background/95 px-4 py-3 shadow-[0_1px_0_rgba(22,24,29,0.04),0_8px_24px_rgba(22,24,29,0.05)] backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.35)] sm:px-6">
       <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2">
         {items.map((item) => {
           const active = isActive(pathname, item.href);

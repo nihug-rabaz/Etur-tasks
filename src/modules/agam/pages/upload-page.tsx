@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ACCEPTED_FILE_TYPES, DOC_TYPES, isCustomDocType } from "@/modules/agam/lib/document-types";
-import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import { AgamPublicChrome } from "@/modules/agam/components/public-chrome";
 
 export function AgamUploadPage() {
@@ -59,7 +59,7 @@ export function AgamUploadPage() {
 
   return (
     <AgamPublicChrome>
-      <div className="dashboard-glass w-full max-w-md space-y-4 rounded-3xl p-8">
+      <div className={`${panelClass} w-full max-w-md space-y-4 p-8`}>
         <h1 className="text-3xl font-extrabold text-text-primary">העלאת מסמכים</h1>
         {done ? (
           <p className="text-sm text-emerald-700">המסמך הועלה בהצלחה.</p>

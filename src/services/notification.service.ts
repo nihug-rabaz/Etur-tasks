@@ -1,4 +1,4 @@
-import { TelegramService } from "@/services/telegram.service";
+import { OneSignalService } from "@/services/onesignal.service";
 import { BaseService } from "@/services/base.service";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { AppUrls } from "@/lib/urls/app-urls";
@@ -47,10 +47,10 @@ interface PendingUserInput {
 }
 
 export class NotificationService extends BaseService {
-  private telegram = new TelegramService();
+  private push = new OneSignalService();
 
   public async notifyTaskOpened(input: TaskNotificationInput): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const recipientIds = await this.withAdminRecipients(input.assigneeIds);
     const text =
       "נפתחה משימה חדשה\n" +
@@ -58,22 +58,26 @@ export class NotificationService extends BaseService {
       `תת-נושא: ${toHebrewSubtopicLabel(input.subtopic)}\n` +
       `תאריך גמר ביצוע: ${this.formatDate(input.dueDate)}` +
       this.taskLinkSuffix(input.taskId);
-    return this.sendToUsers(recipientIds, text, (userId) => `task-opened:${input.taskId}:${userId}`);
+    return this.sendToUsers(recipientIds, text, AppUrls.taskDetail(input.taskId), (userId) =>
+      `task-opened:${input.taskId}:${userId}`,
+    );
   }
 
   public async notifyTaskDueTomorrow(input: TaskNotificationInput): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const text =
       "תזכורת: משימה מסתיימת מחר\n" +
       `משימה: ${input.title}\n` +
       `תת-נושא: ${toHebrewSubtopicLabel(input.subtopic)}\n` +
       `תאריך גמר ביצוע: ${this.formatDate(input.dueDate)}` +
       this.taskLinkSuffix(input.taskId);
-    return this.sendToUsers(input.assigneeIds, text, (userId) => `task-due-tomorrow:${input.taskId}:${userId}`);
+    return this.sendToUsers(input.assigneeIds, text, AppUrls.taskDetail(input.taskId), (userId) =>
+      `task-due-tomorrow:${input.taskId}:${userId}`,
+    );
   }
 
   public async notifyScheduleCreated(input: ScheduleNotificationInput): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const recipientIds = await this.withAdminRecipients(input.participantIds);
     const locationLine = input.location ? `\nמיקום: ${input.location}` : "";
     const text =
@@ -82,11 +86,13 @@ export class NotificationService extends BaseService {
       `תת-נושא: ${toHebrewSubtopicLabel(input.subtopic)}\n` +
       `מועד: ${formatScheduleTime({ starts_at: input.startsAt, ends_at: input.endsAt, all_day: input.allDay })}${locationLine}` +
       this.scheduleLinkSuffix(input.eventId);
-    return this.sendToUsers(recipientIds, text, (userId) => `schedule-created:${input.eventId}:${userId}`);
+    return this.sendToUsers(recipientIds, text, AppUrls.scheduleDetail(input.eventId), (userId) =>
+      `schedule-created:${input.eventId}:${userId}`,
+    );
   }
 
   public async notifyDailyDigest(input: DailyDigestInput): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const lines =
       input.items.length === 0
         ? ["אין משימות או לו״ז להיום."]
@@ -103,7 +109,9 @@ export class NotificationService extends BaseService {
       `בוקר טוב ${input.userName}\n` +
       "הלו״ז שלך להיום:\n" +
       lines.join("\n");
-    return this.sendToUsers([input.userId], text, (userId) => `daily-digest:${input.dayKey}:${userId}`);
+    return this.sendToUsers([input.userId], text, AppUrls.getOrigin() || undefined, (userId) =>
+      `daily-digest:${input.dayKey}:${userId}`,
+    );
   }
 
   public async notifyDailyTaskList(input: {
@@ -127,13 +135,13 @@ export class NotificationService extends BaseService {
   }
 
   public async notifyPendingUser(input: PendingUserInput): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const adminIds = await this.getAdminIds();
     const text =
       "משתמש חדש מחכה להרשאות\n" +
       `שם: ${input.name}\n` +
       `אימייל: ${input.email ?? "לא ידוע"}`;
-    return this.sendToUsers(adminIds, text, (userId) => `pending-user:${input.userId}:${userId}`);
+    return this.sendToUsers(adminIds, text, undefined, (userId) => `pending-user:${input.userId}:${userId}`);
   }
 
   public async notifyTaskCloseRequested(input: {
@@ -142,7 +150,7 @@ export class NotificationService extends BaseService {
     requesterName: string;
     note: string | null;
   }): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const adminIds = await this.getAdminIds();
     const noteLine = input.note ? `\nהערה: ${input.note}` : "";
     const text =
@@ -153,6 +161,7 @@ export class NotificationService extends BaseService {
     return this.sendToUsers(
       adminIds,
       text,
+      AppUrls.taskDetail(input.taskId),
       (userId) => `task-close-requested:${input.taskId}:${userId}:${Date.now()}`,
     );
   }
@@ -164,7 +173,7 @@ export class NotificationService extends BaseService {
     approved: boolean;
     reviewNote?: string | null;
   }): Promise<number> {
-    if (!this.telegram.hasToken()) return 0;
+    if (!this.push.isReady()) return 0;
     const noteLine = input.reviewNote ? `\nהערת מנהל: ${input.reviewNote}` : "";
     const text = input.approved
       ? `בקשת הסגירה אושרה\nמשימה: ${input.title}${this.taskLinkSuffix(input.taskId)}`
@@ -172,6 +181,7 @@ export class NotificationService extends BaseService {
     return this.sendToUsers(
       [input.requesterId],
       text,
+      AppUrls.taskDetail(input.taskId),
       (userId) =>
         `task-close-decision:${input.taskId}:${input.approved ? "ok" : "no"}:${userId}:${Date.now()}`,
     );
@@ -186,7 +196,7 @@ export class NotificationService extends BaseService {
     const db = this.getDb();
     const rows = await db<Array<{ id: string }>>`
       select id from profiles
-      where role = 'admin' and is_approved = true and telegram_id is not null
+      where role = 'admin' and is_approved = true
     `;
     return rows.map((row) => row.id);
   }
@@ -194,6 +204,7 @@ export class NotificationService extends BaseService {
   private async sendToUsers(
     userIds: string[],
     text: string,
+    url: string | undefined,
     keyForUser: (userId: string) => string,
   ): Promise<number> {
     const uniqueIds = [...new Set(userIds.filter(Boolean))];
@@ -202,7 +213,7 @@ export class NotificationService extends BaseService {
       const key = keyForUser(userId);
       if (!(await this.reserveDelivery(key))) continue;
       try {
-        const delivered = await this.telegram.sendToUser(userId, text);
+        const delivered = await this.push.sendTextToUser(userId, text, url);
         if (delivered) {
           sent += 1;
         } else {

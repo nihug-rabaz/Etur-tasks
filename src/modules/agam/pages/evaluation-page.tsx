@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { ScoringEngine } from "@/modules/agam/lib/scoring";
-import { fieldClass, primaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCriterion, AgamDayEvaluation } from "@/modules/agam/types";
 
 export function AgamEvaluationPage({
@@ -75,14 +75,14 @@ export function AgamEvaluationPage({
   if (criteria.length === 0) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <div className="dashboard-glass rounded-3xl p-8">לא הוגדרו קריטריונים. הגדירו בפאנל הניהול.</div>
+        <div className={`${panelClass} p-8`}>לא הוגדרו קריטריונים. הגדירו בפאנל הניהול.</div>
       </div>
     );
   }
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <div className="dashboard-glass rounded-3xl p-6">
+      <div className={`${panelClass} p-6`}>
         <h1 className="text-3xl font-extrabold text-text-primary">הערכת יום מיונים</h1>
         <p className="mt-2 text-sm text-text-secondary">
           ציון משוקלל מחושב אוטומטית:{" "}
@@ -96,7 +96,7 @@ export function AgamEvaluationPage({
         </Link>
       </div>
       {criteria.map((criterion) => (
-        <section key={criterion.id} className="dashboard-glass space-y-3 rounded-3xl p-6">
+        <section key={criterion.id} className={`${panelClass} space-y-3 p-6`}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="font-bold text-text-primary">{criterion.name}</h2>
@@ -130,7 +130,7 @@ export function AgamEvaluationPage({
           />
         </section>
       ))}
-      <section className="dashboard-glass space-y-3 rounded-3xl p-6">
+      <section className={`${panelClass} space-y-3 p-6`}>
         <label className="block text-sm font-bold text-text-secondary">
           ציון סופי ידני 1–100: {finalScore}
           <input

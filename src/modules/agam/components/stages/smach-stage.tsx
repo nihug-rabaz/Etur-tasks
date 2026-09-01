@@ -9,7 +9,7 @@ import {
   THRESHOLD_TESTS,
   type AgamThresholdInputType,
 } from "@/modules/agam/lib/stages";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { cardClass, dividerTopClass, innerCardClass, panelClass, fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamSmachDecision, AgamSmachEvaluation } from "@/modules/agam/types";
 
 type ThresholdEntry = {
@@ -102,7 +102,7 @@ export function SmachStage({
 
   return (
     <div className="space-y-6">
-      <div className="dashboard-glass space-y-6 rounded-3xl p-6">
+      <div className={`${panelClass} space-y-6 p-6`}>
         <div>
           <h2 className="text-2xl font-extrabold text-text-primary">הערכת סמ״ח</h2>
           <p className="mt-1 text-sm text-text-muted">
@@ -117,7 +117,7 @@ export function SmachStage({
                 {THRESHOLD_TESTS.map((test) => {
                   const entry = thresholdTests[test.key];
                   return (
-                    <div key={test.key} className="rounded-2xl bg-surface-2 p-4">
+                    <div key={test.key} className={cardClass}>
                       <p className="text-sm font-bold text-accent-primary">{test.label}</p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <button
@@ -164,11 +164,11 @@ export function SmachStage({
               </div>
             </section>
 
-            <section className="space-y-3">
+            <section className={`space-y-3 pt-5 ${dividerTopClass}`}>
               <h3 className="text-lg font-extrabold text-text-primary">חלק ב׳ — הערכה מקצועית</h3>
               <div className="grid gap-3 md:grid-cols-2">
                 {PROFESSIONAL_CRITERIA.map((criterion) => (
-                  <div key={criterion.key} className="rounded-2xl bg-surface-2 p-4">
+                  <div key={criterion.key} className={cardClass}>
                     <p className="text-sm font-bold text-text-primary">{criterion.label}</p>
                     <div className="mt-3 flex flex-wrap items-center gap-1">
                       {[1, 2, 3, 4, 5].map((value) => (
@@ -209,7 +209,7 @@ export function SmachStage({
               </div>
             </section>
 
-            <section className="space-y-2 rounded-2xl bg-surface-2 p-4">
+            <section className={`${cardClass} space-y-2`}>
               <h3 className="text-lg font-extrabold text-text-primary">חלק ג׳ — ציון משוקלל</h3>
               <p className="text-xs text-text-muted">
                 הזנה ידנית. בעתיד יחושב אוטומטית על בסיס משקלי הקריטריונים.
@@ -229,7 +229,7 @@ export function SmachStage({
               </div>
             </section>
 
-            <div className="space-y-2 rounded-2xl bg-surface-2 p-4">
+            <div className={`${cardClass} space-y-2`}>
               <h3 className="text-lg font-extrabold text-text-primary">
                 חלק ד׳ — נקודות משמעותיות מתוך התהליך
               </h3>
@@ -243,7 +243,7 @@ export function SmachStage({
               />
             </div>
 
-            <section className="space-y-3 rounded-2xl bg-surface-2 p-4">
+            <section className={`${cardClass} space-y-3`}>
               <h3 className="text-lg font-extrabold text-text-primary">חלק ה׳ — החלטת הסמ״ח</h3>
               <div className="flex flex-wrap gap-2">
                 {SMACH_DECISIONS.map((item) => (
@@ -296,7 +296,7 @@ export function SmachReadOnlyCard({ evaluation }: { evaluation: AgamSmachEvaluat
   const feedback = evaluation.professional_feedback ?? {};
 
   return (
-    <article className="dashboard-glass space-y-4 rounded-3xl p-5">
+    <article className={`${panelClass} space-y-4 p-5`}>
       <div>
         <p className="font-extrabold text-text-primary">{evaluation.evaluator_name ?? "מעריך"}</p>
         <p className="text-xs text-text-muted">
@@ -314,7 +314,7 @@ export function SmachReadOnlyCard({ evaluation }: { evaluation: AgamSmachEvaluat
           return (
             <div
               key={test.key}
-              className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm"
+              className={`flex items-center justify-between gap-2 ${innerCardClass} text-sm`}
             >
               <span>{test.label}</span>
               <span className="font-bold">
@@ -339,7 +339,7 @@ export function SmachReadOnlyCard({ evaluation }: { evaluation: AgamSmachEvaluat
       <div className="space-y-2">
         <p className="text-xs font-bold text-text-muted">הערכה מקצועית</p>
         {PROFESSIONAL_CRITERIA.map((criterion) => (
-          <div key={criterion.key} className="rounded-xl bg-surface-2 px-3 py-2">
+          <div key={criterion.key} className={innerCardClass}>
             <div className="flex items-center justify-between gap-2 text-sm">
               <span>{criterion.label}</span>
               <span className="font-bold text-accent-primary">
@@ -356,21 +356,21 @@ export function SmachReadOnlyCard({ evaluation }: { evaluation: AgamSmachEvaluat
       </div>
 
       {evaluation.weighted_score != null ? (
-        <div className="flex items-center justify-between rounded-xl bg-accent-primary/10 px-3 py-2">
+        <div className={`flex items-center justify-between ${innerCardClass} bg-accent-primary/10`}>
           <span className="text-sm font-bold text-accent-primary">ציון משוקלל</span>
           <span className="text-2xl font-extrabold text-accent-primary">{evaluation.weighted_score}</span>
         </div>
       ) : null}
 
       {evaluation.key_points ? (
-        <div className="rounded-xl bg-surface-2 px-3 py-2 text-sm">
+        <div className={`${innerCardClass} text-sm`}>
           <p className="text-xs font-bold text-text-muted">נקודות משמעותיות</p>
           <p className="mt-1 whitespace-pre-wrap">{evaluation.key_points}</p>
         </div>
       ) : null}
 
       {evaluation.decision ? (
-        <div className="border-t border-border-weak/60 pt-3">
+        <div className={`pt-3 ${dividerTopClass}`}>
           <p className="text-sm font-bold">החלטה: {evaluation.decision}</p>
           {evaluation.decision_reasoning ? (
             <p className="mt-1 whitespace-pre-wrap text-sm text-text-muted">

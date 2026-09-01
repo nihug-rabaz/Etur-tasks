@@ -23,7 +23,7 @@ import {
 } from "@/modules/agam/lib/csv";
 import type { AgamQuestion } from "@/modules/agam/types";
 import { STAGE_VIEWS, STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
-import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { chipClass, dangerIconChipClass, fieldClass, iconChipClass, innerCardClass, panelClass, primaryButtonClass, secondaryButtonClass, dividerTopClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamStageKey, AgamStageSummary } from "@/modules/agam/types";
 
 const RANK_COLOR_TONES: Record<string, string> = {
@@ -94,7 +94,7 @@ export function AgamCandidatesTable({
 
   return (
     <div className="space-y-4">
-      <div className="dashboard-glass flex flex-col gap-3 rounded-3xl p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`${panelClass} flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between`}>
         <input
           className={`${fieldClass} sm:max-w-sm`}
           placeholder="חיפוש לפי שם או מספר אישי"
@@ -180,103 +180,80 @@ export function AgamCandidatesTable({
         ))}
       </div>
 
-      <div className="dashboard-glass overflow-hidden rounded-3xl">
+      <div className={`${panelClass} space-y-3 p-4`}>
         {activeView ? (
-          <div className="border-b border-black/8 px-4 py-2 text-xs text-text-muted dark:border-white/10">
+          <p className="px-1 text-xs font-semibold text-text-muted">
             {activeView.columnHeader}
             {loadingSummary ? " · טוען…" : null}
-          </div>
+          </p>
         ) : null}
         {filtered.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-text-muted">לא נמצאו מועמדים.</p>
+          <p className="px-1 py-8 text-sm text-text-muted">לא נמצאו מועמדים.</p>
         ) : (
           filtered.map((candidate) => {
             const summary = stageView === "overview" ? null : summaryCache[stageView]?.[candidate.id];
+            const exceptional =
+              (candidate.planning_index === 1 || candidate.planning_index === 2) &&
+              candidate.dapar != null &&
+              candidate.dapar < 30;
             return (
-              <div
-                key={candidate.id}
-                className="grid gap-3 border-b border-black/8 px-4 py-4 last:border-b-0 dark:border-white/10 md:grid-cols-[1.3fr_1fr_0.7fr_0.7fr_1fr_2fr_auto] md:items-center"
-              >
-                <div>
-                  <p className="font-bold text-text-primary">{candidate.full_name}</p>
-                  {candidate.cycle_name ? (
-                    <p className="text-xs font-semibold text-accent-primary">{candidate.cycle_name}</p>
-                  ) : null}
-                  {candidate.phone ? (
-                    <p className="text-xs text-text-muted" dir="ltr">
-                      {candidate.phone}
-                    </p>
-                  ) : null}
-                </div>
-                <p className="text-sm" dir="ltr">
-                  {candidate.personal_number}
-                </p>
-                <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${STATUS_TONES[candidate.status]}`}>
-                  {STATUS_LABELS[candidate.status]}
-                </span>
-                <div className="flex flex-wrap items-center gap-1">
-                  {candidate.rank_color ? (
-                    <span className={`inline-flex items-center justify-center w-fit rounded-full px-2.5 py-1 text-xs font-bold ${RANK_COLOR_TONES[candidate.rank_color]}`}>
-                      {RANK_COLOR_LABELS[candidate.rank_color]}
-                    </span>
-                  ) : null}
-                  {(candidate.planning_index === 1 || candidate.planning_index === 2) &&
-                  candidate.dapar != null &&
-                  candidate.dapar < 30 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-bold text-rose-700">
-                      <AlertTriangle size={12} />
-                      חריג
-                    </span>
-                  ) : null}
-                </div>
-                <div className="text-sm">
-                  {stageView === "overview" ? (
-                    <span className="text-text-muted">—</span>
-                  ) : summary ? (
-                    <div>
-                      <p className="font-bold">{summary.text}</p>
-                      {summary.detail ? (
-                        <p className="text-xs text-text-muted">{summary.detail}</p>
+              <article key={candidate.id} className={`${innerCardClass} space-y-3`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-base font-extrabold text-text-primary">{candidate.full_name}</p>
+                    <p className="mt-0.5 text-xs font-semibold text-text-muted">
+                      {candidate.cycle_name ? (
+                        <span className="text-accent-primary">{candidate.cycle_name}</span>
                       ) : null}
-                    </div>
-                  ) : (
-                    <span className="text-text-muted">אין נתונים</span>
-                  )}
+                      {candidate.cycle_name ? " · " : null}
+                      <span dir="ltr">{candidate.personal_number}</span>
+                      {candidate.phone ? (
+                        <>
+                          {" · "}
+                          <span dir="ltr">{candidate.phone}</span>
+                        </>
+                      ) : null}
+                    </p>
+                    {stageView !== "overview" ? (
+                      <p className="mt-1 text-sm font-bold text-text-secondary">
+                        {summary ? (
+                          <>
+                            {summary.text}
+                            {summary.detail ? (
+                              <span className="ms-1 text-xs font-semibold text-text-muted">{summary.detail}</span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="font-semibold text-text-muted">אין נתונים</span>
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_TONES[candidate.status]}`}>
+                      {STATUS_LABELS[candidate.status]}
+                    </span>
+                    {candidate.rank_color ? (
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${RANK_COLOR_TONES[candidate.rank_color]}`}>
+                        {RANK_COLOR_LABELS[candidate.rank_color]}
+                      </span>
+                    ) : null}
+                    {exceptional ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-bold text-rose-700">
+                        <AlertTriangle size={12} />
+                        חריג
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-                <CandidateActionBar candidate={candidate} canDecide={isRamad || isAdmin} />
-                <div className="flex gap-1">
-                  {isRamad ? (
-                    <button
-                      type="button"
-                      className={secondaryButtonClass}
-                      onClick={async () => {
-                        await agamFetch(`/api/agam/candidates/${candidate.id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ archived: !candidate.archived }),
-                        });
-                        toast.success(candidate.archived ? "הוחזר מארכיון" : "הועבר לארכיון");
-                        onChanged();
-                      }}
-                    >
-                      <Archive size={14} />
-                    </button>
-                  ) : null}
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      className="inline-flex items-center justify-center rounded-xl bg-rose-500/15 px-3 py-2.5 text-sm font-bold text-rose-700"
-                      onClick={async () => {
-                        if (!confirm("למחוק מועמד?")) return;
-                        await agamFetch(`/api/agam/candidates/${candidate.id}`, { method: "DELETE" });
-                        toast.success("המועמד נמחק");
-                        onChanged();
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  ) : null}
-                </div>
-              </div>
+                <CandidateActionBar
+                  candidate={candidate}
+                  canDecide={isRamad || isAdmin}
+                  isRamad={isRamad}
+                  isAdmin={isAdmin}
+                  onChanged={onChanged}
+                />
+              </article>
             );
           })
         )}
@@ -288,9 +265,15 @@ export function AgamCandidatesTable({
 function CandidateActionBar({
   candidate,
   canDecide,
+  isRamad,
+  isAdmin,
+  onChanged,
 }: {
   candidate: AgamCandidate;
   canDecide: boolean;
+  isRamad: boolean;
+  isAdmin: boolean;
+  onChanged: () => void;
 }) {
   const actions = [
     { href: `/agam/candidates/${candidate.id}`, label: "תיק", icon: UserRound },
@@ -326,39 +309,62 @@ function CandidateActionBar({
   };
 
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className={`flex flex-wrap items-center gap-2 pt-3 ${dividerTopClass}`}>
       {actions.map((action) => {
         const Icon = action.icon;
         if (action.disabled) {
           return (
-            <span
-              key={action.label}
-              className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-[11px] font-bold text-text-muted opacity-50"
-            >
-              <Icon size={12} />
+            <span key={action.label} className={`${chipClass} shrink-0 pointer-events-none opacity-45`}>
+              <Icon size={13} />
               {action.label}
             </span>
           );
         }
         return (
-          <Link
-            key={action.label}
-            href={action.href}
-            className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-[11px] font-bold text-text-primary hover:bg-accent-primary/12 hover:text-accent-primary"
-          >
-            <Icon size={12} />
+          <Link key={action.label} href={action.href} className={`${chipClass} shrink-0`}>
+            <Icon size={13} />
             {action.label}
           </Link>
         );
       })}
-      <button
-        type="button"
-        onClick={handleExport}
-        className="inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2 py-1 text-[11px] font-bold text-text-primary hover:bg-accent-primary/12 hover:text-accent-primary"
-      >
-        <FileSpreadsheet size={12} />
+      <button type="button" onClick={handleExport} className={`${chipClass} shrink-0`}>
+        <FileSpreadsheet size={13} />
         אקסל
       </button>
+      {isRamad ? (
+        <button
+          type="button"
+          className={`${iconChipClass} shrink-0`}
+          title={candidate.archived ? "החזרה מארכיון" : "העברה לארכיון"}
+          aria-label={candidate.archived ? "החזרה מארכיון" : "העברה לארכיון"}
+          onClick={async () => {
+            await agamFetch(`/api/agam/candidates/${candidate.id}`, {
+              method: "PATCH",
+              body: JSON.stringify({ archived: !candidate.archived }),
+            });
+            toast.success(candidate.archived ? "הוחזר מארכיון" : "הועבר לארכיון");
+            onChanged();
+          }}
+        >
+          <Archive size={14} />
+        </button>
+      ) : null}
+      {isAdmin ? (
+        <button
+          type="button"
+          className={`${dangerIconChipClass} shrink-0`}
+          title="מחיקת מועמד"
+          aria-label="מחיקת מועמד"
+          onClick={async () => {
+            if (!confirm("למחוק מועמד?")) return;
+            await agamFetch(`/api/agam/candidates/${candidate.id}`, { method: "DELETE" });
+            toast.success("המועמד נמחק");
+            onChanged();
+          }}
+        >
+          <Trash2 size={14} />
+        </button>
+      ) : null}
     </div>
   );
 }

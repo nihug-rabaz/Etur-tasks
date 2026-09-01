@@ -1,13 +1,13 @@
 import { BaseService } from "@/services/base.service";
-import { TelegramService } from "@/services/telegram.service";
+import { OneSignalService } from "@/services/onesignal.service";
+import { AppUrls } from "@/lib/urls/app-urls";
 import { APPROVAL_STATUS_LABELS } from "@/modules/dovrut/lib/approval-flows";
 import type { DovrutApprovalStatus, DovrutConcept } from "@/modules/dovrut/types";
 
 export class DovrutApprovalReminderService extends BaseService {
-  private readonly telegram = new TelegramService();
+  private readonly push = new OneSignalService();
 
-  // Sends Telegram reminders for items waiting at a given approval step.
-  public async sendTelegramReminders(
+  public async sendPushReminders(
     approvalStatus: Extract<
       DovrutApprovalStatus,
       "waiting_branch_head" | "waiting_deputy_commander" | "waiting_chief_rabbi"
@@ -38,15 +38,21 @@ export class DovrutApprovalReminderService extends BaseService {
       "לאישור: /dovrut/approvals",
     ].join("\n");
 
-    let sent = 0;
-    for (const userId of userIds) {
-      try {
-        const ok = await this.telegram.sendToUser(userId, text);
-        if (ok) sent += 1;
-      } catch {
-        // continue other recipients
-      }
-    }
-    return { sent, pendingCount: pending.length };
+    const origin = AppUrls.getOrigin();
+    const url = origin ? `${origin}/dovrut/approvals` : undefined;
+
+    const stats = await this.push.sendDirectMessages(userIds, text, url);
+    return { sent: stats.sent, pendingCount: pending.length };
+  }
+
+  /** @deprecated Use sendPushReminders */
+  public async sendTelegramReminders(
+    approvalStatus: Extract<
+      DovrutApprovalStatus,
+      "waiting_branch_head" | "waiting_deputy_commander" | "waiting_chief_rabbi"
+    >,
+    userIds: string[],
+  ): Promise<{ sent: number; pendingCount: number }> {
+    return this.sendPushReminders(approvalStatus, userIds);
   }
 }

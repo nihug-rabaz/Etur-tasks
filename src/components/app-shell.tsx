@@ -6,7 +6,7 @@ import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ImpersonationBanner, type ImpersonationViewState } from "@/components/admin/impersonation-banner";
 import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { TelegramNotificationsPanel } from "@/components/notifications/telegram-notifications-panel";
+import { PushNotificationsPanel } from "@/components/notifications/push-notifications-panel";
 import { AdminMessageComposer } from "@/components/notifications/admin-message-composer";
 import { CloseRequestsProvider } from "@/components/tasks/close-requests-context";
 import { AdminCloseRequestsInbox } from "@/components/tasks/admin-close-requests-inbox";
@@ -288,7 +288,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <AdminMessageComposer iconOnly />
               ) : null}
               {showTasksChrome ? (
-                <TelegramNotificationsPanel isAdmin={isRealAdmin && !isImpersonating} />
+                <PushNotificationsPanel isAdmin={isRealAdmin && !isImpersonating} />
               ) : null}
             </div>
           </div>

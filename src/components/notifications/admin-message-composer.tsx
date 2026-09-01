@@ -36,9 +36,8 @@ function buildItemUrl(item: LinkedItem): string {
 interface Recipient {
   id: string;
   name: string;
-  username: string | null;
   avatar: string | null;
-  linkedAt: string | null;
+  pushReady?: boolean;
 }
 
 type Mode = "selected" | "all";
@@ -48,7 +47,7 @@ interface AdminMessageComposerProps {
   triggerLabel?: string;
 }
 
-export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הודעה בטלגרם" }: AdminMessageComposerProps) {
+export function AdminMessageComposer({ iconOnly = false, triggerLabel = "שליחת הודעה" }: AdminMessageComposerProps) {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
@@ -103,7 +102,7 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
     if (!open) return;
     setLoading(true);
     let cancelled = false;
-    fetch("/api/telegram/recipients")
+    fetch("/api/notifications/recipients")
       .then((response) => (response.ok ? response.json() : { recipients: [] }))
       .then((data) => {
         if (cancelled) return;
@@ -130,7 +129,7 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return recipients;
-    return recipients.filter((r) => `${r.name} ${r.username ?? ""}`.toLowerCase().includes(q));
+    return recipients.filter((r) => r.name.toLowerCase().includes(q));
   }, [recipients, query]);
 
   const toggle = useCallback((id: string) => {
@@ -189,11 +188,12 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
     try {
       const linkBlock = attached ? `${attached.title}\n${buildItemUrl(attached)}` : "";
       const composed = [message.trim(), linkBlock].filter(Boolean).join("\n\n");
-      const endpoint = mode === "all" ? "/api/telegram/broadcast" : "/api/telegram/direct";
+      const attachedUrl = attached ? buildItemUrl(attached) : undefined;
+      const endpoint = mode === "all" ? "/api/notifications/broadcast" : "/api/notifications/direct";
       const body =
         mode === "all"
-          ? { message: composed }
-          : { message: composed, userIds: Array.from(selected) };
+          ? { message: composed, url: attachedUrl }
+          : { message: composed, userIds: Array.from(selected), url: attachedUrl };
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,7 +201,7 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        toast.error(data?.error === "Telegram bot not configured" ? "בוט הטלגרם אינו מוגדר" : "שליחת ההודעה נכשלה");
+        toast.error(data?.error === "OneSignal not configured" ? "OneSignal אינו מוגדר" : "שליחת ההודעה נכשלה");
         return;
       }
       toast.success(`ההודעה נשלחה ל-${data.sent ?? 0} מתוך ${data.total ?? 0} משתמשים`);
@@ -267,8 +267,8 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
                           <Send size={20} />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-base font-black leading-tight">שליחת הודעה בטלגרם</p>
-                          <p className="text-xs font-medium text-white/80">הודעה פרטית למשתמשים נבחרים או לכולם</p>
+                          <p className="text-base font-black leading-tight">שליחת הודעת push</p>
+                          <p className="text-xs font-medium text-white/80">הודעה למשתמשים עם התראות פעילות</p>
                         </div>
                         <button
                           type="button"
@@ -343,7 +343,7 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
                                 </div>
                               ) : filtered.length === 0 ? (
                                 <div className="px-3 py-8 text-center text-sm text-text-muted">
-                                  {recipients.length === 0 ? "אין משתמשים מחוברים לטלגרם." : "לא נמצאו תוצאות."}
+                                  {recipients.length === 0 ? "אין משתמשים עם התראות פעילות." : "לא נמצאו תוצאות."}
                                 </div>
                               ) : (
                                 filtered.map((r) => {
@@ -365,9 +365,11 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
                                       </span>
                                       <span className="min-w-0 flex-1">
                                         <span className="block truncate text-sm font-semibold text-text-primary">{r.name}</span>
-                                        {r.username ? (
-                                          <span className="block truncate text-xs text-text-muted">@{r.username}</span>
-                                        ) : null}
+                                        {r.pushReady ? (
+                                          <span className="block truncate text-xs text-emerald-600 dark:text-emerald-300">התראות פעילות</span>
+                                        ) : (
+                                          <span className="block truncate text-xs text-text-muted">ללא התראות</span>
+                                        )}
                                       </span>
                                       <span
                                         className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition ${
@@ -388,7 +390,7 @@ export function AdminMessageComposer({ iconOnly = false, triggerLabel = "הוד�
                               <CheckCheck size={18} />
                             </span>
                             <p className="text-sm font-semibold text-text-primary">
-                              ההודעה תישלח לכל {recipients.length} המשתמשים המחוברים לטלגרם.
+                              ההודעה תישלח לכל המשתמשים עם התראות push פעילות.
                             </p>
                           </div>
                         )}
