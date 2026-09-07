@@ -63,8 +63,13 @@ export class AgamAccessService {
 
   public roleLabel(role: ModuleRole): string {
     if (role === "admin") return "מנהל";
-    if (role === "ramad") return "רמ״ד אומ״ץ";
+    if (role === "ramad") return "מנהל";
     if (role === "viewer") return "צופה";
-    return "מעריך";
+    return "ממיין";
+  }
+
+  /** Screener = evaluator user role */
+  public canScreen(role: ModuleRole): boolean {
+    return role === "user";
   }
 }

@@ -61,8 +61,8 @@ export function PreparationDayStage({
     <div className="space-y-6">
       <div className={`${panelClass} space-y-4 p-6`}>
         <div>
-          <h2 className="text-2xl font-extrabold text-text-primary">הערכת היום המכין</h2>
-          <p className="mt-1 text-sm text-text-muted">
+          <h2 className="text-sm font-bold text-text-primary">הערכת היום המכין</h2>
+          <p className="mt-1 text-xs text-text-muted">
             ההערכה שלך כמעריך. כל מעריך ממלא הערכה נפרדת.
           </p>
         </div>

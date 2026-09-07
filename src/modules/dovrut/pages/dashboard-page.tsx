@@ -71,8 +71,8 @@ export function DovrutDashboardPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-3 py-4 sm:gap-6 sm:px-6 sm:py-6">
       <div>
-        <h1 className="text-xl font-bold text-text-primary sm:text-2xl">דוברות</h1>
-        <p className="mt-1 text-sm text-text-secondary">קמפיינים, פרויקטים ואייטמים פעילים</p>
+        <h1 className="text-2xl font-black tracking-tight text-text-primary sm:text-4xl">דוברות</h1>
+        <p className="mt-1 text-xs font-medium text-text-secondary sm:text-sm">קמפיינים, פרויקטים ואייטמים פעילים</p>
       </div>
 
       <DovrutDashboardSearch />
@@ -91,7 +91,7 @@ export function DovrutDashboardPage() {
           <Link
             key={item.label}
             href={item.href}
-            className="rounded-2xl border border-black/8 bg-white p-3 transition hover:border-violet-300 dark:border-white/10 dark:bg-[#161922] sm:p-4"
+            className="dashboard-glass rounded-3xl p-3 transition hover:ring-2 hover:ring-accent-primary/25 sm:p-4"
           >
             <p className="text-xs font-semibold text-text-muted">{item.label}</p>
             <p className="mt-1 text-2xl font-extrabold text-text-primary">{item.value}</p>
@@ -156,10 +156,10 @@ function ActiveList({
   rows: Array<{ id: string; title: string; href: string; meta?: string | null }>;
 }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+    <section className="min-w-0 overflow-hidden dashboard-glass rounded-3xl p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-sm font-extrabold text-text-primary">{title}</h2>
-        <Link href={href} className="shrink-0 text-[11px] font-bold text-violet-700">
+        <Link href={href} className="shrink-0 text-[11px] font-bold text-accent-primary">
           הכל →
         </Link>
       </div>
@@ -168,7 +168,7 @@ function ActiveList({
           <li key={row.id} className="min-w-0">
             <Link
               href={row.href}
-              className="block min-w-0 overflow-hidden rounded-xl bg-slate-50 px-3 py-2.5 hover:bg-slate-100 dark:bg-slate-800/70 dark:hover:bg-slate-800"
+              className="block min-w-0 overflow-hidden rounded-xl bg-surface-2/50 px-3 py-2.5 hover:bg-surface-2/70"
             >
               <p className="line-clamp-3 break-words text-sm font-bold leading-snug text-text-primary">{row.title}</p>
               {row.meta ? (

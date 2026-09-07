@@ -71,12 +71,12 @@ export function ProjectCreateForm({
         value={name}
         onChange={(event) => setName(event.target.value)}
         placeholder="שם הפרויקט"
-        className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+        className="w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
       />
       <select
         value={status}
         onChange={(event) => setStatus(event.target.value as DovrutProjectStatus)}
-        className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+        className="w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
       >
         <option value="active">פעיל</option>
         <option value="draft">טיוטה</option>
@@ -85,9 +85,9 @@ export function ProjectCreateForm({
       <select
         value={campaignId}
         onChange={(event) => setCampaignId(event.target.value)}
-        className={`w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800 ${
-          layout === "grid" ? "sm:col-span-2" : ""
-        }`}
+        className={`w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30 ${
+ layout === "grid" ? "sm:col-span-2" : ""
+ }`}
       >
         <option value="">ללא קמפיין</option>
         {campaigns.map((campaign) => (
@@ -106,17 +106,17 @@ export function ProjectCreateForm({
         value={description}
         onChange={(event) => setDescription(event.target.value)}
         placeholder="תיאור"
-        className={`min-h-20 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800 ${
-          layout === "grid" ? "sm:col-span-2" : "min-h-24"
-        }`}
+        className={`min-h-20 w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30 ${
+ layout === "grid" ? "sm:col-span-2" : "min-h-24"
+ }`}
       />
       <button
         type="button"
         disabled={saving || !name.trim()}
         onClick={() => void submit()}
-        className={`rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40 ${
-          layout === "grid" ? "sm:col-span-2 w-fit" : ""
-        }`}
+        className={`rounded-xl bg-accent-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-40 ${
+ layout === "grid" ? "sm:col-span-2 w-fit" : ""
+ }`}
       >
         {saving ? "שומר…" : "צור פרויקט"}
       </button>

@@ -54,7 +54,10 @@ export async function proxy(req: NextRequest) {
     pathname === "/agam/apply" ||
     pathname.startsWith("/agam/apply/") ||
     pathname === "/agam/upload" ||
-    pathname.startsWith("/agam/upload/");
+    pathname.startsWith("/agam/upload/") ||
+    pathname === "/agam/portal" ||
+    pathname.startsWith("/agam/portal/") ||
+    pathname.startsWith("/api/agam/public/");
 
   if (!token && !isPublicAuthPath) {
     const loginUrl = new URL("/login", req.nextUrl.origin);

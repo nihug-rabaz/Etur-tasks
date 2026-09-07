@@ -52,7 +52,7 @@ export function DovrutProjectsPage() {
         <div>
           <h1 className="text-xl font-bold text-text-primary">פרויקטים תקשורתיים</h1>
           <p className="mt-1 text-sm text-text-muted">תחת קמפיין · יצירה מהכפתור +</p>
-          <Link href="/dovrut/projects/archive" className="mt-2 inline-block text-xs font-bold text-violet-700">
+          <Link href="/dovrut/projects/archive" className="mt-2 inline-block text-xs font-bold text-accent-primary">
             לארכיון פרויקטים →
           </Link>
         </div>
@@ -70,21 +70,21 @@ export function DovrutProjectsPage() {
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder="חיפוש פרויקט"
-        className="w-full rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
+        className="w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm outline-none"
       />
       <ul className="space-y-2">
         {filtered.map((project) => (
           <li key={project.id} className="min-w-0">
             <Link
               href={`/dovrut/projects/${project.id}`}
-              className="block min-w-0 overflow-hidden rounded-2xl border border-black/8 bg-white px-4 py-3 transition hover:border-violet-300 dark:border-white/10 dark:bg-[#161922]"
+              className="block min-w-0 overflow-hidden rounded-2xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3 transition hover:ring-2 hover:ring-accent-primary/25"
             >
               <div className="flex items-start justify-between gap-3">
                 <h3 className="min-w-0 break-words text-sm font-extrabold text-text-primary">{project.name}</h3>
                 <span className="shrink-0 text-[11px] font-bold text-text-muted">{project.status}</span>
               </div>
               {project.campaign_name ? (
-                <p className="mt-0.5 text-[11px] font-semibold text-violet-700">
+                <p className="mt-0.5 text-[11px] font-semibold text-accent-primary">
                   קמפיין · {project.campaign_name}
                 </p>
               ) : null}

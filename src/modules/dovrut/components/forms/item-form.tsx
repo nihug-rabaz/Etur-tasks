@@ -122,17 +122,17 @@ export function ItemCreateForm({
         value={name}
         onChange={(event) => setName(event.target.value)}
         placeholder="שם האייטם"
-        className={`w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800 ${
-          layout === "grid" ? "sm:col-span-2" : ""
-        }`}
+        className={`w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30 ${
+ layout === "grid" ? "sm:col-span-2" : ""
+ }`}
       />
       {defaultProjectId ? null : (
         <select
           value={projectId}
           onChange={(event) => setProjectId(event.target.value)}
-          className={`w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800 ${
-            layout === "grid" ? "sm:col-span-2" : ""
-          }`}
+          className={`w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30 ${
+ layout === "grid" ? "sm:col-span-2" : ""
+ }`}
         >
           <option value="">בחרו פרויקט</option>
           {projects.map((project) => (
@@ -145,7 +145,7 @@ export function ItemCreateForm({
       <select
         value={type}
         onChange={(event) => setType(event.target.value as DovrutConceptType)}
-        className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+        className="w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
       >
         <option value="article_interview">כתבה / ראיון</option>
         <option value="social_media">רשתות חברתיות</option>
@@ -168,18 +168,18 @@ export function ItemCreateForm({
             value={mediaOutlet}
             onChange={(event) => setMediaOutlet(event.target.value)}
             placeholder="מערכת"
-            className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+            className="w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
           />
           <input
             value={interviewer}
             onChange={(event) => setInterviewer(event.target.value)}
             placeholder="שם המראיין"
-            className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+            className="w-full rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
           />
           <div
-            className={`space-y-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-900/50 ${
-              layout === "grid" ? "sm:col-span-2" : ""
-            }`}
+            className={`space-y-2 rounded-xl bg-surface-2/50 p-3 ${
+ layout === "grid" ? "sm:col-span-2" : ""
+ }`}
           >
             <p className="text-xs font-bold text-text-secondary">אישורים נדרשים</p>
             <label className="flex items-center gap-2 text-sm">
@@ -232,9 +232,9 @@ export function ItemCreateForm({
         type="button"
         disabled={saving || !name.trim() || !projectId}
         onClick={() => void submit()}
-        className={`rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40 ${
-          layout === "grid" ? "sm:col-span-2 w-fit" : ""
-        }`}
+        className={`rounded-xl bg-accent-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-40 ${
+ layout === "grid" ? "sm:col-span-2 w-fit" : ""
+ }`}
       >
         {saving ? "שומר…" : "צור אייטם"}
       </button>

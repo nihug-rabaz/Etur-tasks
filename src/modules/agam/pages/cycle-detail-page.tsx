@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CalendarDays, FolderOpen, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { Archive, CalendarDays, Flag, FolderOpen, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
+import { CreateAgamTaskDrawer } from "@/modules/agam/components/create-task-drawer";
 import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
@@ -109,7 +110,7 @@ export function AgamCycleDetailPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="flex w-full flex-col gap-5 px-3 py-5 sm:px-4 lg:px-5">
       <header className={`${panelClass} p-6 sm:p-8`}>
         <Link href="/agam/cycles" className="text-xs font-bold text-accent-primary">
           חזרה למחזורים
@@ -130,6 +131,10 @@ export function AgamCycleDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href={`/agam/cycles/${id}/bahad1`} className={secondaryButtonClass}>
+              <Flag size={16} />
+              הכנות לבה״ד 1
+            </Link>
             {canEdit ? (
               <>
                 <button type="button" className={secondaryButtonClass} onClick={() => setEditOpen(true)}>
@@ -143,6 +148,11 @@ export function AgamCycleDetailPage() {
                   <Plus size={16} />
                   מועמד חדש
                 </button>
+                <CreateAgamTaskDrawer
+                  cycleId={cycle.id}
+                  cycleName={cycle.name}
+                  triggerClassName={secondaryButtonClass}
+                />
               </>
             ) : null}
             {canDelete ? (
@@ -380,7 +390,7 @@ function EditCycleDrawer({
 
   return (
     <Drawer open={open} onClose={() => onOpenChange(false)} title="עריכת מחזור">
-      <div className="space-y-4 p-1">
+      <div className="space-y-4">
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           שם
           <input className={fieldClass} value={name} onChange={(event) => setName(event.target.value)} />
@@ -407,7 +417,7 @@ function EditCycleDrawer({
         </label>
         <button
           type="button"
-          className={primaryButtonClass}
+          className={`${primaryButtonClass} w-full`}
           disabled={saving || name.trim().length < 2 || !cycleDate}
           onClick={() => void submit()}
         >
@@ -484,14 +494,14 @@ function AssignCandidatesDrawer({
       title="שיוך מועמדים קיימים"
       subtitle="מועמדים שעדיין לא משויכים למחזור"
     >
-      <div className="space-y-4 p-1">
+      <div className="space-y-4">
         <input
           className={fieldClass}
           placeholder="חיפוש לפי שם או מספר אישי"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <div className="ui-card max-h-72 overflow-y-auto rounded-xl bg-surface-2/80">
+        <div className="ui-card max-h-72 overflow-hidden rounded-2xl bg-surface-2/80">
           {filtered.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-text-muted">אין מועמדים פנויים לשיוך.</p>
           ) : (
@@ -501,7 +511,7 @@ function AssignCandidatesDrawer({
                 <button
                   key={row.id}
                   type="button"
-                  className={`flex w-full items-center justify-between px-3 py-2.5 text-start text-sm ${
+                  className={`ui-list-row flex w-full items-center justify-between px-3.5 py-3 text-start text-sm transition hover:bg-surface-1/80 ${
                     checked ? "bg-accent-primary/12 font-bold text-accent-primary" : "text-text-primary"
                   }`}
                   onClick={() => toggle(row.id)}
@@ -517,7 +527,7 @@ function AssignCandidatesDrawer({
         </div>
         <button
           type="button"
-          className={primaryButtonClass}
+          className={`${primaryButtonClass} w-full`}
           disabled={saving || selected.length === 0}
           onClick={() => void submit()}
         >

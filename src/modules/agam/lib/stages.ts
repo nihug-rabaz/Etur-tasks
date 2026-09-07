@@ -42,9 +42,9 @@ export const STATUS_LABELS: Record<string, string> = {
 };
 
 export const STATUS_TONES: Record<string, string> = {
-  pending: "bg-amber-500/15 text-amber-800 dark:text-amber-100",
-  passed: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-100",
-  not_passed: "bg-rose-500/15 text-rose-800 dark:text-rose-100",
+  pending: "bg-[var(--agam-orange-soft,#fff4e8)] text-text-primary ring-1 ring-[color-mix(in_srgb,#fb923c_22%,transparent)]",
+  passed: "bg-surface-2 text-text-primary",
+  not_passed: "bg-surface-2 text-text-primary",
 };
 
 export type AgamThresholdInputType = "score" | "time" | "count";

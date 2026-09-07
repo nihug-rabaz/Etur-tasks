@@ -22,17 +22,17 @@ const ACTIONS: Array<{
   {
     id: "campaign",
     label: "קמפיין",
-    className: "bg-violet-600 shadow-[0_12px_30px_-8px_rgba(124,58,237,0.55)]",
+    className: "bg-accent-primary shadow-[0_12px_30px_-8px_rgba(139,92,246,0.55)]",
   },
   {
     id: "project",
     label: "פרויקט",
-    className: "bg-indigo-600 shadow-[0_12px_30px_-8px_rgba(79,70,229,0.55)]",
+    className: "bg-accent-cyan shadow-[0_12px_30px_-8px_rgba(34,184,207,0.55)]",
   },
   {
     id: "item",
     label: "אייטם",
-    className: "bg-fuchsia-600 shadow-[0_12px_30px_-8px_rgba(192,38,211,0.55)]",
+    className: "bg-gradient-to-l from-accent-primary to-accent-cyan shadow-[0_12px_30px_-8px_rgba(139,92,246,0.45)]",
   },
   {
     id: "task",

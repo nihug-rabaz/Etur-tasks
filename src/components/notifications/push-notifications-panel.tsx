@@ -229,7 +229,7 @@ function AdminMorningTimeSetting() {
     let cancelled = false;
     const load = async () => {
       try {
-        const response = await fetch("/api/telegram/morning-time");
+        const response = await fetch("/api/notifications/morning-time");
         if (!response.ok) return;
         const data = (await response.json()) as { time?: string };
         if (!cancelled && data.time) setTime(data.time);
@@ -247,7 +247,7 @@ function AdminMorningTimeSetting() {
     setSaving(true);
     setSaved(false);
     try {
-      const response = await fetch("/api/telegram/morning-time", {
+      const response = await fetch("/api/notifications/morning-time", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ time }),

@@ -66,6 +66,7 @@ const patchSchema = z.object({
   ramad_notes: z.string().optional(),
   command: z.string().nullable().optional(),
   direct_commander_name: z.string().nullable().optional(),
+  direct_commander_role: z.string().nullable().optional(),
   gaps: z.string().nullable().optional(),
   planning_index: z.number().int().nullable().optional(),
   dapar: z.number().int().nullable().optional(),
@@ -124,6 +125,7 @@ export async function PATCH(
   const profilePayload = {
     command: parsed.data.command,
     direct_commander_name: parsed.data.direct_commander_name,
+    direct_commander_role: parsed.data.direct_commander_role,
     gaps: parsed.data.gaps,
     planning_index: parsed.data.planning_index,
     dapar: parsed.data.dapar,

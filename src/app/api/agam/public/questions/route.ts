@@ -8,7 +8,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "יותר מדי בקשות" }, { status: 429 });
   }
   try {
-    const questions = await new AgamQuestionService().listActive("pre_screening");
+    const questions = await new AgamQuestionService().listActive("pre_screening", {
+      includeStaffOnly: false,
+    });
     return NextResponse.json({ questions });
   } catch {
     return NextResponse.json({ questions: [] });

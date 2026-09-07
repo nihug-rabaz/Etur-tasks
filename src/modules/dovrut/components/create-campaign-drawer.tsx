@@ -31,7 +31,7 @@ export function CreateCampaignDrawer({
           type="button"
           dir="rtl"
           onClick={() => setOpen(true)}
-          className="inline-flex w-fit items-center gap-2 rounded-full bg-violet-600 px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(124,58,237,0.55)] transition hover:brightness-105"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-accent-primary px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(139,92,246,0.55)] transition hover:brightness-105"
         >
           קמפיין
           <Plus size={16} />

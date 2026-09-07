@@ -51,13 +51,13 @@ export function DovrutNewsPage() {
           value={q}
           onChange={(event) => setQ(event.target.value)}
           placeholder="מילת חיפוש מדויקת"
-          className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
+          className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm outline-none"
         />
         <button
           type="button"
           disabled={loading}
           onClick={() => void search(1)}
-          className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white"
+          className="rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white"
         >
           {loading ? "…" : "חפש"}
         </button>
@@ -67,13 +67,13 @@ export function DovrutNewsPage() {
         {articles.map((article) => (
           <li
             key={article.id}
-            className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]"
+            className="dashboard-glass rounded-3xl p-4"
           >
             <a
               href={article.url}
               target="_blank"
               rel="noreferrer"
-              className="text-sm font-extrabold text-violet-700 hover:underline"
+              className="text-sm font-extrabold text-accent-primary hover:underline"
             >
               {article.title}
             </a>
@@ -91,7 +91,7 @@ export function DovrutNewsPage() {
             type="button"
             disabled={loading || start <= 1}
             onClick={() => void search(Math.max(1, start - 10))}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold disabled:opacity-40 dark:bg-slate-800"
+            className="rounded-xl bg-surface-2 px-3 py-2 text-xs font-bold disabled:opacity-40"
           >
             הקודם
           </button>
@@ -99,7 +99,7 @@ export function DovrutNewsPage() {
             type="button"
             disabled={loading || !hasNext}
             onClick={() => void search(nextStart)}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold disabled:opacity-40 dark:bg-slate-800"
+            className="rounded-xl bg-surface-2 px-3 py-2 text-xs font-bold disabled:opacity-40"
           >
             הבא
           </button>

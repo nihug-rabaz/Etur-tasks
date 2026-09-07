@@ -53,31 +53,37 @@ export function Drawer({ open, onClose, title, subtitle, customHeader, children 
             transition={{ duration: 0.2 }}
           />
           <motion.aside
-            className="fixed right-0 top-0 z-[110] flex h-dvh max-h-dvh w-full max-w-xl flex-col overflow-hidden border-s border-border-weak bg-surface-1 shadow-[0_0_0_1px_rgba(0,0,0,0.06),-24px_0_48px_rgba(0,0,0,0.18)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06),-24px_0_48px_rgba(0,0,0,0.45)]"
+            role="dialog"
+            aria-modal="true"
+            aria-label={typeof title === "string" ? title : "תפריט צד"}
+            className="ui-drawer fixed inset-y-0 right-0 z-[110] flex h-dvh max-h-dvh w-full max-w-xl flex-col overflow-hidden bg-surface-1"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6">
-              <div className="mb-6 flex shrink-0 items-start justify-between gap-3 border-b border-border-weak/70 pb-5">
-                <div className="min-w-0 flex-1 pe-2">
-                  {customHeader ?? (
-                    <>
-                      <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
-                      <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>
-                    </>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="סגור"
-                  className="shrink-0 rounded-xl border border-border-weak bg-surface-2/80 p-2 text-text-secondary transition hover:border-accent-primary/45 hover:bg-accent-primary/10 hover:text-accent-primary"
-                >
-                  <X size={18} strokeWidth={2} />
-                </button>
+            <header className="ui-divider relative z-10 flex shrink-0 items-start justify-between gap-3 bg-surface-1 px-4 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6">
+              <div className="min-w-0 flex-1 pe-2">
+                {customHeader ?? (
+                  <>
+                    <h2 className="text-xl font-extrabold tracking-tight text-text-primary">{title}</h2>
+                    {subtitle ? (
+                      <p className="mt-1 text-sm leading-relaxed text-text-secondary">{subtitle}</p>
+                    ) : null}
+                  </>
+                )}
               </div>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="סגור"
+                className="ui-card shrink-0 rounded-xl bg-surface-2 p-2.5 text-text-secondary transition hover:bg-accent-primary/10 hover:text-accent-primary"
+              >
+                <X size={18} strokeWidth={2.2} />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6">
               {children}
             </div>
           </motion.aside>

@@ -12,15 +12,21 @@ import type {
   AgamCandidateStatus,
   AgamCriterion,
   AgamDayEvaluation,
+  AgamDocument,
   AgamInterview,
   AgamOrgSettings,
+  AgamPrepDayEvaluation,
   AgamQuestion,
+  AgamSmachEvaluation,
 } from "@/modules/agam/types";
 
 export function SummaryDecision({
   candidate,
   interviews,
   dayEvals,
+  prepDays = [],
+  smach = [],
+  documents = [],
   preQuestions,
   interviewQuestions,
   criteria,
@@ -30,6 +36,9 @@ export function SummaryDecision({
   candidate: AgamCandidate;
   interviews: AgamInterview[];
   dayEvals: AgamDayEvaluation[];
+  prepDays?: AgamPrepDayEvaluation[];
+  smach?: AgamSmachEvaluation[];
+  documents?: AgamDocument[];
   preQuestions: AgamQuestion[];
   interviewQuestions: AgamQuestion[];
   criteria: AgamCriterion[];
@@ -99,9 +108,14 @@ export function SummaryDecision({
   };
 
   return (
-    <div className="space-y-6">
-      <div className={`${panelClass} space-y-4 p-6`}>
-        <h2 className="text-2xl font-extrabold text-text-primary">החלטת רמ״ד</h2>
+    <div className="space-y-5">
+      <div className={`${panelClass} space-y-4 p-5 sm:p-6`}>
+        <div>
+          <h2 className="text-sm font-bold text-text-primary">החלטת מנהל</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            סטטוס נוכחי: {STATUS_LABELS[candidate.status]}
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" className={primaryButtonClass} onClick={() => void decide("passed")}>
             עבר
@@ -137,9 +151,8 @@ export function SummaryDecision({
               toast.error(error instanceof Error ? error.message : "שמירת הערות נכשלה");
             }
           }}
-          placeholder="הערות אישיות של רמ״ד איתור"
+          placeholder="הערות אישיות של המנהל"
         />
-        <p className="text-sm text-text-muted">סטטוס נוכחי: {STATUS_LABELS[candidate.status]}</p>
       </div>
 
       <div ref={reportRef} dir="rtl" className="space-y-5 rounded-3xl bg-white p-8 text-black">
@@ -149,7 +162,7 @@ export function SummaryDecision({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={org?.logo_url || "/logo-mador-omtz.png"}
-                alt={org?.unit_name ?? "איתור קציני דת"}
+                alt={org?.unit_name ?? "קצינים"}
                 className="h-12 w-12 object-contain"
               />
               <div>
@@ -176,7 +189,7 @@ export function SummaryDecision({
               החלטה: {STATUS_LABELS[candidate.status]}
             </span>
             {avgScore != null ? (
-              <span className="rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-800">
+              <span className="rounded-full bg-accent-primary/15 px-3 py-1 text-xs font-bold text-text-primary">
                 ממוצע ציונים: {avgScore}
               </span>
             ) : null}
@@ -201,7 +214,7 @@ export function SummaryDecision({
               <div key={interview.id} className="mb-4 border-b border-slate-100 pb-4 last:border-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="text-sm font-bold">
-                    מעריך {index + 1}: {interview.evaluator_name}
+                    ממיין {index + 1}: {interview.evaluator_name}
                   </span>
                   {interview.recommendation ? (
                     <span
@@ -268,7 +281,57 @@ export function SummaryDecision({
           )}
         </ReportBlock>
 
-        <ReportBlock title="הערות רמ״ד">
+        <ReportBlock title="יום מכין">
+          {prepDays.length === 0 ? (
+            <p className="text-sm text-slate-500">אין הערכות</p>
+          ) : (
+            prepDays.map((row) => (
+              <div key={row.id} className="mb-3 border-b border-slate-100 pb-3 last:border-0">
+                <p className="text-sm font-bold">{row.evaluator_name ?? "ממיין"}</p>
+                {row.general_impression ? (
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{row.general_impression}</p>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500">ללא התרשמות</p>
+                )}
+              </div>
+            ))
+          )}
+        </ReportBlock>
+
+        <ReportBlock title="סמ״ח">
+          {smach.length === 0 ? (
+            <p className="text-sm text-slate-500">אין הערכות</p>
+          ) : (
+            smach.map((row) => (
+              <div key={row.id} className="mb-3 border-b border-slate-100 pb-3 last:border-0">
+                <p className="text-sm font-bold">
+                  {row.evaluator_name ?? "ממיין"}
+                  {row.decision ? ` · ${row.decision}` : ""}
+                </p>
+                {row.decision_reasoning ? (
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{row.decision_reasoning}</p>
+                ) : null}
+              </div>
+            ))
+          )}
+        </ReportBlock>
+
+        <ReportBlock title="מסמכים">
+          {documents.length === 0 ? (
+            <p className="text-sm text-slate-500">אין מסמכים</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {documents.map((document) => (
+                <li key={document.id}>
+                  {document.name}
+                  {document.document_type ? ` (${document.document_type})` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </ReportBlock>
+
+        <ReportBlock title="הערות מנהל">
           <p className="whitespace-pre-wrap text-sm">{notes || "—"}</p>
         </ReportBlock>
 

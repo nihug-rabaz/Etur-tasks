@@ -99,25 +99,25 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-4 sm:px-0 sm:py-0">
       <div>
-        <Link href="/dovrut/inquiry-subjects" className="text-xs font-bold text-violet-600">
+        <Link href="/dovrut/inquiry-subjects" className="text-xs font-bold text-accent-primary">
           ← חזרה לגורמי תחקורים
         </Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             {subject.role_title ? (
-              <h1 className="text-2xl font-extrabold leading-tight text-violet-700 sm:text-4xl">
+              <h1 className="text-2xl font-extrabold leading-tight text-accent-primary sm:text-4xl">
                 {subject.role_title}
               </h1>
             ) : null}
             <p
               className={`font-bold text-text-primary ${
-                subject.role_title ? "mt-2 text-lg" : "text-xl"
-              }`}
+ subject.role_title ? "mt-2 text-lg" : "text-xl"
+ }`}
             >
               {subject.name}
             </p>
             {subject.rank ? (
-              <p className="mt-1 inline-block rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-800 dark:bg-violet-950/50 dark:text-violet-200">
+              <p className="mt-1 inline-block rounded-full bg-accent-primary/10 px-3 py-1 text-xs font-bold text-accent-primary dark:bg-accent-primary/15 dark:text-accent-primary">
                 {subject.rank}
               </p>
             ) : null}
@@ -133,14 +133,14 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
             <button
               type="button"
               onClick={() => void exportParagraph()}
-              className="rounded-xl bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-800"
+              className="rounded-xl bg-accent-primary/10 px-3 py-1.5 text-xs font-bold text-accent-primary"
             >
               ייצוא לפסקה
             </button>
             <button
               type="button"
               onClick={() => setEditing((open) => !open)}
-              className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-bold dark:bg-slate-800"
+              className="rounded-xl bg-surface-2 px-3 py-1.5 text-xs font-bold"
             >
               {editing ? "סגור עריכה" : "ערוך"}
             </button>
@@ -155,7 +155,7 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
         </div>
       </div>
 
-      <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+      <section className="dashboard-glass rounded-3xl p-4">
         <h2 className="mb-3 text-sm font-extrabold">כרטיס רקע</h2>
         <div className="space-y-1.5">
           <Fact label="דרגה" value={subject.rank} />
@@ -197,14 +197,14 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
       </section>
 
       {paragraph ? (
-        <section className="rounded-2xl border border-violet-200 bg-violet-50/60 p-4 dark:border-violet-900 dark:bg-violet-950/30">
+        <section className="rounded-2xl bg-accent-primary/10 p-4">
           <h2 className="mb-2 text-sm font-extrabold">פסקה מיוצאת</h2>
           <p className="whitespace-pre-wrap text-sm leading-6 text-text-secondary">{paragraph}</p>
         </section>
       ) : null}
 
       {editing ? (
-        <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+        <section className="dashboard-glass rounded-3xl p-4">
           <h2 className="mb-3 text-sm font-extrabold">עריכת כרטיס</h2>
           <InquirySubjectForm
             key={subject.updated_at}
@@ -218,7 +218,7 @@ export function DovrutInquirySubjectDetailsPage({ subjectId }: { subjectId: stri
           />
         </section>
       ) : null}
-      {message ? <p className="text-xs font-semibold text-violet-700">{message}</p> : null}
+      {message ? <p className="text-xs font-semibold text-accent-primary">{message}</p> : null}
       {error ? <p className="text-xs font-semibold text-rose-600">{error}</p> : null}
     </div>
   );

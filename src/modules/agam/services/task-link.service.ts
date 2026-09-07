@@ -1,6 +1,8 @@
 import { BaseService } from "@/services/base.service";
 import type { AgamLinkedTask } from "@/modules/agam/types";
 
+const AGAM_PROJECT_NAME = "קצונה";
+
 export class AgamTaskLinkService extends BaseService {
   private async getAgamSubtopicId(): Promise<string | null> {
     const db = this.getDb();
@@ -8,11 +10,47 @@ export class AgamTaskLinkService extends BaseService {
       select s.id
       from subtopics s
       join domains d on d.id = s.domain_id
-      where s.name = 'איתור קצונה' or (d.slug = 'recruitment' and s.name = 'Candidates')
-      order by case when s.name = 'איתור קצונה' then 0 else 1 end
+      where s.name in ('קצינים', 'איתור קצונה')
+         or (d.slug = 'recruitment' and s.name = 'Candidates')
+      order by case
+        when s.name = 'קצינים' then 0
+        when s.name = 'איתור קצונה' then 1
+        else 2
+      end
       limit 1
     `;
     return rows[0]?.id ?? null;
+  }
+
+  private async ensureAgamProjectId(subtopicId: string): Promise<string | null> {
+    const db = this.getDb();
+    const existing = await db<Array<{ id: string }>>`
+      select id from projects
+      where subtopic_id = ${subtopicId} and name = ${AGAM_PROJECT_NAME}
+      order by created_at asc
+      limit 1
+    `;
+    if (existing[0]?.id) return existing[0].id;
+
+    const created = await db<Array<{ id: string }>>`
+      insert into projects (name, description, subtopic_id, status)
+      values (${AGAM_PROJECT_NAME}, 'משימות אפליקציית קצינים', ${subtopicId}, 'active')
+      returning id
+    `;
+    return created[0]?.id ?? null;
+  }
+
+  private async resolveCycleId(input: {
+    candidate_id?: string | null;
+    cycle_id?: string | null;
+  }): Promise<string | null> {
+    if (input.cycle_id) return input.cycle_id;
+    if (!input.candidate_id) return null;
+    const db = this.getDb();
+    const rows = await db<Array<{ cycle_id: string | null }>>`
+      select cycle_id from agam_candidates where id = ${input.candidate_id} limit 1
+    `;
+    return rows[0]?.cycle_id ?? null;
   }
 
   public async list(input: {
@@ -49,6 +87,11 @@ export class AgamTaskLinkService extends BaseService {
   }): Promise<AgamLinkedTask> {
     const subtopicId = await this.getAgamSubtopicId();
     if (!subtopicId) throw new Error("AGAM_SUBTOPIC_MISSING");
+    const projectId = await this.ensureAgamProjectId(subtopicId);
+    const cycleId = await this.resolveCycleId({
+      candidate_id: input.candidate_id,
+      cycle_id: input.cycle_id,
+    });
 
     const db = this.getDb();
     await db`
@@ -58,13 +101,14 @@ export class AgamTaskLinkService extends BaseService {
     `;
     const rows = await db<AgamLinkedTask[]>`
       insert into tasks (
-        title, description, subtopic_id, assigned_to, created_by, priority, status, due_date,
+        title, description, subtopic_id, project_id, assigned_to, created_by, priority, status, due_date,
         origin, agam_candidate_id, agam_cycle_id
       )
       values (
         ${input.title},
         ${input.description ?? null},
         ${subtopicId},
+        ${projectId},
         ${input.created_by},
         ${input.created_by},
         ${input.priority},
@@ -72,7 +116,7 @@ export class AgamTaskLinkService extends BaseService {
         ${input.due_date ?? null},
         'agam',
         ${input.candidate_id ?? null},
-        ${input.cycle_id ?? null}
+        ${cycleId}
       )
       returning id, title, description, priority, status, due_date, created_by, agam_candidate_id, agam_cycle_id, created_at, updated_at
     `;

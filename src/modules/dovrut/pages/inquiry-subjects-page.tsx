@@ -36,7 +36,7 @@ export function DovrutInquirySubjectsPage() {
           כרטיסי רקע לתדרוכים ותחקורים — גיל, ותק, משפחה, שירות וביוגרפיה
         </p>
       </div>
-      <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+      <div className="dashboard-glass rounded-3xl p-4">
         <h2 className="mb-3 text-sm font-extrabold">גורם חדש</h2>
         <InquirySubjectForm submitLabel="צור כרטיס" onSaved={() => void load()} />
       </div>
@@ -46,7 +46,7 @@ export function DovrutInquirySubjectsPage() {
           <li key={subject.id} className="min-w-0">
             <Link
               href={`/dovrut/inquiry-subjects/${subject.id}`}
-              className="block min-w-0 overflow-hidden rounded-2xl border border-black/8 bg-white px-4 py-3 transition hover:border-violet-300 dark:border-white/10 dark:bg-[#161922]"
+              className="block min-w-0 overflow-hidden rounded-2xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3 transition hover:ring-2 hover:ring-accent-primary/25"
             >
               <p className="break-words text-sm font-extrabold text-text-primary">{subject.name}</p>
               <p className="mt-0.5 break-words text-[11px] text-text-muted">

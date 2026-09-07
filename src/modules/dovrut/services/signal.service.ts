@@ -12,7 +12,7 @@ export class DovrutSignalService {
     if (!this.isConfigured()) {
       return {
         ok: false,
-        reason: "Signal אינו מוגדר עדיין — השתמשו בטלגרם לתזכורות",
+        reason: "Signal אינו מוגדר עדיין — השתמשו בהתראות Push (OneSignal)",
       };
     }
     return {

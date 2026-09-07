@@ -76,10 +76,10 @@ export function DovrutAudiencesPage() {
           type="button"
           onClick={() => setFilter("all")}
           className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-            filter === "all"
-              ? "bg-violet-600 text-white"
-              : "bg-slate-100 text-text-primary dark:bg-slate-800"
-          }`}
+ filter === "all"
+ ? "bg-accent-primary text-white"
+ : "bg-surface-2 text-text-primary "
+ }`}
         >
           הכל
         </button>
@@ -89,24 +89,24 @@ export function DovrutAudiencesPage() {
             type="button"
             onClick={() => setFilter(value)}
             className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-              filter === value
-                ? "bg-violet-600 text-white"
-                : "bg-slate-100 text-text-primary dark:bg-slate-800"
-            }`}
+ filter === value
+ ? "bg-accent-primary text-white"
+ : "bg-surface-2 text-text-primary "
+ }`}
           >
             {value}
           </button>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+      <div className="dashboard-glass rounded-3xl p-4">
         <h2 className="mb-3 text-sm font-extrabold">מסר חדש</h2>
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-2 gap-2">
             <select
               value={audience}
               onChange={(e) => setAudience(e.target.value as DovrutAudience)}
-              className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+              className="w-full rounded-xl bg-surface-2 px-3 py-2 text-sm"
             >
               {DOVRUT_AUDIENCES.map((value) => (
                 <option key={value} value={value}>
@@ -117,7 +117,7 @@ export function DovrutAudiencesPage() {
             <select
               value={domain}
               onChange={(e) => setDomain(e.target.value as DovrutDomain | "")}
-              className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+              className="w-full rounded-xl bg-surface-2 px-3 py-2 text-sm"
             >
               <option value="">ללא תחום</option>
               {Object.entries(DOMAIN_LABELS).map(([value, label]) => (
@@ -131,20 +131,20 @@ export function DovrutAudiencesPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="כותרת מסר"
-            className="w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+            className="w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="גוף המסר"
-            className="min-h-24 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+            className="min-h-24 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
           />
         </div>
         <button
           type="button"
           disabled={saving || !audience || !title.trim()}
           onClick={() => void createMessage()}
-          className="mt-3 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+          className="mt-3 rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
         >
           שמור מסר
         </button>
@@ -165,7 +165,7 @@ export function DovrutAudiencesPage() {
                 {list.map((message) => (
                   <li
                     key={message.id}
-                    className="min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+                    className="min-w-0 overflow-hidden rounded-xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3"
                   >
                     <p className="break-words text-sm font-bold">{message.title}</p>
                     <p className="text-[11px] text-text-muted">

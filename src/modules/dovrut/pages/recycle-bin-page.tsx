@@ -200,7 +200,7 @@ function RecycleBinSection({
         {items.map((item) => (
           <li
             key={item.id}
-            className="min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+            className="min-w-0 overflow-hidden rounded-xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">

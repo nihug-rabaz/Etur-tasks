@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
-  const result = await new DovrutApprovalReminderService().sendTelegramReminders(
+  const result = await new DovrutApprovalReminderService().sendPushReminders(
     parsed.data.approvalStatus,
     parsed.data.userIds,
   );

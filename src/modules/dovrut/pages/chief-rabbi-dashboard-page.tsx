@@ -34,7 +34,7 @@ export function DovrutChiefRabbiDashboardPage() {
         <h1 className="text-xl font-bold text-text-primary">דשבורד רבצ״ר · הרב קובי</h1>
         <p className="mt-1 text-sm text-text-muted">תור ממתינים + אייטמים שאושרו ברבצ״ר</p>
       </div>
-      <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+      <section className="dashboard-glass rounded-3xl p-4">
         <h2 className="mb-3 text-sm font-extrabold">ממתין לאישור רבצ״ר ({waiting.length})</h2>
         <ul className="space-y-2">
           {waiting.map((item) => (
@@ -58,14 +58,14 @@ export function DovrutChiefRabbiDashboardPage() {
           ) : null}
         </ul>
       </section>
-      <section className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+      <section className="dashboard-glass rounded-3xl p-4">
         <h2 className="mb-3 text-sm font-extrabold">אושרו לאחרונה</h2>
         <ul className="space-y-2">
           {approved.slice(0, 15).map((item) => (
             <li key={item.id}>
               <Link
                 href={`/dovrut/items/${item.id}`}
-                className="block rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800"
+                className="block rounded-xl bg-surface-2/50 px-3 py-2"
               >
                 <p className="text-sm font-bold">{item.name}</p>
                 <p className="text-[11px] text-text-muted">{item.project_name}</p>

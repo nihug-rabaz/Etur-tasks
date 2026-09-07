@@ -2,14 +2,27 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  Archive,
+  LayoutDashboard,
+  Layers,
+  Settings2,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import type { ModuleRole } from "@/shared/modules/types";
 
-const ITEMS: Array<{ href: string; label: string; roles: ModuleRole[] }> = [
-  { href: "/agam", label: "ראשי", roles: ["admin", "user", "ramad", "viewer"] },
-  { href: "/agam/cycles", label: "מחזורים", roles: ["admin", "user", "ramad", "viewer"] },
-  { href: "/agam/candidates", label: "מועמדים", roles: ["admin", "user", "ramad", "viewer"] },
-  { href: "/agam/candidates/archive", label: "ארכיון", roles: ["admin", "ramad"] },
-  { href: "/agam/admin", label: "ניהול", roles: ["admin"] },
+const ITEMS: Array<{
+  href: string;
+  label: string;
+  roles: ModuleRole[];
+  icon: LucideIcon;
+}> = [
+  { href: "/agam", label: "ראשי", roles: ["admin", "user", "ramad", "viewer"], icon: LayoutDashboard },
+  { href: "/agam/cycles", label: "מחזורים", roles: ["admin", "user", "ramad", "viewer"], icon: Layers },
+  { href: "/agam/candidates", label: "מועמדים", roles: ["admin", "user", "ramad", "viewer"], icon: Users },
+  { href: "/agam/candidates/archive", label: "ארכיון", roles: ["admin", "ramad"], icon: Archive },
+  { href: "/agam/admin", label: "ניהול", roles: ["admin"], icon: Settings2 },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -32,25 +45,53 @@ export function AgamSectionNav({ role }: { role: ModuleRole | null }) {
   const items = ITEMS.filter((item) => (role ? item.roles.includes(role) : false));
 
   return (
-    <div className="sticky top-0 z-20 bg-background/95 px-4 py-3 shadow-[0_1px_0_rgba(22,24,29,0.04),0_8px_24px_rgba(22,24,29,0.05)] backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.35)] sm:px-6">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-2">
-        {items.map((item) => {
-          const active = isActive(pathname, item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
-                active
-                  ? "bg-accent-primary text-white"
-                  : "bg-surface-2 text-text-secondary hover:bg-accent-primary/12 hover:text-accent-primary"
-              }`}
-            >
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-    </div>
+    <>
+      {/* Desktop: floating glass rail on the inline-end (right in RTL) */}
+      <aside
+        className="agam-float-nav pointer-events-none fixed start-2 top-1/2 z-30 hidden -translate-y-1/2 md:block lg:start-3"
+        aria-label="ניווט קצינים"
+      >
+        <nav className="agam-float-nav__panel pointer-events-auto flex w-[4.75rem] flex-col gap-1 p-2">
+          {items.map((item) => {
+            const active = isActive(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                className={`agam-float-nav__item ${active ? "agam-float-nav__item--active" : ""}`}
+              >
+                <Icon size={18} strokeWidth={2.1} className="text-inherit" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* Mobile: floating glass dock */}
+      <nav
+        className="agam-float-nav__mobile pointer-events-auto fixed inset-x-3 bottom-3 z-30 md:hidden"
+        aria-label="ניווט קצינים"
+      >
+        <div className="agam-float-nav__panel flex items-stretch justify-between gap-0.5 p-1.5">
+          {items.map((item) => {
+            const active = isActive(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`agam-float-nav__item agam-float-nav__item--mobile ${active ? "agam-float-nav__item--active" : ""}`}
+              >
+                <Icon size={16} strokeWidth={2.1} className="text-inherit" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </>
   );
 }

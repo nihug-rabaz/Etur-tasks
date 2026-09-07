@@ -7,11 +7,14 @@ import type {
 } from "@/modules/agam/types";
 
 export class AgamQuestionService extends BaseService {
-  public async listActive(type: AgamQuestionType): Promise<AgamQuestion[]> {
+  public async listActive(type: AgamQuestionType, options?: { includeStaffOnly?: boolean }): Promise<AgamQuestion[]> {
     const db = this.getDb();
+    const includeStaffOnly = options?.includeStaffOnly ?? true;
     const rows = await db<AgamQuestion[]>`
       select * from agam_questionnaire_questions
-      where question_type = ${type} and is_active = true
+      where question_type = ${type}
+        and is_active = true
+        and (${includeStaffOnly}::boolean or coalesce(is_staff_only, false) = false)
     `;
     return rows.sort(
       (a, b) => a.section_number - b.section_number || a.sort_order - b.sort_order,

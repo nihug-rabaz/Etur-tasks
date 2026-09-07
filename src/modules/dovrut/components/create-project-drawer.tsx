@@ -30,7 +30,7 @@ export function CreateProjectDrawer({
           type="button"
           dir="rtl"
           onClick={() => setOpen(true)}
-          className="inline-flex w-fit items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(79,70,229,0.55)] transition hover:brightness-105"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-accent-cyan px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(34,184,207,0.55)] transition hover:brightness-105"
         >
           פרויקט
           <Plus size={16} />

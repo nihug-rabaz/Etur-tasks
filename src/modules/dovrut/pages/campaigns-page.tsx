@@ -69,7 +69,7 @@ export function DovrutCampaignsPage() {
         {campaigns.map((campaign) => (
           <li
             key={campaign.id}
-            className="min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+            className="min-w-0 overflow-hidden rounded-xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3"
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
@@ -80,7 +80,7 @@ export function DovrutCampaignsPage() {
                 </p>
                 <Link
                   href={`/dovrut/projects?campaignId=${campaign.id}`}
-                  className="mt-2 inline-block text-xs font-bold text-violet-600"
+                  className="mt-2 inline-block text-xs font-bold text-accent-primary"
                 >
                   לפרויקטים של הקמפיין →
                 </Link>
@@ -90,7 +90,7 @@ export function DovrutCampaignsPage() {
                   type="button"
                   disabled={busyId === campaign.id}
                   onClick={() => setEditing(campaign)}
-                  className="rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700 disabled:opacity-40"
+                  className="rounded-lg bg-accent-primary/10 px-3 py-1.5 text-xs font-bold text-accent-primary disabled:opacity-40"
                 >
                   עריכה
                 </button>

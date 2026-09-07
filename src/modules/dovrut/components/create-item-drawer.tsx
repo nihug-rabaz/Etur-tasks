@@ -30,7 +30,7 @@ export function CreateItemDrawer({
           type="button"
           dir="rtl"
           onClick={() => setOpen(true)}
-          className="inline-flex w-fit items-center gap-2 rounded-full bg-fuchsia-600 px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(192,38,211,0.55)] transition hover:brightness-105"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-l from-accent-primary to-accent-cyan px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(139,92,246,0.45)] transition hover:brightness-105"
         >
           אייטם
           <Plus size={16} />

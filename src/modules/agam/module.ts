@@ -2,14 +2,14 @@ import type { AppModuleDefinition } from "@/shared/modules/types";
 
 export const agamModule: AppModuleDefinition = {
   id: "agam",
-  label: "איתור קציני דת",
-  description: "מיון לקורס קציני דת — שאלון, הערכות, סמ״ח והחלטת רמ״ד",
+  label: "קצינים",
+  description: "מיון לקורס קציני דת — שאלון, הערכות, סמ״ח והחלטה",
   href: "/agam",
   navItems: [
     {
       label: "ראשי",
       href: "/agam",
-      description: "סקירת איתור קציני דת",
+      description: "סקירת קצינים",
       roles: ["admin", "user", "ramad", "viewer"],
     },
     {
@@ -44,7 +44,7 @@ export const agamModule: AppModuleDefinition = {
     },
   ],
   breadcrumbLabels: {
-    agam: "איתור קציני דת",
+    agam: "קצינים",
     cycles: "מחזורים",
     candidates: "מועמדים",
     archive: "ארכיון",
@@ -52,5 +52,7 @@ export const agamModule: AppModuleDefinition = {
     evaluation: "הערכה",
     admin: "ניהול",
     users: "משתמשים",
+    portal: "פורטל מועמד",
+    bahad1: "הכנות לבה״ד 1",
   },
 };

@@ -130,7 +130,7 @@ export function DovrutDashboardSearch() {
             onFocus={() => setOpen(true)}
             aria-label="חיפוש בכל מערכת הדוברות"
             placeholder="חיפוש בכל הדוברות…"
-            className="w-full min-w-0 rounded-2xl border border-black/8 bg-white py-3 ps-11 pe-10 text-sm text-text-primary shadow-sm outline-none transition focus:border-violet-300 focus:ring-2 focus:ring-violet-200 dark:border-white/10 dark:bg-[#161922] dark:focus:ring-violet-900/40 sm:py-3.5"
+            className="w-full min-w-0 rounded-full bg-surface-1 py-3 ps-11 pe-10 text-sm text-text-primary shadow-[var(--shadow-soft)] outline-none transition focus:ring-2 focus:ring-accent-primary/30 sm:py-3.5"
           />
           {query ? (
             <button
@@ -140,7 +140,7 @@ export function DovrutDashboardSearch() {
                 setResults(EMPTY);
               }}
               aria-label="ניקוי חיפוש"
-              className="absolute end-3 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full p-1 text-text-muted transition hover:bg-slate-100 hover:text-text-primary dark:hover:bg-slate-800"
+              className="absolute end-3 top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-full p-1 text-text-muted transition hover:bg-surface-2 hover:text-text-primary"
             >
               <X size={15} />
             </button>
@@ -148,7 +148,7 @@ export function DovrutDashboardSearch() {
         </div>
 
         {showPanel ? (
-          <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl border border-black/8 bg-white p-2 shadow-xl dark:border-white/10 dark:bg-[#161922]">
+          <div className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(70vh,28rem)] overflow-y-auto rounded-2xl bg-surface-1 p-2 shadow-[0_24px_60px_-20px_rgba(22,24,29,0.4)]">
             {loading && totalHits === 0 ? (
               <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-text-muted">
                 <Loader2 size={16} className="animate-spin" />
@@ -175,7 +175,7 @@ export function DovrutDashboardSearch() {
                       key={`${hit.kind}-${hit.id}`}
                       type="button"
                       onClick={() => openHit(hit)}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-start transition hover:bg-surface-2"
                     >
                       <span className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold text-text-primary">{hit.title}</p>
@@ -183,7 +183,7 @@ export function DovrutDashboardSearch() {
                           <p className="truncate text-[11px] text-text-muted">{hit.meta}</p>
                         ) : null}
                       </span>
-                      <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-0.5 text-[10px] font-bold text-violet-800 dark:bg-violet-950/50 dark:text-violet-200">
+                      <span className="shrink-0 rounded-full bg-accent-primary/15 px-2.5 py-0.5 text-[10px] font-bold text-accent-primary">
                         {KIND_LABEL[hit.kind]}
                       </span>
                     </button>

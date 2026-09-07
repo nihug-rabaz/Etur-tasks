@@ -72,12 +72,12 @@ export function DovrutAdminUsersPage() {
       <p className="text-sm text-text-muted">
         מנהל · חפ״ש · מאשר — רק מנהל מנהל משתמשים. שמות באנגלית מומלץ לעדכן בעברית בפרופיל.
       </p>
-      <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+      <div className="dashboard-glass rounded-3xl p-4">
         <div className="grid gap-2 sm:grid-cols-3">
           <select
             value={userId}
             onChange={(event) => setUserId(event.target.value)}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800 sm:col-span-2"
+            className="rounded-xl bg-surface-2 px-3 py-2 text-sm sm:col-span-2"
           >
             <option value="">בחרו משתמש</option>
             {allUsers.map((user) => (
@@ -90,7 +90,7 @@ export function DovrutAdminUsersPage() {
           <select
             value={role}
             onChange={(event) => setRole(event.target.value as ModuleRole)}
-            className="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+            className="rounded-xl bg-surface-2 px-3 py-2 text-sm"
           >
             <option value="admin">מנהל</option>
             <option value="user">חפ״ש</option>
@@ -101,17 +101,17 @@ export function DovrutAdminUsersPage() {
         <button
           type="button"
           onClick={() => void save()}
-          className="mt-3 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white"
+          className="mt-3 rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white"
         >
           שמור תפקיד
         </button>
-        {message ? <p className="mt-2 text-xs font-semibold text-violet-700">{message}</p> : null}
+        {message ? <p className="mt-2 text-xs font-semibold text-accent-primary">{message}</p> : null}
       </div>
       <ul className="space-y-2">
         {moduleUsers.map((user) => (
           <li
             key={user.user_id}
-            className="flex items-center justify-between rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+            className="flex items-center justify-between rounded-xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3"
           >
             <div>
               <p className="text-sm font-bold">{user.name}</p>
@@ -122,7 +122,7 @@ export function DovrutAdminUsersPage() {
                 </p>
               ) : null}
             </div>
-            <span className="text-xs font-extrabold text-violet-700">
+            <span className="text-xs font-extrabold text-accent-primary">
               {ROLE_LABELS[user.role]}
             </span>
           </li>
@@ -172,7 +172,7 @@ export function DovrutApproversAdminPage() {
         setResult(data.error || "שליחה נכשלה");
         return;
       }
-      setResult(`נשלחו ${data.sent} תזכורות Telegram · ${data.pendingCount} אייטמים ממתינים`);
+      setResult(`נשלחו ${data.sent} תזכורות Push · ${data.pendingCount} אייטמים ממתינים`);
     } finally {
       setBusy(false);
     }
@@ -182,12 +182,12 @@ export function DovrutApproversAdminPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
       <h1 className="text-xl font-bold text-text-primary">ניהול מאשרים ותזכורות</h1>
       <p className="text-sm text-text-secondary">
-        תזכורות נשלחות בטלגרם למשתמשים מקושרים. Signal יתווסף בשלב הבא.
+        תזכורות נשלחות כהתראות דפדפן (OneSignal) למשתמשים שהפעילו התראות.
       </p>
       <select
         value={step}
         onChange={(e) => setStep(e.target.value as typeof step)}
-        className="rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800"
+        className="rounded-xl bg-surface-2 px-3 py-2 text-sm"
       >
         <option value="waiting_branch_head">תור רמ״ח</option>
         <option value="waiting_deputy_commander">תור רמ״ט</option>
@@ -198,7 +198,7 @@ export function DovrutApproversAdminPage() {
           const checked = selected.includes(user.id);
           return (
             <li key={user.id}>
-              <label className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm dark:bg-slate-800">
+              <label className="flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2 text-sm">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -220,19 +220,19 @@ export function DovrutApproversAdminPage() {
         type="button"
         disabled={busy || selected.length === 0}
         onClick={() => void sendReminders()}
-        className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+        className="rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
       >
-        {busy ? "שולח…" : "שלח תזכורת Telegram"}
+        {busy ? "שולח…" : "שלח תזכורת Push"}
       </button>
-      {result ? <p className="text-xs font-semibold text-violet-700">{result}</p> : null}
+      {result ? <p className="text-xs font-semibold text-accent-primary">{result}</p> : null}
       <ul className="mt-4 space-y-2 text-sm">
-        <li className="rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800">
+        <li className="rounded-xl bg-surface-2 px-3 py-2">
           /dovrut/approval/branch-head
         </li>
-        <li className="rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800">
+        <li className="rounded-xl bg-surface-2 px-3 py-2">
           /dovrut/approval/deputy-commander
         </li>
-        <li className="rounded-xl bg-slate-100 px-3 py-2 dark:bg-slate-800">
+        <li className="rounded-xl bg-surface-2 px-3 py-2">
           /dovrut/approval/chief-rabbi
         </li>
       </ul>

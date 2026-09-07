@@ -10,9 +10,9 @@ export default async function AgamLayout({ children }: { children: ReactNode }) 
   }
 
   return (
-    <>
+    <div className="agam-scope relative min-h-[70vh] pb-24 md:pb-6 md:ps-[4.75rem] lg:ps-[5.25rem]">
       <AgamSectionNav role={access.role} />
       {children}
-    </>
+    </div>
   );
 }

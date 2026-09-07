@@ -77,7 +77,7 @@ export const dovrutModule: AppModuleDefinition = {
     {
       label: "ניהול מאשרים",
       href: "/dovrut/admin/approvers",
-      description: "תזכורות אישור בטלגרם",
+      description: "תזכורות אישור ב-OneSignal",
     },
   ],
   breadcrumbLabels: {

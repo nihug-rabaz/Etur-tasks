@@ -177,6 +177,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const userAvatarUrl = profile?.avatar ?? null;
   const isDashboard = pathname === "/dashboard" || pathname === "/dovrut" || pathname === "/agam";
   const isHome = pathname === "/";
+  const isModuleFullBleed =
+    isDashboard || isHome || pathname.startsWith("/dovrut") || pathname.startsWith("/agam");
   const showTasksChrome = activeModuleId === "tasks";
   const hideCreateFab =
     isHome ||
@@ -295,7 +297,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <div
           className={`relative mx-auto flex w-full min-w-0 flex-1 flex-col ${
-            isDashboard || isHome
+            isModuleFullBleed
               ? "max-w-none px-0 pb-0 pt-0"
               : "max-w-screen-2xl px-3 pb-6 pt-4 sm:px-6 sm:pt-5 lg:px-8"
           }`}

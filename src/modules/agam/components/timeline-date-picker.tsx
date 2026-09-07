@@ -177,8 +177,8 @@ function CalendarPanel({
     "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.25)] transition hover:bg-white/20";
 
   return (
-    <div className="agam-date-picker overflow-hidden rounded-2xl border-2 border-accent-primary/20 bg-white dark:bg-[#171923]">
-      <div className="bg-gradient-to-l from-[#6d28d9] via-accent-primary to-[#8b5cf6] px-3 pb-4 pt-3.5 text-white sm:px-4">
+    <div className="agam-date-picker overflow-hidden rounded-2xl bg-white dark:bg-[#171923]">
+      <div className="bg-accent-primary px-3 pb-4 pt-3.5 text-white sm:px-4">
         <div className="mb-3 flex items-center justify-between gap-1">
           {view === "years" ? (
             <>
@@ -291,7 +291,7 @@ function CalendarPanel({
                 }}
                 className={`rounded-xl py-3 text-sm font-extrabold transition ${
                   selected
-                    ? "bg-accent-primary text-white shadow-[0_8px_18px_-10px_rgba(139,92,246,1)]"
+                    ? "bg-accent-primary text-white shadow-[0_8px_18px_-10px_color-mix(in_srgb,var(--accent-primary)_80%,transparent)]"
                     : isCurrentYear
                       ? "bg-accent-primary/15 text-accent-primary ring-2 ring-inset ring-accent-primary/35"
                       : "bg-surface-2/80 text-text-primary hover:bg-accent-primary/12 hover:text-accent-primary"
@@ -319,7 +319,7 @@ function CalendarPanel({
                 }}
                 className={`rounded-xl px-1 py-3 text-xs font-extrabold transition sm:text-sm ${
                   selected
-                    ? "bg-accent-primary text-white shadow-[0_8px_18px_-10px_rgba(139,92,246,1)]"
+                    ? "bg-accent-primary text-white shadow-[0_8px_18px_-10px_color-mix(in_srgb,var(--accent-primary)_80%,transparent)]"
                     : isCurrentMonth
                       ? "bg-accent-primary/15 text-accent-primary ring-2 ring-inset ring-accent-primary/35"
                       : "bg-surface-2/80 text-text-primary hover:bg-accent-primary/12 hover:text-accent-primary"
@@ -359,7 +359,7 @@ function CalendarPanel({
                   onClick={() => onPick(cell)}
                   className={`flex h-10 items-center justify-center rounded-lg text-sm font-bold transition ${
                     selected
-                      ? "bg-accent-primary text-white shadow-[0_8px_18px_-10px_rgba(139,92,246,1)]"
+                      ? "bg-accent-primary text-white shadow-[0_8px_18px_-10px_color-mix(in_srgb,var(--accent-primary)_80%,transparent)]"
                       : isToday
                         ? "bg-accent-primary/18 text-accent-primary ring-2 ring-inset ring-accent-primary/45"
                         : cell.outside
@@ -379,7 +379,7 @@ function CalendarPanel({
         <button
           type="button"
           onClick={onToday}
-          className="rounded-lg border border-accent-primary/25 bg-accent-primary/10 px-3 py-2 text-xs font-extrabold text-accent-primary transition hover:bg-accent-primary/18"
+          className="ui-card rounded-lg bg-accent-primary/10 px-3 py-2 text-xs font-extrabold text-accent-primary transition hover:bg-accent-primary/18"
         >
           היום
         </button>

@@ -1,5 +1,7 @@
 "use client";
 
+import { pillActiveClass, pillIdleClass } from "@/modules/dovrut/lib/ui";
+
 export function DovrutCheckboxGroup({
   label,
   options,
@@ -16,17 +18,15 @@ export function DovrutCheckboxGroup({
   };
 
   return (
-    <fieldset className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900/50 sm:col-span-2">
+    <fieldset className="rounded-xl bg-surface-2/50 p-3 sm:col-span-2">
       <legend className="mb-2 text-xs font-bold text-text-secondary">{label}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
           <label
             key={option.value}
-            className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${
-              values.includes(option.value)
-                ? "bg-violet-600 text-white"
-                : "bg-slate-100 text-text-primary dark:bg-slate-800"
-            }`}
+            className={`inline-flex cursor-pointer items-center gap-2 ${
+ values.includes(option.value) ? pillActiveClass : pillIdleClass
+ }`}
           >
             <input
               type="checkbox"

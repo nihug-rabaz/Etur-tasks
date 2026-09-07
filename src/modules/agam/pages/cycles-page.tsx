@@ -49,14 +49,14 @@ export function AgamCyclesPage() {
   if (!loaded) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="flex w-full flex-col gap-5 px-3 py-5 sm:px-4 lg:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-extrabold text-text-primary">
+          <h1 className="text-3xl font-extrabold text-text-primary sm:text-4xl">
             {archived ? "ארכיון מחזורים" : "מחזורי מועמדים"}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">
-            ניהול מחזורים לפי תאריך — יצירת מועמדים חדשים ושיוך מועמדים קיימים
+            בחרו מחזור כדי לעבוד על מועמדים — ממשק הממיין מתחיל כאן
           </p>
         </div>
         {canEdit ? (
@@ -173,7 +173,7 @@ function CreateCycleDrawer({
 
   return (
     <Drawer open={open} onClose={() => onOpenChange(false)} title="מחזור חדש" subtitle="שם ותאריך המיון">
-      <div className="space-y-4 p-1">
+      <div className="space-y-4">
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           שם המחזור
           <input
@@ -204,10 +204,10 @@ function CreateCycleDrawer({
             onChange={(event) => setNotes(event.target.value)}
           />
         </label>
-        <div className="flex gap-2">
+        <div className="ui-divider-top flex gap-2 pt-4">
           <button
             type="button"
-            className={primaryButtonClass}
+            className={`${primaryButtonClass} flex-1`}
             disabled={saving || name.trim().length < 2 || !cycleDate}
             onClick={() => void submit()}
           >

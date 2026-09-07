@@ -11,17 +11,6 @@ const applySchema = z.object({
   questionnaireData: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
-function boolFromQuestion(value: unknown): boolean | null {
-  if (value === true || value === "כן" || value === "yes") return true;
-  if (value === false || value === "לא" || value === "no") return false;
-  return null;
-}
-
-function numberFromQuestion(value: unknown): number | null {
-  const num = Number(value);
-  return Number.isFinite(num) ? num : null;
-}
-
 export async function POST(request: Request) {
   const ip = clientIp(request);
   if (!checkRateLimit(`agam-apply:${ip}`, 20, 60_000)) {
@@ -45,12 +34,13 @@ export async function POST(request: Request) {
       command: typeof questionnaire.command === "string" ? questionnaire.command : null,
       direct_commander_name:
         typeof questionnaire.direct_commander_name === "string" ? questionnaire.direct_commander_name : null,
-      planning_index: numberFromQuestion(questionnaire.planning_index),
-      dapar: numberFromQuestion(questionnaire.dapar),
-      needs_sakmar: boolFromQuestion(questionnaire.needs_sakmar),
-      mabdak_approval: boolFromQuestion(questionnaire.mabdak_approval),
-      medical_issue: boolFromQuestion(questionnaire.medical_issue),
-      internet_test: boolFromQuestion(questionnaire.internet_test),
+      // section 5 staff-only — not collected on public apply
+      planning_index: null,
+      dapar: null,
+      needs_sakmar: null,
+      mabdak_approval: null,
+      medical_issue: null,
+      internet_test: null,
       questionnaire_data: questionnaire,
     });
     await service.addTimeline({

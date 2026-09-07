@@ -36,6 +36,7 @@ export interface AgamCandidate {
   phone: string | null;
   command: string | null;
   direct_commander_name: string | null;
+  direct_commander_role: string | null;
   gaps: string | null;
   planning_index: number | null;
   dapar: number | null;
@@ -72,9 +73,10 @@ export interface AgamCycle {
 export interface AgamTimelineEventItem {
   id: string;
   title: string;
-  event_date: string;
+  event_date: string | null;
   event_type: "hasbara" | "selection_day" | "prep_day" | "smach" | "mabdak" | "bahad1" | "general";
   notes: string | null;
+  sort_order?: number;
   created_by_id: string | null;
   created_at: string;
   updated_at: string;
@@ -163,9 +165,12 @@ export interface AgamSmachEvaluation {
 export interface AgamInterview {
   id: string;
   candidate_id: string;
-  evaluator_id: string;
+  evaluator_id: string | null;
   evaluator_name: string | null;
   interview_data: Record<string, unknown> | null;
+  candidate_part: Record<string, unknown> | null;
+  candidate_part_completed_at: string | null;
+  evaluator_part_completed_at: string | null;
   evaluator_assessment: string | null;
   recommendation: AgamRecommendation | null;
   created_at: string;
@@ -187,6 +192,7 @@ export interface AgamQuestion {
   condition_value: string | null;
   sort_order: number;
   is_active: boolean;
+  is_staff_only?: boolean;
   created_at: string;
   updated_at: string;
 }

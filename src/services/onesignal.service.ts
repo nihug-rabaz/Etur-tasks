@@ -25,7 +25,9 @@ export class OneSignalService {
     if (!OneSignalServerConfig.isSendReady()) {
       throw new Error("MISSING_REST_API_KEY");
     }
-    const body = this.buildPayload(payload, { external_id: [userId] });
+    const body = this.buildPayload(payload, {
+      include_aliases: { external_id: [userId] },
+    });
     return this.postNotification(body);
   }
 

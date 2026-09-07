@@ -20,17 +20,20 @@ const ACTIONS: Array<{ id: AgamCreateAction; label: string; className: string }>
   {
     id: "candidate",
     label: "מועמד",
-    className: "bg-sky-600 shadow-[0_12px_30px_-8px_rgba(2,132,199,0.55)]",
+    className:
+      "bg-accent-primary shadow-[0_12px_30px_-8px_color-mix(in_srgb,var(--accent-primary)_55%,transparent)]",
   },
   {
     id: "interview",
     label: "ראיון",
-    className: "bg-indigo-600 shadow-[0_12px_30px_-8px_rgba(79,70,229,0.55)]",
+    className:
+      "bg-accent-primary shadow-[0_12px_30px_-8px_color-mix(in_srgb,var(--accent-primary)_55%,transparent)]",
   },
   {
     id: "evaluation",
     label: "הערכה",
-    className: "bg-violet-600 shadow-[0_12px_30px_-8px_rgba(124,58,237,0.55)]",
+    className:
+      "bg-accent-primary shadow-[0_12px_30px_-8px_color-mix(in_srgb,var(--accent-primary)_55%,transparent)]",
   },
   {
     id: "document",

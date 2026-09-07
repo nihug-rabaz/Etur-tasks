@@ -20,3 +20,8 @@ export function canModifyTimelineEvent(
   if (!role) return false;
   return canRamad(role) || createdById === currentUserId;
 }
+
+/** ממיין — staff screener UI */
+export function canScreen(role: ModuleRole | null | undefined): boolean {
+  return role === "user";
+}

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { TimelineEventsSettings } from "@/modules/agam/components/timeline-events-settings";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import {
   CANDIDATE_EXPORT_FIELDS,
@@ -28,15 +30,38 @@ import type {
   AgamQuestion,
 } from "@/modules/agam/types";
 
-type Tab = "pre" | "interview" | "criteria" | "settings" | "export";
+type Tab = "pre" | "interview" | "criteria" | "timeline" | "settings" | "export";
+
+const VALID_TABS: Tab[] = ["pre", "interview", "criteria", "timeline", "settings", "export"];
+
+function tabFromSearch(value: string | null): Tab {
+  if (value && VALID_TABS.includes(value as Tab)) return value as Tab;
+  return "pre";
+}
 
 export function AgamAdminPage() {
-  const [tab, setTab] = useState<Tab>("pre");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => tabFromSearch(searchParams.get("tab")));
   const [questions, setQuestions] = useState<AgamQuestion[]>([]);
   const [criteria, setCriteria] = useState<AgamCriterion[]>([]);
   const [settings, setSettings] = useState<AgamOrgSettings | null>(null);
   const [candidates, setCandidates] = useState<AgamCandidate[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setTab(tabFromSearch(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "pre") params.delete("tab");
+    else params.set("tab", next);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   const load = async () => {
     try {
@@ -67,15 +92,16 @@ export function AgamAdminPage() {
     ["pre", "שאלון מקדים"],
     ["interview", "שאלות ראיון"],
     ["criteria", "קריטריונים"],
+    ["timeline", "ציר זמן"],
     ["settings", "הגדרות"],
     ["export", "ייצוא"],
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="flex w-full flex-col gap-5 px-3 py-5 sm:px-4 lg:px-5">
       <div>
         <h1 className="text-3xl font-extrabold text-text-primary">פאנל ניהול</h1>
-        <p className="mt-1 text-sm text-text-secondary">שאלון, קריטריונים, הגדרות וייצוא</p>
+        <p className="mt-1 text-sm text-text-secondary">שאלון, קריטריונים, ציר זמן, הגדרות וייצוא</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {tabs.map(([key, label]) => (
@@ -83,7 +109,7 @@ export function AgamAdminPage() {
             key={key}
             type="button"
             className={tab === key ? primaryButtonClass : secondaryButtonClass}
-            onClick={() => setTab(key)}
+            onClick={() => selectTab(key)}
           >
             {label}
           </button>
@@ -104,6 +130,7 @@ export function AgamAdminPage() {
         />
       ) : null}
       {tab === "criteria" ? <CriteriaTab criteria={criteria} onChanged={() => void load()} /> : null}
+      {tab === "timeline" ? <TimelineEventsSettings /> : null}
       {tab === "settings" ? <SettingsTab org={settings} onChanged={() => void load()} /> : null}
       {tab === "export" ? (
         <ExportTab candidates={candidates} questions={questions} criteria={criteria} />

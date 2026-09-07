@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { AuthorizationService } from "@/services/authorization.service";
-import { TelegramService } from "@/services/telegram.service";
+import { OneSignalService } from "@/services/onesignal.service";
+import { OneSignalServerConfig } from "@/lib/onesignal/onesignal-server-config";
+import { UserService } from "@/services/user.service";
 
+/** @deprecated Prefer /api/notifications/recipients — kept as OneSignal proxy for old clients. */
 export async function GET() {
-  const authorizationService = new AuthorizationService();
-  const profile = await authorizationService.getCurrentProfile();
+  const profile = await new AuthorizationService().getCurrentProfile();
   if (!profile) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -12,11 +14,21 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const telegramService = new TelegramService();
-  if (!telegramService.hasToken()) {
-    return NextResponse.json({ error: "Telegram bot not configured" }, { status: 503 });
+  if (!OneSignalServerConfig.isSendReady()) {
+    return NextResponse.json({ error: "OneSignal not configured" }, { status: 503 });
   }
 
-  const recipients = await telegramService.getDirectRecipients();
+  const service = new OneSignalService();
+  const allUsers = await new UserService().getUsers();
+  const approvedUsers = allUsers.filter((user) => user.is_approved);
+  const recipients = await Promise.all(
+    approvedUsers.map(async (user) => ({
+      id: user.id,
+      name: user.name,
+      avatar: user.avatar,
+      pushReady: await service.hasPushSubscription(user.id),
+    })),
+  );
+
   return NextResponse.json({ recipients });
 }

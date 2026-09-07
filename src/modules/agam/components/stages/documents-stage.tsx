@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ACCEPTED_FILE_TYPES, DOC_TYPES, SOURCE_LABELS, isCustomDocType } from "@/modules/agam/lib/document-types";
 import { documentDownloadHref } from "@/modules/agam/lib/document-download";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { fieldClass, innerCardClass, panelClass, primaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamDocument } from "@/modules/agam/types";
 
 const REQUIRED_DOCS = ["חווד 870", "סכמר - רק למי שצריך", "אישור רפואי", "צילום תעודת זהות"];
@@ -61,32 +61,34 @@ export function DocumentsStage({
   };
 
   return (
-    <div className="space-y-6">
-      <div className={`${panelClass} p-6`}>
-        <h2 className="text-2xl font-extrabold text-text-primary">תיקיית מסמכים</h2>
+    <div className="space-y-5">
+      <div className={`${panelClass} p-5 sm:p-6`}>
+        <h2 className="text-sm font-bold text-text-primary">תיקיית מסמכים</h2>
+        <p className="mt-1 text-xs text-text-muted">סטטוס מסמכים נדרשים</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {REQUIRED_DOCS.map((type) => {
             const exists = hasDocument(type.replace(" - רק למי שצריך", ""));
             return (
               <div
                 key={type}
-                className={`rounded-xl px-3 py-2 text-sm font-bold ${
-                  exists ? "bg-emerald-500/15 text-emerald-700" : "bg-amber-500/15 text-amber-700"
+                className={`flex items-center justify-between gap-2 rounded-xl px-3.5 py-2.5 text-sm ${
+                  exists ? "bg-surface-2/70" : "bg-[var(--agam-orange-soft)]"
                 }`}
               >
-                {type}: {exists ? "הועלה" : "חסר"}
+                <span className="font-semibold text-text-primary">{type}</span>
+                <span className="text-xs font-bold text-text-muted">{exists ? "הועלה" : "חסר"}</span>
               </div>
             );
           })}
         </div>
       </div>
       {canEvaluate ? (
-        <div className={`${panelClass} space-y-4 p-6`}>
+        <div className={`${panelClass} space-y-4 p-5 sm:p-6`}>
           <div>
-            <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
-            <p className="mt-1 text-sm text-text-muted">ניהול מסמכי המועמד</p>
+            <h2 className="text-sm font-bold text-text-primary">העלאת מסמך</h2>
+            <p className="mt-1 text-xs text-text-muted">הוספת קובץ לתיק המועמד</p>
           </div>
-          <label className="block space-y-2 text-sm font-bold text-text-secondary">
+          <label className="block space-y-2 text-sm font-semibold text-text-primary">
             סוג מסמך
             <select
               className={fieldClass}
@@ -123,37 +125,34 @@ export function DocumentsStage({
           />
           <button
             type="button"
-            className={primaryButtonClass}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent-orange px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 disabled:opacity-50"
             onClick={() => void onUpload()}
             disabled={!file || uploading}
           >
             {uploading ? "מעלה…" : "העלאה"}
           </button>
         </div>
-      ) : (
-        <div className={`${panelClass} p-6`}>
-          <h2 className="text-2xl font-extrabold text-text-primary">מסמכים</h2>
-        </div>
-      )}
+      ) : null}
 
-      <div className={`${panelClass} p-6`}>
+      <div className={`${panelClass} p-5 sm:p-6`}>
+        <h2 className="mb-3 text-sm font-bold text-text-primary">קבצים בתיק</h2>
         {documents.length === 0 ? (
           <p className="text-sm text-text-muted">אין מסמכים.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {documents.map((document) => (
-              <li key={document.id} className={innerCardClass}>
+              <li key={document.id} className="rounded-2xl bg-surface-2/60 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
+                  <div className="min-w-0">
                     <a
                       href={documentDownloadHref(document.id)}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-bold text-accent-primary hover:underline"
+                      className="text-sm font-bold text-text-primary hover:underline"
                     >
                       {document.name}
                     </a>
-                    <p className="text-xs text-text-muted">
+                    <p className="mt-0.5 text-xs text-text-muted">
                       {document.document_type} ·{" "}
                       {SOURCE_LABELS[document.upload_source ?? ""] ?? document.upload_source} ·{" "}
                       {document.uploaded_by_name}
@@ -164,14 +163,14 @@ export function DocumentsStage({
                       href={documentDownloadHref(document.id)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-xs font-bold text-accent-primary"
+                      className="text-xs font-bold text-text-muted transition hover:text-text-primary"
                     >
                       צפייה
                     </a>
                     <a
                       href={documentDownloadHref(document.id)}
                       download={document.name}
-                      className="text-xs font-bold text-text-secondary"
+                      className="text-xs font-bold text-text-muted transition hover:text-text-primary"
                     >
                       הורדה
                     </a>
@@ -213,7 +212,7 @@ export function DocumentsStage({
                     }}
                   />
                 ) : document.notes ? (
-                  <p className="mt-2 text-sm">{document.notes}</p>
+                  <p className="mt-2 text-sm text-text-secondary">{document.notes}</p>
                 ) : null}
               </li>
             ))}

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 import { ACCEPTED_FILE_TYPES, DOC_TYPES, isCustomDocType } from "@/modules/agam/lib/document-types";
-import { fieldClass, panelClass, primaryButtonClass } from "@/modules/agam/lib/ui";
+import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import { AgamPublicChrome } from "@/modules/agam/components/public-chrome";
 
 export function AgamUploadPage() {
@@ -59,14 +60,37 @@ export function AgamUploadPage() {
 
   return (
     <AgamPublicChrome>
-      <div className={`${panelClass} w-full max-w-md space-y-4 p-8`}>
-        <h1 className="text-3xl font-extrabold text-text-primary">העלאת מסמכים</h1>
+      <div className={`${panelClass} w-full max-w-lg space-y-5 p-6 sm:p-8`}>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+            קצינים
+          </p>
+          <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
+            העלאת מסמכים
+          </h1>
+        </div>
+
         {done ? (
-          <p className="text-sm text-emerald-700">המסמך הועלה בהצלחה.</p>
+          <div className="py-6 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-2 text-text-primary">
+              <CheckCircle2 size={24} />
+            </div>
+            <p className="mt-4 text-sm font-semibold text-text-primary">המסמך הועלה בהצלחה</p>
+            <button
+              type="button"
+              className={`${secondaryButtonClass} mt-5`}
+              onClick={() => {
+                setDone(false);
+                setFile(null);
+              }}
+            >
+              העלאת מסמך נוסף
+            </button>
+          </div>
         ) : !candidateId ? (
           <>
             <p className="text-sm text-text-secondary">הזינו מספר אישי וטלפון לאימות זהות.</p>
-            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+            <label className="block space-y-2 text-sm font-semibold text-text-primary">
               מספר אישי
               <input
                 className={`${fieldClass} text-left`}
@@ -75,7 +99,7 @@ export function AgamUploadPage() {
                 onChange={(event) => setPersonalNumber(event.target.value)}
               />
             </label>
-            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+            <label className="block space-y-2 text-sm font-semibold text-text-primary">
               טלפון
               <input
                 className={`${fieldClass} text-left`}
@@ -84,13 +108,20 @@ export function AgamUploadPage() {
                 onChange={(event) => setPhone(event.target.value)}
               />
             </label>
-            <button type="button" className={`${primaryButtonClass} w-full`} onClick={() => void verify()} disabled={loading}>
-              {loading ? "מאמת…" : "אימות"}
+            {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
+            <button
+              type="button"
+              className={`${primaryButtonClass} w-full`}
+              onClick={() => void verify()}
+              disabled={loading}
+            >
+              {loading ? "מאמת…" : "המשך"}
             </button>
           </>
         ) : (
           <>
-            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+            <p className="text-sm text-text-secondary">הזהות אומתה. בחרו סוג מסמך והעלו קובץ.</p>
+            <label className="block space-y-2 text-sm font-semibold text-text-primary">
               סוג מסמך
               <select
                 className={fieldClass}
@@ -105,22 +136,28 @@ export function AgamUploadPage() {
               </select>
             </label>
             {isCustomDocType(documentType) ? (
-              <input
-                className={fieldClass}
-                placeholder="סוג מותאם"
-                value={customType}
-                onChange={(event) => setCustomType(event.target.value)}
-              />
+              <label className="block space-y-2 text-sm font-semibold text-text-primary">
+                פירוט סוג
+                <input
+                  className={fieldClass}
+                  value={customType}
+                  onChange={(event) => setCustomType(event.target.value)}
+                />
+              </label>
             ) : null}
-            <input
-              type="file"
-              className={fieldClass}
-              accept={ACCEPTED_FILE_TYPES}
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
+            <label className="block space-y-2 text-sm font-semibold text-text-primary">
+              קובץ
+              <input
+                type="file"
+                accept={ACCEPTED_FILE_TYPES}
+                className="block w-full text-sm text-text-secondary file:me-3 file:rounded-lg file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-xs file:font-bold file:text-text-primary"
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              />
+            </label>
+            {error ? <p className="text-sm font-semibold text-rose-600">{error}</p> : null}
             <button
               type="button"
-              className={`${primaryButtonClass} w-full`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent-orange px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.55)] transition hover:brightness-105 disabled:opacity-50"
               onClick={() => void upload()}
               disabled={loading || !file}
             >
@@ -128,7 +165,6 @@ export function AgamUploadPage() {
             </button>
           </>
         )}
-        {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       </div>
     </AgamPublicChrome>
   );

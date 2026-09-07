@@ -47,16 +47,16 @@ export function DaySelectionStage({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className={`${panelClass} p-6`}>
+    <div className="space-y-5">
+      <div className={`${panelClass} p-5 sm:p-6`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-extrabold text-text-primary">יום המיונים</h2>
-            <p className="mt-1 text-sm text-text-muted">שאלון מקדים, ראיונות והערכות קריטריונים</p>
+            <h2 className="text-sm font-bold text-text-primary">יום המיונים</h2>
+            <p className="mt-1 text-xs text-text-muted">שאלון מקדים, ראיונות והערכות</p>
           </div>
           {canEvaluate ? (
             <div className="flex flex-wrap gap-2">
-              <Link href={`/agam/candidates/${candidateId}/interview`} className={primaryButtonClass}>
+              <Link href={`/agam/candidates/${candidateId}/interview`} className={secondaryButtonClass}>
                 ראיון חדש
               </Link>
               <Link href={`/agam/candidates/${candidateId}/evaluation`} className={secondaryButtonClass}>
@@ -65,19 +65,22 @@ export function DaySelectionStage({
             </div>
           ) : null}
         </div>
-        <div className={`mt-5 flex gap-1 overflow-x-auto ${dividerClass}`}>
+        <div className={`mt-4 flex gap-1 overflow-x-auto pt-3 ${dividerTopClass}`}>
           {tabs.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`whitespace-nowrap px-4 py-2.5 text-sm font-bold transition ${
+              className={`relative shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                 tab === item.id
-                  ? "border-b-2 border-accent-primary text-accent-primary"
-                  : "text-text-muted hover:text-text-primary"
+                  ? "text-text-primary"
+                  : "text-text-muted hover:bg-surface-2/80 hover:text-text-primary"
               }`}
             >
               {item.label}
+              {tab === item.id ? (
+                <span className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full bg-text-primary" />
+              ) : null}
             </button>
           ))}
         </div>

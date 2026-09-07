@@ -17,8 +17,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "missing" }, { status: 400 });
   }
   const questions = await new AgamQuestionService().listActive("interview");
-  const interview = interviewId ? await new AgamInterviewService().getById(interviewId) : null;
-  return NextResponse.json({ questions, interview, currentUserId: access.profile.id });
+  const interviewService = new AgamInterviewService();
+  const interview = interviewId
+    ? await interviewService.getById(interviewId)
+    : await interviewService.getLatestForCandidate(candidateId);
+  return NextResponse.json({
+    questions,
+    interview,
+    currentUserId: access.profile.id,
+    candidatePartComplete: Boolean(interview?.candidate_part_completed_at),
+  });
 }
 
 const bodySchema = z.object({
@@ -43,31 +51,72 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
   const interviewService = new AgamInterviewService();
-  if (parsed.data.interviewId) {
-    const updated = await interviewService.updateOwned(
-      parsed.data.interviewId,
-      parsed.data.candidateId,
-      access.profile.id,
-      accessService.canRamad(access.role),
-      {
-        interview_data: parsed.data.interviewData,
-        evaluator_assessment: parsed.data.evaluatorAssessment,
-        recommendation: parsed.data.recommendation,
-      },
-    );
-    if (!updated) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const allowOverride = accessService.canRamad(access.role);
+
+  try {
+    if (parsed.data.interviewId) {
+      const updated = await interviewService.updateOwned(
+        parsed.data.interviewId,
+        parsed.data.candidateId,
+        access.profile.id,
+        allowOverride,
+        {
+          interview_data: parsed.data.interviewData,
+          evaluator_assessment: parsed.data.evaluatorAssessment,
+          recommendation: parsed.data.recommendation,
+        },
+      );
+      if (!updated) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else {
+      const latest = await interviewService.getLatestForCandidate(parsed.data.candidateId);
+      if (latest?.candidate_part_completed_at || allowOverride) {
+        if (latest) {
+          await interviewService.updateOwned(
+            latest.id,
+            parsed.data.candidateId,
+            access.profile.id,
+            allowOverride,
+            {
+              interview_data: parsed.data.interviewData,
+              evaluator_assessment: parsed.data.evaluatorAssessment,
+              recommendation: parsed.data.recommendation,
+            },
+          );
+        } else if (allowOverride) {
+          await interviewService.create({
+            candidate_id: parsed.data.candidateId,
+            evaluator_id: access.profile.id,
+            evaluator_name: access.profile.name,
+            interview_data: parsed.data.interviewData,
+            evaluator_assessment: parsed.data.evaluatorAssessment,
+            recommendation: parsed.data.recommendation,
+            candidate_part_completed_at: new Date().toISOString(),
+          });
+        } else {
+          return NextResponse.json(
+            { error: "לא ניתן לפתוח ראיון לפני שחלק המועמד הושלם" },
+            { status: 409 },
+          );
+        }
+      } else {
+        return NextResponse.json(
+          { error: "לא ניתן לפתוח ראיון לפני שחלק המועמד הושלם" },
+          { status: 409 },
+        );
+      }
     }
-  } else {
-    await interviewService.create({
-      candidate_id: parsed.data.candidateId,
-      evaluator_id: access.profile.id,
-      evaluator_name: access.profile.name,
-      interview_data: parsed.data.interviewData,
-      evaluator_assessment: parsed.data.evaluatorAssessment,
-      recommendation: parsed.data.recommendation,
-    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "CANDIDATE_PART_INCOMPLETE") {
+      return NextResponse.json(
+        { error: "לא ניתן לפתוח ראיון לפני שחלק המועמד הושלם" },
+        { status: 409 },
+      );
+    }
+    throw error;
   }
+
   await new AgamCandidateService().addTimeline({
     candidate_id: parsed.data.candidateId,
     event_type: "interview",

@@ -50,10 +50,10 @@ const APP_DEFS: Array<{
   },
   {
     id: "agam",
-    label: "איתור קציני דת",
+    label: "קצינים",
     roles: [
-      { value: "user", label: "מעריך", hint: "מילוי ראיונות, הערכות, סמ״ח ומסמכים" },
-      { value: "ramad", label: "רמ״ד אומ״ץ", hint: "ארכיון, ייצוא CSV והחלטה סופית" },
+      { value: "user", label: "ממיין", hint: "מילוי ראיונות, הערכות, סמ״ח ומסמכים" },
+      { value: "ramad", label: "מנהל", hint: "ארכיון, ייצוא PDF והחלטה סופית" },
       { value: "viewer", label: "צופה", hint: "צפייה בתיקים בלבד" },
       { value: "admin", label: "מנהל", hint: "ניהול מלא כולל שאלון, קריטריונים והגדרות" },
     ],
@@ -76,9 +76,9 @@ function roleShortLabel(moduleId: string, role: ModuleRole): string {
   }
   if (moduleId === "agam") {
     if (role === "admin") return "מנהל";
-    if (role === "ramad") return "רמ״ד";
+    if (role === "ramad") return "מנהל";
     if (role === "viewer") return "צופה";
-    return "מעריך";
+    return "ממיין";
   }
   if (role === "admin") return "מנהל";
   if (role === "viewer") return "צופה";
@@ -228,7 +228,7 @@ export function UsersManagementPanel({
               { key: "all" as const, label: "הכל" },
               { key: "tasks" as const, label: "משימות" },
               { key: "dovrut" as const, label: "דוברות" },
-              { key: "agam" as const, label: "איתור קציני דת" },
+              { key: "agam" as const, label: "קצינים" },
             ] as const
           ).map(({ key, label }) => (
             <button

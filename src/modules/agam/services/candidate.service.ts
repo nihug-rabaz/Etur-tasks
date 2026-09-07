@@ -144,8 +144,11 @@ export class AgamCandidateService extends BaseService {
   }
 
   public async updateProfile(id: string, input: {
+    full_name?: string;
+    phone?: string | null;
     command?: string | null;
     direct_commander_name?: string | null;
+    direct_commander_role?: string | null;
     gaps?: string | null;
     planning_index?: number | null;
     dapar?: number | null;
@@ -156,14 +159,17 @@ export class AgamCandidateService extends BaseService {
     internet_test?: boolean | null;
     pre_bahad1_checklist?: Record<string, boolean>;
     questionnaire_data?: Record<string, unknown> | null;
-  }): Promise<void> {
+  }): Promise<AgamCandidate | null> {
     const existing = await this.getById(id);
-    if (!existing) return;
+    if (!existing) return null;
     const db = this.getDb();
-    await db`
+    const rows = await db<AgamCandidate[]>`
       update agam_candidates set
+        full_name = ${input.full_name !== undefined ? input.full_name : existing.full_name},
+        phone = ${input.phone !== undefined ? input.phone : existing.phone},
         command = ${input.command !== undefined ? input.command : existing.command},
         direct_commander_name = ${input.direct_commander_name !== undefined ? input.direct_commander_name : existing.direct_commander_name},
+        direct_commander_role = ${input.direct_commander_role !== undefined ? input.direct_commander_role : existing.direct_commander_role},
         gaps = ${input.gaps !== undefined ? input.gaps : existing.gaps},
         planning_index = ${input.planning_index !== undefined ? input.planning_index : existing.planning_index},
         dapar = ${input.dapar !== undefined ? input.dapar : existing.dapar},
@@ -176,7 +182,9 @@ export class AgamCandidateService extends BaseService {
         questionnaire_data = ${input.questionnaire_data !== undefined ? input.questionnaire_data : existing.questionnaire_data},
         updated_at = now()
       where id = ${id}
+      returning *
     `;
+    return rows[0] ?? null;
   }
 
   public async delete(id: string): Promise<void> {

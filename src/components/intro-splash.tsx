@@ -56,20 +56,21 @@ export function IntroSplash() {
         >
           {phase === "playing" ? (
             <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
+              {/* Soft fill behind letterboxed mobile playback; desktop uses cover so this is mostly hidden */}
               <video
                 ref={backgroundVideoRef}
                 src={INTRO_VIDEO_SRC}
-                className="pointer-events-none absolute inset-[-5%] h-[110%] w-[110%] scale-110 object-cover opacity-50 blur-3xl saturate-150"
+                className="pointer-events-none absolute inset-[-5%] h-[110%] w-[110%] scale-110 object-cover opacity-50 blur-3xl saturate-150 md:hidden"
                 playsInline
                 muted
                 preload="auto"
                 aria-hidden
               />
-              <div className="pointer-events-none absolute inset-0 bg-black/35" />
+              <div className="pointer-events-none absolute inset-0 bg-black/35 md:hidden" />
               <video
                 ref={videoRef}
                 src={INTRO_VIDEO_SRC}
-                className="relative z-[1] h-full w-full object-contain shadow-[0_0_70px_rgba(0,0,0,0.65)]"
+                className="relative z-[1] h-full w-full object-contain md:object-cover"
                 playsInline
                 preload="auto"
                 onEnded={dismiss}

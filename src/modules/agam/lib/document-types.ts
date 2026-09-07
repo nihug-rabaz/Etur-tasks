@@ -11,7 +11,7 @@ export const DOC_TYPES = [
 
 export const SOURCE_LABELS: Record<string, string> = {
   candidate: "המועמד",
-  evaluator: "מעריך",
+  evaluator: "ממיין",
   ramad: "רמ״ד איתור",
   admin: "מנהל מערכת",
 };

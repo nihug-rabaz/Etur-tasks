@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AuthorizationService } from "@/services/authorization.service";
-import { TelegramService } from "@/services/telegram.service";
+import { OneSignalService } from "@/services/onesignal.service";
+import { OneSignalServerConfig } from "@/lib/onesignal/onesignal-server-config";
 
 const directSchema = z.object({
   userIds: z.array(z.string().uuid()).min(1, "At least one recipient is required"),
   message: z.string().trim().min(1, "Message is required").max(4000),
 });
 
+/** @deprecated Prefer /api/notifications/direct — kept as OneSignal proxy for old clients. */
 export async function POST(request: Request) {
   const authorizationService = new AuthorizationService();
   const profile = await authorizationService.getCurrentProfile();
@@ -24,11 +26,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
 
-  const telegramService = new TelegramService();
-  if (!telegramService.hasToken()) {
-    return NextResponse.json({ error: "Telegram bot not configured" }, { status: 503 });
+  if (!OneSignalServerConfig.isSendReady()) {
+    return NextResponse.json({ error: "OneSignal not configured" }, { status: 503 });
   }
 
-  const stats = await telegramService.sendDirectMessages(parsed.data.userIds, parsed.data.message);
+  const stats = await new OneSignalService().sendDirectMessages(parsed.data.userIds, parsed.data.message);
   return NextResponse.json({ ok: true, ...stats });
 }

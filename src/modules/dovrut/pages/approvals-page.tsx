@@ -144,10 +144,10 @@ export function DovrutApprovalsPage() {
               setSelectedId(null);
             }}
             className={`rounded-full px-3 py-1.5 text-xs font-bold ${
-              step === item.id
-                ? "bg-violet-600 text-white"
-                : "bg-slate-100 text-text-primary dark:bg-slate-800"
-            }`}
+ step === item.id
+ ? "bg-accent-primary text-white"
+ : "bg-surface-2 text-text-primary "
+ }`}
           >
             {item.label}
           </button>
@@ -159,13 +159,13 @@ export function DovrutApprovalsPage() {
           value={code}
           onChange={(event) => setCode(event.target.value)}
           placeholder="קוד אישור (id:step)"
-          className="min-w-0 flex-1 rounded-xl bg-slate-100 px-3 py-2.5 text-sm outline-none dark:bg-slate-800"
+          className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3 py-2.5 text-sm outline-none"
         />
         <button
           type="button"
           disabled={busy}
           onClick={() => void loadByCode()}
-          className="shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+          className="shrink-0 rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-40"
         >
           טען
         </button>
@@ -180,11 +180,11 @@ export function DovrutApprovalsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedId(concept.id)}
-                className={`w-full min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-start dark:border-white/10 ${
-                  selectedId === concept.id
-                    ? "border-violet-400 bg-violet-50 dark:bg-violet-950/40"
-                    : "border-black/8 bg-white dark:bg-[#161922]"
-                }`}
+                className={`w-full min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-start ${
+ selectedId === concept.id
+ ? "border-accent-primary/40 bg-accent-primary/10 dark:bg-accent-primary/10"
+ : "bg-surface-1 shadow-[var(--shadow-soft)]"
+ }`}
               >
                 <p className="break-words text-sm font-bold">{concept.name}</p>
                 <p className="text-[11px] text-text-muted">
@@ -201,7 +201,7 @@ export function DovrutApprovalsPage() {
           ) : null}
         </ul>
 
-        <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#161922]">
+        <div className="dashboard-glass rounded-3xl p-4">
           {selected ? (
             <>
               <h2 className="break-words text-lg font-extrabold text-text-primary">{selected.name}</h2>
@@ -209,7 +209,7 @@ export function DovrutApprovalsPage() {
                 {selected.project_name}
                 {selected.domain ? ` · ${DOMAIN_LABELS[selected.domain]}` : ""}
               </p>
-              <p className="mt-2 text-sm font-bold text-violet-700">
+              <p className="mt-2 text-sm font-bold text-accent-primary">
                 {selected.approval_status
                   ? APPROVAL_STATUS_LABELS[selected.approval_status]
                   : "אין ציר אישורים"}
@@ -223,7 +223,7 @@ export function DovrutApprovalsPage() {
                 value={rejectionReason}
                 onChange={(event) => setRejectionReason(event.target.value)}
                 placeholder="סיבת דחייה (אם רלוונטי)"
-                className="mt-4 min-h-20 w-full rounded-xl bg-slate-100 px-3 py-2 text-sm outline-none dark:bg-slate-800"
+                className="mt-4 min-h-20 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
               />
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
@@ -244,7 +244,7 @@ export function DovrutApprovalsPage() {
                 </button>
                 <Link
                   href={`/dovrut/items/${selected.id}`}
-                  className="ms-auto rounded-xl bg-slate-100 px-4 py-2 text-sm font-bold dark:bg-slate-800"
+                  className="ms-auto rounded-xl bg-surface-2 px-4 py-2 text-sm font-bold"
                 >
                   לפרטים
                 </Link>
@@ -264,7 +264,7 @@ export function DovrutApprovalsPage() {
               <li key={item.id} className="min-w-0">
                 <Link
                   href={`/dovrut/items/${item.id}`}
-                  className="block min-w-0 overflow-hidden rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#161922]"
+                  className="block min-w-0 overflow-hidden rounded-xl bg-surface-1 shadow-[var(--shadow-soft)] px-4 py-3"
                 >
                   <p className="break-words text-sm font-bold">{item.name}</p>
                   <p className="text-[11px] text-text-muted">{item.project_name}</p>

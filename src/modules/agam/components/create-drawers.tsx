@@ -47,7 +47,7 @@ function CandidatePicker({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <div className="ui-card max-h-56 overflow-y-auto rounded-xl bg-surface-2/80">
+      <div className="ui-card max-h-56 overflow-hidden rounded-2xl bg-surface-2/80">
         {filtered.length === 0 ? (
           <p className="px-3 py-4 text-sm text-text-muted">לא נמצאו מועמדים.</p>
         ) : (
@@ -55,7 +55,7 @@ function CandidatePicker({
             <button
               key={row.id}
               type="button"
-              className={`flex w-full items-center justify-between px-3 py-2.5 text-start text-sm ${
+              className={`ui-list-row flex w-full items-center justify-between px-3.5 py-3 text-start text-sm transition hover:bg-surface-1/80 ${
                 value === row.id ? "bg-accent-primary/12 font-bold text-accent-primary" : "text-text-primary"
               }`}
               onClick={() => onChange(row.id)}
@@ -161,7 +161,7 @@ export function CreateCandidateDrawer({
         <button
           type="button"
           dir="rtl"
-          className="inline-flex w-fit items-center gap-2 rounded-full bg-sky-600 px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(2,132,199,0.55)] transition hover:brightness-105"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-accent-orange px-4 py-3 text-sm font-bold text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.7)] transition hover:brightness-105"
           onClick={() => setOpen(true)}
         >
           מועמד חדש
@@ -169,7 +169,7 @@ export function CreateCandidateDrawer({
         </button>
       )}
       <Drawer open={open} onClose={() => setOpen(false)} title="מועמד חדש" subtitle="יצירת תיק על ידי הצוות">
-        <div className="space-y-4 p-1">
+        <div className="space-y-4">
           <label className="block space-y-2 text-sm font-bold text-text-secondary">
             שם מלא
             <input className={fieldClass} value={fullName} onChange={(event) => setFullName(event.target.value)} />
@@ -238,8 +238,8 @@ export function CreateCandidateDrawer({
             </label>
           </div>
           {isExceptional ? (
-            <div className="flex items-start gap-2 rounded-2xl bg-rose-500/12 p-3 text-sm font-bold text-rose-700">
-              <AlertTriangle size={18} />
+            <div className="ui-card flex items-start gap-2 rounded-2xl bg-rose-500/10 p-3.5 text-sm font-bold text-rose-700 dark:text-rose-200">
+              <AlertTriangle size={18} className="mt-0.5 shrink-0" />
               חייל חריג: מדד תכנוני {planningIndex} ודפ״ר מתחת ל-30
             </div>
           ) : null}
@@ -265,7 +265,7 @@ export function CreateCandidateDrawer({
           </div>
           <button
             type="button"
-            className={primaryButtonClass}
+            className={`${primaryButtonClass} w-full`}
             disabled={saving || fullName.trim().length < 2 || personalNumber.trim().length < 2}
             onClick={() => void submit()}
           >
@@ -288,11 +288,11 @@ export function CreateInterviewDrawer({
   const [candidateId, setCandidateId] = useState("");
   return (
     <Drawer open={open} onClose={() => onOpenChange(false)} title="ראיון חדש" subtitle="בחרו מועמד לטופס הראיון">
-      <div className="space-y-4 p-1">
+      <div className="space-y-4">
         <CandidatePicker enabled={open} value={candidateId} onChange={setCandidateId} />
         <button
           type="button"
-          className={primaryButtonClass}
+          className={`${primaryButtonClass} w-full`}
           disabled={!candidateId}
           onClick={() => {
             onOpenChange(false);
@@ -317,11 +317,11 @@ export function CreateEvaluationDrawer({
   const [candidateId, setCandidateId] = useState("");
   return (
     <Drawer open={open} onClose={() => onOpenChange(false)} title="הערכה חדשה" subtitle="הערכת יום מיונים לפי קריטריונים">
-      <div className="space-y-4 p-1">
+      <div className="space-y-4">
         <CandidatePicker enabled={open} value={candidateId} onChange={setCandidateId} />
         <button
           type="button"
-          className={primaryButtonClass}
+          className={`${primaryButtonClass} w-full`}
           disabled={!candidateId}
           onClick={() => {
             onOpenChange(false);
@@ -376,7 +376,7 @@ export function CreateDocumentDrawer({
 
   return (
     <Drawer open={open} onClose={() => onOpenChange(false)} title="העלאת מסמך" subtitle="קורות חיים, ת״ז, אישור רפואי ועוד">
-      <div className="space-y-4 p-1">
+      <div className="space-y-4">
         <CandidatePicker enabled={open} value={candidateId} onChange={setCandidateId} />
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           סוג מסמך
@@ -396,15 +396,18 @@ export function CreateDocumentDrawer({
             onChange={(event) => setCustomType(event.target.value)}
           />
         ) : null}
-        <input
-          type="file"
-          className={fieldClass}
-          accept={ACCEPTED_FILE_TYPES}
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-        />
+        <label className="ui-card block cursor-pointer space-y-2 rounded-2xl bg-surface-2/70 p-4 text-sm font-bold text-text-secondary transition hover:bg-surface-2">
+          קובץ
+          <input
+            type="file"
+            className={`${fieldClass} mt-1 file:me-3 file:rounded-lg file:border-0 file:bg-accent-primary/15 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-text-primary`}
+            accept={ACCEPTED_FILE_TYPES}
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+        </label>
         <button
           type="button"
-          className={primaryButtonClass}
+          className={`${primaryButtonClass} w-full`}
           disabled={!candidateId || !file || uploading}
           onClick={() => void submit()}
         >
