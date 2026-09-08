@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const INTRO_VIDEO_SRC = "/intro.mp4";
+const INTRO_COOLDOWN_KEY = "intro-video-last-shown-at";
+const INTRO_COOLDOWN_MS = 10 * 60 * 1000;
 
 type IntroPhase = "ready" | "playing" | "failed";
 
@@ -18,6 +20,17 @@ export function IntroSplash() {
 
   useEffect(() => {
     setMounted(true);
+
+    try {
+      const lastShownAt = Number(window.localStorage.getItem(INTRO_COOLDOWN_KEY));
+      if (lastShownAt && Date.now() - lastShownAt < INTRO_COOLDOWN_MS) {
+        setVisible(false);
+        return;
+      }
+      window.localStorage.setItem(INTRO_COOLDOWN_KEY, String(Date.now()));
+    } catch {
+      // Keep showing the intro when browser storage is unavailable.
+    }
   }, []);
 
   const dismiss = useCallback(() => setVisible(false), []);
