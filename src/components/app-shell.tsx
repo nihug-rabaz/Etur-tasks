@@ -59,6 +59,16 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/agam/candidates/archive",
     "/agam/admin",
     "/agam/admin/users",
+    "/malshabim",
+    "/malshabim/interview",
+    "/malshabim/board",
+    "/malshabim/statistics",
+    "/malshabim/admin/users",
+    "/nagadim",
+    "/nagadim/active",
+    "/nagadim/positions",
+    "/nagadim/gaps",
+    "/nagadim/admin/users",
   ]);
   if (exactRoutes.has(href)) return href;
 
@@ -75,6 +85,16 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     return href;
   }
   if (section === "agam" && index === 1 && (segments[1] === "candidates" || segments[1] === "cycles")) {
+    return href;
+  }
+  if (section === "malshabim" && index === 1 && segments[1] === "candidates") {
+    return href;
+  }
+  if (
+    section === "nagadim" &&
+    index === 1 &&
+    (segments[1] === "active" || segments[1] === "positions" || segments[1] === "gaps")
+  ) {
     return href;
   }
   const isDynamicDetails =
@@ -175,16 +195,28 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const userLabel = profile?.name || session?.user?.name || session?.user?.email || null;
   const userAvatarUrl = profile?.avatar ?? null;
-  const isDashboard = pathname === "/dashboard" || pathname === "/dovrut" || pathname === "/agam";
+  const isDashboard =
+    pathname === "/dashboard" ||
+    pathname === "/dovrut" ||
+    pathname === "/agam" ||
+    pathname === "/malshabim" ||
+    pathname === "/nagadim";
   const isHome = pathname === "/";
   const isModuleFullBleed =
-    isDashboard || isHome || pathname.startsWith("/dovrut") || pathname.startsWith("/agam");
+    isDashboard ||
+    isHome ||
+    pathname.startsWith("/dovrut") ||
+    pathname.startsWith("/agam") ||
+    pathname.startsWith("/malshabim") ||
+    pathname.startsWith("/nagadim");
   const showTasksChrome = activeModuleId === "tasks";
   const hideCreateFab =
     isHome ||
     pathname === "/admin/users" ||
     pathname === "/dovrut/admin/users" ||
-    pathname === "/agam/admin/users";
+    pathname === "/agam/admin/users" ||
+    pathname === "/malshabim/admin/users" ||
+    pathname === "/nagadim/admin/users";
   const canEditDovrut =
     moduleRoles.dovrut === "admin" || moduleRoles.dovrut === "user";
   const canCreateAgam =

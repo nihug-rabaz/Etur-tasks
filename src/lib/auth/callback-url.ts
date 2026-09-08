@@ -23,10 +23,14 @@ export function sanitizeCallbackUrl(raw: string | null | undefined, fallback = F
   return value || fallback;
 }
 
-export function moduleIdFromPath(pathname: string): "tasks" | "dovrut" | "agam" | null {
+export function moduleIdFromPath(
+  pathname: string,
+): "tasks" | "dovrut" | "agam" | "malshabim" | "nagadim" | null {
   if (pathname === "/" || pathname === "") return null;
   if (pathname === "/dovrut" || pathname.startsWith("/dovrut/")) return "dovrut";
   if (pathname === "/agam" || pathname.startsWith("/agam/")) return "agam";
+  if (pathname === "/malshabim" || pathname.startsWith("/malshabim/")) return "malshabim";
+  if (pathname === "/nagadim" || pathname.startsWith("/nagadim/")) return "nagadim";
   if (
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||

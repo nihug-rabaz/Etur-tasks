@@ -27,6 +27,8 @@ export function resolveActiveModuleId(pathname: string): string | null {
   if (pathname === "/" || pathname === "") return null;
   if (pathname.startsWith("/dovrut")) return "dovrut";
   if (pathname.startsWith("/agam")) return "agam";
+  if (pathname.startsWith("/malshabim")) return "malshabim";
+  if (pathname.startsWith("/nagadim")) return "nagadim";
   if (
     pathname.startsWith("/tasks") ||
     pathname.startsWith("/dashboard") ||

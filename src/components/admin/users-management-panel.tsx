@@ -18,10 +18,10 @@ type PermissionGroup = {
 };
 
 type StatusFilter = "all" | UserAccessStatus;
-type SystemFilter = "all" | "tasks" | "dovrut" | "agam";
+type SystemFilter = "all" | "tasks" | "dovrut" | "agam" | "malshabim" | "nagadim";
 
 const APP_DEFS: Array<{
-  id: "tasks" | "dovrut" | "agam";
+  id: "tasks" | "dovrut" | "agam" | "malshabim" | "nagadim";
   label: string;
   roles: Array<{ value: ModuleRole; label: string; hint: string }>;
 }> = [
@@ -56,6 +56,24 @@ const APP_DEFS: Array<{
       { value: "ramad", label: "מנהל", hint: "ארכיון, ייצוא PDF והחלטה סופית" },
       { value: "viewer", label: "צופה", hint: "צפייה בתיקים בלבד" },
       { value: "admin", label: "מנהל", hint: "ניהול מלא כולל שאלון, קריטריונים והגדרות" },
+    ],
+  },
+  {
+    id: "malshabim",
+    label: "מלש״בים",
+    roles: [
+      { value: "user", label: "משתמש", hint: "יצירה ועריכת מועמדים וראיונות" },
+      { value: "viewer", label: "צופה", hint: "צפייה בלבד — בלי יצירה או עדכון" },
+      { value: "admin", label: "מנהל", hint: "ניהול מלא במודול כולל משתמשים וייבוא" },
+    ],
+  },
+  {
+    id: "nagadim",
+    label: "נגדים",
+    roles: [
+      { value: "user", label: "משתמש", hint: "יצירה ועריכת מועמדים, שלבים ותקנים" },
+      { value: "viewer", label: "צופה", hint: "צפייה בלבד — בלי יצירה או עדכון" },
+      { value: "admin", label: "מנהל", hint: "ניהול מלא במודול כולל משתמשים" },
     ],
   },
 ];
@@ -229,6 +247,8 @@ export function UsersManagementPanel({
               { key: "tasks" as const, label: "משימות" },
               { key: "dovrut" as const, label: "דוברות" },
               { key: "agam" as const, label: "קצינים" },
+              { key: "malshabim" as const, label: "מלש״בים" },
+              { key: "nagadim" as const, label: "נגדים" },
             ] as const
           ).map(({ key, label }) => (
             <button

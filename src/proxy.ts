@@ -116,5 +116,9 @@ export const config = {
     "/dovrut/:path*",
     "/agam",
     "/agam/:path*",
+    "/malshabim",
+    "/malshabim/:path*",
+    "/nagadim",
+    "/nagadim/:path*",
   ],
 };

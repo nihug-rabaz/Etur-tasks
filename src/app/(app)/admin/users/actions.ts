@@ -12,6 +12,8 @@ function revalidateUsersPaths() {
   revalidatePath("/admin/users");
   revalidatePath("/dovrut/admin/users");
   revalidatePath("/agam/admin/users");
+  revalidatePath("/malshabim/admin/users");
+  revalidatePath("/nagadim/admin/users");
 }
 
 export async function updateUserRoleAction(formData: FormData) {

@@ -1,5 +1,7 @@
 import { agamModule } from "@/modules/agam/module";
 import { dovrutModule } from "@/modules/dovrut/module";
+import { malshabimModule } from "@/modules/malshabim/module";
+import { nagadimModule } from "@/modules/nagadim/module";
 import { tasksModule } from "@/modules/tasks/module";
 import type { AppModuleDefinition } from "@/shared/modules/types";
 import {
@@ -11,7 +13,13 @@ import {
   type ModuleRole,
 } from "@/shared/modules/types";
 
-export const appModules: AppModuleDefinition[] = [tasksModule, dovrutModule, agamModule];
+export const appModules: AppModuleDefinition[] = [
+  tasksModule,
+  dovrutModule,
+  agamModule,
+  malshabimModule,
+  nagadimModule,
+];
 
 export function getModuleById(id: string): AppModuleDefinition | undefined {
   return appModules.find((module) => module.id === id);
