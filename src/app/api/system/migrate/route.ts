@@ -43,6 +43,24 @@ function emptyToNull(val: unknown) {
   return s === "" ? null : s;
 }
 
+function parseDate(val: unknown): string | null {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (!s) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function parseTimestamptz(val: unknown): string | null {
+  if (!val) return null;
+  const s = String(val).trim();
+  if (!s) return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 export async function GET(request: Request) {
   const token = request.headers.get("x-migration-token");
   if (token !== MIGRATION_TOKEN) {
@@ -62,19 +80,18 @@ export async function GET(request: Request) {
     order by table_name
   `;
 
-  const malshabimSample = await sql`
-    select id, full_name, candidate_status, created_at 
-    from public.malshabim_candidates 
-    limit 5
-  `;
-
   const totalMalshabim = (await sql`select count(*)::int as count from public.malshabim_candidates`) as Array<{ count: number }>;
+  const totalNagadimCandidates = (await sql`select count(*)::int as count from public.nagadim_candidates`) as Array<{ count: number }>;
+  const totalNagadimPositions = (await sql`select count(*)::int as count from public.nagadim_positions`) as Array<{ count: number }>;
 
   return NextResponse.json({
     status: "ready",
     existingTables: tables.map((t) => (t as { table_name: string }).table_name),
-    totalMalshabim: totalMalshabim[0]?.count ?? 0,
-    sample: malshabimSample,
+    counts: {
+      malshabim_candidates: totalMalshabim[0]?.count ?? 0,
+      nagadim_candidates: totalNagadimCandidates[0]?.count ?? 0,
+      nagadim_positions: totalNagadimPositions[0]?.count ?? 0,
+    },
   });
 }
 
@@ -91,107 +108,105 @@ export async function POST(request: Request) {
 
   const sql = neon(normalizeDatabaseUrl(rawUrl));
 
-  // Import all 79 candidates
   let inserted = 0;
   let updated = 0;
   let skipped = 0;
+  const errors: Array<{ legacyId: string | null; error: string }> = [];
 
   for (const raw of initialCandidates as Record<string, unknown>[]) {
-    if (toBool(raw.is_sample) === true) {
-      skipped += 1;
-      continue;
-    }
     const legacyId = emptyToNull(raw.id);
     const fullName = emptyToNull(raw.full_name);
-    if (!legacyId && !fullName) {
+
+    if (toBool(raw.is_sample) === true || (!legacyId && !fullName)) {
       skipped += 1;
       continue;
     }
 
-    const observance = parseJsonField(raw.observance, {});
-    const quizQuestions = parseJsonField(raw.quiz_questions, []);
-    const instructionItems = parseJsonField(raw.instruction_items, []);
-    const instructionRecipients = parseJsonField(raw.instruction_recipients, []);
-    const updateLog = parseJsonField(raw.update_log, []);
+    try {
+      const observance = parseJsonField(raw.observance, {});
+      const quizQuestions = parseJsonField(raw.quiz_questions, []);
+      const instructionItems = parseJsonField(raw.instruction_items, []);
+      const instructionRecipients = parseJsonField(raw.instruction_recipients, []);
+      const updateLog = parseJsonField(raw.update_log, []);
 
-    const res = await sql`
-      insert into public.malshabim_candidates (
-        legacy_base44_id,
-        full_name,
-        phone,
-        id_number,
-        personal_number,
-        serial_number,
-        city,
-        photo_url,
-        candidate_status,
-        advanced_status,
-        status_type,
-        request_type,
-        recruitment_track,
-        enlistment_date,
-        interview_at,
-        next_status_update_at,
-        observance,
-        quiz_questions,
-        quiz_score,
-        quiz_passed,
-        quiz_skipped,
-        interview_summary,
-        interviewer_notes,
-        instructions,
-        instruction_items,
-        instruction_recipients,
-        is_draft,
-        draft_step,
-        update_log,
-        created_by_name
-      ) values (
-        ${legacyId},
-        ${fullName},
-        ${emptyToNull(raw.phone)},
-        ${emptyToNull(raw.id_number)},
-        ${emptyToNull(raw.personal_number)},
-        ${toNumber(raw.serial_number)},
-        ${emptyToNull(raw.city)},
-        ${emptyToNull(raw.photo_url)},
-        ${emptyToNull(raw.candidate_status) || "חדש"},
-        ${emptyToNull(raw.advanced_status) || "בטיפול"},
-        ${emptyToNull(raw.status_type)},
-        ${emptyToNull(raw.request_type)},
-        ${emptyToNull(raw.recruitment_track)},
-        ${emptyToNull(raw.enlistment_date) ? String(raw.enlistment_date).slice(0, 10) : null},
-        ${emptyToNull(raw.interview_at)},
-        ${emptyToNull(raw.next_status_update_at)},
-        ${JSON.stringify(observance)}::jsonb,
-        ${JSON.stringify(quizQuestions)}::jsonb,
-        ${toNumber(raw.quiz_score)},
-        ${toBool(raw.quiz_passed) ?? false},
-        ${toBool(raw.quiz_skipped) ?? false},
-        ${emptyToNull(raw.interview_summary)},
-        ${emptyToNull(raw.interviewer_notes)},
-        ${emptyToNull(raw.instructions)},
-        ${JSON.stringify(instructionItems)}::jsonb,
-        ${JSON.stringify(instructionRecipients)}::jsonb,
-        ${toBool(raw.is_draft) ?? false},
-        ${toNumber(raw.draft_step)},
-        ${JSON.stringify(updateLog)}::jsonb,
-        ${emptyToNull(raw.created_by_name)}
-      )
-      on conflict (legacy_base44_id) do update set
-        full_name = excluded.full_name,
-        phone = excluded.phone,
-        city = excluded.city,
-        candidate_status = excluded.candidate_status,
-        advanced_status = excluded.advanced_status,
-        updated_at = now()
-      returning (xmax = 0) as is_insert
-    `;
-
-    if ((res as Array<{ is_insert: boolean }>)[0]?.is_insert) {
+      await sql`
+        insert into public.malshabim_candidates (
+          legacy_base44_id,
+          full_name,
+          phone,
+          id_number,
+          personal_number,
+          serial_number,
+          city,
+          photo_url,
+          candidate_status,
+          advanced_status,
+          status_type,
+          request_type,
+          recruitment_track,
+          enlistment_date,
+          interview_at,
+          next_status_update_at,
+          observance,
+          quiz_questions,
+          quiz_score,
+          quiz_passed,
+          quiz_skipped,
+          interview_summary,
+          interviewer_notes,
+          instructions,
+          instruction_items,
+          instruction_recipients,
+          is_draft,
+          draft_step,
+          update_log,
+          created_by_name
+        ) values (
+          ${legacyId},
+          ${fullName},
+          ${emptyToNull(raw.phone)},
+          ${emptyToNull(raw.id_number)},
+          ${emptyToNull(raw.personal_number)},
+          ${toNumber(raw.serial_number)},
+          ${emptyToNull(raw.city)},
+          ${emptyToNull(raw.photo_url)},
+          ${emptyToNull(raw.candidate_status) || "חדש"},
+          ${emptyToNull(raw.advanced_status) || "בטיפול"},
+          ${emptyToNull(raw.status_type)},
+          ${emptyToNull(raw.request_type)},
+          ${emptyToNull(raw.recruitment_track)},
+          ${parseDate(raw.enlistment_date)},
+          ${parseTimestamptz(raw.interview_at)},
+          ${parseTimestamptz(raw.next_status_update_at)},
+          ${JSON.stringify(observance)}::jsonb,
+          ${JSON.stringify(quizQuestions)}::jsonb,
+          ${toNumber(raw.quiz_score)},
+          ${toBool(raw.quiz_passed) ?? false},
+          ${toBool(raw.quiz_skipped) ?? false},
+          ${emptyToNull(raw.interview_summary)},
+          ${emptyToNull(raw.interviewer_notes)},
+          ${emptyToNull(raw.instructions)},
+          ${JSON.stringify(instructionItems)}::jsonb,
+          ${JSON.stringify(instructionRecipients)}::jsonb,
+          ${toBool(raw.is_draft) ?? false},
+          ${toNumber(raw.draft_step)},
+          ${JSON.stringify(updateLog)}::jsonb,
+          ${emptyToNull(raw.created_by_name)}
+        )
+        on conflict (legacy_base44_id) do update set
+          full_name = excluded.full_name,
+          phone = excluded.phone,
+          city = excluded.city,
+          candidate_status = excluded.candidate_status,
+          advanced_status = excluded.advanced_status,
+          updated_at = now()
+      `;
       inserted += 1;
-    } else {
-      updated += 1;
+    } catch (err: unknown) {
+      errors.push({
+        legacyId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -199,9 +214,10 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     success: true,
-    inserted,
-    updated,
+    processed: inserted + updated,
     skipped,
-    totalCount: finalMalshabim[0]?.count ?? 0,
+    errorsCount: errors.length,
+    errors: errors.slice(0, 5),
+    totalMalshabimInDb: finalMalshabim[0]?.count ?? 0,
   });
 }
