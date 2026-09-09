@@ -11,9 +11,35 @@ import type { DomainKey } from "@/lib/ui/domains";
 
 const MORNING_MESSAGE_TIME_KEY = "telegram_morning_message_time";
 const DOMAIN_TAB_APPEARANCE_KEY = "domain_tab_appearance";
+const ASSISTANT_RELEASED_KEY = "assistant_released";
 const DEFAULT_MORNING_MESSAGE_TIME = "07:00";
 
 export class AppSettingsService extends BaseService {
+  public async getAssistantReleased(): Promise<boolean> {
+    const db = this.getDb();
+    const rows = await db<Array<{ value: string }>>`
+      select value from app_settings where key = ${ASSISTANT_RELEASED_KEY} limit 1
+    `.catch(() => []);
+    return (rows[0]?.value ?? "").trim().toLowerCase() === "true";
+  }
+
+  /** One-shot release. Returns true if newly released, false if already released. */
+  public async releaseAssistant(): Promise<{ released: boolean; already: boolean }> {
+    const db = this.getDb();
+    const updated = await db<Array<{ value: string }>>`
+      insert into app_settings (key, value)
+      values (${ASSISTANT_RELEASED_KEY}, ${"true"})
+      on conflict (key) do update
+      set value = excluded.value, updated_at = now()
+      where app_settings.value is distinct from 'true'
+      returning value
+    `;
+    if (updated.length > 0) {
+      return { released: true, already: false };
+    }
+    return { released: true, already: true };
+  }
+
   public async getMorningMessageTime(): Promise<string> {
     const db = this.getDb();
     const rows = await db<Array<{ value: string }>>`

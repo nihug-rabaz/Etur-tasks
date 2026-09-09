@@ -20,7 +20,20 @@ function extractJsonObject(text: string): unknown {
     const start = candidate.indexOf("{");
     const end = candidate.lastIndexOf("}");
     if (start >= 0 && end > start) {
-      return JSON.parse(candidate.slice(start, end + 1));
+      try {
+        return JSON.parse(candidate.slice(start, end + 1));
+      } catch {
+        // fall through to plain-text bubbles
+      }
+    }
+    // Soft fallback: model returned prose instead of JSON
+    const lines = trimmed
+      .split(/\n+/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith("```"))
+      .slice(0, 8);
+    if (lines.length > 0) {
+      return { bubbles: lines, tool_calls: [] };
     }
     throw new Error("assistant_invalid_json");
   }

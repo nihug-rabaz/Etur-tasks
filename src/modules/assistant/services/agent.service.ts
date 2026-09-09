@@ -44,7 +44,9 @@ export class AssistantAgentService {
           const friendly =
             message === "assistant_llm_not_configured"
               ? "אין מפתח LLM מוגדר (GEMINI/OPENAI)"
-              : "משהו נתקע. ננסה שוב?";
+              : message === "assistant_llm_failed"
+                ? "רגע, נתקעתי על התשובה. ננסה שוב?"
+                : "משהו נתקע. ננסה שוב?";
           emit(controller, { type: "error", message: friendly });
           emit(controller, { type: "done" });
         } finally {
@@ -91,10 +93,30 @@ export class AssistantAgentService {
     };
 
     for (let i = 0; i < ASSISTANT_MAX_AGENT_ITERATIONS; i += 1) {
-      const turn = await AssistantLlmProvider.complete({
-        system,
-        messages: workingMessages,
-      });
+      let turn;
+      try {
+        turn = await AssistantLlmProvider.complete({
+          system,
+          messages: workingMessages,
+        });
+      } catch {
+        if (i > 0) {
+          emit(controller, { type: "bubble", text: "רגע, משהו נתקע לי באמצע" });
+          const lastNote = workingMessages[workingMessages.length - 1]?.content ?? "";
+          const summaryLine = lastNote
+            .split("\n")
+            .find((line) => line.startsWith("tool ") && line.includes("=> ok"));
+          if (summaryLine) {
+            const after = summaryLine.split("=> ok:")[1]?.trim();
+            if (after) {
+              emit(controller, { type: "bubble", text: after.slice(0, 120) });
+            }
+          }
+          emit(controller, { type: "bubble", text: "נסה שוב במשפט קצר" });
+          return undefined;
+        }
+        throw new Error("assistant_llm_failed");
+      }
 
       for (const bubble of turn.bubbles) {
         emit(controller, { type: "bubble", text: bubble });
@@ -209,8 +231,24 @@ export class AssistantAgentService {
           ok: result.ok,
           summary: result.summary,
         });
+        const dataForModel =
+          call.name === "search_domain_candidates" &&
+          result.data &&
+          typeof result.data === "object" &&
+          Array.isArray((result.data as { candidates?: unknown }).candidates)
+            ? {
+                ...(result.data as Record<string, unknown>),
+                candidates: (
+                  (result.data as { candidates: unknown[] }).candidates ?? []
+                ).slice(0, 25),
+              }
+            : result.data;
+        const dataSlice =
+          call.name === "search_domain_candidates" || call.name === "get_domain_candidate"
+            ? 8000
+            : 1800;
         toolNotes.push(
-          `tool ${call.name} => ${result.ok ? "ok" : "fail"}: ${result.summary}\n${JSON.stringify(result.data ?? {}).slice(0, 1800)}`,
+          `tool ${call.name} => ${result.ok ? "ok" : "fail"}: ${result.summary}\n${JSON.stringify(dataForModel ?? {}).slice(0, dataSlice)}`,
         );
       }
 

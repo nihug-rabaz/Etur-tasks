@@ -215,6 +215,27 @@ export async function executeApiProxy(
     return { ok: false, summary: resolved.reason };
   }
 
+  // Fat candidate list dumps get truncated and miss cities like חולון — force DB search tool.
+  if (method === "GET") {
+    const pathOnly = resolved.path.split("?")[0] ?? resolved.path;
+    const blockedLists = [
+      "/api/malshabim/candidates",
+      "/api/agam/candidates",
+      "/api/nagadim/candidates",
+    ];
+    if (blockedLists.includes(pathOnly)) {
+      return {
+        ok: false,
+        summary:
+          "רשימת מועמדים מלאה חסומה ב-api_get (חותכת תוצאות). השתמש ב-search_domain_candidates עם q=עיר/שם",
+        data: {
+          useTool: "search_domain_candidates",
+          argsHint: { q: "חולון", module: "malshabim" },
+        },
+      };
+    }
+  }
+
   let body: unknown = input.body;
   if (method === "GET" || method === "DELETE") {
     body = undefined;

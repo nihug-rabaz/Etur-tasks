@@ -42,13 +42,17 @@ function slimMalshabim(c: {
   candidate_status: string | null;
   phone?: string | null;
   personal_number?: string | null;
+  city?: string | null;
+  serial_number?: number | null;
 }) {
   return {
     id: c.id,
     name: c.full_name ?? "ללא שם",
+    serial: c.serial_number ?? null,
     personalNumber: c.personal_number ?? null,
     status: c.candidate_status,
     statusLabel: c.candidate_status,
+    city: c.city ?? null,
     phone: c.phone ?? null,
     module: "malshabim" as const,
     href: `/malshabim/candidates/${c.id}`,

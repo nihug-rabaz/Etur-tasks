@@ -1,8 +1,12 @@
 import { AuthorizationService } from "@/services/authorization.service";
 import { ImpersonationService } from "@/services/impersonation.service";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
+import { AppSettingsService } from "@/services/app-settings.service";
 import type { ModuleAccessContext, ModuleRole } from "@/shared/modules/types";
 import type { Profile } from "@/types/models";
+
+/** Temporary allowlist until platform admin one-shot release. */
+export const ASSISTANT_PREVIEW_EMAIL = "admin@rabaz-idf.com";
 
 export type AssistantAccessOk = {
   ok: true;
@@ -10,18 +14,24 @@ export type AssistantAccessOk = {
   isPlatformAdmin: boolean;
   moduleRoles: Record<string, ModuleRole>;
   access: ModuleAccessContext;
+  released: boolean;
 };
 
 export type AssistantAccessDenied = {
   ok: false;
-  error: "Unauthorized" | "Forbidden" | "Impersonating";
+  error: "Unauthorized" | "Forbidden" | "Impersonating" | "NotReleased";
   status: 401 | 403;
 };
+
+function normalizeEmail(email: string | null | undefined): string {
+  return (email ?? "").trim().toLowerCase();
+}
 
 export class AssistantAccessService {
   private readonly authorizationService = new AuthorizationService();
   private readonly moduleRoleService = new ModuleRoleService();
   private readonly impersonationService = new ImpersonationService();
+  private readonly appSettingsService = new AppSettingsService();
 
   public async requireAccess(): Promise<AssistantAccessOk | AssistantAccessDenied> {
     const profile = await this.authorizationService.getRealProfile();
@@ -45,11 +55,20 @@ export class AssistantAccessService {
       return { ok: false, error: "Forbidden", status: 403 };
     }
 
+    const released = await this.appSettingsService.getAssistantReleased();
+    const email = normalizeEmail(profile.email);
+    const isPreviewUser = email === ASSISTANT_PREVIEW_EMAIL;
+
+    if (!released && !isPreviewUser) {
+      return { ok: false, error: "NotReleased", status: 403 };
+    }
+
     return {
       ok: true,
       profile,
       isPlatformAdmin,
       moduleRoles,
+      released,
       access: {
         isPlatformAdmin,
         moduleRoles,

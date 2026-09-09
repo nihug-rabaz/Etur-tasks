@@ -37,6 +37,54 @@ export class MalshabimCandidateService extends BaseService {
     return rows[0] ?? null;
   }
 
+  /** Slim text search for assistant / filters (city, name, phone, serial, status). Full table — no list truncation. */
+  public async searchText(
+    q: string,
+    limit = 40,
+  ): Promise<{ rows: MalshabimCandidate[]; totalMatched: number }> {
+    const trimmed = q.trim();
+    if (trimmed.length < 2) return { rows: [], totalMatched: 0 };
+    const db = this.getDb();
+    const pattern = `%${trimmed}%`;
+    const exact = trimmed;
+
+    const countRows = await db<Array<{ count: number | string }>>`
+      select count(*)::int as count
+      from malshabim_candidates
+      where coalesce(full_name, '') ilike ${pattern}
+         or coalesce(city, '') ilike ${pattern}
+         or coalesce(phone, '') ilike ${pattern}
+         or coalesce(id_number, '') ilike ${pattern}
+         or coalesce(personal_number, '') ilike ${pattern}
+         or coalesce(candidate_status, '') ilike ${pattern}
+         or cast(serial_number as text) ilike ${pattern}
+    `;
+    const totalMatched = Number(countRows[0]?.count ?? 0);
+
+    const rows = await db<MalshabimCandidate[]>`
+      select *
+      from malshabim_candidates
+      where coalesce(full_name, '') ilike ${pattern}
+         or coalesce(city, '') ilike ${pattern}
+         or coalesce(phone, '') ilike ${pattern}
+         or coalesce(id_number, '') ilike ${pattern}
+         or coalesce(personal_number, '') ilike ${pattern}
+         or coalesce(candidate_status, '') ilike ${pattern}
+         or cast(serial_number as text) ilike ${pattern}
+      order by
+        case
+          when lower(trim(coalesce(city, ''))) = lower(${exact}) then 0
+          when coalesce(city, '') ilike ${pattern} then 1
+          when coalesce(full_name, '') ilike ${pattern} then 2
+          else 3
+        end,
+        coalesce(serial_number, 0) desc,
+        created_at desc
+      limit ${limit}
+    `;
+    return { rows, totalMatched };
+  }
+
   public async getByLegacyId(legacyId: string): Promise<MalshabimCandidate | null> {
     const db = this.getDb();
     const rows = await db<MalshabimCandidate[]>`

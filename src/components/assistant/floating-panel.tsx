@@ -1,8 +1,15 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Send, X, Loader2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { Send, X, Loader2, GripVertical } from "lucide-react";
 import {
   ASSISTANT_DISPLAY_NAME,
   ASSISTANT_LOGO_SRC,
@@ -22,6 +29,70 @@ type PendingAction = {
   label: string;
   severity: AssistantConfirmSeverity;
 };
+
+type PanelLayout = {
+  x: number;
+  y: number;
+  open: boolean;
+};
+
+const STORAGE_KEY = "etur-assistant-panel-v1";
+const FAB_SIZE = 56;
+const PANEL_WIDTH = 380;
+const PANEL_HEIGHT = 560;
+const EDGE_PAD = 12;
+
+function defaultLayout(): PanelLayout {
+  if (typeof window === "undefined") {
+    return { x: 0, y: 0, open: false };
+  }
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return {
+    x: Math.max(EDGE_PAD, w - FAB_SIZE - EDGE_PAD),
+    y: Math.max(EDGE_PAD, Math.round(h / 2 - FAB_SIZE / 2)),
+    open: false,
+  };
+}
+
+function clampLayout(layout: PanelLayout): PanelLayout {
+  if (typeof window === "undefined") return layout;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const maxX = Math.max(EDGE_PAD, w - FAB_SIZE - EDGE_PAD);
+  const maxY = Math.max(EDGE_PAD, h - FAB_SIZE - EDGE_PAD);
+  return {
+    x: Math.min(Math.max(EDGE_PAD, layout.x), maxX),
+    y: Math.min(Math.max(EDGE_PAD, layout.y), maxY),
+    open: layout.open,
+  };
+}
+
+function loadLayout(): PanelLayout {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultLayout();
+    const parsed = JSON.parse(raw) as Partial<PanelLayout>;
+    if (
+      typeof parsed.x !== "number" ||
+      typeof parsed.y !== "number" ||
+      typeof parsed.open !== "boolean"
+    ) {
+      return defaultLayout();
+    }
+    return clampLayout({ x: parsed.x, y: parsed.y, open: parsed.open });
+  } catch {
+    return defaultLayout();
+  }
+}
+
+function saveLayout(layout: PanelLayout) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 function parseSseChunk(buffer: string): { events: AssistantSseEvent[]; rest: string } {
   const parts = buffer.split("\n\n");
@@ -47,7 +118,8 @@ export function AssistantFloatingPanel() {
   const pathname = usePathname();
   const router = useRouter();
   const [allowed, setAllowed] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [layout, setLayout] = useState<PanelLayout>(() => defaultLayout());
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [bubbles, setBubbles] = useState<ChatBubble[]>([]);
@@ -56,6 +128,35 @@ export function AssistantFloatingPanel() {
   const [confirming, setConfirming] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  const layoutRef = useRef(layout);
+
+  useLayoutEffect(() => {
+    const stored = loadLayout();
+    setLayout(stored);
+    layoutRef.current = stored;
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    layoutRef.current = layout;
+    if (hydrated) saveLayout(layout);
+  }, [layout, hydrated]);
+
+  useEffect(() => {
+    const onResize = () => {
+      setLayout((prev) => clampLayout(prev));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +182,7 @@ export function AssistantFloatingPanel() {
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [bubbles, open, pendingAction]);
+  }, [bubbles, layout.open, pendingAction]);
 
   const appendBubble = useCallback((role: ChatBubble["role"], text: string) => {
     setBubbles((prev) => [
@@ -215,7 +316,7 @@ export function AssistantFloatingPanel() {
         }
         if (approve && data.navigate?.href) {
           router.push(data.navigate.href);
-          setOpen(false);
+          setLayout((prev) => ({ ...prev, open: false }));
         }
         if (!res.ok && data.error) {
           appendBubble("system", data.error);
@@ -231,18 +332,86 @@ export function AssistantFloatingPanel() {
     [appendBubble, confirming, destructiveAck, pathname, pendingAction, router],
   );
 
-  if (!allowed) return null;
+  const onFabPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: layoutRef.current.x,
+      originY: layoutRef.current.y,
+      moved: false,
+    };
+  };
+
+  const onFabPointerMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && dx * dx + dy * dy > 16) {
+      drag.moved = true;
+    }
+    if (!drag.moved) return;
+    setLayout((prev) =>
+      clampLayout({
+        ...prev,
+        x: drag.originX + dx,
+        y: drag.originY + dy,
+      }),
+    );
+  };
+
+  const onFabPointerUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // already released
+    }
+    const wasDrag = drag.moved;
+    dragRef.current = null;
+    if (!wasDrag) {
+      setLayout((prev) => ({ ...prev, open: !prev.open }));
+    } else {
+      setLayout((prev) => clampLayout(prev));
+    }
+  };
+
+  if (!allowed || !hydrated) return null;
 
   const isDestructive = pendingAction?.severity === "destructive";
+  const open = layout.open;
+
+  const panelStyle = (() => {
+    const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const width = Math.min(vw - EDGE_PAD * 2, PANEL_WIDTH);
+    const height = Math.min(vh * 0.7, PANEL_HEIGHT);
+    // Anchor panel near FAB: prefer opening to the left (RTL dock on right)
+    let left = layout.x + FAB_SIZE - width;
+    if (left < EDGE_PAD) left = EDGE_PAD;
+    if (left + width > vw - EDGE_PAD) left = Math.max(EDGE_PAD, vw - width - EDGE_PAD);
+    let top = layout.y - height - 10;
+    if (top < EDGE_PAD) top = layout.y + FAB_SIZE + 10;
+    if (top + height > vh - EDGE_PAD) top = Math.max(EDGE_PAD, vh - height - EDGE_PAD);
+    return { left, top, width, height };
+  })();
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-5 left-5 z-[95] inline-flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-surface-1 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.45)] ring-2 ring-accent-primary/40 transition hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
-        aria-label={ASSISTANT_DISPLAY_NAME}
-        title={ASSISTANT_DISPLAY_NAME}
+        onPointerDown={onFabPointerDown}
+        onPointerMove={onFabPointerMove}
+        onPointerUp={onFabPointerUp}
+        onPointerCancel={onFabPointerUp}
+        className="fixed z-[95] inline-flex h-14 w-14 touch-none items-center justify-center overflow-hidden rounded-full bg-surface-1 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.45)] ring-2 ring-accent-primary/40 transition hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/60"
+        style={{ left: layout.x, top: layout.y }}
+        aria-label={open ? `כווץ את ${ASSISTANT_DISPLAY_NAME}` : ASSISTANT_DISPLAY_NAME}
+        title={open ? "לחיצה לכווץ · גרירה להזזה" : "לחיצה לפתיחה · גרירה להזזה"}
       >
         {open ? (
           <span className="absolute inset-0 z-10 flex items-center justify-center bg-black/45 text-white">
@@ -253,13 +422,20 @@ export function AssistantFloatingPanel() {
         <img
           src={ASSISTANT_LOGO_SRC}
           alt={ASSISTANT_DISPLAY_NAME}
-          className="h-full w-full object-cover"
+          className="pointer-events-none h-full w-full object-cover"
+          draggable={false}
         />
       </button>
 
       {open ? (
         <section
-          className="fixed bottom-20 left-5 z-[96] flex h-[min(70vh,560px)] w-[min(100vw-2.5rem,380px)] flex-col overflow-hidden rounded-2xl border border-border-weak bg-surface-1 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.4)]"
+          className="fixed z-[96] flex flex-col overflow-hidden rounded-2xl border border-border-weak bg-surface-1 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.4)]"
+          style={{
+            left: panelStyle.left,
+            top: panelStyle.top,
+            width: panelStyle.width,
+            height: panelStyle.height,
+          }}
           dir="rtl"
         >
           <header className="flex items-center justify-between border-b border-border-weak px-4 py-3">
@@ -275,14 +451,20 @@ export function AssistantFloatingPanel() {
                 <p className="text-xs text-text-muted">עוזר פיקוח למדור</p>
               </div>
             </div>
-            <button
-              type="button"
-              className="rounded-full p-1.5 text-text-secondary hover:bg-surface-2"
-              onClick={() => setOpen(false)}
-              aria-label="סגור"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1 text-text-muted">
+              <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px]" title="גרור את הבועה">
+                <GripVertical className="h-3.5 w-3.5" />
+                גרירה
+              </span>
+              <button
+                type="button"
+                className="rounded-full p-1.5 text-text-secondary hover:bg-surface-2"
+                onClick={() => setLayout((prev) => ({ ...prev, open: false }))}
+                aria-label="כווץ"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </header>
 
           <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto px-3 py-3">

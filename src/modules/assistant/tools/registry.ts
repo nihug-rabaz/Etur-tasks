@@ -17,6 +17,10 @@ import {
   executeApiProxy,
 } from "@/modules/assistant/tools/api-proxy";
 import { listWaitingScreening } from "@/modules/assistant/tools/domain-screening";
+import {
+  getDomainCandidate,
+  searchDomainCandidates,
+} from "@/modules/assistant/tools/domain-search";
 import { classifyMutationSeverity } from "@/modules/assistant/lib/severity";
 import type { AssistantConfirmSeverity } from "@/modules/assistant/lib/protocol";
 
@@ -87,6 +91,21 @@ export const ASSISTANT_TOOL_DEFINITIONS: AssistantToolDefinition[] = [
     argsHint: '{ "module": "all|agam|malshabim|nagadim", "limit": 80 }',
   },
   {
+    name: "search_domain_candidates",
+    side: "read",
+    description:
+      "חיפוש מועמדים לפי עיר/שם/טלפון/מספר סידורי (כולל סטטוסים כמו אושר). עדיף על api_get לרשימה מלאה. מחזיר id+href קצרים.",
+    argsHint:
+      '{ "q": "חולון|אופקים|שם", "module": "all|agam|malshabim|nagadim", "limit": 40 }',
+  },
+  {
+    name: "get_domain_candidate",
+    side: "read",
+    description:
+      "פרטי מועמד לפי id (אחרי חיפוש). לשימוש כששואלים 'מה אתה יודע עליו' / פתיחת תיק.",
+    argsHint: '{ "module": "malshabim|agam|nagadim", "id": "uuid" }',
+  },
+  {
     name: "create_task",
     side: "write",
     description: "יצירת משימה חדשה (דורש אישור). חובה title + subtopicIds.",
@@ -105,7 +124,7 @@ export const ASSISTANT_TOOL_DEFINITIONS: AssistantToolDefinition[] = [
     name: "api_get",
     side: "read",
     description:
-      "קריאת GET ל-API פנימי שהמשתמש מורשה אליו (אותן הרשאות כמו בממשק). לדוגמה /api/malshabim/candidates",
+      "קריאת GET ל-API פנימי. אסור לרשימות מועמדים מלאות (/api/*/candidates) — לזה search_domain_candidates. מותר למועמד בודד לפי id.",
     argsHint: '{ "path": "/api/...", "label": "optional" }',
   },
   {
@@ -278,7 +297,7 @@ export async function executeAssistantTool(
         summary: `${catalog.length} פעולות בקטלוג`,
         data: {
           catalog,
-          note: "לזרימות מיון השתמש ב-list_waiting_screening; למשימות create_task/update_task; לשאר api_get/api_mutate",
+          note: "לחיפוש מועמדים לפי עיר/שם: search_domain_candidates; לפרטים: get_domain_candidate; למיון: list_waiting_screening; למשימות create_task/update_task; לשאר api_get/api_mutate",
         },
       };
     }
@@ -293,6 +312,39 @@ export async function executeAssistantTool(
         access: ctx.access,
         module: moduleFilter,
         limit: Number.isFinite(limit) ? limit : 80,
+      });
+    }
+    case "search_domain_candidates": {
+      const q = String(args.q ?? args.query ?? "").trim();
+      const moduleRaw = String(args.module ?? "").trim().toLowerCase();
+      let moduleFilter: "all" | "agam" | "malshabim" | "nagadim" =
+        moduleRaw === "agam" || moduleRaw === "malshabim" || moduleRaw === "nagadim"
+          ? moduleRaw
+          : "all";
+      // Prefer current domain when user didn't specify a module
+      if (moduleFilter === "all") {
+        if (ctx.pathname.startsWith("/malshabim")) moduleFilter = "malshabim";
+        else if (ctx.pathname.startsWith("/agam")) moduleFilter = "agam";
+        else if (ctx.pathname.startsWith("/nagadim")) moduleFilter = "nagadim";
+      }
+      const limit = Number(args.limit ?? 40);
+      return searchDomainCandidates({
+        access: ctx.access,
+        q,
+        module: moduleFilter,
+        limit: Number.isFinite(limit) ? limit : 40,
+      });
+    }
+    case "get_domain_candidate": {
+      const id = String(args.id ?? "").trim();
+      const moduleRaw = String(args.module ?? "malshabim").trim().toLowerCase();
+      if (moduleRaw !== "agam" && moduleRaw !== "malshabim" && moduleRaw !== "nagadim") {
+        return { ok: false, summary: "module חייב להיות agam|malshabim|nagadim" };
+      }
+      return getDomainCandidate({
+        access: ctx.access,
+        module: moduleRaw,
+        id,
       });
     }
     case "create_task": {

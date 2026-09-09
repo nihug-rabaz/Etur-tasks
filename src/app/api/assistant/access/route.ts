@@ -16,5 +16,6 @@ export async function GET() {
     displayName: ASSISTANT_DISPLAY_NAME,
     isPlatformAdmin: access.isPlatformAdmin,
     moduleRoles: access.moduleRoles,
+    released: access.released,
   });
 }
