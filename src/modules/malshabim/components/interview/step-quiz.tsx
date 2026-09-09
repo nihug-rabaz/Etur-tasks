@@ -1,6 +1,7 @@
 "use client";
 
 import { FastForward, RotateCcw } from "lucide-react";
+import { BIYENISH_LABEL } from "@/modules/malshabim/lib/question-bank";
 import { secondaryButtonClass } from "@/modules/malshabim/lib/ui";
 import type { InterviewFormData } from "@/modules/malshabim/components/interview/types";
 
@@ -61,10 +62,21 @@ export function StepQuiz({
         {questions.length} שאלות נבחרו אקראית מתוך המאגר. סמן האם כל תשובה נכונה.
       </p>
 
+      {!skipped && questions.length > PREVIEW_COUNT ? (
+        <button
+          type="button"
+          className={`${secondaryButtonClass} w-full`}
+          onClick={() => onChange({ ...data, quiz_skipped: true })}
+        >
+          <FastForward className="h-4 w-4" />
+          {BIYENISH_LABEL} — דלג על יתר שאלות הידע (הסתפק ב-{PREVIEW_COUNT} הראשונות)
+        </button>
+      ) : null}
+
       {skipped ? (
         <div className="flex flex-col gap-3 rounded-2xl bg-accent-primary/10 p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-medium text-accent-primary">
-            סומן בי״נ — לאחר {PREVIEW_COUNT} השאלות הראשונות דולגו יתר שאלות הידע.
+            סומן {BIYENISH_LABEL} — לאחר {PREVIEW_COUNT} השאלות הראשונות דולגו יתר שאלות הידע.
           </p>
           <button
             type="button"
@@ -81,6 +93,9 @@ export function StepQuiz({
           <p className="text-sm font-bold leading-relaxed text-text-primary">
             {i + 1}. {q.question}
           </p>
+          {q.answer ? (
+            <p className="mt-1.5 text-sm text-text-muted">תשובה: {q.answer}</p>
+          ) : null}
           <div className="mt-3 flex items-center justify-between gap-3">
             <span className="text-sm text-text-muted">האם ענה נכון?</span>
             <CorrectToggle
@@ -90,17 +105,6 @@ export function StepQuiz({
           </div>
         </div>
       ))}
-
-      {!skipped && questions.length > PREVIEW_COUNT ? (
-        <button
-          type="button"
-          className={`${secondaryButtonClass} w-full`}
-          onClick={() => onChange({ ...data, quiz_skipped: true })}
-        >
-          <FastForward className="h-4 w-4" />
-          בי״נ — דלג על יתר שאלות הידע (הסתפק ב-{PREVIEW_COUNT} הראשונות)
-        </button>
-      ) : null}
     </div>
   );
 }

@@ -5,12 +5,16 @@ import { validateIsraeliId } from "@/modules/malshabim/lib/israeli-id";
 import { fieldClass } from "@/modules/malshabim/lib/ui";
 import type { InterviewFormData } from "@/modules/malshabim/components/interview/types";
 
+export type InterviewerOption = { id: string; name: string };
+
 export function StepPersonal({
   data,
   onChange,
+  interviewers = [],
 }: {
   data: InterviewFormData;
   onChange: (next: InterviewFormData) => void;
+  interviewers?: InterviewerOption[];
 }) {
   const idTouched = Boolean(data.id_number && data.id_number.length > 0);
   const idValid = !idTouched || validateIsraeliId(data.id_number);
@@ -19,6 +23,17 @@ export function StepPersonal({
 
   const toDatetimeLocal = (value?: string | null) =>
     value ? String(value).slice(0, 16) : "";
+
+  const showRequestMeta =
+    data.request_type === "איתור" || data.request_type === "בקשה";
+  const requestMeta = data.request_meta || {};
+
+  const setRequestMeta = (key: "requester" | "unit" | "role", value: string) => {
+    onChange({
+      ...data,
+      request_meta: { ...requestMeta, [key]: value || null },
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -123,12 +138,37 @@ export function StepPersonal({
           <select
             className={fieldClass}
             value={data.request_type || ""}
-            onChange={(e) => set("request_type", e.target.value || null)}
+            onChange={(e) => {
+              const nextType = e.target.value || null;
+              onChange({
+                ...data,
+                request_type: nextType,
+                request_meta:
+                  nextType === "איתור" || nextType === "בקשה"
+                    ? data.request_meta || {}
+                    : {},
+              });
+            }}
           >
             <option value="">בחר (רשות)</option>
             {REQUEST_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="space-y-1.5 text-sm font-bold text-text-primary">
+          מראיין
+          <select
+            className={fieldClass}
+            value={data.interviewer_user_id || ""}
+            onChange={(e) => set("interviewer_user_id", e.target.value || null)}
+          >
+            <option value="">בחר מראיין</option>
+            {interviewers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
               </option>
             ))}
           </select>
@@ -142,7 +182,7 @@ export function StepPersonal({
             onChange={(e) => set("interview_at", e.target.value || null)}
           />
         </label>
-        <label className="space-y-1.5 text-sm font-bold text-text-primary md:col-span-2">
+        <label className="space-y-1.5 text-sm font-bold text-text-primary">
           תזכורת לעדכון סטטוס
           <input
             type="datetime-local"
@@ -152,6 +192,38 @@ export function StepPersonal({
           />
         </label>
       </div>
+
+      {showRequestMeta ? (
+        <div className="grid gap-4 rounded-2xl bg-surface-2/50 p-4 md:grid-cols-3">
+          <label className="space-y-1.5 text-sm font-bold text-text-primary">
+            מבקש <span className="text-rose-600">*</span>
+            <input
+              className={fieldClass}
+              value={requestMeta.requester || ""}
+              onChange={(e) => setRequestMeta("requester", e.target.value)}
+              placeholder="שם המבקש"
+            />
+          </label>
+          <label className="space-y-1.5 text-sm font-bold text-text-primary">
+            יחידה
+            <input
+              className={fieldClass}
+              value={requestMeta.unit || ""}
+              onChange={(e) => setRequestMeta("unit", e.target.value)}
+              placeholder="יחידה"
+            />
+          </label>
+          <label className="space-y-1.5 text-sm font-bold text-text-primary">
+            תפקיד
+            <input
+              className={fieldClass}
+              value={requestMeta.role || ""}
+              onChange={(e) => setRequestMeta("role", e.target.value)}
+              placeholder="תפקיד"
+            />
+          </label>
+        </div>
+      ) : null}
     </div>
   );
 }

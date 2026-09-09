@@ -33,6 +33,11 @@ export const malshabimModule: AppModuleDefinition = {
   ],
   adminNavItems: [
     {
+      label: "אישורים",
+      href: "/malshabim/admin/approvals",
+      description: "תיקים הממתינים לאישור מנהל",
+    },
+    {
       label: "משתמשים",
       href: "/malshabim/admin/users",
       description: "ניהול הרשאות מודול",
@@ -46,5 +51,6 @@ export const malshabimModule: AppModuleDefinition = {
     candidates: "מועמדים",
     admin: "ניהול",
     users: "משתמשים",
+    approvals: "אישורים",
   },
 };

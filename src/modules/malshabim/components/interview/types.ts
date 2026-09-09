@@ -1,4 +1,8 @@
-import type { MalshabimUpdateLogEntry } from "@/modules/malshabim/types";
+import type {
+  MalshabimInstructionItem,
+  MalshabimRequestMeta,
+  MalshabimUpdateLogEntry,
+} from "@/modules/malshabim/types";
 import type { MalshabimQuizDraftQuestion } from "@/modules/malshabim/lib/question-bank";
 
 export type ObservanceAnswer = {
@@ -6,11 +10,7 @@ export type ObservanceAnswer = {
   note?: string;
 };
 
-export type InstructionItem = {
-  text?: string;
-  recipients?: string[];
-  sent_at?: string | null;
-};
+export type InstructionItem = MalshabimInstructionItem;
 
 export type InterviewFormData = {
   id?: string;
@@ -21,7 +21,7 @@ export type InterviewFormData = {
   city: string | null;
   photo_url: string | null;
   candidate_status: string;
-  advanced_status: string;
+  advanced_status: string | null;
   status_type: string | null;
   request_type: string | null;
   recruitment_track: string | null;
@@ -42,4 +42,7 @@ export type InterviewFormData = {
   draft_step: number | null;
   update_log: MalshabimUpdateLogEntry[];
   serial_number?: number | null;
+  interviewer_user_id: string | null;
+  awaiting_admin_approval: boolean;
+  request_meta: MalshabimRequestMeta;
 };

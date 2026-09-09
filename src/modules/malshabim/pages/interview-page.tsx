@@ -13,15 +13,22 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
-import { StepPersonal } from "@/modules/malshabim/components/interview/step-personal";
+import {
+  StepPersonal,
+  type InterviewerOption,
+} from "@/modules/malshabim/components/interview/step-personal";
 import { StepObservance } from "@/modules/malshabim/components/interview/step-observance";
 import { StepQuiz } from "@/modules/malshabim/components/interview/step-quiz";
 import { StepSummary } from "@/modules/malshabim/components/interview/step-summary";
 import type { InterviewFormData } from "@/modules/malshabim/components/interview/types";
 import { computeChanges } from "@/modules/malshabim/lib/diff-changes";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
-import { pickRandomQuestions } from "@/modules/malshabim/lib/question-bank";
+import {
+  OBSERVANCE_QUESTIONS,
+  pickRandomQuestions,
+} from "@/modules/malshabim/lib/question-bank";
 import { validateIsraeliId } from "@/modules/malshabim/lib/israeli-id";
+import { normalizeCandidateStatus } from "@/modules/malshabim/lib/status";
 import {
   formShellClass,
   panelClass,
@@ -33,6 +40,9 @@ import type { ModuleRole } from "@/shared/modules/types";
 
 const STEPS = ["פרטים אישיים", "שמירת מצוות", "מבחן ידע", "סיכום והנחיות"];
 
+const OBSERVANCE_FAIL_MESSAGE =
+  'החייל אינו עומד בתנאי הסוף של שמירת המצוות. לתקן תשובות, או להמשיך לסיכום לסגירת התיק (דילוג על מבחן ידע)?';
+
 function emptyDraft(): InterviewFormData {
   return {
     full_name: null,
@@ -41,7 +51,7 @@ function emptyDraft(): InterviewFormData {
     personal_number: null,
     city: null,
     photo_url: null,
-    candidate_status: "חדש",
+    candidate_status: "ממתין לריאיון",
     advanced_status: "בטיפול",
     status_type: null,
     request_type: null,
@@ -62,7 +72,22 @@ function emptyDraft(): InterviewFormData {
     is_draft: true,
     draft_step: 0,
     update_log: [],
+    interviewer_user_id: null,
+    awaiting_admin_approval: false,
+    request_meta: {},
   };
+}
+
+function normalizeInstructionItems(
+  items: MalshabimCandidate["instruction_items"] | InterviewFormData["instruction_items"],
+): InterviewFormData["instruction_items"] {
+  return (items || []).map((item) => ({
+    ...item,
+    text: item.text ?? "",
+    status: item.status === "הושלם" ? "הושלם" : "בטיפול",
+    recipients: item.recipients ?? [],
+    sent_at: item.sent_at ?? null,
+  }));
 }
 
 function candidateToForm(c: MalshabimCandidate): InterviewFormData {
@@ -74,7 +99,7 @@ function candidateToForm(c: MalshabimCandidate): InterviewFormData {
     personal_number: c.personal_number,
     city: c.city,
     photo_url: c.photo_url,
-    candidate_status: c.candidate_status || "חדש",
+    candidate_status: normalizeCandidateStatus(c.candidate_status),
     advanced_status: c.advanced_status || "בטיפול",
     status_type: c.status_type,
     request_type: c.request_type,
@@ -94,12 +119,15 @@ function candidateToForm(c: MalshabimCandidate): InterviewFormData {
     interview_summary: c.interview_summary,
     interviewer_notes: c.interviewer_notes,
     instructions: c.instructions,
-    instruction_items: (c.instruction_items || []) as InterviewFormData["instruction_items"],
+    instruction_items: normalizeInstructionItems(c.instruction_items),
     instruction_recipients: c.instruction_recipients || [],
     is_draft: c.is_draft,
     draft_step: c.draft_step,
     update_log: c.update_log || [],
     serial_number: c.serial_number,
+    interviewer_user_id: c.interviewer_user_id ?? null,
+    awaiting_admin_approval: Boolean(c.awaiting_admin_approval),
+    request_meta: c.request_meta || {},
   };
 }
 
@@ -132,6 +160,9 @@ function toPayload(data: InterviewFormData) {
     is_draft: data.is_draft,
     draft_step: data.draft_step,
     update_log: data.update_log,
+    interviewer_user_id: data.interviewer_user_id,
+    awaiting_admin_approval: data.awaiting_admin_approval,
+    request_meta: data.request_meta || {},
   };
 }
 
@@ -155,6 +186,9 @@ export function MalshabimInterviewPage({
   const [userName, setUserName] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [showObservanceWarning, setShowObservanceWarning] = useState(false);
+  const [observanceFailed, setObservanceFailed] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [interviewers, setInterviewers] = useState<InterviewerOption[]>([]);
   const [duplicateAlert, setDuplicateAlert] = useState<{
     field: string;
     existingName: string;
@@ -163,12 +197,25 @@ export function MalshabimInterviewPage({
   useEffect(() => {
     void (async () => {
       try {
+        const interviewersPromise = malshabimFetch<{ interviewers: InterviewerOption[] }>(
+          "/api/malshabim/interviewers",
+        ).catch(() => ({ interviewers: [] as InterviewerOption[] }));
+
         if (editId) {
-          const res = await malshabimFetch<{
-            candidate: MalshabimCandidate;
-            role: ModuleRole;
-            currentUserName: string;
-          }>(`/api/malshabim/candidates/${editId}`);
+          const [res, interviewersRes] = await Promise.all([
+            malshabimFetch<{
+              candidate: MalshabimCandidate;
+              role: ModuleRole;
+              currentUserName: string;
+            }>(`/api/malshabim/candidates/${editId}`),
+            interviewersPromise,
+          ]);
+          setInterviewers(
+            (interviewersRes.interviewers || []).map((u) => ({
+              id: u.id || (u as { user_id?: string }).user_id || "",
+              name: u.name,
+            })),
+          );
           setCanEdit(canEditRole(res.role));
           setUserName(res.currentUserName || "");
           const form = candidateToForm(res.candidate);
@@ -190,8 +237,15 @@ export function MalshabimInterviewPage({
             setStep(Math.min(Math.max(0, res.candidate.draft_step), STEPS.length - 1));
           }
         } else {
-          const list = await malshabimFetch<{ role: ModuleRole }>(
-            "/api/malshabim/candidates",
+          const [list, interviewersRes] = await Promise.all([
+            malshabimFetch<{ role: ModuleRole }>("/api/malshabim/candidates"),
+            interviewersPromise,
+          ]);
+          setInterviewers(
+            (interviewersRes.interviewers || []).map((u) => ({
+              id: u.id || (u as { user_id?: string }).user_id || "",
+              name: u.name,
+            })),
           );
           setCanEdit(canEditRole(list.role));
           setData(emptyDraft());
@@ -242,32 +296,53 @@ export function MalshabimInterviewPage({
       toast.error("תעודת זהות לא תקינה");
       return false;
     }
+    if (
+      (data.request_type === "איתור" || data.request_type === "בקשה") &&
+      !(data.request_meta?.requester || "").trim()
+    ) {
+      toast.error("יש למלא שם מבקש");
+      return false;
+    }
     return true;
   };
 
   const validateObservance = () => {
     const obs = data.observance || {};
-    const keys = ["shabbat", "tefillin", "prayers", "kippah", "kashrut"];
-    return keys.every((k) => obs[k]?.answer === "כן" || obs[k]?.answer === "לא");
+    for (const q of OBSERVANCE_QUESTIONS) {
+      const answer = obs[q.key]?.answer;
+      if (answer !== "כן" && answer !== "לא") return false;
+      if (q.noteRequired && !(obs[q.key]?.note || "").trim()) {
+        toast.error("יש למלא הערה לשאלת התפילות");
+        return false;
+      }
+    }
+    return true;
   };
 
   const hasFailedObservance = () => {
     const obs = data.observance || {};
-    const keys = ["shabbat", "tefillin", "prayers", "kippah", "kashrut"];
-    return keys.some((k) => obs[k]?.answer === "לא");
+    return OBSERVANCE_QUESTIONS.some((q) => obs[q.key]?.answer === "לא");
   };
 
   const next = () => {
     if (step === 0 && !validateStep1()) return;
     if (step === 1) {
       if (!validateObservance()) {
-        toast.error("יש לענות על כל שאלות שמירת המצוות");
+        if (
+          !OBSERVANCE_QUESTIONS.every((q) => {
+            const a = data.observance?.[q.key]?.answer;
+            return a === "כן" || a === "לא";
+          })
+        ) {
+          toast.error("יש לענות על כל שאלות שמירת המצוות");
+        }
         return;
       }
       if (hasFailedObservance()) {
         setShowObservanceWarning(true);
         return;
       }
+      setObservanceFailed(false);
     }
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   };
@@ -328,7 +403,7 @@ export function MalshabimInterviewPage({
     return null;
   };
 
-  const save = async () => {
+  const save = async (opts?: { openForApproval?: boolean }) => {
     if (data.id_number && !validateIsraeliId(data.id_number)) {
       toast.error("תעודת זהות לא תקינה — יש לתקן לפני השמירה");
       return;
@@ -342,7 +417,20 @@ export function MalshabimInterviewPage({
         return;
       }
 
-      const payload = { ...toPayload(data), is_draft: false, draft_step: null as number | null };
+      const openForApproval =
+        opts?.openForApproval ?? (!editId || Boolean(data.is_draft));
+      const payload = {
+        ...toPayload(data),
+        is_draft: false,
+        draft_step: null as number | null,
+        ...(openForApproval
+          ? {
+              awaiting_admin_approval: true,
+              candidate_status: "בטיפול",
+              approval_requested_at: new Date().toISOString(),
+            }
+          : {}),
+      };
 
       if (payload.quiz_questions?.length) {
         const scored = payload.quiz_skipped
@@ -385,7 +473,7 @@ export function MalshabimInterviewPage({
         payload.update_log = [
           {
             date: new Date().toISOString(),
-            changes: "יצירת תיק",
+            changes: "יצירת תיק לאישור מנהל",
             updated_by: userName || "משתמש",
           },
         ];
@@ -393,7 +481,7 @@ export function MalshabimInterviewPage({
           "/api/malshabim/candidates",
           { method: "POST", body: JSON.stringify(payload) },
         );
-        toast.success("התיק נשמר בהצלחה");
+        toast.success("התיק נפתח לאישור מנהל");
         router.push(`/malshabim/candidates/${created.candidate.id}`);
       }
     } catch (err) {
@@ -404,7 +492,12 @@ export function MalshabimInterviewPage({
   };
 
   const screens = [
-    <StepPersonal key="p" data={data} onChange={setData} />,
+    <StepPersonal
+      key="p"
+      data={data}
+      onChange={setData}
+      interviewers={interviewers}
+    />,
     <StepObservance key="o" data={data} onChange={setData} />,
     <StepQuiz key="q" data={data} onChange={setData} />,
     <StepSummary key="s" data={data} onChange={setData} />,
@@ -416,15 +509,24 @@ export function MalshabimInterviewPage({
         <h1 className="text-2xl font-extrabold text-text-primary sm:text-3xl">
           {editId ? "עריכת תיק מלש״ב" : "ראיון חדש"}
         </h1>
-        <Link href="/malshabim" className={secondaryButtonClass}>
+        <button
+          type="button"
+          className={secondaryButtonClass}
+          onClick={() => setShowLeaveConfirm(true)}
+        >
           חזרה
-        </Link>
+        </button>
       </div>
 
       <div className="flex items-center justify-between gap-1">
         {STEPS.map((label, i) => (
           <div key={label} className="flex flex-1 items-center">
-            <div className="flex flex-1 flex-col items-center">
+            <button
+              type="button"
+              className="flex flex-1 flex-col items-center"
+              onClick={() => setStep(i)}
+              aria-label={`מעבר לשלב ${label}`}
+            >
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-2xl text-sm font-bold transition ${
                   i <= step
@@ -441,7 +543,7 @@ export function MalshabimInterviewPage({
               >
                 {label}
               </span>
-            </div>
+            </button>
             {i < STEPS.length - 1 ? (
               <div
                 className={`mx-1 h-1 flex-1 rounded-full ${
@@ -453,7 +555,18 @@ export function MalshabimInterviewPage({
         ))}
       </div>
 
-      <article className={`${panelClass} p-5 sm:p-6`}>{screens[step]}</article>
+      <article className={`${panelClass} p-5 sm:p-6`}>
+        {step === 3 && observanceFailed ? (
+          <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-200">
+            <p className="flex items-center gap-2 font-bold">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              אחת מהתשובות היא &quot;לא&quot;
+            </p>
+            <p className="mt-2">{OBSERVANCE_FAIL_MESSAGE}</p>
+          </div>
+        ) : null}
+        {screens[step]}
+      </article>
 
       <div className="flex flex-wrap justify-between gap-2">
         <button
@@ -484,7 +597,7 @@ export function MalshabimInterviewPage({
             <button
               type="button"
               className={secondaryButtonClass}
-              onClick={() => void save()}
+              onClick={() => void save({ openForApproval: false })}
               disabled={saving}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -499,11 +612,13 @@ export function MalshabimInterviewPage({
             <button
               type="button"
               className={primaryButtonClass}
-              onClick={() => void save()}
+              onClick={() =>
+                void save({ openForApproval: !editId || Boolean(data.is_draft) })
+              }
               disabled={saving}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {editId ? "שמור" : "פתח תיק"}
+              {!editId || data.is_draft ? "פתח תיק לאישור מנהל" : "שמור"}
             </button>
           )}
         </div>
@@ -530,16 +645,51 @@ export function MalshabimInterviewPage({
         </div>
       ) : null}
 
+      {showLeaveConfirm ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`${panelClass} max-w-md p-6`} dir="rtl">
+            <h2 className="text-lg font-bold text-text-primary">האם לשמור טיוטה?</h2>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                disabled={saving}
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  void saveDraft();
+                }}
+              >
+                כן
+              </button>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  router.push("/malshabim");
+                }}
+              >
+                לא
+              </button>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => setShowLeaveConfirm(false)}
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showObservanceWarning ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className={`${panelClass} max-w-md p-6`} dir="rtl">
             <h2 className="flex items-center gap-2 text-lg font-bold text-rose-600">
               <AlertTriangle className="h-5 w-5" /> אחת מהתשובות היא &quot;לא&quot;
             </h2>
-            <p className="mt-3 text-sm text-text-secondary">
-              החייל אינו עומד בתנאי היסוד של שמירת המצוות. לתקן תשובות, או להמשיך לסיכום (דילוג על
-              מבחן ידע)?
-            </p>
+            <p className="mt-3 text-sm text-text-secondary">{OBSERVANCE_FAIL_MESSAGE}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -553,6 +703,10 @@ export function MalshabimInterviewPage({
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white"
                 onClick={() => {
                   setShowObservanceWarning(false);
+                  setObservanceFailed(true);
+                  setData((prev) =>
+                    prev ? { ...prev, quiz_skipped: true } : prev,
+                  );
                   setStep(3);
                 }}
               >

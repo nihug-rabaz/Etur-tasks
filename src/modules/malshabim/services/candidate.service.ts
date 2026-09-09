@@ -10,6 +10,12 @@ function asJson(value: unknown): unknown {
   return value;
 }
 
+function normalizeId(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export class MalshabimCandidateService extends BaseService {
   public async list(limit = 500): Promise<MalshabimCandidate[]> {
     const db = this.getDb();
@@ -50,7 +56,108 @@ export class MalshabimCandidateService extends BaseService {
     return Number(rows[0]?.next ?? 1);
   }
 
+  public async findDuplicate(input: {
+    idNumber?: string | null;
+    personalNumber?: string | null;
+    excludeId?: string | null;
+  }): Promise<{ field: "id_number" | "personal_number"; candidate: MalshabimCandidate } | null> {
+    const idNumber = normalizeId(input.idNumber);
+    const personalNumber = normalizeId(input.personalNumber);
+    const excludeId = input.excludeId ?? null;
+    const db = this.getDb();
+
+    if (idNumber) {
+      const rows = excludeId
+        ? await db<MalshabimCandidate[]>`
+            select * from malshabim_candidates
+            where is_draft = false
+              and id_number is not null
+              and btrim(id_number) <> ''
+              and id_number = ${idNumber}
+              and id <> ${excludeId}
+            limit 1
+          `
+        : await db<MalshabimCandidate[]>`
+            select * from malshabim_candidates
+            where is_draft = false
+              and id_number is not null
+              and btrim(id_number) <> ''
+              and id_number = ${idNumber}
+            limit 1
+          `;
+      if (rows[0]) return { field: "id_number", candidate: rows[0] };
+    }
+
+    if (personalNumber) {
+      const rows = excludeId
+        ? await db<MalshabimCandidate[]>`
+            select * from malshabim_candidates
+            where is_draft = false
+              and personal_number is not null
+              and btrim(personal_number) <> ''
+              and personal_number = ${personalNumber}
+              and id <> ${excludeId}
+            limit 1
+          `
+        : await db<MalshabimCandidate[]>`
+            select * from malshabim_candidates
+            where is_draft = false
+              and personal_number is not null
+              and btrim(personal_number) <> ''
+              and personal_number = ${personalNumber}
+            limit 1
+          `;
+      if (rows[0]) return { field: "personal_number", candidate: rows[0] };
+    }
+
+    return null;
+  }
+
+  private async assertNoDuplicate(input: MalshabimCandidateWrite, excludeId?: string | null) {
+    if (input.is_draft) return;
+    const dup = await this.findDuplicate({
+      idNumber: input.id_number,
+      personalNumber: input.personal_number,
+      excludeId,
+    });
+    if (!dup) return;
+    if (dup.field === "id_number") {
+      throw new Error("תעודת זהות כבר קיימת במערכת");
+    }
+    throw new Error("מספר אישי כבר קיים במערכת");
+  }
+
+  public async listAwaitingApproval(): Promise<MalshabimCandidate[]> {
+    const db = this.getDb();
+    return db<MalshabimCandidate[]>`
+      select *
+      from malshabim_candidates
+      where awaiting_admin_approval = true
+      order by approval_requested_at desc nulls last, updated_at desc
+    `;
+  }
+
+  public async listDueInterviewReminders(
+    windowStart: string | Date,
+    windowEnd: string | Date,
+  ): Promise<MalshabimCandidate[]> {
+    const db = this.getDb();
+    return db<MalshabimCandidate[]>`
+      select *
+      from malshabim_candidates
+      where is_draft = false
+        and interviewer_user_id is not null
+        and interview_at is not null
+        and interview_reminder_sent_at is null
+        and interview_at >= ${windowStart}
+        and interview_at <= ${windowEnd}
+      order by interview_at asc
+    `;
+  }
+
   public async create(input: MalshabimCandidateWrite): Promise<MalshabimCandidate> {
+    await this.assertNoDuplicate(input);
+
     const db = this.getDb();
     const serial =
       input.serial_number !== undefined && input.serial_number !== null
@@ -64,7 +171,9 @@ export class MalshabimCandidateService extends BaseService {
         recruitment_track, enlistment_date, interview_at, next_status_update_at,
         observance, quiz_questions, quiz_score, quiz_passed, quiz_skipped,
         interview_summary, interviewer_notes, instructions, instruction_items,
-        instruction_recipients, is_draft, draft_step, update_log, created_by, created_by_name
+        instruction_recipients, is_draft, draft_step, update_log, created_by, created_by_name,
+        interviewer_user_id, awaiting_admin_approval, approval_requested_at,
+        interview_reminder_sent_at, request_meta
       )
       values (
         ${input.legacy_base44_id ?? null},
@@ -75,8 +184,8 @@ export class MalshabimCandidateService extends BaseService {
         ${serial},
         ${input.city ?? null},
         ${input.photo_url ?? null},
-        ${input.candidate_status ?? "חדש"},
-        ${input.advanced_status ?? "בטיפול"},
+        ${input.candidate_status ?? "ממתין לריאיון"},
+        ${input.advanced_status ?? null},
         ${input.status_type ?? null},
         ${input.request_type ?? null},
         ${input.recruitment_track ?? null},
@@ -97,7 +206,12 @@ export class MalshabimCandidateService extends BaseService {
         ${input.draft_step ?? null},
         ${asJson(input.update_log ?? [])},
         ${input.created_by ?? null},
-        ${input.created_by_name ?? null}
+        ${input.created_by_name ?? null},
+        ${input.interviewer_user_id ?? null},
+        ${input.awaiting_admin_approval ?? false},
+        ${input.approval_requested_at ?? null},
+        ${input.interview_reminder_sent_at ?? null},
+        ${asJson(input.request_meta ?? {})}
       )
       returning *
     `;
@@ -168,7 +282,26 @@ export class MalshabimCandidateService extends BaseService {
       update_log: input.update_log !== undefined ? input.update_log : existing.update_log,
       created_by_name:
         input.created_by_name !== undefined ? input.created_by_name : existing.created_by_name,
+      interviewer_user_id:
+        input.interviewer_user_id !== undefined
+          ? input.interviewer_user_id
+          : existing.interviewer_user_id,
+      awaiting_admin_approval:
+        input.awaiting_admin_approval !== undefined
+          ? input.awaiting_admin_approval
+          : existing.awaiting_admin_approval,
+      approval_requested_at:
+        input.approval_requested_at !== undefined
+          ? input.approval_requested_at
+          : existing.approval_requested_at,
+      interview_reminder_sent_at:
+        input.interview_reminder_sent_at !== undefined
+          ? input.interview_reminder_sent_at
+          : existing.interview_reminder_sent_at,
+      request_meta: input.request_meta !== undefined ? input.request_meta : existing.request_meta,
     };
+
+    await this.assertNoDuplicate(next, id);
 
     const db = this.getDb();
     const rows = await db<MalshabimCandidate[]>`
@@ -181,8 +314,8 @@ export class MalshabimCandidateService extends BaseService {
         serial_number = ${next.serial_number ?? null},
         city = ${next.city ?? null},
         photo_url = ${next.photo_url ?? null},
-        candidate_status = ${next.candidate_status ?? "חדש"},
-        advanced_status = ${next.advanced_status ?? "בטיפול"},
+        candidate_status = ${next.candidate_status ?? "ממתין לריאיון"},
+        advanced_status = ${next.advanced_status ?? null},
         status_type = ${next.status_type ?? null},
         request_type = ${next.request_type ?? null},
         recruitment_track = ${next.recruitment_track ?? null},
@@ -203,6 +336,11 @@ export class MalshabimCandidateService extends BaseService {
         draft_step = ${next.draft_step ?? null},
         update_log = ${asJson(next.update_log ?? [])},
         created_by_name = ${next.created_by_name ?? null},
+        interviewer_user_id = ${next.interviewer_user_id ?? null},
+        awaiting_admin_approval = ${next.awaiting_admin_approval ?? false},
+        approval_requested_at = ${next.approval_requested_at ?? null},
+        interview_reminder_sent_at = ${next.interview_reminder_sent_at ?? null},
+        request_meta = ${asJson(next.request_meta ?? {})},
         updated_at = now()
       where id = ${id}
       returning *

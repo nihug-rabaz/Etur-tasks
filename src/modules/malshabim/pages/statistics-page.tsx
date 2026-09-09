@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import {
-  ADVANCED_STATUSES,
   CANDIDATE_STATUSES,
+  enlistmentYearGroup,
+  normalizeCandidateStatus,
 } from "@/modules/malshabim/lib/status";
 import { pageShellClass, panelClass } from "@/modules/malshabim/lib/ui";
 import type { MalshabimCandidate } from "@/modules/malshabim/types";
@@ -39,15 +40,25 @@ export function MalshabimStatisticsPage({
   const byStatus = useMemo(() => {
     return CANDIDATE_STATUSES.map((status) => ({
       label: status,
-      count: active.filter((c) => (c.candidate_status || "חדש") === status).length,
+      count: active.filter(
+        (c) => normalizeCandidateStatus(c.candidate_status) === status,
+      ).length,
     }));
   }, [active]);
 
-  const byAdvanced = useMemo(() => {
-    return ADVANCED_STATUSES.map((status) => ({
-      label: status,
-      count: active.filter((c) => (c.advanced_status || "בטיפול") === status).length,
-    }));
+  const byYearGroup = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of active) {
+      const key = enlistmentYearGroup(c.enlistment_date);
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+    return [...map.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => {
+        if (a.label === "ללא שנתון") return 1;
+        if (b.label === "ללא שנתון") return -1;
+        return Number(b.label) - Number(a.label);
+      });
   }, [active]);
 
   const byTrack = useMemo(() => {
@@ -63,7 +74,7 @@ export function MalshabimStatisticsPage({
 
   const quizPassed = active.filter((c) => c.quiz_passed).length;
   const maxStatus = Math.max(1, ...byStatus.map((x) => x.count));
-  const maxAdvanced = Math.max(1, ...byAdvanced.map((x) => x.count));
+  const maxYear = Math.max(1, ...byYearGroup.map((x) => x.count), 1);
   const maxTrack = Math.max(1, ...byTrack.map((x) => x.count), 1);
 
   return (
@@ -71,7 +82,7 @@ export function MalshabimStatisticsPage({
       <div className={`${panelClass} p-5`}>
         <h1 className="text-xl font-bold text-text-primary">סטטיסטיקה</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          סיכום מועמדים פעילים (ללא טיוטות)
+          סיכום מועמדים פעילים (ללא ראיונות פתוחים)
         </p>
       </div>
 
@@ -85,7 +96,7 @@ export function MalshabimStatisticsPage({
           <p className="mt-1 text-3xl font-black text-text-primary">{quizPassed}</p>
         </div>
         <div className={`${panelClass} p-5`}>
-          <p className="text-xs font-semibold text-text-muted">טיוטות</p>
+          <p className="text-xs font-semibold text-text-muted">ראיון</p>
           <p className="mt-1 text-3xl font-black text-text-primary">
             {initialCandidates.length - active.length}
           </p>
@@ -100,10 +111,12 @@ export function MalshabimStatisticsPage({
           ))}
         </section>
         <section className={`${panelClass} space-y-3 p-5`}>
-          <h2 className="text-sm font-bold text-text-primary">סטטוס מתקדם</h2>
-          {byAdvanced.map((row) => (
-            <BarRow key={row.label} {...row} max={maxAdvanced} />
-          ))}
+          <h2 className="text-sm font-bold text-text-primary">שנתונים</h2>
+          {byYearGroup.length === 0 ? (
+            <p className="text-sm text-text-muted">אין נתונים</p>
+          ) : (
+            byYearGroup.map((row) => <BarRow key={row.label} {...row} max={maxYear} />)
+          )}
         </section>
         <section className={`${panelClass} space-y-3 p-5`}>
           <h2 className="text-sm font-bold text-text-primary">מסלול גיוס</h2>

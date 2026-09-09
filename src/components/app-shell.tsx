@@ -64,6 +64,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/malshabim/board",
     "/malshabim/statistics",
     "/malshabim/admin/users",
+    "/malshabim/admin/approvals",
     "/nagadim",
     "/nagadim/active",
     "/nagadim/positions",
@@ -216,6 +217,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     pathname === "/dovrut/admin/users" ||
     pathname === "/agam/admin/users" ||
     pathname === "/malshabim/admin/users" ||
+    pathname === "/malshabim/admin/approvals" ||
     pathname === "/nagadim/admin/users";
   const canEditDovrut =
     moduleRoles.dovrut === "admin" || moduleRoles.dovrut === "user";

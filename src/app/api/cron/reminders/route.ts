@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AppSettingsService, isMorningSummaryDue } from "@/services/app-settings.service";
 import { DailyPlanService } from "@/services/daily-plan.service";
 import { NotificationService } from "@/services/notification.service";
+import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { Env } from "@/lib/env";
 
@@ -55,6 +56,7 @@ export async function GET(request: Request) {
     dayKey: string;
     dueTomorrowSent: number;
     dailySummarySent: number;
+    malshabimInterviewRemindersSent: number;
     skipped: string[];
   } = {
     ok: true,
@@ -64,6 +66,7 @@ export async function GET(request: Request) {
     dayKey,
     dueTomorrowSent: 0,
     dailySummarySent: 0,
+    malshabimInterviewRemindersSent: 0,
     skipped: [],
   };
 
@@ -214,6 +217,26 @@ export async function GET(request: Request) {
     }
   } else {
     result.skipped.push("dailySummary");
+  }
+
+  const windowStart = new Date(now.getTime() + 50 * 60 * 1000);
+  const windowEnd = new Date(now.getTime() + 70 * 60 * 1000);
+  const malshabimService = new MalshabimCandidateService();
+  const dueInterviews = await malshabimService.listDueInterviewReminders(windowStart, windowEnd);
+  for (const candidate of dueInterviews) {
+    if (!candidate.interviewer_user_id || !candidate.interview_at) continue;
+    const sent = await notificationService.notifyMalshabimInterviewReminder({
+      candidateId: candidate.id,
+      fullName: candidate.full_name ?? "מועמד",
+      interviewAt: candidate.interview_at,
+      interviewerUserId: candidate.interviewer_user_id,
+    });
+    if (sent > 0) {
+      result.malshabimInterviewRemindersSent += sent;
+      await malshabimService.update(candidate.id, {
+        interview_reminder_sent_at: new Date().toISOString(),
+      });
+    }
   }
 
   return NextResponse.json(result);

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
+import { NotificationService } from "@/services/notification.service";
+import type { MalshabimInstructionItem } from "@/modules/malshabim/types";
 
 export async function GET(
   _request: Request,
@@ -60,7 +62,34 @@ const patchSchema = z.object({
       date: z.string().optional().nullable(),
     })
     .optional(),
+  interviewer_user_id: z.string().uuid().optional().nullable(),
+  awaiting_admin_approval: z.boolean().optional().nullable(),
+  approval_requested_at: z.string().optional().nullable(),
+  interview_reminder_sent_at: z.string().optional().nullable(),
+  request_meta: z.record(z.string(), z.unknown()).optional().nullable(),
 });
+
+function isDuplicateError(error: unknown): error is Error {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message.includes("תעודת זהות כבר קיימת") ||
+    error.message.includes("מספר אישי כבר קיים")
+  );
+}
+
+function marksInstructionCompleted(
+  previous: MalshabimInstructionItem[] | unknown[] | null | undefined,
+  next: unknown[] | null | undefined,
+): boolean {
+  if (!next) return false;
+  const prevItems = (previous ?? []) as MalshabimInstructionItem[];
+  const nextItems = next as MalshabimInstructionItem[];
+  return nextItems.some((item, index) => {
+    if (item?.status !== "הושלם") return false;
+    const prevStatus = prevItems[index]?.status;
+    return prevStatus !== "הושלם";
+  });
+}
 
 export async function PATCH(
   request: Request,
@@ -78,25 +107,64 @@ export async function PATCH(
   }
 
   const service = new MalshabimCandidateService();
-  const { update_log_entry, ...fields } = parsed.data;
-  const candidate = await service.update(
-    id,
-    fields as Parameters<MalshabimCandidateService["update"]>[1],
-  );
-  if (!candidate) {
+  const existing = await service.getById(id);
+  if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (update_log_entry) {
-    const withLog = await service.appendUpdateLog(id, {
-      ...update_log_entry,
-      date: update_log_entry.date ?? new Date().toISOString(),
-      updated_by: update_log_entry.updated_by ?? access.profile.name,
-    });
-    return NextResponse.json({ candidate: withLog ?? candidate });
+  const { update_log_entry, ...fields } = parsed.data;
+
+  if (
+    fields.instruction_items !== undefined &&
+    marksInstructionCompleted(existing.instruction_items, fields.instruction_items) &&
+    access.role !== "admin"
+  ) {
+    return NextResponse.json(
+      { error: "רק מנהל יכול לסמן הוראה כהושלמה" },
+      { status: 403 },
+    );
   }
 
-  return NextResponse.json({ candidate });
+  const requestingApproval =
+    fields.awaiting_admin_approval === true && !existing.awaiting_admin_approval;
+
+  if (requestingApproval) {
+    fields.approval_requested_at = new Date().toISOString();
+  }
+
+  try {
+    const candidate = await service.update(
+      id,
+      fields as Parameters<MalshabimCandidateService["update"]>[1],
+    );
+    if (!candidate) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    if (requestingApproval) {
+      await new NotificationService().notifyMalshabimApprovalRequested({
+        candidateId: candidate.id,
+        fullName: candidate.full_name ?? "מועמד",
+        requesterName: access.profile.name,
+      });
+    }
+
+    if (update_log_entry) {
+      const withLog = await service.appendUpdateLog(id, {
+        ...update_log_entry,
+        date: update_log_entry.date ?? new Date().toISOString(),
+        updated_by: update_log_entry.updated_by ?? access.profile.name,
+      });
+      return NextResponse.json({ candidate: withLog ?? candidate });
+    }
+
+    return NextResponse.json({ candidate });
+  } catch (error) {
+    if (isDuplicateError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }
 
 export async function DELETE(

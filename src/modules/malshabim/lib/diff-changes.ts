@@ -15,8 +15,7 @@ const FIELD_LABELS: Record<string, string> = {
   enlistment_date: "תאריך גיוס",
   recruitment_track: "מסלול גיוס",
   status_type: "סטטוס אישי",
-  candidate_status: "סטטוס עבודה",
-  advanced_status: "סטטוס מורחב",
+  candidate_status: "סטטוס",
   next_status_update_at: "מועד עדכון סטטוס",
   interview_at: "מועד ראיון",
   request_type: "איתור/בקשה",
@@ -25,6 +24,13 @@ const FIELD_LABELS: Record<string, string> = {
   instructions: "הנחיות",
   quiz_score: "ציון המבחן",
   quiz_passed: "תוצאת מבחן",
+  interviewer_user_id: "מראיין",
+};
+
+const REQUEST_META_LABELS: Record<string, string> = {
+  requester: "מבקש",
+  unit: "יחידה",
+  role: "תפקיד",
 };
 
 function formatValue(value: unknown): string {
@@ -47,6 +53,7 @@ type Diffable = Record<string, unknown> & {
   observance?: Record<string, { answer?: string; note?: string } | undefined>;
   quiz_questions?: Array<{ is_correct?: boolean }>;
   instruction_items?: unknown[];
+  request_meta?: Record<string, unknown>;
 };
 
 export function computeChanges(oldData: Diffable | null, newData: Diffable): string[] {
@@ -57,6 +64,16 @@ export function computeChanges(oldData: Diffable | null, newData: Diffable): str
     const b = newData?.[k];
     if (JSON.stringify(a) !== JSON.stringify(b)) {
       changes.push(`${FIELD_LABELS[k]}: "${formatValue(a)}" → "${formatValue(b)}"`);
+    }
+  });
+
+  const oldMeta = oldData?.request_meta || {};
+  const newMeta = newData.request_meta || {};
+  Object.keys(REQUEST_META_LABELS).forEach((k) => {
+    const a = oldMeta[k];
+    const b = newMeta[k];
+    if (JSON.stringify(a ?? null) !== JSON.stringify(b ?? null)) {
+      changes.push(`${REQUEST_META_LABELS[k]}: "${formatValue(a)}" → "${formatValue(b)}"`);
     }
   });
 

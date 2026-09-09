@@ -1,3 +1,6 @@
+import {
+  normalizeCandidateStatus,
+} from "@/modules/malshabim/lib/status";
 import type { MalshabimCandidate } from "@/modules/malshabim/types";
 
 function csvEscape(value: unknown): string {
@@ -6,7 +9,7 @@ function csvEscape(value: unknown): string {
   return text;
 }
 
-const COLUMNS: Array<{ key: keyof MalshabimCandidate | "quiz_passed_label"; label: string }> = [
+const COLUMNS: Array<{ key: keyof MalshabimCandidate | "quiz_passed_label" | "status_label"; label: string }> = [
   { key: "serial_number", label: "מס׳ תיק" },
   { key: "full_name", label: "שם" },
   { key: "phone", label: "טלפון" },
@@ -14,8 +17,7 @@ const COLUMNS: Array<{ key: keyof MalshabimCandidate | "quiz_passed_label"; labe
   { key: "personal_number", label: "מ.א" },
   { key: "city", label: "עיר" },
   { key: "recruitment_track", label: "מסלול" },
-  { key: "candidate_status", label: "סטטוס" },
-  { key: "advanced_status", label: "סטטוס מורחב" },
+  { key: "status_label", label: "סטטוס" },
   { key: "request_type", label: "איתור/בקשה" },
   { key: "quiz_passed_label", label: "עבר מבחן" },
 ];
@@ -28,6 +30,9 @@ export function downloadCandidatesCsv(
   const rows = candidates.map((c) =>
     COLUMNS.map((col) => {
       if (col.key === "quiz_passed_label") return csvEscape(c.quiz_passed ? "כן" : "לא");
+      if (col.key === "status_label") {
+        return csvEscape(normalizeCandidateStatus(c.candidate_status));
+      }
       return csvEscape(c[col.key as keyof MalshabimCandidate]);
     }).join(","),
   );

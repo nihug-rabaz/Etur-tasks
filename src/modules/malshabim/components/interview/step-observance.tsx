@@ -71,25 +71,34 @@ export function StepObservance({
 
   return (
     <div className="space-y-4">
-      {OBSERVANCE_QUESTIONS.map((q, i) => (
-        <div key={q.key} className="rounded-2xl bg-surface-2/70 p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm font-bold text-text-primary">
-              {i + 1}. {q.label}
-            </p>
-            <YesNoToggle
-              value={observance[q.key]?.answer || "לא"}
-              onChange={(v) => setAnswer(q.key, "answer", v)}
+      {OBSERVANCE_QUESTIONS.map((q, i) => {
+        const noteRequired = "noteRequired" in q && q.noteRequired;
+        const hint = "interviewerHint" in q ? q.interviewerHint : undefined;
+        return (
+          <div key={q.key} className="rounded-2xl bg-surface-2/70 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm font-bold text-text-primary">
+                {i + 1}. {q.label}
+              </p>
+              <YesNoToggle
+                value={observance[q.key]?.answer || "לא"}
+                onChange={(v) => setAnswer(q.key, "answer", v)}
+              />
+            </div>
+            {hint ? (
+              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200">
+                {hint}
+              </div>
+            ) : null}
+            <input
+              className={`${fieldClass} mt-3`}
+              placeholder={noteRequired ? "הערה (חובה)" : "הערה (רשות)"}
+              value={observance[q.key]?.note || ""}
+              onChange={(e) => setAnswer(q.key, "note", e.target.value)}
             />
           </div>
-          <input
-            className={`${fieldClass} mt-3`}
-            placeholder="הערה (רשות)"
-            value={observance[q.key]?.note || ""}
-            onChange={(e) => setAnswer(q.key, "note", e.target.value)}
-          />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
+import type {
+  MalshabimCandidateWrite,
+  MalshabimInstructionItem,
+} from "@/modules/malshabim/types";
+import { NotificationService } from "@/services/notification.service";
+
+function hasCompletedInstruction(items: unknown[] | undefined | null): boolean {
+  if (!Array.isArray(items)) return false;
+  return items.some(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      (item as MalshabimInstructionItem).status === "הושלם",
+  );
+}
 
 export async function GET() {
   const access = await new MalshabimAccessService().requireMalshabimAccess();
@@ -51,10 +66,23 @@ const createSchema = z
     draft_step: z.number().int().optional().nullable(),
     update_log: z.array(z.record(z.string(), z.unknown())).optional().nullable(),
     legacy_base44_id: z.string().optional().nullable(),
+    interviewer_user_id: z.string().uuid().optional().nullable(),
+    awaiting_admin_approval: z.boolean().optional().nullable(),
+    approval_requested_at: z.string().optional().nullable(),
+    interview_reminder_sent_at: z.string().optional().nullable(),
+    request_meta: z.record(z.string(), z.unknown()).optional().nullable(),
   })
   .refine((data) => Boolean(data.full_name || data.fullName), {
     message: "full_name required",
   });
+
+function isDuplicateError(error: unknown): error is Error {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message.includes("תעודת זהות כבר קיימת") ||
+    error.message.includes("מספר אישי כבר קיים")
+  );
+}
 
 export async function POST(request: Request) {
   const accessService = new MalshabimAccessService();
@@ -67,39 +95,72 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
   }
   const data = parsed.data;
+  if (
+    access.role !== "admin" &&
+    hasCompletedInstruction(data.instruction_items as unknown[] | null)
+  ) {
+    return NextResponse.json(
+      { error: "רק מנהל יכול לסמן הנחיה כהושלם" },
+      { status: 403 },
+    );
+  }
+  const awaiting = data.awaiting_admin_approval === true;
   const service = new MalshabimCandidateService();
-  const candidate = await service.create({
-    full_name: data.full_name ?? data.fullName ?? null,
-    phone: data.phone ?? null,
-    id_number: data.id_number ?? data.idNumber ?? null,
-    personal_number: data.personal_number ?? data.personalNumber ?? null,
-    serial_number: data.serial_number ?? data.serialNumber ?? null,
-    city: data.city ?? null,
-    photo_url: data.photo_url ?? null,
-    candidate_status: data.candidate_status ?? undefined,
-    advanced_status: data.advanced_status ?? undefined,
-    status_type: data.status_type ?? null,
-    request_type: data.request_type ?? null,
-    recruitment_track: data.recruitment_track ?? null,
-    enlistment_date: data.enlistment_date ?? null,
-    interview_at: data.interview_at ?? null,
-    next_status_update_at: data.next_status_update_at ?? null,
-    observance: data.observance ?? undefined,
-    quiz_questions: data.quiz_questions ?? undefined,
-    quiz_score: data.quiz_score ?? null,
-    quiz_passed: data.quiz_passed ?? undefined,
-    quiz_skipped: data.quiz_skipped ?? undefined,
-    interview_summary: data.interview_summary ?? null,
-    interviewer_notes: data.interviewer_notes ?? null,
-    instructions: data.instructions ?? null,
-    instruction_items: data.instruction_items ?? undefined,
-    instruction_recipients: data.instruction_recipients ?? undefined,
-    is_draft: data.is_draft ?? undefined,
-    draft_step: data.draft_step ?? null,
-    update_log: data.update_log ?? undefined,
-    legacy_base44_id: data.legacy_base44_id ?? null,
-    created_by: access.profile.id,
-    created_by_name: access.profile.name,
-  });
-  return NextResponse.json({ candidate }, { status: 201 });
+  try {
+    const candidate = await service.create({
+      full_name: data.full_name ?? data.fullName ?? null,
+      phone: data.phone ?? null,
+      id_number: data.id_number ?? data.idNumber ?? null,
+      personal_number: data.personal_number ?? data.personalNumber ?? null,
+      serial_number: data.serial_number ?? data.serialNumber ?? null,
+      city: data.city ?? null,
+      photo_url: data.photo_url ?? null,
+      candidate_status: data.candidate_status ?? undefined,
+      advanced_status: data.advanced_status ?? undefined,
+      status_type: data.status_type ?? null,
+      request_type: data.request_type ?? null,
+      recruitment_track: data.recruitment_track ?? null,
+      enlistment_date: data.enlistment_date ?? null,
+      interview_at: data.interview_at ?? null,
+      next_status_update_at: data.next_status_update_at ?? null,
+      observance: data.observance ?? undefined,
+      quiz_questions: data.quiz_questions ?? undefined,
+      quiz_score: data.quiz_score ?? null,
+      quiz_passed: data.quiz_passed ?? undefined,
+      quiz_skipped: data.quiz_skipped ?? undefined,
+      interview_summary: data.interview_summary ?? null,
+      interviewer_notes: data.interviewer_notes ?? null,
+      instructions: data.instructions ?? null,
+      instruction_items: data.instruction_items ?? undefined,
+      instruction_recipients: data.instruction_recipients ?? undefined,
+      is_draft: data.is_draft ?? undefined,
+      draft_step: data.draft_step ?? null,
+      update_log: data.update_log ?? undefined,
+      legacy_base44_id: data.legacy_base44_id ?? null,
+      created_by: access.profile.id,
+      created_by_name: access.profile.name,
+      interviewer_user_id: data.interviewer_user_id ?? null,
+      awaiting_admin_approval: awaiting,
+      approval_requested_at: awaiting
+        ? data.approval_requested_at ?? new Date().toISOString()
+        : data.approval_requested_at ?? null,
+      interview_reminder_sent_at: data.interview_reminder_sent_at ?? null,
+      request_meta: data.request_meta ?? undefined,
+    } as MalshabimCandidateWrite);
+
+    if (awaiting && !candidate.is_draft) {
+      await new NotificationService().notifyMalshabimApprovalRequested({
+        candidateId: candidate.id,
+        fullName: candidate.full_name ?? "מועמד",
+        requesterName: access.profile.name,
+      });
+    }
+
+    return NextResponse.json({ candidate }, { status: 201 });
+  } catch (error) {
+    if (isDuplicateError(error)) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }

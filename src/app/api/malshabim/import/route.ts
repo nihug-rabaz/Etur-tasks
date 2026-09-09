@@ -38,6 +38,8 @@ const rowSchema = z
     update_log: z.unknown().optional().nullable(),
     created_by_name: z.string().optional().nullable(),
     is_sample: z.boolean().optional().nullable(),
+    request_meta: z.unknown().optional().nullable(),
+    interviewer_user_id: z.string().optional().nullable(),
   })
   .passthrough();
 
@@ -112,13 +114,18 @@ function mapRow(
     interview_summary: row.interview_summary ?? null,
     interviewer_notes: row.interviewer_notes ?? null,
     instructions: row.instructions ?? null,
-    instruction_items: toArray(row.instruction_items),
+    instruction_items: toArray(
+      row.instruction_items,
+    ) as MalshabimCandidateWrite["instruction_items"],
     instruction_recipients: toArray(row.instruction_recipients),
     is_draft: row.is_draft ?? undefined,
     draft_step: toNumber(row.draft_step),
     update_log: toArray(row.update_log) as MalshabimCandidateWrite["update_log"],
     created_by: createdBy,
     created_by_name: row.created_by_name ?? null,
+    request_meta: toObject(row.request_meta),
+    interviewer_user_id:
+      typeof row.interviewer_user_id === "string" ? row.interviewer_user_id : null,
   };
 }
 

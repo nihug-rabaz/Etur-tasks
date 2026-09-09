@@ -3,6 +3,7 @@ import { BaseService } from "@/services/base.service";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { AppUrls } from "@/lib/urls/app-urls";
 import { formatScheduleTime } from "@/lib/dates/schedule-range";
+import { ModuleRoleService } from "@/shared/services/module-role.service";
 
 interface TaskNotificationInput {
   taskId: string;
@@ -185,6 +186,60 @@ export class NotificationService extends BaseService {
       (userId) =>
         `task-close-decision:${input.taskId}:${input.approved ? "ok" : "no"}:${userId}:${Date.now()}`,
     );
+  }
+
+  public async notifyMalshabimApprovalRequested(input: {
+    candidateId: string;
+    fullName: string;
+    requesterName: string;
+  }): Promise<number> {
+    if (!this.push.isReady()) return 0;
+    const adminIds = await this.getMalshabimAdminIds();
+    const url = this.malshabimCandidateUrl(input.candidateId);
+    const text =
+      "בקשה לאישור מלש״ב\n" +
+      `מועמד: ${input.fullName}\n` +
+      `מבקש: ${input.requesterName}` +
+      (url ? `\nקישור לתיק: ${url}` : "");
+    return this.sendToUsers(
+      adminIds,
+      text,
+      url || undefined,
+      (userId) =>
+        `malshabim-approval-requested:${input.candidateId}:${userId}:${Date.now()}`,
+    );
+  }
+
+  public async notifyMalshabimInterviewReminder(input: {
+    candidateId: string;
+    fullName: string;
+    interviewAt: string;
+    interviewerUserId: string;
+  }): Promise<number> {
+    if (!this.push.isReady()) return 0;
+    const url = this.malshabimCandidateUrl(input.candidateId);
+    const text =
+      "תזכורת: ריאיון מלש״ב בעוד כשעה\n" +
+      `מועמד: ${input.fullName}\n` +
+      `מועד: ${this.formatDate(input.interviewAt)}` +
+      (url ? `\nקישור לתיק: ${url}` : "");
+    return this.sendToUsers(
+      [input.interviewerUserId],
+      text,
+      url || undefined,
+      (userId) => `malshabim-interview-reminder:${input.candidateId}:${userId}`,
+    );
+  }
+
+  private async getMalshabimAdminIds(): Promise<string[]> {
+    const users = await new ModuleRoleService().listModuleUsers("malshabim");
+    return users.filter((user) => user.role === "admin").map((user) => user.user_id);
+  }
+
+  private malshabimCandidateUrl(candidateId: string): string {
+    const origin = AppUrls.getOrigin();
+    const path = `/malshabim/candidates/${candidateId}`;
+    return origin ? `${origin}${path}` : path;
   }
 
   private async withAdminRecipients(userIds: string[]): Promise<string[]> {

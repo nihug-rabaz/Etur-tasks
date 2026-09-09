@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   CANDIDATE_STATUSES,
   STATUS_COLORS,
+  normalizeCandidateStatus,
 } from "@/modules/malshabim/lib/status";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import { pageShellClass, panelClass, secondaryButtonClass } from "@/modules/malshabim/lib/ui";
@@ -32,11 +33,7 @@ export function MalshabimBoardPage({
       CANDIDATE_STATUSES.map((status) => [status, [] as MalshabimCandidate[]]),
     ) as Record<MalshabimCandidateStatus, MalshabimCandidate[]>;
     for (const candidate of candidates) {
-      const status = (CANDIDATE_STATUSES.includes(
-        candidate.candidate_status as MalshabimCandidateStatus,
-      )
-        ? candidate.candidate_status
-        : "חדש") as MalshabimCandidateStatus;
+      const status = normalizeCandidateStatus(candidate.candidate_status);
       map[status].push(candidate);
     }
     return map;
@@ -54,7 +51,7 @@ export function MalshabimBoardPage({
         body: JSON.stringify({
           candidate_status: status,
           update_log_entry: {
-            changes: `סטטוס עבודה עודכן ל: ${status}`,
+            changes: `סטטוס עודכן ל: ${status}`,
           },
         }),
       });
@@ -69,7 +66,7 @@ export function MalshabimBoardPage({
       <div className={`${panelClass} p-5`}>
         <h1 className="text-xl font-bold text-text-primary">לוח עבודה</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          עמודות לפי סטטוס מועמד{canEdit ? " — לחצו על סטטוס לשינוי" : ""}
+          עמודות לפי סטטוס{canEdit ? " — לחצו על סטטוס לשינוי" : ""}
         </p>
       </div>
 

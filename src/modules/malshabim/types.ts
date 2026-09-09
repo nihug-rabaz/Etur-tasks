@@ -1,11 +1,19 @@
-export type MalshabimCandidateStatus = "חדש" | "ממתין לעדכון" | "בטיפול" | "הושלם";
+export type MalshabimCandidateStatus =
+  | "ממתין לריאיון"
+  | "בטיפול"
+  | "אושר"
+  | "שובץ";
 
+/** @deprecated kept for DB compat; not shown in UI */
 export type MalshabimAdvancedStatus =
   | "בטיפול"
   | "הסתיים טיפול"
   | "בהמתנה"
   | "אושר"
-  | "לא אושר";
+  | "לא אושר"
+  | string;
+
+export type MalshabimInstructionStatus = "בטיפול" | "הושלם";
 
 export interface MalshabimUpdateLogEntry {
   date?: string | null;
@@ -21,6 +29,21 @@ export interface MalshabimQuizQuestion {
   [key: string]: unknown;
 }
 
+export interface MalshabimInstructionItem {
+  text?: string;
+  status?: MalshabimInstructionStatus;
+  recipients?: string[];
+  sent_at?: string | null;
+  [key: string]: unknown;
+}
+
+export interface MalshabimRequestMeta {
+  requester?: string | null;
+  unit?: string | null;
+  role?: string | null;
+  [key: string]: unknown;
+}
+
 export interface MalshabimCandidate {
   id: string;
   legacy_base44_id: string | null;
@@ -32,7 +55,7 @@ export interface MalshabimCandidate {
   city: string | null;
   photo_url: string | null;
   candidate_status: string;
-  advanced_status: string;
+  advanced_status: string | null;
   status_type: string | null;
   request_type: string | null;
   recruitment_track: string | null;
@@ -47,13 +70,18 @@ export interface MalshabimCandidate {
   interview_summary: string | null;
   interviewer_notes: string | null;
   instructions: string | null;
-  instruction_items: unknown[];
+  instruction_items: MalshabimInstructionItem[];
   instruction_recipients: unknown[];
   is_draft: boolean;
   draft_step: number | null;
   update_log: MalshabimUpdateLogEntry[];
   created_by: string | null;
   created_by_name: string | null;
+  interviewer_user_id: string | null;
+  awaiting_admin_approval: boolean;
+  approval_requested_at: string | null;
+  interview_reminder_sent_at: string | null;
+  request_meta: MalshabimRequestMeta;
   created_at: string;
   updated_at: string;
 }

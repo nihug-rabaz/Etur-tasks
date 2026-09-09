@@ -1,25 +1,33 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
   Download,
+  FileSpreadsheet,
   FileText,
   Plus,
   Search,
+  Upload,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
-  ADVANCED_STATUSES,
   CANDIDATE_STATUSES,
   STATUS_COLORS,
-  ADVANCED_STATUS_COLORS,
   filterCandidates,
+  normalizeCandidateStatus,
   type MalshabimCandidateFilters,
 } from "@/modules/malshabim/lib/status";
 import { RECRUITMENT_TRACKS, REQUEST_TYPES } from "@/modules/malshabim/lib/question-bank";
 import { downloadCandidatesCsv } from "@/modules/malshabim/lib/csv";
+import {
+  exportTemplate,
+  parseTemplateFile,
+  templateRowsToImportPayload,
+} from "@/modules/malshabim/lib/excel-template";
+import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
   emptyStateClass,
   fieldClass,
@@ -35,6 +43,19 @@ function canEditRole(role: ModuleRole | null): boolean {
   return role === "admin" || role === "user";
 }
 
+function asSelectedList(value: string | string[] | undefined): string[] {
+  if (!value || value === "all") return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function toggleFilterValue(
+  current: string | string[] | undefined,
+  value: string,
+): string[] {
+  const list = asSelectedList(current);
+  return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
 export function MalshabimHomePage({
   initialCandidates,
   initialRole,
@@ -43,12 +64,14 @@ export function MalshabimHomePage({
   initialRole: ModuleRole;
 }) {
   const canEdit = canEditRole(initialRole);
+  const isAdmin = initialRole === "admin";
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
   const [filters, setFilters] = useState<MalshabimCandidateFilters>({
     search: "",
     track: "all",
-    candidateStatus: "all",
-    advancedStatus: "all",
-    requestType: "all",
+    candidateStatus: [],
+    requestType: [],
   });
 
   const drafts = useMemo(
@@ -66,7 +89,7 @@ export function MalshabimHomePage({
 
   const stats = {
     total: active.length,
-    drafts: drafts.length,
+    interviews: drafts.length,
     quizPassed: active.filter((c) => c.quiz_passed).length,
   };
 
@@ -74,6 +97,39 @@ export function MalshabimHomePage({
     key: K,
     value: MalshabimCandidateFilters[K],
   ) => setFilters((prev) => ({ ...prev, [key]: value }));
+
+  const selectedStatuses = asSelectedList(filters.candidateStatus);
+  const selectedRequestTypes = asSelectedList(filters.requestType);
+
+  const onImportFile = async (file: File | null) => {
+    if (!file || !isAdmin) return;
+    setImporting(true);
+    try {
+      const rows = await parseTemplateFile(file);
+      const candidates = templateRowsToImportPayload(rows);
+      if (candidates.length === 0) {
+        toast.error("לא נמצאו שורות לייבוא");
+        return;
+      }
+      const result = await malshabimFetch<{
+        inserted?: number;
+        updated?: number;
+        skipped?: number;
+      }>("/api/malshabim/import", {
+        method: "POST",
+        body: JSON.stringify({ candidates }),
+      });
+      toast.success(
+        `ייבוא הושלם · נוספו ${result.inserted ?? 0} · עודכנו ${result.updated ?? 0} · דולגו ${result.skipped ?? 0}`,
+      );
+      window.location.reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "ייבוא נכשל");
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div className={pageShellClass} dir="rtl">
@@ -103,13 +159,42 @@ export function MalshabimHomePage({
             >
               <Download className="h-4 w-4" /> ייצוא CSV
             </button>
+            {canEdit ? (
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => exportTemplate()}
+              >
+                <FileSpreadsheet className="h-4 w-4" /> ייצא תבנית
+              </button>
+            ) : null}
+            {isAdmin ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => void onImportFile(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  disabled={importing}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  {importing ? "מייבא…" : "ייבא אקסל"}
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       </article>
 
       <section className="grid gap-3 sm:grid-cols-3">
         <StatCard icon={Users} label="סה״כ מועמדים" value={stats.total} />
-        <StatCard icon={FileText} label="טיוטות" value={stats.drafts} />
+        <StatCard icon={FileText} label="ראיון" value={stats.interviews} />
         <StatCard icon={CheckCircle2} label="עברו מבחן" value={stats.quizPassed} />
       </section>
 
@@ -123,61 +208,76 @@ export function MalshabimHomePage({
             onChange={(e) => setFilter("search", e.target.value)}
           />
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <select
-            className={fieldClass}
-            value={filters.track || "all"}
-            onChange={(e) => setFilter("track", e.target.value)}
-          >
-            <option value="all">כל המסלולים</option>
-            {RECRUITMENT_TRACKS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          <select
-            className={fieldClass}
-            value={filters.candidateStatus || "all"}
-            onChange={(e) => setFilter("candidateStatus", e.target.value)}
-          >
-            <option value="all">כל הסטטוסים</option>
-            {CANDIDATE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select
-            className={fieldClass}
-            value={filters.advancedStatus || "all"}
-            onChange={(e) => setFilter("advancedStatus", e.target.value)}
-          >
-            <option value="all">סטטוס מורחב</option>
-            {ADVANCED_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select
-            className={fieldClass}
-            value={filters.requestType || "all"}
-            onChange={(e) => setFilter("requestType", e.target.value)}
-          >
-            <option value="all">איתור / בקשה</option>
-            {REQUEST_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1.2fr)]">
+          <label className="space-y-1.5 text-xs font-bold text-text-muted">
+            מסלול
+            <select
+              className={fieldClass}
+              value={typeof filters.track === "string" ? filters.track : "all"}
+              onChange={(e) => setFilter("track", e.target.value)}
+            >
+              <option value="all">כל המסלולים</option>
+              {RECRUITMENT_TRACKS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="space-y-1.5">
+            <p className="text-xs font-bold text-text-muted">סטטוס</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CANDIDATE_STATUSES.map((status) => {
+                const activeChip = selectedStatuses.includes(status);
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    className={`rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition ${
+                      activeChip
+                        ? STATUS_COLORS[status]
+                        : "bg-surface-2 text-text-secondary hover:bg-surface-2/80"
+                    }`}
+                    onClick={() =>
+                      setFilter("candidateStatus", toggleFilterValue(filters.candidateStatus, status))
+                    }
+                  >
+                    {status}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-xs font-bold text-text-muted">איתור / בקשה</p>
+            <div className="flex flex-wrap gap-1.5">
+              {REQUEST_TYPES.map((type) => {
+                const activeChip = selectedRequestTypes.includes(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    className={`rounded-xl px-2.5 py-1.5 text-[11px] font-bold transition ${
+                      activeChip
+                        ? "bg-accent-primary text-white"
+                        : "bg-surface-2 text-text-secondary hover:bg-surface-2/80"
+                    }`}
+                    onClick={() =>
+                      setFilter("requestType", toggleFilterValue(filters.requestType, type))
+                    }
+                  >
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </article>
 
       {drafts.length > 0 ? (
         <article className={`${panelClass} p-4 sm:p-5`}>
-          <h2 className="mb-3 text-lg font-bold text-text-primary">טיוטות</h2>
+          <h2 className="mb-3 text-lg font-bold text-text-primary">ראיון</h2>
           <ul className="divide-y divide-black/5 dark:divide-white/10">
             {drafts.map((c) => (
               <li key={c.id}>
@@ -191,8 +291,8 @@ export function MalshabimHomePage({
                       שלב {((c.draft_step ?? 0) + 1)} · {c.phone || "—"}
                     </p>
                   </div>
-                  <span className="rounded-lg bg-amber-500/15 px-2 py-1 text-xs font-bold text-amber-700">
-                    טיוטה
+                  <span className="rounded-lg bg-blue-500/15 px-2 py-1 text-xs font-bold text-blue-700 dark:text-blue-300">
+                    ראיון
                   </span>
                 </Link>
               </li>
@@ -224,9 +324,7 @@ export function MalshabimHomePage({
               </thead>
               <tbody>
                 {filtered.map((c) => {
-                  const status = (c.candidate_status || "חדש") as keyof typeof STATUS_COLORS;
-                  const adv = (c.advanced_status ||
-                    "בטיפול") as keyof typeof ADVANCED_STATUS_COLORS;
+                  const status = normalizeCandidateStatus(c.candidate_status);
                   return (
                     <tr
                       key={c.id}
@@ -245,20 +343,11 @@ export function MalshabimHomePage({
                       <td className="px-4 py-3 text-text-secondary">{c.phone || "—"}</td>
                       <td className="px-4 py-3 text-text-secondary">{c.city || "—"}</td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          <span
-                            className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${STATUS_COLORS[status] || "bg-surface-2"}`}
-                          >
-                            {c.candidate_status || "חדש"}
-                          </span>
-                          {c.candidate_status !== "הושלם" ? (
-                            <span
-                              className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${ADVANCED_STATUS_COLORS[adv] || "bg-surface-2"}`}
-                            >
-                              {c.advanced_status || "בטיפול"}
-                            </span>
-                          ) : null}
-                        </div>
+                        <span
+                          className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${STATUS_COLORS[status]}`}
+                        >
+                          {status}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-text-secondary">
                         {c.recruitment_track || "—"}

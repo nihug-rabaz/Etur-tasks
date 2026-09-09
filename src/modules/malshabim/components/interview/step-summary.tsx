@@ -2,12 +2,14 @@
 
 import { useEffect } from "react";
 import { CheckCircle2, Plus, Trash2, XCircle, FastForward } from "lucide-react";
-import { CANDIDATE_STATUSES } from "@/modules/malshabim/lib/status";
+import { BIYENISH_LABEL } from "@/modules/malshabim/lib/question-bank";
+import { CANDIDATE_STATUSES, INSTRUCTION_STATUSES } from "@/modules/malshabim/lib/status";
 import { fieldClass, secondaryButtonClass } from "@/modules/malshabim/lib/ui";
 import type {
   InstructionItem,
   InterviewFormData,
 } from "@/modules/malshabim/components/interview/types";
+import type { MalshabimInstructionStatus } from "@/modules/malshabim/types";
 
 const PASS_MIN_CORRECT = 11;
 const SKIP_MIN_CORRECT = 4;
@@ -44,7 +46,9 @@ export function StepSummary({
     <div className="space-y-5">
       <div className="flex items-center justify-between rounded-2xl bg-accent-primary p-5 text-white">
         <div>
-          <p className="text-sm opacity-80">תוצאת המבחן {skipped ? '(בי״נ)' : ""}</p>
+          <p className="text-sm opacity-80">
+            תוצאת המבחן {skipped ? `(${BIYENISH_LABEL})` : ""}
+          </p>
           <p className="text-4xl font-black">{score}</p>
           <p className="text-sm opacity-80">
             {correct} מתוך {total} תשובות נכונות
@@ -53,7 +57,7 @@ export function StepSummary({
         <div className="flex flex-col items-end gap-2">
           {skipped ? (
             <span className="inline-flex items-center gap-1 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-bold">
-              <FastForward className="h-3.5 w-3.5" /> דילוג בי״נ
+              <FastForward className="h-3.5 w-3.5" /> דילוג {BIYENISH_LABEL}
             </span>
           ) : null}
           <span
@@ -68,10 +72,10 @@ export function StepSummary({
       </div>
 
       <label className="block space-y-1.5 text-sm font-bold text-text-primary">
-        סטטוס עבודה
+        סטטוס
         <select
           className={fieldClass}
-          value={data.candidate_status || "חדש"}
+          value={data.candidate_status || "ממתין לריאיון"}
           onChange={(e) => set("candidate_status", e.target.value)}
         >
           {CANDIDATE_STATUSES.map((status) => (
@@ -98,7 +102,12 @@ export function StepSummary({
           <button
             type="button"
             className={secondaryButtonClass}
-            onClick={() => updateItems([...items, { text: "", recipients: [], sent_at: null }])}
+            onClick={() =>
+              updateItems([
+                ...items,
+                { text: "", status: "בטיפול", recipients: [], sent_at: null },
+              ])
+            }
           >
             <Plus className="h-4 w-4" /> הוסף הנחיה
           </button>
@@ -131,6 +140,28 @@ export function StepSummary({
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
+            <label className="mr-6 block space-y-1 text-xs font-bold text-text-muted">
+              סטטוס הנחיה
+              <select
+                className={fieldClass}
+                value={item.status || "בטיפול"}
+                onChange={(e) =>
+                  updateItems(
+                    items.map((it, i) =>
+                      i === idx
+                        ? { ...it, status: e.target.value as MalshabimInstructionStatus }
+                        : it,
+                    ),
+                  )
+                }
+              >
+                {INSTRUCTION_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         ))}
       </div>
