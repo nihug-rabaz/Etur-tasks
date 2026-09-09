@@ -19,6 +19,7 @@ import {
 } from "@/shared/modules/registry";
 import { DevelopedByCredit } from "@/components/developed-by-credit";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
+import { AssistantFloatingPanel } from "@/components/assistant/floating-panel";
 import { DovrutCreateFabStack } from "@/modules/dovrut/components/dovrut-create-fab-stack";
 import { AgamCreateFabStack } from "@/modules/agam/components/create-fab-stack";
 import { previewKeyForHref } from "@/modules/dovrut/lib/nav-preview";
@@ -345,6 +346,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : showCreateFab ? (
           <CreateTaskDrawer floating variant="tasks" triggerLabel="משימה חדשה" />
         ) : null}
+        <AssistantFloatingPanel />
         <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
           <DevelopedByCredit compact />
         </footer>
