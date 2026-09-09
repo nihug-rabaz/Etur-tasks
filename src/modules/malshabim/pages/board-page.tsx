@@ -9,7 +9,13 @@ import {
   normalizeCandidateStatus,
 } from "@/modules/malshabim/lib/status";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
-import { pageShellClass, panelClass, secondaryButtonClass } from "@/modules/malshabim/lib/ui";
+import {
+  cardClass,
+  pageShellClass,
+  pageSubtitleClass,
+  pageTitleClass,
+  panelClass,
+} from "@/modules/malshabim/lib/ui";
 import type {
   MalshabimCandidate,
   MalshabimCandidateStatus,
@@ -63,16 +69,19 @@ export function MalshabimBoardPage({
 
   return (
     <div className={pageShellClass} dir="rtl">
-      <div className={`${panelClass} p-5`}>
-        <h1 className="text-xl font-bold text-text-primary">לוח עבודה</h1>
-        <p className="mt-1 text-sm text-text-secondary">
+      <div className={`${panelClass} p-4 sm:p-5`}>
+        <h1 className={pageTitleClass}>לוח עבודה</h1>
+        <p className={pageSubtitleClass}>
           עמודות לפי סטטוס{canEdit ? " — לחצו על סטטוס לשינוי" : ""}
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {CANDIDATE_STATUSES.map((status) => (
-          <section key={status} className={`${panelClass} flex min-h-[280px] flex-col p-4`}>
+          <section
+            key={status}
+            className={`${cardClass} flex min-h-[280px] flex-col p-3 sm:p-4`}
+          >
             <header className="mb-3 flex items-center justify-between gap-2">
               <span
                 className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_COLORS[status]}`}
@@ -87,7 +96,7 @@ export function MalshabimBoardPage({
               {columns[status].map((candidate) => (
                 <li
                   key={candidate.id}
-                  className="rounded-2xl bg-surface-1 p-3 shadow-[var(--shadow-soft)]"
+                  className="rounded-2xl bg-surface-1/70 p-3"
                 >
                   <Link
                     href={`/malshabim/candidates/${candidate.id}`}
@@ -95,7 +104,7 @@ export function MalshabimBoardPage({
                   >
                     {candidate.full_name || "ללא שם"}
                   </Link>
-                  <p className="mt-1 text-xs text-text-muted">
+                  <p className="mt-1 text-xs font-medium text-text-muted">
                     #{candidate.serial_number ?? "—"} · {candidate.city || "—"}
                   </p>
                   {canEdit ? (
@@ -104,7 +113,7 @@ export function MalshabimBoardPage({
                         <button
                           key={next}
                           type="button"
-                          className={`${secondaryButtonClass} !px-2 !py-1 text-[11px]`}
+                          className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold text-text-secondary transition hover:bg-surface-2/80 hover:text-text-primary"
                           onClick={() => void moveTo(candidate.id, next)}
                         >
                           {next}

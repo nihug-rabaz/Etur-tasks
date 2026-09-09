@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ModuleRole } from "@/shared/modules/types";
 import {
+  cardClass,
+  emptyStateClass,
   fieldClass,
   pageShellClass,
+  pageSubtitleClass,
+  pageTitleClass,
   panelClass,
   primaryButtonClass,
 } from "@/modules/malshabim/lib/ui";
@@ -59,10 +63,12 @@ export function MalshabimAdminUsersPage() {
 
   return (
     <div className={`${pageShellClass} max-w-4xl`} dir="rtl">
-      <h1 className="text-xl font-bold text-text-primary">משתמשי מודול מלש״בים</h1>
-      <p className="text-sm text-text-muted">מנהל · עורך · צופה</p>
+      <div className={`${panelClass} p-4 sm:p-5`}>
+        <h1 className={pageTitleClass}>משתמשי מודול מלש״בים</h1>
+        <p className={pageSubtitleClass}>מנהל · עורך · צופה</p>
+      </div>
 
-      <div className={`${panelClass} p-4`}>
+      <div className={`${cardClass} p-4`}>
         <div className="grid gap-2 sm:grid-cols-3">
           <select
             value={userId}
@@ -94,20 +100,26 @@ export function MalshabimAdminUsersPage() {
         ) : null}
       </div>
 
-      <ul className="space-y-2">
-        {moduleUsers.map((user) => (
-          <li
-            key={user.user_id}
-            className="flex items-center justify-between rounded-xl bg-surface-1 px-4 py-3 shadow-[var(--shadow-soft)]"
-          >
-            <div>
-              <p className="text-sm font-bold text-text-primary">{user.name}</p>
-              <p className="text-xs text-text-muted">{user.email}</p>
-            </div>
-            <span className="text-xs font-bold text-accent-primary">{user.role}</span>
-          </li>
-        ))}
-      </ul>
+      {moduleUsers.length === 0 ? (
+        <p className={emptyStateClass}>אין משתמשים במודול עדיין</p>
+      ) : (
+        <ul className="space-y-2">
+          {moduleUsers.map((user) => (
+            <li
+              key={user.user_id}
+              className={`${cardClass} flex items-center justify-between px-4 py-3`}
+            >
+              <div>
+                <p className="text-sm font-bold text-text-primary">{user.name}</p>
+                <p className="text-xs text-text-muted">{user.email}</p>
+              </div>
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-bold text-accent-primary">
+                {user.role}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -31,6 +31,8 @@ import { validateIsraeliId } from "@/modules/malshabim/lib/israeli-id";
 import { normalizeCandidateStatus } from "@/modules/malshabim/lib/status";
 import {
   formShellClass,
+  pageSubtitleClass,
+  pageTitleClass,
   panelClass,
   primaryButtonClass,
   secondaryButtonClass,
@@ -271,8 +273,8 @@ export function MalshabimInterviewPage({
       <div className={formShellClass}>
         <article className={`${panelClass} p-8 text-center`}>
           <ShieldAlert className="mx-auto mb-4 h-12 w-12 text-rose-600" />
-          <h1 className="text-2xl font-extrabold text-text-primary">אין לך הרשאת עריכה</h1>
-          <p className="mt-2 text-sm text-text-secondary">
+          <h1 className={pageTitleClass}>אין לך הרשאת עריכה</h1>
+          <p className={pageSubtitleClass}>
             משתמש צפייה בלבד יכול לצפות בפרטי מועמד, אך לא לפתוח או לערוך ראיון.
           </p>
           <Link href="/malshabim" className={`${secondaryButtonClass} mt-5`}>
@@ -506,7 +508,7 @@ export function MalshabimInterviewPage({
   return (
     <div className={formShellClass} dir="rtl">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-extrabold text-text-primary sm:text-3xl">
+        <h1 className={pageTitleClass}>
           {editId ? "עריכת תיק מלש״ב" : "ראיון חדש"}
         </h1>
         <button

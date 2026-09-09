@@ -26,8 +26,10 @@ import {
   normalizeCandidateStatus,
 } from "@/modules/malshabim/lib/status";
 import {
+  cardClass,
   fieldClass,
   formShellClass,
+  pageTitleClass,
   panelClass,
   primaryButtonClass,
   secondaryButtonClass,
@@ -264,7 +266,7 @@ export function MalshabimCandidateFilePage({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-extrabold text-text-primary sm:text-3xl">
+          <h1 className={pageTitleClass}>
             {c.full_name || "ללא שם"}
           </h1>
           <p className="mt-1 flex items-center gap-1 text-sm text-text-secondary">
@@ -279,18 +281,18 @@ export function MalshabimCandidateFilePage({
             {c.status_type ? <Chip>{c.status_type}</Chip> : null}
             {c.request_type ? <Chip>{c.request_type}</Chip> : null}
             <span
-              className={`rounded-lg px-2 py-0.5 text-xs font-bold ${STATUS_COLORS[status]}`}
+              className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_COLORS[status]}`}
             >
               {status}
             </span>
             {c.awaiting_admin_approval ? (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-xs font-bold text-white">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 ממתין לאישור מנהל
               </span>
             ) : null}
             <span
-              className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold text-white ${
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold text-white ${
                 c.quiz_passed ? "bg-green-600" : "bg-rose-600"
               }`}
             >
@@ -306,7 +308,7 @@ export function MalshabimCandidateFilePage({
       </article>
 
       {canEdit ? (
-        <article className={`${panelClass} space-y-3 p-5`}>
+        <article className={`${cardClass} space-y-3 p-5`}>
           <h2 className="flex items-center gap-2 text-lg font-bold text-text-primary">
             <RefreshCw className="h-4 w-4" /> עדכון סטטוס
           </h2>
@@ -328,7 +330,7 @@ export function MalshabimCandidateFilePage({
         </article>
       ) : null}
 
-      <article className={`${panelClass} space-y-3 p-5`}>
+      <article className={`${cardClass} space-y-3 p-5`}>
         <h2 className="text-lg font-bold text-text-primary">פרטים</h2>
         <dl className="grid gap-3 sm:grid-cols-2">
           <Field label="תאריך גיוס" value={c.enlistment_date} />
@@ -343,7 +345,7 @@ export function MalshabimCandidateFilePage({
       </article>
 
       {(requestMeta.requester || requestMeta.unit || requestMeta.role || c.request_type) ? (
-        <article className={`${panelClass} space-y-3 p-5`}>
+        <article className={`${cardClass} space-y-3 p-5`}>
           <h2 className="text-lg font-bold text-text-primary">פרטי בקשה</h2>
           <dl className="grid gap-3 sm:grid-cols-2">
             <Field label="סוג" value={c.request_type} />
@@ -365,14 +367,14 @@ export function MalshabimCandidateFilePage({
               return (
                 <li
                   key={index}
-                  className="rounded-2xl bg-surface-2/70 px-4 py-3 shadow-[var(--shadow-soft)]"
+                  className="rounded-2xl border border-border-weak bg-surface-2/70 px-4 py-3"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <p className="flex-1 whitespace-pre-wrap text-sm font-medium text-text-primary">
                       {item.text || "—"}
                     </p>
                     <span
-                      className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         itemStatus === "הושלם"
                           ? "bg-emerald-600 text-white"
                           : "bg-primary text-primary-foreground"
@@ -407,13 +409,13 @@ export function MalshabimCandidateFilePage({
         )}
       </article>
 
-      <article className={`${panelClass} space-y-3 p-5`}>
+      <article className={`${cardClass} space-y-3 p-5`}>
         <h2 className="text-lg font-bold text-text-primary">שמירת מצוות</h2>
         <ul className="space-y-2">
           {OBSERVANCE_QUESTIONS.map((q) => (
             <li
               key={q.key}
-              className="flex items-center justify-between gap-3 rounded-xl bg-surface-2/60 px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2"
             >
               <span className="text-sm font-medium text-text-primary">{q.label}</span>
               <span className="text-sm font-bold">
@@ -429,7 +431,7 @@ export function MalshabimCandidateFilePage({
         </ul>
       </article>
 
-      <article className={`${panelClass} space-y-3 p-5`}>
+      <article className={`${cardClass} space-y-3 p-5`}>
         <h2 className="text-lg font-bold text-text-primary">סיכום ראיון</h2>
         <p className="whitespace-pre-wrap text-sm text-text-secondary">
           {c.interview_summary || "אין סיכום"}
@@ -437,7 +439,7 @@ export function MalshabimCandidateFilePage({
       </article>
 
       {canEdit ? (
-        <article className={`${panelClass} space-y-3 p-5`}>
+        <article className={`${cardClass} space-y-3 p-5`}>
           <h2 className="text-lg font-bold text-text-primary">הערות פנימיות</h2>
           <textarea
             className={`${fieldClass} min-h-28`}
@@ -459,7 +461,7 @@ export function MalshabimCandidateFilePage({
           </button>
         </article>
       ) : c.interviewer_notes ? (
-        <article className={`${panelClass} space-y-3 p-5`}>
+        <article className={`${cardClass} space-y-3 p-5`}>
           <h2 className="text-lg font-bold text-text-primary">הערות פנימיות</h2>
           <p className="whitespace-pre-wrap text-sm text-text-secondary">
             {c.interviewer_notes}
@@ -467,7 +469,7 @@ export function MalshabimCandidateFilePage({
         </article>
       ) : null}
 
-      <article className={`${panelClass} space-y-3 p-5`}>
+      <article className={`${cardClass} space-y-3 p-5`}>
         <h2 className="flex items-center gap-2 text-lg font-bold text-text-primary">
           <History className="h-4 w-4" /> יומן עדכונים
         </h2>
@@ -476,7 +478,7 @@ export function MalshabimCandidateFilePage({
         ) : (
           <ul className="space-y-2">
             {[...(c.update_log || [])].reverse().map((log, i) => (
-              <li key={i} className="rounded-xl bg-surface-2/60 px-3 py-2">
+              <li key={i} className="rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2">
                 <p className="text-sm font-medium text-text-primary">
                   {log.changes || "—"}
                 </p>

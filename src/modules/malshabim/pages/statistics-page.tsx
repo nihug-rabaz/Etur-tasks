@@ -6,7 +6,13 @@ import {
   enlistmentYearGroup,
   normalizeCandidateStatus,
 } from "@/modules/malshabim/lib/status";
-import { pageShellClass, panelClass } from "@/modules/malshabim/lib/ui";
+import {
+  cardClass,
+  pageShellClass,
+  pageSubtitleClass,
+  pageTitleClass,
+  panelClass,
+} from "@/modules/malshabim/lib/ui";
 import type { MalshabimCandidate } from "@/modules/malshabim/types";
 
 function BarRow({ label, count, max }: { label: string; count: number; max: number }) {
@@ -79,38 +85,40 @@ export function MalshabimStatisticsPage({
 
   return (
     <div className={pageShellClass} dir="rtl">
-      <div className={`${panelClass} p-5`}>
-        <h1 className="text-xl font-bold text-text-primary">סטטיסטיקה</h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          סיכום מועמדים פעילים (ללא ראיונות פתוחים)
-        </p>
+      <div className={`${panelClass} p-4 sm:p-5`}>
+        <h1 className={pageTitleClass}>סטטיסטיקה</h1>
+        <p className={pageSubtitleClass}>סיכום מועמדים פעילים (ללא ראיונות פתוחים)</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className={`${panelClass} p-5`}>
+      <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
+        <div className={`${cardClass} p-4 sm:p-5`}>
           <p className="text-xs font-semibold text-text-muted">סה״כ</p>
-          <p className="mt-1 text-3xl font-black text-text-primary">{active.length}</p>
+          <p className="mt-1 text-2xl font-bold text-text-primary sm:text-3xl">
+            {active.length}
+          </p>
         </div>
-        <div className={`${panelClass} p-5`}>
+        <div className={`${cardClass} p-4 sm:p-5`}>
           <p className="text-xs font-semibold text-text-muted">עברו מבחן</p>
-          <p className="mt-1 text-3xl font-black text-text-primary">{quizPassed}</p>
+          <p className="mt-1 text-2xl font-bold text-text-primary sm:text-3xl">
+            {quizPassed}
+          </p>
         </div>
-        <div className={`${panelClass} p-5`}>
+        <div className={`${cardClass} p-4 sm:p-5`}>
           <p className="text-xs font-semibold text-text-muted">ראיון</p>
-          <p className="mt-1 text-3xl font-black text-text-primary">
+          <p className="mt-1 text-2xl font-bold text-text-primary sm:text-3xl">
             {initialCandidates.length - active.length}
           </p>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className={`${panelClass} space-y-3 p-5`}>
+      <div className="grid gap-3 lg:grid-cols-3">
+        <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
           <h2 className="text-sm font-bold text-text-primary">לפי סטטוס</h2>
           {byStatus.map((row) => (
             <BarRow key={row.label} {...row} max={maxStatus} />
           ))}
         </section>
-        <section className={`${panelClass} space-y-3 p-5`}>
+        <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
           <h2 className="text-sm font-bold text-text-primary">שנתונים</h2>
           {byYearGroup.length === 0 ? (
             <p className="text-sm text-text-muted">אין נתונים</p>
@@ -118,7 +126,7 @@ export function MalshabimStatisticsPage({
             byYearGroup.map((row) => <BarRow key={row.label} {...row} max={maxYear} />)
           )}
         </section>
-        <section className={`${panelClass} space-y-3 p-5`}>
+        <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
           <h2 className="text-sm font-bold text-text-primary">מסלול גיוס</h2>
           {byTrack.length === 0 ? (
             <p className="text-sm text-text-muted">אין נתונים</p>

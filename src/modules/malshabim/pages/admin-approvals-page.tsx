@@ -7,8 +7,11 @@ import { toast } from "sonner";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import { formatDateTime } from "@/modules/malshabim/lib/status";
 import {
+  cardClass,
   emptyStateClass,
   pageShellClass,
+  pageSubtitleClass,
+  pageTitleClass,
   panelClass,
   primaryButtonClass,
   secondaryButtonClass,
@@ -65,14 +68,14 @@ export function MalshabimAdminApprovalsPage({
   return (
     <div className={pageShellClass} dir="rtl">
       <div className={`${panelClass} p-5`}>
-        <h1 className="text-xl font-bold text-text-primary">אישורי מנהל</h1>
-        <p className="mt-1 text-sm text-text-secondary">
+        <h1 className={pageTitleClass}>אישורי מנהל</h1>
+        <p className={pageSubtitleClass}>
           תיקים שנשלחו לאישור · {candidates.length} ממתינים
         </p>
       </div>
 
       {loading ? (
-        <div className={`${panelClass} flex items-center justify-center gap-2 p-10`}>
+        <div className={`${cardClass} flex items-center justify-center gap-2 p-10`}>
           <Loader2 className="h-5 w-5 animate-spin text-accent-primary" />
           <span className="text-sm text-text-muted">טוען…</span>
         </div>
@@ -84,12 +87,12 @@ export function MalshabimAdminApprovalsPage({
             const items = (candidate.instruction_items || []) as MalshabimInstructionItem[];
             const busy = actingId === candidate.id;
             return (
-              <li key={candidate.id} className={`${panelClass} space-y-4 p-5`}>
+              <li key={candidate.id} className={`${cardClass} space-y-4 p-5`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <Link
                       href={`/malshabim/candidates/${candidate.id}`}
-                      className="text-lg font-extrabold text-text-primary hover:text-accent-primary"
+                      className="text-lg font-bold text-text-primary hover:text-accent-primary"
                     >
                       {candidate.full_name || "ללא שם"}
                     </Link>
@@ -152,7 +155,7 @@ export function MalshabimAdminApprovalsPage({
                             {item.text || "—"}
                           </span>
                           <span
-                            className={`ms-2 rounded-lg px-1.5 py-0.5 text-[10px] font-bold ${
+                            className={`ms-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                               item.status === "הושלם"
                                 ? "bg-emerald-600 text-white"
                                 : "bg-primary text-primary-foreground"
