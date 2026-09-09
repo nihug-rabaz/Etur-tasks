@@ -32,7 +32,7 @@ export class AuthorizationService extends BaseService {
   private async loadProfileById(userId: string): Promise<Profile | null> {
     const db = this.getDb();
     const profiles = await db<Profile[]>`
-      select id, name, role, telegram_id, avatar, is_approved, access_status, approved_at, approved_by, created_at
+      select id, name, email, role, telegram_id, avatar, is_approved, access_status, approved_at, approved_by, created_at
       from profiles
       where id = ${userId}
       limit 1
