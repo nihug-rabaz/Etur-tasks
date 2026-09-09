@@ -15,7 +15,7 @@ export const INSTRUCTION_STATUSES = ["בטיפול", "הושלם"] as const;
 
 export const STATUS_COLORS: Record<MalshabimCandidateStatus, string> = {
   "ממתין לריאיון": "bg-blue-600 text-white",
-  בטיפול: "bg-primary text-primary-foreground",
+  בטיפול: "bg-amber-500 text-white",
   אושר: "bg-emerald-600 text-white",
   שובץ: "bg-violet-600 text-white",
 };

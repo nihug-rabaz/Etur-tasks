@@ -1,8 +1,9 @@
-/** Shared Malshabim UI tokens — matched to Tasks (dashboard-glass / surface-card). */
+/** Shared Malshabim UI tokens — Tasks chrome (dashboard-glass) + contrasting content cards. */
 
 export const panelClass = "dashboard-glass rounded-3xl";
 
-export const cardClass = "surface-card";
+/** Contrasting content surface (not twin of glass — glass ≈ surface-1). */
+export const cardClass = "ui-card rounded-3xl bg-surface-2";
 
 export const pageShellClass =
   "mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-3 py-4 sm:gap-5 sm:px-6 sm:py-6";
@@ -23,7 +24,7 @@ export const primaryButtonClass =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-accent-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-50";
 
 export const secondaryButtonClass =
-  "inline-flex items-center justify-center gap-2 rounded-xl bg-surface-2 px-4 py-2.5 text-sm font-bold text-text-primary transition hover:bg-surface-2/80 disabled:opacity-50";
+  "ui-card inline-flex items-center justify-center gap-2 rounded-xl bg-surface-1 px-4 py-2.5 text-sm font-bold text-text-primary transition hover:bg-surface-2 disabled:opacity-50";
 
 export const chipActiveClass =
   "rounded-xl bg-accent-primary px-3 py-2 text-xs font-bold text-white transition sm:text-sm";

@@ -158,7 +158,7 @@ export function MalshabimAdminApprovalsPage({
                             className={`ms-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                               item.status === "הושלם"
                                 ? "bg-emerald-600 text-white"
-                                : "bg-primary text-primary-foreground"
+                                : "bg-amber-500 text-white"
                             }`}
                           >
                             {item.status || "בטיפול"}

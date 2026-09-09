@@ -80,23 +80,23 @@ export function MalshabimBoardPage({
         {CANDIDATE_STATUSES.map((status) => (
           <section
             key={status}
-            className={`${cardClass} flex min-h-[280px] flex-col p-3 sm:p-4`}
+            className={`${cardClass} flex min-h-[280px] flex-col overflow-hidden`}
           >
-            <header className="mb-3 flex items-center justify-between gap-2">
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_COLORS[status]}`}
-              >
+            <header
+              className={`flex items-center justify-between gap-2 px-3 py-3 sm:px-4 ${STATUS_COLORS[status]}`}
+            >
+              <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white">
                 {status}
               </span>
-              <span className="text-xs font-semibold text-text-muted">
+              <span className="text-xs font-bold text-white/90">
                 {columns[status].length}
               </span>
             </header>
-            <ul className="flex flex-1 flex-col gap-2">
+            <ul className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
               {columns[status].map((candidate) => (
                 <li
                   key={candidate.id}
-                  className="rounded-2xl bg-surface-1/70 p-3"
+                  className="rounded-2xl bg-surface-1 p-3 shadow-sm"
                 >
                   <Link
                     href={`/malshabim/candidates/${candidate.id}`}

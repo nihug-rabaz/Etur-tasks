@@ -377,7 +377,7 @@ export function MalshabimCandidateFilePage({
                       className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                         itemStatus === "הושלם"
                           ? "bg-emerald-600 text-white"
-                          : "bg-primary text-primary-foreground"
+                          : "bg-amber-500 text-white"
                       }`}
                     >
                       {itemStatus}

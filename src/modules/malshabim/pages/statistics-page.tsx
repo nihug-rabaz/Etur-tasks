@@ -23,7 +23,7 @@ function BarRow({ label, count, max }: { label: string; count: number; max: numb
         <span className="text-text-primary">{label}</span>
         <span className="text-text-muted">{count}</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+      <div className="h-2 overflow-hidden rounded-full bg-surface-1/90 dark:bg-black/35">
         <div
           className="h-full rounded-full bg-accent-primary"
           style={{ width: `${width}%` }}
@@ -112,13 +112,13 @@ export function MalshabimStatisticsPage({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
+        <section className={`${cardClass} space-y-3 p-4 sm:p-5`}>
           <h2 className="text-sm font-bold text-text-primary">לפי סטטוס</h2>
           {byStatus.map((row) => (
             <BarRow key={row.label} {...row} max={maxStatus} />
           ))}
         </section>
-        <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
+        <section className={`${cardClass} space-y-3 p-4 sm:p-5`}>
           <h2 className="text-sm font-bold text-text-primary">שנתונים</h2>
           {byYearGroup.length === 0 ? (
             <p className="text-sm text-text-muted">אין נתונים</p>
@@ -126,7 +126,7 @@ export function MalshabimStatisticsPage({
             byYearGroup.map((row) => <BarRow key={row.label} {...row} max={maxYear} />)
           )}
         </section>
-        <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
+        <section className={`${cardClass} space-y-3 p-4 sm:p-5`}>
           <h2 className="text-sm font-bold text-text-primary">מסלול גיוס</h2>
           {byTrack.length === 0 ? (
             <p className="text-sm text-text-muted">אין נתונים</p>

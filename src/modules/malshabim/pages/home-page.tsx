@@ -150,15 +150,16 @@ export function MalshabimHomePage({
 
   return (
     <div className={pageShellClass} dir="rtl">
-      <article className={`${panelClass} space-y-4 p-4 sm:p-5`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      {/* Tasks-style chrome: title + actions + filters only */}
+      <div className={`${panelClass} min-w-0 overflow-hidden p-4 sm:p-5`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0">
             <h1 className={pageTitleClass}>מלש״בים</h1>
             <p className={pageSubtitleClass}>
               {filtered.length} מועמדים מוצגים · {stats.total} פעילים
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             {canEdit ? (
               <Link href="/malshabim/interview" className={primaryButtonClass}>
                 <Plus className="h-4 w-4" /> ראיון חדש
@@ -203,15 +204,12 @@ export function MalshabimHomePage({
           </div>
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3">
-          <StatCard icon={Users} label="סה״כ מועמדים" value={stats.total} />
-          <StatCard icon={FileText} label="ראיון" value={stats.interviews} />
-          <StatCard icon={CheckCircle2} label="עברו מבחן" value={stats.quizPassed} />
-        </div>
-
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+        <div className="mt-4 min-w-0 space-y-3">
+          <div className="relative flex items-center">
+            <Search
+              className="pointer-events-none absolute start-4 h-4 w-4 text-text-muted"
+              aria-hidden
+            />
             <input
               className={searchClass}
               placeholder="חיפוש לפי שם, טלפון, ת.ז, עיר…"
@@ -219,9 +217,9 @@ export function MalshabimHomePage({
               onChange={(e) => setFilter("search", e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <select
-              className={selectClass}
+              className={`${selectClass} sm:max-w-[12rem]`}
               value={typeof filters.track === "string" ? filters.track : "all"}
               onChange={(e) => setFilter("track", e.target.value)}
               aria-label="מסלול"
@@ -273,7 +271,7 @@ export function MalshabimHomePage({
             {filtersActive ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2"
+                className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2 sm:ms-auto"
                 onClick={clearFilters}
               >
                 <X className="h-3.5 w-3.5" /> נקה
@@ -281,10 +279,17 @@ export function MalshabimHomePage({
             ) : null}
           </div>
         </div>
-      </article>
+      </div>
+
+      {/* Content outside chrome — contrasting tiles */}
+      <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
+        <StatCard icon={Users} label="סה״כ מועמדים" value={stats.total} />
+        <StatCard icon={FileText} label="ראיון" value={stats.interviews} />
+        <StatCard icon={CheckCircle2} label="עברו מבחן" value={stats.quizPassed} />
+      </div>
 
       {drafts.length > 0 ? (
-        <article className={`${panelClass} p-4 sm:p-5`}>
+        <div className={`${cardClass} p-4 sm:p-5`}>
           <h2 className="mb-3 text-base font-bold text-text-primary">ראיון</h2>
           <ul className="divide-y divide-border-weak">
             {drafts.map((c) => (
@@ -306,18 +311,13 @@ export function MalshabimHomePage({
               </li>
             ))}
           </ul>
-        </article>
+        </div>
       ) : null}
 
-      <article className={`${panelClass} overflow-hidden`}>
-        <div className="border-b border-border-weak px-4 py-3 sm:px-5">
-          <h2 className="text-base font-bold text-text-primary">מועמדים ({filtered.length})</h2>
-        </div>
-        {filtered.length === 0 ? (
-          <div className="p-4">
-            <p className={emptyStateClass}>אין מועמדים להצגה</p>
-          </div>
-        ) : (
+      {filtered.length === 0 ? (
+        <div className={emptyStateClass}>אין מועמדים להצגה</div>
+      ) : (
+        <div className={`${panelClass} overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-right text-sm">
               <thead className={tableHeadClass}>
@@ -363,8 +363,8 @@ export function MalshabimHomePage({
               </tbody>
             </table>
           </div>
-        )}
-      </article>
+        </div>
+      )}
     </div>
   );
 }
