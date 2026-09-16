@@ -1,58 +1,190 @@
 "use client";
 
 import Image from "next/image";
-import { LogIn } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Compass, Megaphone, Target, Users } from "lucide-react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const INTRO_VIDEO_SRC = "/intro.mp4";
-const INTRO_COOLDOWN_KEY = "intro-video-last-shown-at";
-const INTRO_COOLDOWN_MS = 10 * 60 * 1000;
 
-type IntroPhase = "ready" | "playing" | "failed";
+type IntroPhase = "playing" | "complete" | "failed";
+
+const launchItems = [
+  {
+    label: "איתור",
+    detail: "קצינים",
+    href: "/agam",
+    icon: Compass,
+    accent: "#22b8cf",
+    className: "intro-launch-button--recruitment",
+  },
+  {
+    label: "מיצוב",
+    detail: "נגדים",
+    href: "/nagadim",
+    icon: Target,
+    accent: "#fb923c",
+    className: "intro-launch-button--positioning",
+  },
+  {
+    label: "דוברות",
+    detail: "תוכן ואישורים",
+    href: "/dovrut",
+    icon: Megaphone,
+    accent: "#8b5cf6",
+    className: "intro-launch-button--dovrut",
+  },
+  {
+    label: "מלש״בים",
+    detail: "ראיונות ומעקב",
+    href: "/malshabim",
+    icon: Users,
+    accent: "#10b981",
+    className: "intro-launch-button--malshabim",
+  },
+] as const;
+
+const orbitStyle: CSSProperties = {
+  position: "relative",
+  width: "min(86vw, 34rem)",
+  height: "min(86vw, 34rem)",
+  maxHeight: "82vh",
+  aspectRatio: "1 / 1",
+  isolation: "isolate",
+};
+
+const ringStyle: CSSProperties = {
+  position: "absolute",
+  inset: "9%",
+  borderRadius: "9999px",
+  background:
+    "conic-gradient(from 18deg, rgba(34, 184, 207, 0.9), rgba(251, 146, 60, 0.9), rgba(139, 92, 246, 0.85), rgba(16, 185, 129, 0.85), rgba(34, 184, 207, 0.9))",
+  boxShadow: "0 0 34px rgba(34, 184, 207, 0.26)",
+  opacity: 0.9,
+  WebkitMask: "radial-gradient(circle, transparent 60%, #000 61%, #000 64%, transparent 65%)",
+  mask: "radial-gradient(circle, transparent 60%, #000 61%, #000 64%, transparent 65%)",
+};
+
+const logoStyle: CSSProperties = {
+  position: "absolute",
+  left: "50%",
+  top: "50%",
+  display: "flex",
+  width: "clamp(8.8rem, 32vw, 12.75rem)",
+  height: "clamp(8.8rem, 32vw, 12.75rem)",
+  transform: "translate(-50%, -50%)",
+  alignItems: "center",
+  justifyContent: "center",
+  overflow: "hidden",
+  borderRadius: "9999px",
+  background: "rgba(255, 255, 255, 0.96)",
+  padding: "clamp(0.9rem, 3vw, 1.35rem)",
+  boxShadow:
+    "0 0 0 1px rgba(255, 255, 255, 0.56), 0 24px 70px rgba(0, 0, 0, 0.45), 0 0 48px rgba(255, 255, 255, 0.22)",
+  zIndex: 2,
+};
+
+function nodeStyle(index: number): CSSProperties {
+  const angle = index * 90;
+  return {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    zIndex: 3,
+    transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(clamp(-11.2rem, -28vw, -7.6rem)) rotate(${-angle}deg)`,
+  };
+}
+
+function buttonStyle(accent: string): CSSProperties {
+  return {
+    ["--launch-accent" as string]: accent,
+    display: "flex",
+    width: "clamp(6.2rem, 19vw, 8.8rem)",
+    height: "clamp(6.2rem, 19vw, 8.8rem)",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "0.24rem",
+    borderRadius: "9999px",
+    background: `linear-gradient(145deg, ${accent}, ${accent}dd)`,
+    color: "#ffffff",
+    textAlign: "center",
+    textDecoration: "none",
+    boxShadow: `inset 0 1px 0 rgba(255, 255, 255, 0.36), inset 0 0 0 1px rgba(255, 255, 255, 0.24), 0 18px 42px rgba(0, 0, 0, 0.46), 0 0 34px ${accent}80`,
+    backdropFilter: "blur(14px) saturate(1.25)",
+  };
+}
+
+const labelStyle: CSSProperties = {
+  fontSize: "clamp(1.05rem, 3vw, 1.35rem)",
+  fontWeight: 900,
+  lineHeight: 1.05,
+};
+
+const detailStyle: CSSProperties = {
+  maxWidth: "82%",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: "clamp(0.68rem, 1.8vw, 0.78rem)",
+  fontWeight: 700,
+  color: "rgba(255, 255, 255, 0.8)",
+};
 
 export function IntroSplash() {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(true);
-  const [phase, setPhase] = useState<IntroPhase>("ready");
+  const [phase, setPhase] = useState<IntroPhase>("playing");
+  const [showLaunchButtons, setShowLaunchButtons] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setMounted(true);
-
-    try {
-      const lastShownAt = Number(window.localStorage.getItem(INTRO_COOLDOWN_KEY));
-      if (lastShownAt && Date.now() - lastShownAt < INTRO_COOLDOWN_MS) {
-        setVisible(false);
-        return;
-      }
-      window.localStorage.setItem(INTRO_COOLDOWN_KEY, String(Date.now()));
-    } catch {
-      // Keep showing the intro when browser storage is unavailable.
-    }
   }, []);
 
   const dismiss = useCallback(() => setVisible(false), []);
+  const complete = useCallback(() => {
+    for (const video of [videoRef.current, backgroundVideoRef.current]) {
+      if (!video) continue;
+      video.pause();
+      if (Number.isFinite(video.duration) && video.duration > 0.1) {
+        video.currentTime = Math.max(0, video.duration - 0.06);
+      }
+    }
 
-  const enter = useCallback(() => {
-    if (phase !== "ready") return;
-    setPhase("playing");
+    setPhase("complete");
+  }, []);
+
+  const revealLaunchButtons = useCallback(() => {
+    if (phase === "complete") {
+      setShowLaunchButtons(true);
+    }
   }, [phase]);
 
+  const hideLaunchButtons = useCallback(() => {
+    setShowLaunchButtons(false);
+  }, []);
+
+  const skipToFinalFrame = useCallback(() => {
+    complete();
+  }, [complete]);
+
   useEffect(() => {
+    if (!mounted) return;
     if (phase !== "playing") return;
     const video = videoRef.current;
     if (!video) return;
     const backgroundVideo = backgroundVideoRef.current;
+
     if (backgroundVideo) {
       backgroundVideo.muted = true;
       void backgroundVideo.play().catch(() => undefined);
     }
-    video.muted = false;
-    video.volume = 1;
+    video.muted = true;
     void video.play().catch(() => setPhase("failed"));
-  }, [phase]);
+  }, [mounted, phase]);
 
   if (!mounted) return null;
 
@@ -67,9 +199,8 @@ export function IntroSplash() {
           transition={{ duration: 0.6, ease: "easeInOut" }}
           role="presentation"
         >
-          {phase === "playing" ? (
+          {phase !== "failed" ? (
             <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
-              {/* Soft fill behind letterboxed mobile playback; desktop uses cover so this is mostly hidden */}
               <video
                 ref={backgroundVideoRef}
                 src={INTRO_VIDEO_SRC}
@@ -79,66 +210,85 @@ export function IntroSplash() {
                 preload="auto"
                 aria-hidden
               />
-              <div className="pointer-events-none absolute inset-0 bg-black/35 md:hidden" />
+              <div className="pointer-events-none absolute inset-0 bg-black/30 md:hidden" />
               <video
                 ref={videoRef}
                 src={INTRO_VIDEO_SRC}
                 className="relative z-[1] h-full w-full object-contain md:object-cover"
                 playsInline
+                muted
                 preload="auto"
-                onEnded={dismiss}
+                onEnded={complete}
                 onError={() => setPhase("failed")}
               />
-            </div>
-          ) : null}
-
-          {phase === "ready" ? (
-            <div className="intro-splash-ready-bg absolute inset-0 flex items-center justify-center px-6">
-              <span className="pointer-events-none absolute left-1/2 top-1/3 h-[28rem] w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/20 blur-3xl" />
-              <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.55, ease: "easeOut" }}
-                className="relative flex w-full max-w-sm flex-col items-center text-center pb-24 sm:pb-20"
-              >
-                <div className="mb-6 overflow-hidden rounded-[1.75rem] bg-white p-4 shadow-[0_28px_70px_-18px_rgba(0,0,0,0.55)] sm:p-5">
-                  <Image
-                    src="/logo-intro.png"
-                    alt="מדור אומ״ץ הרבנות הצבאית"
-                    width={1024}
-                    height={1024}
-                    priority
-                    className="h-auto w-[min(72vw,13.5rem)] select-none sm:w-[min(58vw,15.5rem)]"
-                  />
-                </div>
-                <p className="mb-1 text-sm font-semibold tracking-[0.28em] text-white/70">מערכת ניהול משימות</p>
-                <h1 className="mb-5 text-xl font-black text-white sm:text-2xl">ברוכים הבאים</h1>
-                <div className="mt-2 flex items-center justify-center gap-2.5">
-                  <Image
-                    src="/nihug-logo.png"
-                    alt="תחום ניהו״ג"
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 rounded-full object-contain bg-white/90 p-0.5"
-                  />
-                  <p className="text-xs font-medium text-white/75 sm:text-sm">
-                    פותח ע״י תחום ניהו״ג · מטה הרבנות הצבאית
-                  </p>
-                </div>
-              </motion.div>
-            </div>
-          ) : null}
-
-          {phase === "ready" ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center px-6">
-              <button
-                type="button"
-                onClick={enter}
-                className="pointer-events-auto inline-flex w-full max-w-xs items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-8 py-4 text-base font-bold text-white shadow-[0_16px_40px_-10px_rgba(139,92,246,0.65)] transition hover:brightness-105 hover:shadow-[0_20px_48px_-10px_rgba(139,92,246,0.75)] active:scale-[0.98]"
-              >
-                <LogIn size={20} strokeWidth={2.5} />
-                כניסה למערכת
-              </button>
+              {phase === "complete" ? (
+                <motion.div
+                  className="absolute inset-0 z-10 flex items-center justify-center px-4 py-8"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.55, ease: "easeOut" }}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.12),rgba(0,0,0,0.38)_48%,rgba(0,0,0,0.68)_100%)]" />
+                  <motion.div
+                    className="intro-launch-orbit"
+                    style={orbitStyle}
+                    initial={{ scale: 0.9, filter: "blur(6px)" }}
+                    animate={{ scale: 1, filter: "blur(0px)" }}
+                    transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+                    onMouseLeave={hideLaunchButtons}
+                  >
+                    <div className="intro-launch-ring" style={ringStyle} aria-hidden />
+                    <button
+                      type="button"
+                      className="intro-launch-logo"
+                      style={logoStyle}
+                      onMouseEnter={revealLaunchButtons}
+                      onFocus={revealLaunchButtons}
+                      aria-label="הצג אפשרויות כניסה"
+                    >
+                      <Image
+                        src="/logo-intro.png"
+                        alt="מדור אומ״ץ הרבנות הצבאית"
+                        width={1024}
+                        height={1024}
+                        priority
+                        className="h-full w-full object-contain"
+                      />
+                    </button>
+                    {showLaunchButtons ? launchItems.map((item, index) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={item.href}
+                          className={`intro-launch-node intro-launch-node--${index + 1}`}
+                          style={nodeStyle(index)}
+                        >
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.65 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.12 + index * 0.08, duration: 0.45, ease: "easeOut" }}
+                          >
+                            <Link
+                              href={item.href}
+                              onClick={dismiss}
+                              className={`intro-launch-button ${item.className}`}
+                              style={buttonStyle(item.accent)}
+                            >
+                              <Icon size={24} strokeWidth={2.35} aria-hidden />
+                              <span className="intro-launch-button__label" style={labelStyle}>
+                                {item.label}
+                              </span>
+                              <span className="intro-launch-button__detail" style={detailStyle}>
+                                {item.detail}
+                              </span>
+                            </Link>
+                          </motion.div>
+                        </div>
+                      );
+                    }) : null}
+                  </motion.div>
+                </motion.div>
+              ) : null}
             </div>
           ) : null}
 
@@ -152,7 +302,6 @@ export function IntroSplash() {
                   onClick={dismiss}
                   className="mt-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-accent-primary to-accent-cyan px-6 py-3 text-sm font-bold text-white"
                 >
-                  <LogIn size={16} />
                   המשך לאתר
                 </button>
               ) : null}
@@ -162,8 +311,8 @@ export function IntroSplash() {
           {phase === "playing" ? (
             <button
               type="button"
-              onClick={dismiss}
-              className="absolute bottom-6 end-6 z-10 rounded-full bg-black/50 px-7 py-3.5 text-base font-bold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 sm:px-8 sm:py-4 sm:text-lg"
+              onClick={skipToFinalFrame}
+              className="absolute bottom-6 end-6 z-20 rounded-full bg-black/50 px-7 py-3.5 text-base font-bold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 sm:px-8 sm:py-4 sm:text-lg"
             >
               דלג
             </button>

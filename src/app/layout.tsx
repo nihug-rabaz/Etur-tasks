@@ -95,7 +95,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <FontScaleRoot initialPreset={fontScale.preset} />
         <OneSignalBootstrap externalId={profile?.id} />
-        {!profile && !isPublicAgam ? <IntroSplash /> : null}
+        {isPublicAgam ? null : <IntroSplash />}
         {children}
         {isPublicAgam ? null : <PwaInstallPrompt />}
         <Toaster richColors theme="light" />
