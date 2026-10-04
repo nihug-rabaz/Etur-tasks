@@ -31,8 +31,12 @@ const patchSchema = z.object({
 });
 
 async function authorize(request: Request) {
-  const access = await new AgamAccessService().requireAgamAccess("admin");
+  const accessService = new AgamAccessService();
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) return { error: access };
+  if (!accessService.canEvaluate(access.role)) {
+    return { error: { error: "Forbidden", status: 403 } };
+  }
 
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
@@ -55,9 +59,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const accessService = new AgamAccessService();
-  const access = await accessService.requireAgamAccess("admin");
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  if (!accessService.canEvaluate(access.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const parsed = eventSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

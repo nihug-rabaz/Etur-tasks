@@ -4,8 +4,18 @@ export const panelClass = "dashboard-glass rounded-3xl";
 /** Nested cards — hairline + fill, like project cards on the tasks board */
 export const cardClass = "ui-card rounded-2xl bg-surface-2 p-4";
 
+/** Institutional record card — hairline, quiet, no decorative chrome */
+export const recordCardClass =
+  "ui-card group block rounded-xl bg-surface-1 text-start transition hover:bg-surface-2/60";
+
+export const recordCardPadClass = "flex flex-col gap-4 p-4 sm:p-5";
+
 /** Compact inner row / stat block */
-export const innerCardClass = "ui-card rounded-xl bg-surface-2 p-3";
+export const innerCardClass =
+  "ui-card flex flex-wrap items-center gap-2 rounded-xl bg-surface-2 px-3 py-2";
+
+/** Standard panel padding — keep dense to avoid empty “air” on wide screens */
+export const panelPadClass = "p-4 sm:p-5";
 
 /** Inputs — white fill + inset outline so fields read clearly on grey cards */
 export const fieldClass =
@@ -30,7 +40,7 @@ export const dangerIconChipClass =
   "ui-card inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-500/10 text-rose-700 transition hover:bg-rose-500/18";
 
 /** Page shell — full width inside agam layout, minimal side padding */
-export const pageShellClass = "flex w-full flex-col gap-5 px-2 py-4 sm:px-3 lg:px-4";
+export const pageShellClass = "flex w-full flex-col gap-3 px-2 py-3 sm:px-3 lg:px-4";
 
 /** Form pages (interview / evaluation) — wider, tight sides */
 export const formShellClass = "mx-auto flex w-full max-w-5xl flex-col gap-5 px-2 py-4 sm:px-3";

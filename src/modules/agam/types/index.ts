@@ -64,6 +64,7 @@ export interface AgamCycle {
   cohort_year: number | null;
   archived: boolean;
   notes: string | null;
+  invite_slug: string;
   created_by_id: string | null;
   created_at: string;
   updated_at: string;
@@ -88,7 +89,7 @@ export interface AgamLinkedTask {
   description: string | null;
   priority: "low" | "medium" | "high";
   status: "in_progress" | "completed";
-  due_date: string | null;
+  due_date: string | Date | null;
   created_by: string;
   agam_candidate_id: string | null;
   agam_cycle_id: string | null;

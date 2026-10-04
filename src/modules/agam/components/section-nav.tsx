@@ -19,7 +19,7 @@ const ITEMS: Array<{
   icon: LucideIcon;
 }> = [
   { href: "/agam", label: "ראשי", roles: ["admin", "user", "ramad", "viewer"], icon: LayoutDashboard },
-  { href: "/agam/cycles", label: "מחזורים", roles: ["admin", "user", "ramad", "viewer"], icon: Layers },
+  { href: "/agam/cycles", label: "שנתונים", roles: ["admin", "user", "ramad", "viewer"], icon: Layers },
   { href: "/agam/candidates", label: "מועמדים", roles: ["admin", "user", "ramad", "viewer"], icon: Users },
   { href: "/agam/candidates/archive", label: "ארכיון", roles: ["admin", "ramad"], icon: Archive },
   { href: "/agam/admin", label: "ניהול", roles: ["admin"], icon: Settings2 },

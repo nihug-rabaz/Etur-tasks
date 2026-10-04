@@ -13,9 +13,9 @@ export const agamModule: AppModuleDefinition = {
       roles: ["admin", "user", "ramad", "viewer"],
     },
     {
-      label: "מחזורים",
+      label: "שנתונים",
       href: "/agam/cycles",
-      description: "ניהול מחזורי מועמדים",
+      description: "שנתונים ומחזורי מועמדים",
       roles: ["admin", "user", "ramad", "viewer"],
     },
     {
@@ -45,7 +45,7 @@ export const agamModule: AppModuleDefinition = {
   ],
   breadcrumbLabels: {
     agam: "קצינים",
-    cycles: "מחזורים",
+    cycles: "שנתונים",
     candidates: "מועמדים",
     archive: "ארכיון",
     interview: "ראיון",

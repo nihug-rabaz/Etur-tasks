@@ -1,15 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CalendarDays, CheckCircle2 } from "lucide-react";
 import { AgamPublicChrome } from "@/modules/agam/components/public-chrome";
 import { AgamQuestionField } from "@/modules/agam/components/question-field";
+import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { groupQuestionsBySection, isQuestionVisible } from "@/modules/agam/lib/questions";
 import { panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamQuestion } from "@/modules/agam/types";
 
-export function AgamApplyWizard() {
+type PublicCycleInfo = {
+  id: string;
+  name: string;
+  cycleDate: string;
+  cycleDateLabel: string;
+  cohortYear: number | null;
+  inviteSlug: string;
+};
+
+export function AgamApplyWizard({ inviteSlug }: { inviteSlug?: string }) {
   const [questions, setQuestions] = useState<AgamQuestion[]>([]);
+  const [cycle, setCycle] = useState<PublicCycleInfo | null>(null);
+  const [cycleError, setCycleError] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -18,15 +30,49 @@ export function AgamApplyWizard() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    void fetch("/api/agam/public/questions")
-      .then((response) => response.json())
-      .then((data: { questions?: AgamQuestion[] }) => setQuestions(data.questions ?? []))
-      .finally(() => setLoaded(true));
-  }, []);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const questionsPromise = fetch("/api/agam/public/questions").then(
+          (response) => response.json() as Promise<{ questions?: AgamQuestion[] }>,
+        );
+        const cyclePromise = inviteSlug
+          ? fetch(`/api/agam/public/cycle/${encodeURIComponent(inviteSlug)}`).then(async (response) => {
+              const data = (await response.json().catch(() => ({}))) as {
+                cycle?: PublicCycleInfo;
+                error?: string;
+              };
+              if (!response.ok) {
+                throw new Error(data.error ?? "הקישור אינו פעיל");
+              }
+              return data.cycle ?? null;
+            })
+          : Promise.resolve(null);
+
+        const [questionsData, cycleData] = await Promise.all([questionsPromise, cyclePromise]);
+        if (cancelled) return;
+        setQuestions(questionsData.questions ?? []);
+        setCycle(cycleData);
+        setCycleError("");
+      } catch (loadError) {
+        if (cancelled) return;
+        if (inviteSlug) {
+          setCycleError(loadError instanceof Error ? loadError.message : "הקישור אינו פעיל");
+        }
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteSlug]);
 
   const sections = useMemo(() => groupQuestionsBySection(questions), [questions]);
   const current = sections[step];
   const progress = sections.length ? ((step + 1) / sections.length) * 100 : 0;
+  const dateLabel = cycle?.cycleDateLabel || (cycle?.cycleDate ? formatAgamDate(cycle.cycleDate) : "");
 
   const validateStep = () => {
     if (!current) return false;
@@ -51,6 +97,7 @@ export function AgamApplyWizard() {
         personalNumber: form.personal_number,
         phone: form.phone ?? null,
         questionnaireData: form,
+        inviteSlug: inviteSlug || null,
       }),
     });
     setLoading(false);
@@ -66,6 +113,22 @@ export function AgamApplyWizard() {
     return (
       <AgamPublicChrome>
         <p className="w-full py-16 text-center text-sm text-text-muted">טוען…</p>
+      </AgamPublicChrome>
+    );
+  }
+
+  if (inviteSlug && cycleError) {
+    return (
+      <AgamPublicChrome>
+        <div className={`${panelClass} w-full max-w-lg p-8 text-center sm:p-10`}>
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600">
+            <CalendarDays size={28} />
+          </div>
+          <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-text-primary">הקישור אינו פעיל</h1>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            {cycleError}. בקשו מהצוות קישור הרשמה מעודכן למחזור שלכם.
+          </p>
+        </div>
       </AgamPublicChrome>
     );
   }
@@ -89,8 +152,16 @@ export function AgamApplyWizard() {
           </div>
           <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-text-primary">תודה</h1>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-            השאלון התקבל בהצלחה. מחכים לפגוש אותך ביום המיונים.
+            {cycle
+              ? `השאלון התקבל ונרשמתם למחזור «${cycle.name}». מחכים לפגוש אתכם ביום המיונים.`
+              : "השאלון התקבל בהצלחה. מחכים לפגוש אותך ביום המיונים."}
           </p>
+          {cycle && dateLabel ? (
+            <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-bold text-text-primary">
+              <CalendarDays size={14} />
+              {dateLabel}
+            </p>
+          ) : null}
         </div>
       </AgamPublicChrome>
     );
@@ -103,9 +174,30 @@ export function AgamApplyWizard() {
           שאלון מקדים
         </p>
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
-          יום מיונים · קורס קציני דת
+          {cycle ? cycle.name : "יום מיונים · קורס קציני דת"}
         </h1>
-        <p className="mt-2 text-sm text-text-secondary">מלאו את הפרטים בשלבים. שדות חובה מסומנים ב־*.</p>
+        <p className="mt-2 text-sm text-text-secondary">
+          {cycle
+            ? "מלאו את הפרטים להרשמה למחזור. שדות חובה מסומנים ב־*."
+            : "מלאו את הפרטים בשלבים. שדות חובה מסומנים ב־*."}
+        </p>
+
+        {cycle ? (
+          <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl bg-[color:var(--agam-orange-soft)] px-4 py-3">
+            <CalendarDays size={16} className="text-text-primary" />
+            <span className="text-sm font-extrabold text-text-primary">מחזור פעיל</span>
+            {dateLabel ? (
+              <span className="text-sm font-semibold text-text-secondary" dir="ltr">
+                {dateLabel}
+              </span>
+            ) : null}
+            {cycle.cohortYear ? (
+              <span className="rounded-full bg-white/70 px-2.5 py-0.5 text-[11px] font-bold text-text-primary dark:bg-black/20">
+                שנתון {cycle.cohortYear}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="mt-6">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-text-muted">

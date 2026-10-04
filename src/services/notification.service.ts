@@ -4,6 +4,7 @@ import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { AppUrls } from "@/lib/urls/app-urls";
 import { formatScheduleTime } from "@/lib/dates/schedule-range";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
+import type { NotificationImageService } from "@/services/notification-image.service";
 
 interface TaskNotificationInput {
   taskId: string;
@@ -49,6 +50,16 @@ interface PendingUserInput {
 
 export class NotificationService extends BaseService {
   private push = new OneSignalService();
+  private imagesPromise: Promise<NotificationImageService> | null = null;
+
+  private async images(): Promise<NotificationImageService> {
+    if (!this.imagesPromise) {
+      this.imagesPromise = import("@/services/notification-image.service").then(
+        (mod) => new mod.NotificationImageService(),
+      );
+    }
+    return this.imagesPromise;
+  }
 
   public async notifyTaskOpened(input: TaskNotificationInput): Promise<number> {
     if (!this.push.isReady()) return 0;
@@ -94,24 +105,39 @@ export class NotificationService extends BaseService {
 
   public async notifyDailyDigest(input: DailyDigestInput): Promise<number> {
     if (!this.push.isReady()) return 0;
-    const lines =
+    const summaryLines =
       input.items.length === 0
         ? ["אין משימות או לו״ז להיום."]
-        : input.items.map((item, index) => {
-            const subtopic = item.subtopic ? ` · ${toHebrewSubtopicLabel(item.subtopic)}` : "";
-            const prefix = item.kind === "schedule" ? "לו״ז" : "משימה";
-            const link =
-              item.kind === "schedule"
-                ? this.scheduleLinkSuffix(item.id)
-                : this.taskLinkSuffix(item.id);
-            return `${index + 1}. [${prefix}] ${item.title}${subtopic}\n   ${item.timeLabel}${link}`;
-          });
+        : [
+            `${input.items.length} פריטים להיום — פתחו את ההתראה לצפייה ברשימה.`,
+            ...input.items.slice(0, 3).map((item, index) => {
+              const subtopic = item.subtopic ? ` · ${toHebrewSubtopicLabel(item.subtopic)}` : "";
+              const prefix = item.kind === "schedule" ? "לו״ז" : "משימה";
+              return `${index + 1}. [${prefix}] ${item.title}${subtopic}`;
+            }),
+          ];
     const text =
       `בוקר טוב ${input.userName}\n` +
       "הלו״ז שלך להיום:\n" +
-      lines.join("\n");
-    return this.sendToUsers([input.userId], text, AppUrls.getOrigin() || undefined, (userId) =>
-      `daily-digest:${input.dayKey}:${userId}`,
+      summaryLines.join("\n");
+
+    const imageUrl = await (await this.images()).createTodolistImageUrl(input.userId, input.dayKey, {
+      userName: input.userName,
+      dayLabel: this.formatDayLabel(input.dayKey),
+      items: input.items.map((item) => ({
+        title: item.title,
+        timeLabel: item.timeLabel,
+        kind: item.kind,
+        done: item.timeLabel.includes("בוצע"),
+      })),
+    });
+
+    return this.sendToUsers(
+      [input.userId],
+      text,
+      AppUrls.getOrigin() || undefined,
+      (userId) => `daily-digest:${input.dayKey}:${userId}`,
+      imageUrl ?? undefined,
     );
   }
 
@@ -261,6 +287,7 @@ export class NotificationService extends BaseService {
     text: string,
     url: string | undefined,
     keyForUser: (userId: string) => string,
+    imageUrl?: string,
   ): Promise<number> {
     const uniqueIds = [...new Set(userIds.filter(Boolean))];
     let sent = 0;
@@ -268,7 +295,7 @@ export class NotificationService extends BaseService {
       const key = keyForUser(userId);
       if (!(await this.reserveDelivery(key))) continue;
       try {
-        const delivered = await this.push.sendTextToUser(userId, text, url);
+        const delivered = await this.push.sendTextToUser(userId, text, url, imageUrl);
         if (delivered) {
           sent += 1;
         } else {
@@ -316,6 +343,16 @@ export class NotificationService extends BaseService {
     const url = AppUrls.scheduleDetail(eventId);
     if (!url) return "";
     return `\nקישור ללו״ז: ${url}`;
+  }
+
+  private formatDayLabel(dayKey: string): string {
+    const date = new Date(`${dayKey}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dayKey;
+    return date.toLocaleDateString("he-IL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
   }
 
   private formatDate(value: string | null): string {

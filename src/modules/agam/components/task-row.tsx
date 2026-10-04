@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Check, CheckCircle2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { formatAgamDateTime } from "@/modules/agam/lib/date-format";
+import { formatAgamDate, toDateInputValue } from "@/modules/agam/lib/date-format";
 import { fieldClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamLinkedTask } from "@/modules/agam/types";
 
@@ -27,7 +27,7 @@ export function AgamTaskRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
-  const [dueDate, setDueDate] = useState(task.due_date?.slice(0, 10) ?? "");
+  const [dueDate, setDueDate] = useState(toDateInputValue(task.due_date));
   const [saving, setSaving] = useState(false);
   const canManage = canAdmin || task.created_by === currentUserId;
   const done = task.status === "completed";
@@ -139,7 +139,7 @@ export function AgamTaskRow({
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-text-muted">
               {task.cycle_name ? <span>{task.cycle_name}</span> : null}
               {task.cycle_name && task.due_date ? <span className="opacity-40">·</span> : null}
-              {task.due_date ? <span dir="ltr">{formatAgamDateTime(task.due_date)}</span> : null}
+              {task.due_date ? <span dir="ltr">{formatAgamDate(task.due_date)}</span> : null}
               {!task.cycle_name && !task.due_date ? <span>{done ? "בוצע" : "פתוח"}</span> : null}
             </div>
           </div>

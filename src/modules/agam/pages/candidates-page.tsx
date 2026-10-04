@@ -7,7 +7,7 @@ import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers"
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import type { AgamCandidate } from "@/modules/agam/types";
 import { canAdmin, canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
-import { pageShellClass, panelClass } from "@/modules/agam/lib/ui";
+import { pageShellClass, panelClass, panelPadClass } from "@/modules/agam/lib/ui";
 import type { ModuleRole } from "@/shared/modules/types";
 
 export function AgamCandidatesPage({ archived }: { archived: boolean }) {
@@ -39,16 +39,16 @@ export function AgamCandidatesPage({ archived }: { archived: boolean }) {
 
   return (
     <div className={pageShellClass}>
-      <header className={`${panelClass} p-5 sm:p-6`}>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className={`${panelClass} ${panelPadClass}`}>
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
               קצינים
             </p>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-text-primary sm:text-[2.1rem]">
+            <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-[1.85rem]">
               {archived ? "ארכיון מועמדים" : "מועמדים"}
             </h1>
-            <p className="mt-1.5 text-sm text-text-secondary">
+            <p className="mt-1 text-sm text-text-secondary">
               {archived
                 ? "מועמדים שהועברו לארכיון"
                 : `${candidates.length} מועמדים · חיפוש, סינון ומעבר מהיר לתיק`}

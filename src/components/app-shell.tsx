@@ -11,6 +11,7 @@ import { AdminMessageComposer } from "@/components/notifications/admin-message-c
 import { CloseRequestsProvider } from "@/components/tasks/close-requests-context";
 import { AdminCloseRequestsInbox } from "@/components/tasks/admin-close-requests-inbox";
 import {
+  canAccessModule,
   getNavForPathname,
   listAccessibleModules,
   resolveActiveModuleId,
@@ -225,7 +226,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const canCreateAgam =
     moduleRoles.agam === "admin" || moduleRoles.agam === "ramad" || moduleRoles.agam === "user";
   const canCreateTasksModule =
-    Boolean(moduleRoles.tasks) || (Boolean(session?.user) && !moduleRolesLoaded);
+    canAccessModule("tasks", access) ||
+    (Boolean(session?.user) && !moduleRolesLoaded);
   const showCreateFab =
     !hideCreateFab &&
     !isImpersonating &&
@@ -238,11 +240,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [activeModuleId]);
 
   useEffect(() => {
-    if (!moduleRolesLoaded || isHome) return;
-    if (activeModuleId === "tasks" && !moduleRoles.tasks) {
+    if (!moduleRolesLoaded || !session?.user || isHome) return;
+    if (activeModuleId === "tasks" && !canAccessModule("tasks", access)) {
       router.replace("/");
     }
-  }, [moduleRolesLoaded, isHome, activeModuleId, moduleRoles.tasks, router]);
+  }, [moduleRolesLoaded, session?.user, isHome, activeModuleId, access, router]);
 
   return (
     <CloseRequestsProvider enabled={showTasksChrome}>

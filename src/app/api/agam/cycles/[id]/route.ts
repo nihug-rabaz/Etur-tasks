@@ -30,6 +30,7 @@ const updateSchema = z.object({
   cohortYear: z.number().int().nullable().optional(),
   notes: z.string().nullable().optional(),
   archived: z.boolean().optional(),
+  rotateInviteSlug: z.boolean().optional(),
   assignCandidateIds: z.array(z.string().uuid()).optional(),
   unassignCandidateId: z.string().uuid().optional(),
 });
@@ -66,6 +67,12 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     await service.setArchived(id, parsed.data.archived);
+  }
+  if (parsed.data.rotateInviteSlug) {
+    if (!accessService.canRamad(access.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    await service.rotateInviteSlug(id);
   }
 
   const cycle = await service.update(id, {

@@ -87,10 +87,14 @@ export function OneSignalTestPanel() {
       const response = await fetch("/api/admin/onesignal/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({ userId, withTodolistImage: true }),
+        signal: AbortSignal.timeout(20000),
       });
-      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        imageAttached?: boolean;
+        imageUrl?: string | null;
+      };
       if (response.status === 404 || data.error === "USER_NOT_SUBSCRIBED") {
         toast.error(
           "המשתמש שנבחר לא אישר התראות באתר הייצור. הוא צריך להיכנס ל-etur.rabaz.co.il וללחוץ «הפעל התראות».",
@@ -105,7 +109,11 @@ export function OneSignalTestPanel() {
         toast.error(data.error ? `השליחה נכשלה: ${data.error}` : "שליחת הודעת הבדיקה נכשלה");
         return;
       }
-      toast.success("הודעת הבדיקה נשלחה למשתמש שנבחר");
+      if (!data.imageAttached) {
+        toast.error("ההתראה נשלחה בלי תמונה — בדקו NEXTAUTH_URL / Blob / DB");
+        return;
+      }
+      toast.success("הודעת בדיקה עם תמונת משימות נשלחה — גררו את ההתראה בטלפון כדי לראות preview");
     } catch {
       toast.error("השליחה נכשלה או שפגה");
     } finally {
@@ -143,7 +151,8 @@ export function OneSignalTestPanel() {
         <div>
           <h2 className="text-lg font-bold text-text-primary">התראות דפדפן</h2>
           <p className="mt-1 text-sm text-text-secondary">
-            בחרו משתמש ושלחו הודעת בדיקה רק אליו. ההתראה מגיעה רק אם הוא אישר התראות באתר הייצור.
+          בחרו משתמש ושלחו הודעת בדיקה עם תמונת רשימת המשימות. ב־Android/Chrome: גררו את
+          ההתראה למטה כדי לראות את ה־preview. לא נתמך ב־iOS Safari.
           </p>
         </div>
         <span

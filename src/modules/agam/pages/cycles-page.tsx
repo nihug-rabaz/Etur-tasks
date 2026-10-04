@@ -1,26 +1,72 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Archive, CalendarDays, Plus, Users } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Archive, ArrowRight, CalendarDays, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { canEvaluate } from "@/modules/agam/lib/permissions";
-import { fieldClass, panelClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import {
+  fieldClass,
+  pageShellClass,
+  panelClass,
+  panelPadClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/modules/agam/lib/ui";
+import { CohortCarousel } from "@/modules/agam/components/cohort-carousel";
 import type { AgamCycle } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
+
+type CohortBucket = {
+  key: string;
+  year: number | null;
+  label: string;
+  cycles: AgamCycle[];
+  candidateCount: number;
+};
 
 function formatCycleDate(value: string): string {
   return formatAgamDate(value);
 }
 
+function buildCohorts(cycles: AgamCycle[]): CohortBucket[] {
+  const map = new Map<string, CohortBucket>();
+  for (const cycle of cycles) {
+    const year = cycle.cohort_year ?? null;
+    const key = year == null ? "none" : String(year);
+    const existing = map.get(key);
+    if (existing) {
+      existing.cycles.push(cycle);
+      existing.candidateCount += cycle.candidate_count ?? 0;
+    } else {
+      map.set(key, {
+        key,
+        year,
+        label: year == null ? "ללא שנתון" : `שנתון ${year}`,
+        cycles: [cycle],
+        candidateCount: cycle.candidate_count ?? 0,
+      });
+    }
+  }
+
+  return [...map.values()].sort((a, b) => {
+    if (a.year == null && b.year == null) return 0;
+    if (a.year == null) return 1;
+    if (b.year == null) return -1;
+    return b.year - a.year;
+  });
+}
+
 export function AgamCyclesPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const archived = searchParams.get("archived") === "1";
+  const selectedYear = searchParams.get("year");
   const [cycles, setCycles] = useState<AgamCycle[]>([]);
   const [role, setRole] = useState<ModuleRole | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -45,25 +91,73 @@ export function AgamCyclesPage() {
   }, [load]);
 
   const canEdit = canEvaluate(role);
+  const cohorts = useMemo(() => buildCohorts(cycles), [cycles]);
+  const activeCohort = useMemo(
+    () => (selectedYear ? cohorts.find((row) => row.key === selectedYear) ?? null : null),
+    [cohorts, selectedYear],
+  );
+
+  const openCohort = (key: string) => {
+    const params = new URLSearchParams();
+    if (archived) params.set("archived", "1");
+    params.set("year", key);
+    router.push(`/agam/cycles?${params.toString()}`);
+  };
+
+  const backToCohorts = () => {
+    router.push(archived ? "/agam/cycles?archived=1" : "/agam/cycles");
+  };
 
   if (!loaded) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
 
   return (
-    <div className="flex w-full flex-col gap-5 px-3 py-5 sm:px-4 lg:px-5">
+    <div className={pageShellClass}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold text-text-primary sm:text-4xl">
-            {archived ? "ארכיון מחזורים" : "מחזורי מועמדים"}
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            בחרו מחזור כדי לעבוד על מועמדים — ממשק הממיין מתחיל כאן
-          </p>
+        <div className="min-w-0">
+          {activeCohort ? (
+            <>
+              <button
+                type="button"
+                onClick={backToCohorts}
+                className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-accent-primary"
+              >
+                <ArrowRight size={14} />
+                כל השנתונים
+              </button>
+              <h1 className="text-2xl font-extrabold text-text-primary sm:text-3xl">
+                {activeCohort.label}
+              </h1>
+              <p className="mt-0.5 text-sm text-text-secondary">
+                {activeCohort.cycles.length} מחזורים · {activeCohort.candidateCount} מועמדים
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-extrabold text-text-primary sm:text-3xl">
+                {archived ? "ארכיון שנתונים" : "שנתונים"}
+              </h1>
+              <p className="mt-0.5 text-sm text-text-secondary">
+                בחרו שנתון כדי לראות את המחזורים שבו
+              </p>
+            </>
+          )}
         </div>
         {canEdit ? (
           <div className="flex flex-wrap gap-2">
-            <Link href={archived ? "/agam/cycles" : "/agam/cycles?archived=1"} className={secondaryButtonClass}>
+            <Link
+              href={
+                archived
+                  ? selectedYear
+                    ? `/agam/cycles?year=${selectedYear}`
+                    : "/agam/cycles"
+                  : selectedYear
+                    ? `/agam/cycles?archived=1&year=${selectedYear}`
+                    : "/agam/cycles?archived=1"
+              }
+              className={secondaryButtonClass}
+            >
               <Archive size={16} />
-              {archived ? "מחזורים פעילים" : "ארכיון מחזורים"}
+              {archived ? "שנתונים פעילים" : "ארכיון"}
             </Link>
             {!archived ? (
               <button type="button" className={primaryButtonClass} onClick={() => setCreateOpen(true)}>
@@ -76,56 +170,94 @@ export function AgamCyclesPage() {
       </div>
 
       {cycles.length === 0 ? (
-        <div className={`${panelClass} p-10 text-center`}>
-          <CalendarDays className="mx-auto text-accent-primary" size={36} />
-          <p className="mt-4 text-lg font-extrabold text-text-primary">עדיין אין מחזורים</p>
-          <p className="mt-2 text-sm text-text-muted">צרו מחזור ראשון כדי לקבץ מועמדים לפי מועד מיון.</p>
+        <div className={`${panelClass} ${panelPadClass} py-8 text-center`}>
+          <CalendarDays className="mx-auto text-text-muted" size={28} />
+          <p className="mt-3 text-base font-extrabold text-text-primary">עדיין אין מחזורים</p>
+          <p className="mt-1 text-sm text-text-muted">
+            צרו מחזור ראשון עם שנתון — והוא יופיע כאן כרטיס שנתון.
+          </p>
           {canEdit ? (
-            <button type="button" className={`${primaryButtonClass} mt-5`} onClick={() => setCreateOpen(true)}>
+            <button type="button" className={`${primaryButtonClass} mt-4`} onClick={() => setCreateOpen(true)}>
               יצירת מחזור
             </button>
           ) : null}
         </div>
+      ) : activeCohort ? (
+        <CohortCyclesGrid cycles={activeCohort.cycles} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {cycles.map((cycle) => (
-            <Link
-              key={cycle.id}
-              href={`/agam/cycles/${cycle.id}`}
-              className={`${panelClass} group flex flex-col p-6 transition hover:-translate-y-0.5 hover:ring-2 hover:ring-accent-primary/30`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-primary/12 text-accent-primary">
-                  <CalendarDays size={22} />
-                </div>
-                <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-bold text-text-secondary">
-                  <Users size={13} />
-                  {cycle.candidate_count ?? 0} מועמדים
-                </span>
-              </div>
-              <h2 className="mt-4 text-xl font-extrabold text-text-primary group-hover:text-accent-primary">
-                {cycle.name}
-              </h2>
-              <p className="mt-1 text-sm font-semibold text-text-secondary">
-                {formatCycleDate(cycle.cycle_date)}
-                {cycle.cohort_year ? ` · שנתון ${cycle.cohort_year}` : ""}
-              </p>
-              {cycle.notes ? (
-                <p className="mt-3 line-clamp-2 text-xs text-text-muted">{cycle.notes}</p>
-              ) : (
-                <p className="mt-3 text-xs text-text-muted">ללא הערות</p>
-              )}
-              <span className="mt-5 text-xs font-bold text-accent-primary">כניסה למחזור →</span>
-            </Link>
-          ))}
-        </div>
+        <CohortCarousel
+          items={cohorts.map((cohort) => ({
+            key: cohort.key,
+            year: cohort.year,
+            cycleCount: cohort.cycles.length,
+            candidateCount: cohort.candidateCount,
+          }))}
+          onSelect={openCohort}
+        />
       )}
 
       <CreateCycleDrawer
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={() => void load()}
+        defaultCohortYear={
+          activeCohort?.year != null ? String(activeCohort.year) : ""
+        }
+        onCreated={(cycle) => {
+            void load().then(() => {
+              openCohort(cycle.cohort_year != null ? String(cycle.cohort_year) : "none");
+            });
+        }}
       />
+    </div>
+  );
+}
+
+function CohortCyclesGrid({ cycles }: { cycles: AgamCycle[] }) {
+  return (
+    <div className="flex flex-wrap justify-start gap-3">
+      {cycles.map((cycle) => {
+        const dateLabel = formatCycleDate(cycle.cycle_date) || "—";
+        const candidates = cycle.candidate_count ?? 0;
+        const hasInvite = Boolean(cycle.invite_slug && !cycle.archived);
+
+        return (
+          <Link
+            key={cycle.id}
+            href={`/agam/cycles/${cycle.id}`}
+            className="ui-card flex w-full max-w-[13.5rem] flex-col rounded-xl bg-surface-1 p-4 transition hover:bg-surface-2/70 sm:w-[13.5rem]"
+          >
+            <p className="text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+              מחזור
+            </p>
+            <h2 className="mt-2 line-clamp-2 min-h-[2.75rem] text-center text-base font-semibold leading-snug text-text-primary">
+              {cycle.name}
+            </h2>
+
+            <div className="ui-divider-top mt-3 space-y-2.5 pt-3">
+              <div className="rounded-lg bg-surface-2/80 px-2.5 py-2 text-center">
+                <p className="text-[10px] font-semibold text-text-muted">תאריך מיון</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums text-text-primary" dir="ltr">
+                  {dateLabel}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-surface-2/80 px-2 py-2 text-center">
+                  <p className="text-[10px] font-semibold text-text-muted">מועמדים</p>
+                  <p className="mt-0.5 text-sm font-semibold tabular-nums text-text-primary">
+                    {candidates}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-surface-2/80 px-2 py-2 text-center">
+                  <p className="text-[10px] font-semibold text-text-muted">הרשמה</p>
+                  <p className="mt-0.5 text-[11px] font-semibold text-text-primary">
+                    {hasInvite ? "פעיל" : "כבוי"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }
@@ -134,16 +266,22 @@ function CreateCycleDrawer({
   open,
   onOpenChange,
   onCreated,
+  defaultCohortYear = "",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreated?: (id: string) => void;
+  onCreated?: (cycle: AgamCycle) => void;
+  defaultCohortYear?: string;
 }) {
   const [name, setName] = useState("");
   const [cycleDate, setCycleDate] = useState("");
-  const [cohortYear, setCohortYear] = useState("");
+  const [cohortYear, setCohortYear] = useState(defaultCohortYear);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) setCohortYear(defaultCohortYear);
+  }, [open, defaultCohortYear]);
 
   const submit = async () => {
     setSaving(true);
@@ -161,9 +299,9 @@ function CreateCycleDrawer({
       onOpenChange(false);
       setName("");
       setCycleDate("");
-      setCohortYear("");
+      setCohortYear(defaultCohortYear);
       setNotes("");
-      onCreated?.(data.cycle.id);
+      onCreated?.(data.cycle);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "יצירה נכשלה");
     } finally {
@@ -172,7 +310,7 @@ function CreateCycleDrawer({
   };
 
   return (
-    <Drawer open={open} onClose={() => onOpenChange(false)} title="מחזור חדש" subtitle="שם ותאריך המיון">
+    <Drawer open={open} onClose={() => onOpenChange(false)} title="מחזור חדש" subtitle="שם, תאריך ושנתון">
       <div className="space-y-4">
         <label className="block space-y-2 text-sm font-bold text-text-secondary">
           שם המחזור
@@ -190,6 +328,7 @@ function CreateCycleDrawer({
             type="number"
             dir="ltr"
             className={`${fieldClass} text-left`}
+            placeholder="2026"
             value={cohortYear}
             onChange={(event) => setCohortYear(event.target.value)}
           />

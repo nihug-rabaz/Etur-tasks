@@ -5,6 +5,8 @@ export interface PushPayload {
   heading: string;
   content: string;
   url?: string;
+  /** Public HTTPS image URL for rich push (Android big picture / iOS attachment / Chrome web). */
+  imageUrl?: string;
 }
 
 export class OneSignalService {
@@ -13,11 +15,17 @@ export class OneSignalService {
   }
 
   /** Send a test push to a single user, identified by their profile id. */
-  public async sendTestPush(userId: string): Promise<{ notificationId: string }> {
+  public async sendTestPush(
+    userId: string,
+    options?: { imageUrl?: string },
+  ): Promise<{ notificationId: string }> {
     return this.sendPushToUser(userId, {
       heading: "בדיקת התראה",
-      content: "זו הודעת בדיקה מניהול משימות",
+      content: options?.imageUrl
+        ? "זו הודעת בדיקה עם תמונת רשימת משימות"
+        : "זו הודעת בדיקה מניהול משימות",
       url: AppUrls.getOrigin() || undefined,
+      imageUrl: options?.imageUrl,
     });
   }
 
@@ -87,10 +95,15 @@ export class OneSignalService {
   }
 
   /** Sends a plain-text notification, splitting the first line into the push heading. */
-  public async sendTextToUser(userId: string, text: string, url?: string): Promise<boolean> {
+  public async sendTextToUser(
+    userId: string,
+    text: string,
+    url?: string,
+    imageUrl?: string,
+  ): Promise<boolean> {
     if (!OneSignalServerConfig.isSendReady()) return false;
     try {
-      await this.sendPushToUser(userId, this.messageToPayload(text, url));
+      await this.sendPushToUser(userId, this.messageToPayload(text, url, imageUrl));
       return true;
     } catch (error) {
       if (error instanceof Error && error.message === "USER_NOT_SUBSCRIBED") {
@@ -125,12 +138,12 @@ export class OneSignalService {
     );
   }
 
-  public messageToPayload(message: string, url?: string): PushPayload {
+  public messageToPayload(message: string, url?: string, imageUrl?: string): PushPayload {
     const lines = message.split("\n").filter((line) => line.length > 0);
     const heading = lines[0] ?? "התראה";
     const content = lines.slice(1).join("\n") || heading;
     const extractedUrl = url ?? this.extractUrl(message);
-    return { heading, content, url: extractedUrl };
+    return { heading, content, url: extractedUrl, imageUrl };
   }
 
   private buildPayload(
@@ -145,6 +158,18 @@ export class OneSignalService {
       contents: { he: payload.content, en: payload.content },
     };
     if (payload.url) body.url = payload.url;
+    if (payload.imageUrl) {
+      // Expandable rich preview (pull down / expand on Android & Chrome).
+      body.chrome_web_image = payload.imageUrl;
+      body.big_picture = payload.imageUrl;
+      body.huawei_big_picture = payload.imageUrl;
+      body.adm_big_picture = payload.imageUrl;
+      body.ios_attachments = { id: payload.imageUrl };
+      body.mutable_content = true;
+      body.priority = 10;
+      body.android_visibility = 1;
+      body.web_push_topic = `etur-rich-${Date.now()}`;
+    }
     return body;
   }
 

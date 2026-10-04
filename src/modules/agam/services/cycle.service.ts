@@ -1,4 +1,5 @@
 import { BaseService } from "@/services/base.service";
+import { generateCycleInviteSlug } from "@/modules/agam/lib/cycle-invite";
 import type { AgamCandidate, AgamCycle } from "@/modules/agam/types";
 
 export class AgamCycleService extends BaseService {
@@ -33,7 +34,25 @@ export class AgamCycleService extends BaseService {
     return rows[0] ?? null;
   }
 
-  public async create(input: {
+  public async getByInviteSlug(slug: string): Promise<AgamCycle | null> {
+    const normalized = slug.trim();
+    if (!normalized) return null;
+    const db = this.getDb();
+    const rows = await db<AgamCycle[]>`
+      select
+        c.*,
+        coalesce(
+          (select count(*)::int from agam_candidates cand where cand.cycle_id = c.id and cand.archived = false),
+          0
+        ) as candidate_count
+      from agam_cycles c
+      where c.invite_slug = ${normalized}
+      limit 1
+    `;
+    return rows[0] ?? null;
+  }
+
+  private async insertWithSlug(input: {
     name: string;
     cycle_date: string;
     cohort_year?: number | null;
@@ -41,18 +60,61 @@ export class AgamCycleService extends BaseService {
     created_by_id?: string | null;
   }): Promise<AgamCycle> {
     const db = this.getDb();
-    const rows = await db<AgamCycle[]>`
-      insert into agam_cycles (name, cycle_date, cohort_year, notes, created_by_id)
-      values (
-        ${input.name},
-        ${input.cycle_date},
-        ${input.cohort_year ?? null},
-        ${input.notes ?? null},
-        ${input.created_by_id ?? null}
-      )
-      returning *
-    `;
-    return { ...rows[0], candidate_count: 0 };
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const inviteSlug = generateCycleInviteSlug();
+      try {
+        const rows = await db<AgamCycle[]>`
+          insert into agam_cycles (name, cycle_date, cohort_year, notes, created_by_id, invite_slug)
+          values (
+            ${input.name},
+            ${input.cycle_date},
+            ${input.cohort_year ?? null},
+            ${input.notes ?? null},
+            ${input.created_by_id ?? null},
+            ${inviteSlug}
+          )
+          returning *
+        `;
+        return { ...rows[0], candidate_count: 0 };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.toLowerCase().includes("invite_slug") || attempt === 5) throw error;
+      }
+    }
+    throw new Error("Failed to allocate invite slug");
+  }
+
+  public async create(input: {
+    name: string;
+    cycle_date: string;
+    cohort_year?: number | null;
+    notes?: string | null;
+    created_by_id?: string | null;
+  }): Promise<AgamCycle> {
+    return this.insertWithSlug(input);
+  }
+
+  public async rotateInviteSlug(id: string): Promise<AgamCycle | null> {
+    const existing = await this.getById(id);
+    if (!existing) return null;
+    const db = this.getDb();
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const inviteSlug = generateCycleInviteSlug();
+      try {
+        const rows = await db<AgamCycle[]>`
+          update agam_cycles
+          set invite_slug = ${inviteSlug}, updated_at = now()
+          where id = ${id}
+          returning *
+        `;
+        if (!rows[0]) return null;
+        return this.getById(id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.toLowerCase().includes("invite_slug") || attempt === 5) throw error;
+      }
+    }
+    throw new Error("Failed to rotate invite slug");
   }
 
   public async update(

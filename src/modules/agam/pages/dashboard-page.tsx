@@ -1,19 +1,55 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { CheckCircle2, Hourglass, ListTodo, Users, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
 import { CreateAgamTaskDrawer } from "@/modules/agam/components/create-task-drawer";
+import { CohortCarousel } from "@/modules/agam/components/cohort-carousel";
 import { AgamTimelineStrip } from "@/modules/agam/components/timeline-strip";
 import { AgamTaskRow } from "@/modules/agam/components/task-row";
-import { canAdmin, canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
+import { canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
 import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
-import { panelClass, pageShellClass, secondaryButtonClass, dividerClass } from "@/modules/agam/lib/ui";
+import {
+  panelClass,
+  pageShellClass,
+  panelPadClass,
+  secondaryButtonClass,
+  dividerClass,
+} from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamCycle, AgamLinkedTask, AgamOrgSettings, AgamTimelineEventItem } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
+
+function buildCohortCards(cycles: AgamCycle[]) {
+  const map = new Map<
+    string,
+    { key: string; year: number | null; cycleCount: number; candidateCount: number }
+  >();
+  for (const cycle of cycles) {
+    const year = cycle.cohort_year ?? null;
+    const key = year == null ? "none" : String(year);
+    const existing = map.get(key);
+    if (existing) {
+      existing.cycleCount += 1;
+      existing.candidateCount += cycle.candidate_count ?? 0;
+    } else {
+      map.set(key, {
+        key,
+        year,
+        cycleCount: 1,
+        candidateCount: cycle.candidate_count ?? 0,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) => {
+    if (a.year == null && b.year == null) return 0;
+    if (a.year == null) return 1;
+    if (b.year == null) return -1;
+    return b.year - a.year;
+  });
+}
 
 export function AgamDashboardPage({
   initialCandidates = [],
@@ -71,6 +107,7 @@ export function AgamDashboardPage({
   }, [hasSSR]);
 
   const isRamad = canRamad(role);
+  const cohortCards = useMemo(() => buildCohortCards(cycles), [cycles]);
   const stats = {
     total: candidates.length,
     pending: candidates.filter((row) => row.status === "pending").length,
@@ -85,20 +122,20 @@ export function AgamDashboardPage({
 
   return (
     <div className={pageShellClass}>
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-5">
-          <article className={`${panelClass} flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6`}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <article className={`${panelClass} ${panelPadClass} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
                 הרבנות הצבאית
               </p>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-text-primary sm:text-[2.1rem]">
+              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-[1.85rem]">
                 {settings?.unit_name ?? "קצינים"}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-text-secondary">
+              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
                 ניהול תהליך המיון לקורס קציני דת — מפרטי המועמד ועד החלטה סופית.
               </p>
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {canEvaluate(role) ? <CreateCandidateDrawer /> : null}
                 {canEvaluate(role) ? (
                   <CreateAgamTaskDrawer requireCycle triggerClassName={secondaryButtonClass} />
@@ -109,12 +146,34 @@ export function AgamDashboardPage({
             <img
               src={settings?.logo_url || "/logo-mador-omtz.png"}
               alt={settings?.unit_name ?? "קצינים"}
-              className="h-20 w-auto object-contain sm:h-24"
+              className="h-16 w-auto object-contain sm:h-20"
             />
           </article>
 
+          <article>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-text-primary">שנתונים</h2>
+                <p className="text-xs text-text-muted">בחרו שנתון כדי להיכנס למחזורים</p>
+              </div>
+              <Link href="/agam/cycles" className="text-xs font-bold text-accent-primary">
+                הכל
+              </Link>
+            </div>
+            {cohortCards.length === 0 ? (
+              <div className={`${panelClass} ${panelPadClass} text-center text-sm text-text-muted`}>
+                אין שנתונים עדיין — צרו מחזור עם שנתון במסך השנתונים.
+              </div>
+            ) : (
+              <CohortCarousel
+                items={cohortCards}
+                getHref={(key) => `/agam/cycles?year=${key}`}
+              />
+            )}
+          </article>
+
           {isRamad ? (
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard icon={Users} label="סה״כ מועמדים" value={stats.total} />
               <StatCard icon={Hourglass} label="ממתינים" value={stats.pending} />
               <StatCard icon={CheckCircle2} label="עברו" value={stats.passed} />
@@ -130,8 +189,8 @@ export function AgamDashboardPage({
             onChanged={refreshTasks}
           />
 
-          <article className={`${panelClass} p-6`}>
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <article className={`${panelClass} ${panelPadClass}`}>
+            <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-text-primary">מועמדים אחרונים</h2>
               <Link href="/agam/candidates" className="text-xs font-bold text-text-primary">
                 הכל
@@ -145,9 +204,9 @@ export function AgamDashboardPage({
                   <li key={candidate.id} className={dividerClass}>
                     <Link
                       href={`/agam/candidates/${candidate.id}`}
-                      className="flex items-center justify-between gap-3 py-3 transition hover:opacity-80"
+                      className="flex flex-wrap items-center gap-2 py-2 transition hover:opacity-80"
                     >
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-bold text-text-primary">{candidate.full_name}</p>
                         <p className="text-xs text-text-muted" dir="ltr">
                           {candidate.personal_number}
@@ -166,10 +225,10 @@ export function AgamDashboardPage({
           </article>
         </div>
 
-        <aside className="w-full shrink-0 lg:sticky lg:top-20 lg:w-[16.5rem] lg:self-start xl:w-[18rem]">
+        <aside className="w-full shrink-0 overflow-visible pt-3 lg:sticky lg:top-20 lg:w-[16.5rem] lg:self-start xl:w-[18rem]">
           <AgamTimelineStrip
             events={timelineEvents}
-            canManage={canAdmin(role)}
+            canManage={canEvaluate(role)}
             onEventsChange={setTimelineEvents}
           />
         </aside>
@@ -188,12 +247,12 @@ function StatCard({
   value: number;
 }) {
   return (
-    <div className={`${panelClass} p-5`}>
+    <div className={`${panelClass} p-3.5`}>
       <div className="flex items-center justify-between">
         <p className="text-sm text-text-secondary">{label}</p>
         <Icon size={16} className="text-text-primary" />
       </div>
-      <p className="mt-3 text-3xl font-extrabold text-text-primary">{value}</p>
+      <p className="mt-2 text-2xl font-extrabold text-text-primary">{value}</p>
     </div>
   );
 }
@@ -212,15 +271,13 @@ function GeneralTasksCard({
   onChanged: () => void;
 }) {
   return (
-    <article className={`${panelClass} p-6`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ListTodo size={18} className="text-text-primary" />
-          <h2 className="text-lg font-bold text-text-primary">משימות</h2>
-        </div>
+    <article className={`${panelClass} ${panelPadClass}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <ListTodo size={18} className="text-text-primary" />
+        <h2 className="text-lg font-bold text-text-primary">משימות</h2>
         {canEdit ? <CreateAgamTaskDrawer requireCycle onCreated={onChanged} /> : null}
       </div>
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-3 space-y-1.5">
         {tasks.length === 0 ? (
           <li className="text-sm text-text-muted">אין משימות עדיין.</li>
         ) : (

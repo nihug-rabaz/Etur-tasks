@@ -36,6 +36,7 @@ function allowedDevOrigins(): string[] {
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: allowedDevOrigins(),
+  serverExternalPackages: ["sharp"],
 };
 
 export default nextConfig;
