@@ -62,7 +62,10 @@ const patchSchema = z.object({
       date: z.string().optional().nullable(),
     })
     .optional(),
-  interviewer_user_id: z.string().uuid().optional().nullable(),
+  interviewer_user_id: z.preprocess(
+    (value) => (value === "" ? null : value),
+    z.string().uuid().optional().nullable(),
+  ),
   awaiting_admin_approval: z.boolean().optional().nullable(),
   approval_requested_at: z.string().optional().nullable(),
   interview_reminder_sent_at: z.string().optional().nullable(),
@@ -103,7 +106,10 @@ export async function PATCH(
   const { id } = await context.params;
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+    return NextResponse.json(
+      { error: "נתונים לא תקינים — בדקו תעודת זהות, מראיין ושדות חובה" },
+      { status: 400 },
+    );
   }
 
   const service = new MalshabimCandidateService();
@@ -142,11 +148,15 @@ export async function PATCH(
     }
 
     if (requestingApproval) {
-      await new NotificationService().notifyMalshabimApprovalRequested({
-        candidateId: candidate.id,
-        fullName: candidate.full_name ?? "מועמד",
-        requesterName: access.profile.name,
-      });
+      try {
+        await new NotificationService().notifyMalshabimApprovalRequested({
+          candidateId: candidate.id,
+          fullName: candidate.full_name ?? "מועמד",
+          requesterName: access.profile.name,
+        });
+      } catch {
+        // Opening the case must succeed even if push notification fails.
+      }
     }
 
     if (update_log_entry) {
@@ -171,12 +181,34 @@ export async function DELETE(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const access = await new MalshabimAccessService().requireMalshabimAccess("admin");
+  const access = await new MalshabimAccessService().requireMalshabimAccess("user");
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const { id } = await context.params;
-  const deleted = await new MalshabimCandidateService().delete(id);
+  const service = new MalshabimCandidateService();
+  const existing = await service.getById(id);
+  if (!existing) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!existing.is_draft && access.role !== "admin") {
+    return NextResponse.json(
+      { error: "רק מנהל יכול למחוק תיק שאינו טיוטה" },
+      { status: 403 },
+    );
+  }
+  if (
+    existing.is_draft &&
+    access.role !== "admin" &&
+    existing.created_by &&
+    existing.created_by !== access.profile.id
+  ) {
+    return NextResponse.json(
+      { error: "ניתן למחוק רק טיוטות שיצרת" },
+      { status: 403 },
+    );
+  }
+  const deleted = await service.delete(id);
   if (!deleted) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

@@ -11,10 +11,14 @@ export function StepPersonal({
   data,
   onChange,
   interviewers = [],
+  onIdBlur,
+  onPersonalNumberBlur,
 }: {
   data: InterviewFormData;
   onChange: (next: InterviewFormData) => void;
   interviewers?: InterviewerOption[];
+  onIdBlur?: (value: string) => void;
+  onPersonalNumberBlur?: (value: string) => void;
 }) {
   const idTouched = Boolean(data.id_number && data.id_number.length > 0);
   const idValid = !idTouched || validateIsraeliId(data.id_number);
@@ -64,6 +68,7 @@ export function StepPersonal({
             className={`${fieldClass} ${idTouched && !idValid ? "ring-2 ring-rose-500" : ""}`}
             value={data.id_number || ""}
             onChange={(e) => set("id_number", e.target.value.replace(/\D/g, ""))}
+            onBlur={(e) => onIdBlur?.(e.target.value)}
             placeholder="9 ספרות"
             inputMode="numeric"
             maxLength={9}
@@ -78,6 +83,7 @@ export function StepPersonal({
             className={fieldClass}
             value={data.personal_number || ""}
             onChange={(e) => set("personal_number", e.target.value)}
+            onBlur={(e) => onPersonalNumberBlur?.(e.target.value)}
             placeholder="מ.א"
           />
         </label>

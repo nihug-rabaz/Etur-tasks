@@ -438,6 +438,49 @@ export function MalshabimCandidateFilePage({
         </p>
       </article>
 
+      {(c.quiz_questions || []).length > 0 ? (
+        <article className={`${cardClass} space-y-3 p-5`}>
+          <h2 className="text-lg font-bold text-text-primary">
+            מבחן ידע
+            {c.quiz_skipped ? ' · ביינ"יש' : ""}
+          </h2>
+          <ul className="space-y-2">
+            {(c.quiz_skipped
+              ? (c.quiz_questions || []).slice(0, 5)
+              : c.quiz_questions || []
+            ).map((q, index) => (
+              <li
+                key={`${q.question}-${index}`}
+                className="rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2"
+              >
+                <p className="text-sm font-medium text-text-primary">
+                  {index + 1}. {q.question || "—"}
+                </p>
+                {q.answer ? (
+                  <p className="mt-1 text-xs text-text-muted">תשובה: {q.answer}</p>
+                ) : null}
+                <p
+                  className={`mt-1 text-xs font-bold ${
+                    q.is_correct ? "text-emerald-600" : "text-rose-600"
+                  }`}
+                >
+                  {q.is_correct ? "נכון" : "לא נכון"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </article>
+      ) : (
+        <article className={`${cardClass} space-y-2 p-5`}>
+          <h2 className="text-lg font-bold text-text-primary">מבחן ידע</h2>
+          <p className="text-sm text-text-muted">
+            {status === "לא אושר"
+              ? "מבחן הידע לא בוצע / דולג"
+              : "אין נתוני מבחן"}
+          </p>
+        </article>
+      )}
+
       {canEdit ? (
         <article className={`${cardClass} space-y-3 p-5`}>
           <h2 className="text-lg font-bold text-text-primary">הערות פנימיות</h2>

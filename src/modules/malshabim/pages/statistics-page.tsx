@@ -87,7 +87,7 @@ export function MalshabimStatisticsPage({
     <div className={pageShellClass} dir="rtl">
       <div className={`${panelClass} p-4 sm:p-5`}>
         <h1 className={pageTitleClass}>סטטיסטיקה</h1>
-        <p className={pageSubtitleClass}>סיכום מועמדים פעילים (ללא ראיונות פתוחים)</p>
+        <p className={pageSubtitleClass}>סיכום מועמדים פעילים (ללא טיוטות)</p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">

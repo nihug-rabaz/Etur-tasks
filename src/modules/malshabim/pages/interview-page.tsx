@@ -53,7 +53,7 @@ function emptyDraft(): InterviewFormData {
     personal_number: null,
     city: null,
     photo_url: null,
-    candidate_status: "ממתין לריאיון",
+    candidate_status: "בטיפול",
     advanced_status: "בטיפול",
     status_type: null,
     request_type: null,
@@ -195,6 +195,7 @@ export function MalshabimInterviewPage({
     field: string;
     existingName: string;
   } | null>(null);
+  const [duplicateHint, setDuplicateHint] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -373,13 +374,14 @@ export function MalshabimInterviewPage({
           body: JSON.stringify(payload),
         });
       } else {
-        await malshabimFetch("/api/malshabim/candidates", {
-          method: "POST",
-          body: JSON.stringify(payload),
-        });
+        const created = await malshabimFetch<{ candidate: MalshabimCandidate }>(
+          "/api/malshabim/candidates",
+          { method: "POST", body: JSON.stringify(payload) },
+        );
+        router.replace(`/malshabim/interview?id=${created.candidate.id}`);
       }
       toast.success("הטיוטה נשמרה");
-      router.push("/malshabim");
+      if (editId) router.push("/malshabim");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שמירת טיוטה נכשלה");
     } finally {
@@ -387,22 +389,62 @@ export function MalshabimInterviewPage({
     }
   };
 
-  const checkDuplicates = async () => {
+  const checkDuplicates = async (override?: {
+    id_number?: string | null;
+    personal_number?: string | null;
+  }) => {
+    const idNumber =
+      override && "id_number" in override ? override.id_number : data.id_number;
+    const personalNumber =
+      override && "personal_number" in override
+        ? override.personal_number
+        : data.personal_number;
     const all = await malshabimFetch<{ candidates: MalshabimCandidate[] }>(
       "/api/malshabim/candidates",
     );
     const others = all.candidates.filter((c) => c.id !== editId && !c.is_draft);
-    if (data.id_number) {
-      const dup = others.find((c) => c.id_number && c.id_number === data.id_number);
+    const normalizeId = (value: string) => value.replace(/\D/g, "").replace(/^0+/, "") || "0";
+    if (idNumber) {
+      const normalized = normalizeId(idNumber);
+      const dup = others.find(
+        (c) => c.id_number && normalizeId(c.id_number) === normalized,
+      );
       if (dup) return { field: "תעודת זהות", existingName: dup.full_name || "—" };
     }
-    if (data.personal_number) {
+    if (personalNumber) {
       const dup = others.find(
-        (c) => c.personal_number && c.personal_number === data.personal_number,
+        (c) =>
+          c.personal_number &&
+          c.personal_number.trim() === personalNumber.trim(),
       );
       if (dup) return { field: "מספר אישי (מ.א)", existingName: dup.full_name || "—" };
     }
     return null;
+  };
+
+  const checkDuplicateOnField = async (field: "id_number" | "personal_number", value: string) => {
+    if (!value.trim()) {
+      setDuplicateHint(null);
+      return;
+    }
+    if (field === "id_number" && !validateIsraeliId(value)) {
+      setDuplicateHint(null);
+      return;
+    }
+    try {
+      const dup = await checkDuplicates({
+        id_number: field === "id_number" ? value : null,
+        personal_number: field === "personal_number" ? value : null,
+      });
+      if (dup) {
+        setDuplicateHint(`${dup.field} כבר קיימת בתיק של ${dup.existingName}`);
+        setDuplicateAlert(dup);
+      } else {
+        setDuplicateHint(null);
+      }
+    } catch {
+      // Silent — save flow will re-check.
+    }
   };
 
   const save = async (opts?: { openForApproval?: boolean }) => {
@@ -428,17 +470,27 @@ export function MalshabimInterviewPage({
         ...(openForApproval
           ? {
               awaiting_admin_approval: true,
-              candidate_status: "בטיפול",
+              // Keep the status chosen on the summary step (e.g. לא אושר).
+              candidate_status: data.candidate_status || "בטיפול",
               approval_requested_at: new Date().toISOString(),
             }
           : {}),
       };
 
-      if (payload.quiz_questions?.length) {
+      if (hasFailedObservance() || observanceFailed) {
+        payload.quiz_skipped = false;
+        payload.quiz_passed = false;
+        payload.quiz_score = 0;
+        payload.quiz_questions = [];
+        if (!payload.candidate_status || payload.candidate_status === "בטיפול") {
+          payload.candidate_status = "לא אושר";
+        }
+      } else if (payload.quiz_questions?.length) {
         const scored = payload.quiz_skipped
           ? payload.quiz_questions.slice(0, 5)
           : payload.quiz_questions;
         const correct = scored.filter((q) => q.is_correct === true).length;
+        // Store raw correct count (not percentage) for consistent file display.
         payload.quiz_score = correct;
         payload.quiz_passed = payload.quiz_skipped ? correct >= 4 : correct >= 11;
       }
@@ -494,15 +546,15 @@ export function MalshabimInterviewPage({
   };
 
   const screens = [
-    <StepPersonal
-      key="p"
-      data={data}
-      onChange={setData}
-      interviewers={interviewers}
-    />,
+    null,
     <StepObservance key="o" data={data} onChange={setData} />,
     <StepQuiz key="q" data={data} onChange={setData} />,
-    <StepSummary key="s" data={data} onChange={setData} />,
+    <StepSummary
+      key="s"
+      data={data}
+      onChange={setData}
+      observanceFailed={observanceFailed}
+    />,
   ];
 
   return (
@@ -562,12 +614,29 @@ export function MalshabimInterviewPage({
           <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-200">
             <p className="flex items-center gap-2 font-bold">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              אחת מהתשובות היא &quot;לא&quot;
+              אחת מהתשובות היא &quot;לא&quot; — המבחן דולג (לא ביינ״יש)
             </p>
             <p className="mt-2">{OBSERVANCE_FAIL_MESSAGE}</p>
           </div>
         ) : null}
-        {screens[step]}
+        {duplicateHint && step === 0 ? (
+          <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm font-bold text-amber-800 dark:text-amber-100">
+            {duplicateHint}
+          </div>
+        ) : null}
+        {step === 0 ? (
+          <StepPersonal
+            data={data}
+            onChange={setData}
+            interviewers={interviewers}
+            onIdBlur={(value) => void checkDuplicateOnField("id_number", value)}
+            onPersonalNumberBlur={(value) =>
+              void checkDuplicateOnField("personal_number", value)
+            }
+          />
+        ) : (
+          screens[step]
+        )}
       </article>
 
       <div className="flex flex-wrap justify-between gap-2">
@@ -580,7 +649,7 @@ export function MalshabimInterviewPage({
           <ChevronRight className="h-4 w-4" /> הקודם
         </button>
         <div className="flex flex-wrap gap-2">
-          {!editId ? (
+          {!editId || data.is_draft ? (
             <button
               type="button"
               className={secondaryButtonClass}
@@ -595,7 +664,7 @@ export function MalshabimInterviewPage({
               שמור טיוטה
             </button>
           ) : null}
-          {editId ? (
+          {editId && !data.is_draft ? (
             <button
               type="button"
               className={secondaryButtonClass}
@@ -706,8 +775,17 @@ export function MalshabimInterviewPage({
                 onClick={() => {
                   setShowObservanceWarning(false);
                   setObservanceFailed(true);
+                  // Skip quiz because of failed observance — NOT ביינ״יש.
                   setData((prev) =>
-                    prev ? { ...prev, quiz_skipped: true } : prev,
+                    prev
+                      ? {
+                          ...prev,
+                          quiz_skipped: false,
+                          quiz_passed: false,
+                          quiz_score: 0,
+                          candidate_status: "לא אושר",
+                        }
+                      : prev,
                   );
                   setStep(3);
                 }}

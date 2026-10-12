@@ -17,12 +17,37 @@ export const MALSHABIM_TEMPLATE_COLUMNS = [
 
 export type MalshabimTemplateColumn = (typeof MALSHABIM_TEMPLATE_COLUMNS)[number];
 
+export const MALSHABIM_TEMPLATE_HEADERS: Record<MalshabimTemplateColumn, string> = {
+  full_name: "שם מלא",
+  phone: "טלפון",
+  id_number: "תעודת זהות",
+  personal_number: "מספר אישי",
+  city: "עיר",
+  recruitment_track: "מסלול גיוס",
+  enlistment_date: "תאריך גיוס",
+  status_type: "סטטוס",
+  request_type: "איתור / בקשה",
+  request_requester: "מבקש",
+  request_unit: "יחידה",
+  request_role: "תפקיד",
+};
+
+const HEADER_TO_COLUMN = new Map<string, MalshabimTemplateColumn>([
+  ...MALSHABIM_TEMPLATE_COLUMNS.map(
+    (key) => [key, key] as [string, MalshabimTemplateColumn],
+  ),
+  ...MALSHABIM_TEMPLATE_COLUMNS.map(
+    (key) =>
+      [MALSHABIM_TEMPLATE_HEADERS[key], key] as [string, MalshabimTemplateColumn],
+  ),
+]);
+
 export type MalshabimTemplateRow = Partial<Record<MalshabimTemplateColumn, string>>;
 
 /** Download an empty xlsx template for malshabim import. */
-export function exportTemplate(filename = "malshabim-template.xlsx"): void {
+export function exportTemplate(filename = "תבנית-מלשבים.xlsx"): void {
   const worksheet = XLSX.utils.aoa_to_sheet([
-    [...MALSHABIM_TEMPLATE_COLUMNS],
+    MALSHABIM_TEMPLATE_COLUMNS.map((key) => MALSHABIM_TEMPLATE_HEADERS[key]),
     Array(MALSHABIM_TEMPLATE_COLUMNS.length).fill(""),
   ]);
   const workbook = XLSX.utils.book_new();
@@ -39,6 +64,11 @@ export function exportTemplate(filename = "malshabim-template.xlsx"): void {
   URL.revokeObjectURL(url);
 }
 
+function resolveColumnKey(header: string): MalshabimTemplateColumn | null {
+  const trimmed = header.trim();
+  return HEADER_TO_COLUMN.get(trimmed) ?? null;
+}
+
 /** Parse an xlsx/xls File into row objects keyed by template columns. */
 export async function parseTemplateFile(file: File): Promise<MalshabimTemplateRow[]> {
   const buffer = await file.arrayBuffer();
@@ -51,9 +81,10 @@ export async function parseTemplateFile(file: File): Promise<MalshabimTemplateRo
   });
   return rows.map((row) => {
     const mapped: MalshabimTemplateRow = {};
-    for (const key of MALSHABIM_TEMPLATE_COLUMNS) {
-      const value = row[key];
-      mapped[key] = value == null ? "" : String(value).trim();
+    for (const [header, raw] of Object.entries(row)) {
+      const key = resolveColumnKey(header);
+      if (!key) continue;
+      mapped[key] = raw == null ? "" : String(raw).trim();
     }
     return mapped;
   });

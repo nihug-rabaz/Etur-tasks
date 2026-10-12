@@ -111,7 +111,17 @@ export async function searchDomainCandidates(input: {
     if (!("error" in access)) {
       const rows = await new NagadimCandidateService().list(2000);
       const filtered = rows.filter((c) => {
-        const hay = [c.full_name, c.current_stage, c.notes]
+        const hay = [
+          c.full_name,
+          c.phone,
+          c.id_number,
+          c.personal_number,
+          c.family_status,
+          c.residence,
+          c.current_stage,
+          c.pipeline_outcome,
+          c.notes,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();

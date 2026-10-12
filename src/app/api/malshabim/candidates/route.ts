@@ -66,7 +66,10 @@ const createSchema = z
     draft_step: z.number().int().optional().nullable(),
     update_log: z.array(z.record(z.string(), z.unknown())).optional().nullable(),
     legacy_base44_id: z.string().optional().nullable(),
-    interviewer_user_id: z.string().uuid().optional().nullable(),
+    interviewer_user_id: z.preprocess(
+      (value) => (value === "" ? null : value),
+      z.string().uuid().optional().nullable(),
+    ),
     awaiting_admin_approval: z.boolean().optional().nullable(),
     approval_requested_at: z.string().optional().nullable(),
     interview_reminder_sent_at: z.string().optional().nullable(),
@@ -149,11 +152,15 @@ export async function POST(request: Request) {
     } as MalshabimCandidateWrite);
 
     if (awaiting && !candidate.is_draft) {
-      await new NotificationService().notifyMalshabimApprovalRequested({
-        candidateId: candidate.id,
-        fullName: candidate.full_name ?? "מועמד",
-        requesterName: access.profile.name,
-      });
+      try {
+        await new NotificationService().notifyMalshabimApprovalRequested({
+          candidateId: candidate.id,
+          fullName: candidate.full_name ?? "מועמד",
+          requesterName: access.profile.name,
+        });
+      } catch {
+        // Opening the case must succeed even if push notification fails.
+      }
     }
 
     return NextResponse.json({ candidate }, { status: 201 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isPipelineStage } from "@/modules/nagadim/lib/stages";
+import { isPipelineStage, isStageResult } from "@/modules/nagadim/lib/stages";
 import { NagadimAccessService } from "@/modules/nagadim/services/access.service";
 import { NagadimCandidateService } from "@/modules/nagadim/services/candidate.service";
 
@@ -12,6 +12,7 @@ const stageSchema = z.object({
   notes: z.string().optional().nullable(),
   command: z.string().optional().nullable(),
   unit: z.string().optional().nullable(),
+  result: z.string().optional().nullable(),
   sort_order: z.number().int().optional().nullable(),
 });
 
@@ -28,6 +29,13 @@ export async function POST(
   if (!parsed.success || !isPipelineStage(parsed.data.stage)) {
     return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
   }
+  if (
+    parsed.data.result != null &&
+    parsed.data.result !== "" &&
+    !isStageResult(parsed.data.result)
+  ) {
+    return NextResponse.json({ error: "תוצאת שלב לא תקינה" }, { status: 400 });
+  }
 
   const candidate = await new NagadimCandidateService().addOrUpdateStageEvent(id, {
     id: parsed.data.id,
@@ -37,6 +45,8 @@ export async function POST(
     notes: parsed.data.notes ?? null,
     command: parsed.data.command ?? null,
     unit: parsed.data.unit ?? null,
+    result:
+      parsed.data.result && isStageResult(parsed.data.result) ? parsed.data.result : null,
     sort_order: parsed.data.sort_order ?? 0,
   });
 

@@ -1,8 +1,8 @@
 export type MalshabimCandidateStatus =
-  | "ממתין לריאיון"
   | "בטיפול"
-  | "אושר"
-  | "שובץ";
+  | "אושר ושובץ"
+  | "אושר ולא שובץ"
+  | "לא אושר";
 
 /** @deprecated kept for DB compat; not shown in UI */
 export type MalshabimAdvancedStatus =

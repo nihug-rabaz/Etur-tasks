@@ -5,39 +5,42 @@ import type {
 } from "@/modules/malshabim/types";
 
 export const CANDIDATE_STATUSES: MalshabimCandidateStatus[] = [
-  "ממתין לריאיון",
   "בטיפול",
-  "אושר",
-  "שובץ",
+  "אושר ושובץ",
+  "אושר ולא שובץ",
+  "לא אושר",
 ];
 
 export const INSTRUCTION_STATUSES = ["בטיפול", "הושלם"] as const;
 
 export const STATUS_COLORS: Record<MalshabimCandidateStatus, string> = {
-  "ממתין לריאיון": "bg-blue-600 text-white",
   בטיפול: "bg-amber-500 text-white",
-  אושר: "bg-emerald-600 text-white",
-  שובץ: "bg-violet-600 text-white",
+  "אושר ושובץ": "bg-violet-600 text-white",
+  "אושר ולא שובץ": "bg-emerald-600 text-white",
+  "לא אושר": "bg-rose-600 text-white",
 };
 
-/** Map legacy stored values to the new status set */
+/** Map legacy stored values to the current status set */
 export function normalizeCandidateStatus(
   status?: string | null,
 ): MalshabimCandidateStatus {
   switch (status) {
-    case "ממתין לריאיון":
     case "בטיפול":
-    case "אושר":
-    case "שובץ":
+    case "אושר ושובץ":
+    case "אושר ולא שובץ":
+    case "לא אושר":
       return status;
+    case "שובץ":
+      return "אושר ושובץ";
+    case "אושר":
+    case "הושלם":
+      return "אושר ולא שובץ";
+    case "ממתין לריאיון":
     case "חדש":
-      return "ממתין לריאיון";
     case "ממתין לעדכון":
       return "בטיפול";
-    case "הושלם":
-      return "אושר";
     default:
-      return "ממתין לריאיון";
+      return "בטיפול";
   }
 }
 

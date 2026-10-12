@@ -1,5 +1,5 @@
 import { BaseService } from "@/services/base.service";
-import { DEFAULT_STAGE } from "@/modules/nagadim/lib/stages";
+import { DEFAULT_STAGE, PIPELINE_STAGES } from "@/modules/nagadim/lib/stages";
 import type {
   NagadimCandidate,
   NagadimCandidateWithEvents,
@@ -7,6 +7,17 @@ import type {
   NagadimStageEvent,
   NagadimStageEventWrite,
 } from "@/modules/nagadim/types";
+
+function stageRank(stage: string): number {
+  const index = (PIPELINE_STAGES as string[]).indexOf(stage);
+  return index >= 0 ? index : -1;
+}
+
+function emptyToNull(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
 
 export class NagadimCandidateService extends BaseService {
   public async list(limit = 500): Promise<NagadimCandidateWithEvents[]> {
@@ -62,11 +73,30 @@ export class NagadimCandidateService extends BaseService {
   public async create(input: NagadimCandidateWrite): Promise<NagadimCandidateWithEvents> {
     const db = this.getDb();
     const rows = await db<NagadimCandidate[]>`
-      insert into nagadim_candidates (full_name, notes, current_stage, created_by)
+      insert into nagadim_candidates (
+        full_name,
+        phone,
+        id_number,
+        personal_number,
+        family_status,
+        children_count,
+        residence,
+        notes,
+        current_stage,
+        pipeline_outcome,
+        created_by
+      )
       values (
         ${input.full_name ?? ""},
-        ${input.notes ?? null},
+        ${emptyToNull(input.phone)},
+        ${emptyToNull(input.id_number)},
+        ${emptyToNull(input.personal_number)},
+        ${emptyToNull(input.family_status)},
+        ${input.children_count ?? null},
+        ${emptyToNull(input.residence)},
+        ${emptyToNull(input.notes)},
         ${input.current_stage ?? DEFAULT_STAGE},
+        ${input.pipeline_outcome ?? null},
         ${input.created_by ?? null}
       )
       returning *
@@ -85,9 +115,36 @@ export class NagadimCandidateService extends BaseService {
     const rows = await db<NagadimCandidate[]>`
       update nagadim_candidates set
         full_name = ${input.full_name !== undefined ? input.full_name : existing.full_name},
-        notes = ${input.notes !== undefined ? input.notes : existing.notes},
+        phone = ${
+          input.phone !== undefined ? emptyToNull(input.phone) : existing.phone
+        },
+        id_number = ${
+          input.id_number !== undefined ? emptyToNull(input.id_number) : existing.id_number
+        },
+        personal_number = ${
+          input.personal_number !== undefined
+            ? emptyToNull(input.personal_number)
+            : existing.personal_number
+        },
+        family_status = ${
+          input.family_status !== undefined
+            ? emptyToNull(input.family_status)
+            : existing.family_status
+        },
+        children_count = ${
+          input.children_count !== undefined ? input.children_count : existing.children_count
+        },
+        residence = ${
+          input.residence !== undefined ? emptyToNull(input.residence) : existing.residence
+        },
+        notes = ${input.notes !== undefined ? emptyToNull(input.notes) : existing.notes},
         current_stage = ${
           input.current_stage !== undefined ? input.current_stage : existing.current_stage
+        },
+        pipeline_outcome = ${
+          input.pipeline_outcome !== undefined
+            ? input.pipeline_outcome
+            : existing.pipeline_outcome
         },
         updated_at = now()
       where id = ${id}
@@ -117,38 +174,47 @@ export class NagadimCandidateService extends BaseService {
     const db = this.getDb();
 
     if (input.id) {
-      await db`
+      const updated = await db<{ id: string }[]>`
         update nagadim_stage_events set
           stage = ${input.stage},
-          person_name = ${input.person_name ?? null},
+          person_name = ${emptyToNull(input.person_name)},
           event_date = ${input.event_date ?? null},
-          notes = ${input.notes ?? null},
-          command = ${input.command ?? null},
-          unit = ${input.unit ?? null},
+          notes = ${emptyToNull(input.notes)},
+          command = ${emptyToNull(input.command)},
+          unit = ${emptyToNull(input.unit)},
+          result = ${input.result ?? null},
           sort_order = ${input.sort_order ?? 0}
         where id = ${input.id} and candidate_id = ${candidateId}
+        returning id
       `;
+      if (!updated.length) return null;
     } else {
       await db`
         insert into nagadim_stage_events (
-          candidate_id, stage, person_name, event_date, notes, command, unit, sort_order
+          candidate_id, stage, person_name, event_date, notes, command, unit, result, sort_order
         )
         values (
           ${candidateId},
           ${input.stage},
-          ${input.person_name ?? null},
+          ${emptyToNull(input.person_name)},
           ${input.event_date ?? null},
-          ${input.notes ?? null},
-          ${input.command ?? null},
-          ${input.unit ?? null},
+          ${emptyToNull(input.notes)},
+          ${emptyToNull(input.command)},
+          ${emptyToNull(input.unit)},
+          ${input.result ?? null},
           ${input.sort_order ?? 0}
         )
       `;
     }
 
+    const nextStage =
+      stageRank(input.stage) >= stageRank(existing.current_stage)
+        ? input.stage
+        : existing.current_stage;
+
     await db`
       update nagadim_candidates set
-        current_stage = ${input.stage},
+        current_stage = ${nextStage},
         updated_at = now()
       where id = ${candidateId}
     `;

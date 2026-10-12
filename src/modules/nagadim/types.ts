@@ -1,9 +1,14 @@
 export type NagadimPipelineStage =
   | "מוקד איתור"
-  | "בדיקת סגל"
-  | "ראיון פרויקטור נגדים"
-  | "בדיקת עומק"
-  | "ראיון פיקודים ויחידות";
+  | "אישור מדור סגל"
+  | "ראיון רב הנגדים"
+  | "נשלח לפיקוד"
+  | "ראיון פיקודים"
+  | "העברת טפסי גיוס";
+
+export type NagadimStageResult = "עבר" | "לא עבר" | "לא מתאים לפיקוד";
+
+export type NagadimPipelineOutcome = "גויס" | "לא גויס";
 
 export type NagadimPositionDecision =
   | "לא רצו אותו"
@@ -17,8 +22,15 @@ export type NagadimGapStatus = "open" | "closed" | "permanently_closed";
 export interface NagadimCandidate {
   id: string;
   full_name: string;
+  phone: string | null;
+  id_number: string | null;
+  personal_number: string | null;
+  family_status: string | null;
+  children_count: number | null;
+  residence: string | null;
   notes: string | null;
   current_stage: string;
+  pipeline_outcome: NagadimPipelineOutcome | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -33,6 +45,7 @@ export interface NagadimStageEvent {
   notes: string | null;
   command: string | null;
   unit: string | null;
+  result: NagadimStageResult | null;
   sort_order: number;
   created_at: string;
 }

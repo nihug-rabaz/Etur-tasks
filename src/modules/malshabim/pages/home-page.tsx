@@ -4,14 +4,20 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ChevronUp,
   Download,
   FileSpreadsheet,
   FileText,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   Upload,
   Users,
   X,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -45,7 +51,7 @@ import {
   tableHeadClass,
   tableRowClass,
 } from "@/modules/malshabim/lib/ui";
-import type { MalshabimCandidate } from "@/modules/malshabim/types";
+import type { MalshabimCandidate, MalshabimCandidateStatus } from "@/modules/malshabim/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
 function canEditRole(role: ModuleRole | null): boolean {
@@ -76,6 +82,9 @@ export function MalshabimHomePage({
   const isAdmin = initialRole === "admin";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [candidates, setCandidates] = useState(initialCandidates);
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<MalshabimCandidateFilters>({
     search: "",
     track: "all",
@@ -84,22 +93,33 @@ export function MalshabimHomePage({
   });
 
   const drafts = useMemo(
-    () => initialCandidates.filter((c) => c.is_draft),
-    [initialCandidates],
+    () => candidates.filter((c) => c.is_draft),
+    [candidates],
   );
   const active = useMemo(
-    () => initialCandidates.filter((c) => !c.is_draft),
-    [initialCandidates],
+    () => candidates.filter((c) => !c.is_draft),
+    [candidates],
   );
   const filtered = useMemo(
     () => filterCandidates(active, filters),
     [active, filters],
   );
 
+  const statusCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      CANDIDATE_STATUSES.map((status) => [status, 0]),
+    ) as Record<MalshabimCandidateStatus, number>;
+    for (const c of active) {
+      counts[normalizeCandidateStatus(c.candidate_status)] += 1;
+    }
+    return counts;
+  }, [active]);
+
   const stats = {
     total: active.length,
-    interviews: drafts.length,
+    drafts: drafts.length,
     quizPassed: active.filter((c) => c.quiz_passed).length,
+    quizFailed: active.filter((c) => !c.quiz_passed).length,
   };
 
   const setFilter = <K extends keyof MalshabimCandidateFilters>(
@@ -118,13 +138,32 @@ export function MalshabimHomePage({
   const clearFilters = () =>
     setFilters({ search: "", track: "all", candidateStatus: [], requestType: [] });
 
+  const toggleStatusFilter = (status: MalshabimCandidateStatus) => {
+    setFilter("candidateStatus", toggleFilterValue(filters.candidateStatus, status));
+  };
+
+  const deleteDraft = async (id: string) => {
+    if (!canEdit) return;
+    if (!window.confirm("למחוק את הטיוטה?")) return;
+    setDeletingId(id);
+    try {
+      await malshabimFetch(`/api/malshabim/candidates/${id}`, { method: "DELETE" });
+      setCandidates((list) => list.filter((c) => c.id !== id));
+      toast.success("הטיוטה נמחקה");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const onImportFile = async (file: File | null) => {
     if (!file || !isAdmin) return;
     setImporting(true);
     try {
       const rows = await parseTemplateFile(file);
-      const candidates = templateRowsToImportPayload(rows);
-      if (candidates.length === 0) {
+      const payload = templateRowsToImportPayload(rows);
+      if (payload.length === 0) {
         toast.error("לא נמצאו שורות לייבוא");
         return;
       }
@@ -134,7 +173,7 @@ export function MalshabimHomePage({
         skipped?: number;
       }>("/api/malshabim/import", {
         method: "POST",
-        body: JSON.stringify({ candidates }),
+        body: JSON.stringify({ candidates: payload }),
       });
       toast.success(
         `ייבוא הושלם · נוספו ${result.inserted ?? 0} · עודכנו ${result.updated ?? 0} · דולגו ${result.skipped ?? 0}`,
@@ -150,7 +189,6 @@ export function MalshabimHomePage({
 
   return (
     <div className={pageShellClass} dir="rtl">
-      {/* Tasks-style chrome: title + actions + filters only */}
       <div className={`${panelClass} min-w-0 overflow-hidden p-4 sm:p-5`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
@@ -239,12 +277,7 @@ export function MalshabimHomePage({
                     key={status}
                     type="button"
                     className={activeChip ? chipActiveClass : chipIdleClass}
-                    onClick={() =>
-                      setFilter(
-                        "candidateStatus",
-                        toggleFilterValue(filters.candidateStatus, status),
-                      )
-                    }
+                    onClick={() => toggleStatusFilter(status)}
                   >
                     {status}
                   </button>
@@ -281,36 +314,107 @@ export function MalshabimHomePage({
         </div>
       </div>
 
-      {/* Content outside chrome — contrasting tiles */}
-      <div className="grid gap-2 sm:grid-cols-3 sm:gap-3">
-        <StatCard icon={Users} label="סה״כ מועמדים" value={stats.total} />
-        <StatCard icon={FileText} label="ראיון" value={stats.interviews} />
-        <StatCard icon={CheckCircle2} label="עברו מבחן" value={stats.quizPassed} />
+      {/* Live dashboard squares */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={Users}
+          label="סה״כ מועמדים"
+          value={stats.total}
+          onClick={clearFilters}
+        />
+        {CANDIDATE_STATUSES.map((status) => (
+          <StatCard
+            key={status}
+            label={status}
+            value={statusCounts[status]}
+            tone={STATUS_COLORS[status]}
+            active={selectedStatuses.includes(status)}
+            onClick={() => toggleStatusFilter(status)}
+          />
+        ))}
+        <StatCard
+          icon={FileText}
+          label="טיוטות"
+          value={stats.drafts}
+          onClick={() => setDraftsOpen(true)}
+        />
+        <StatCard
+          icon={CheckCircle2}
+          label="עברו מבחן"
+          value={stats.quizPassed}
+        />
+        <StatCard
+          icon={XCircle}
+          label="לא עברו מבחן"
+          value={stats.quizFailed}
+        />
       </div>
 
       {drafts.length > 0 ? (
-        <div className={`${cardClass} p-4 sm:p-5`}>
-          <h2 className="mb-3 text-base font-bold text-text-primary">ראיון</h2>
-          <ul className="divide-y divide-border-weak">
-            {drafts.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={`/malshabim/interview?id=${c.id}`}
-                  className="flex items-center justify-between gap-3 py-3 transition hover:opacity-80"
+        <div className={`${cardClass} overflow-hidden`}>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 p-4 text-right sm:p-5"
+            onClick={() => setDraftsOpen((open) => !open)}
+            aria-expanded={draftsOpen}
+          >
+            <div>
+              <h2 className="text-base font-bold text-text-primary">טיוטות</h2>
+              <p className="text-xs font-medium text-text-muted">
+                {drafts.length} טיוטות שמורות
+              </p>
+            </div>
+            {draftsOpen ? (
+              <ChevronUp className="h-5 w-5 text-text-muted" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-text-muted" />
+            )}
+          </button>
+          {draftsOpen ? (
+            <ul className="divide-y divide-border-weak border-t border-border-weak">
+              {drafts.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-bold text-text-primary">{c.full_name || "ללא שם"}</p>
                     <p className="text-xs font-medium text-text-muted">
                       שלב {(c.draft_step ?? 0) + 1} · {c.phone || "—"}
                     </p>
                   </div>
-                  <span className="rounded-full bg-accent-primary/12 px-2.5 py-1 text-xs font-bold text-accent-primary">
-                    ראיון
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canEdit ? (
+                      <>
+                        <Link
+                          href={`/malshabim/interview?id=${c.id}`}
+                          className={primaryButtonClass}
+                        >
+                          <Pencil className="h-4 w-4" /> מילוי
+                        </Link>
+                        <button
+                          type="button"
+                          className={`${secondaryButtonClass} !text-rose-600`}
+                          disabled={deletingId === c.id}
+                          onClick={() => void deleteDraft(c.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deletingId === c.id ? "מוחק…" : "מחיקה"}
+                        </button>
+                      </>
+                    ) : (
+                      <Link
+                        href={`/malshabim/interview?id=${c.id}`}
+                        className={secondaryButtonClass}
+                      >
+                        צפייה
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       ) : null}
 
@@ -319,7 +423,7 @@ export function MalshabimHomePage({
       ) : (
         <div className={`${panelClass} overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-right text-sm">
+            <table className="w-full min-w-[700px] text-right text-sm">
               <thead className={tableHeadClass}>
                 <tr>
                   <th className="px-4 py-3">מס׳</th>
@@ -328,6 +432,7 @@ export function MalshabimHomePage({
                   <th className="px-4 py-3">עיר</th>
                   <th className="px-4 py-3">סטטוס</th>
                   <th className="px-4 py-3">מסלול</th>
+                  <th className="px-4 py-3"> </th>
                 </tr>
               </thead>
               <tbody>
@@ -357,6 +462,16 @@ export function MalshabimHomePage({
                       <td className="px-4 py-3 text-text-secondary">
                         {c.recruitment_track || "—"}
                       </td>
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/malshabim/candidates/${c.id}`}
+                          className="inline-flex items-center gap-1 rounded-full bg-accent-primary/12 px-2.5 py-1 text-xs font-bold text-accent-primary transition hover:bg-accent-primary/20"
+                          aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
+                        >
+                          כניסה
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Link>
+                      </td>
                     </tr>
                   );
                 })}
@@ -373,20 +488,48 @@ function StatCard({
   icon: Icon,
   label,
   value,
+  tone,
+  active,
+  onClick,
 }: {
-  icon: typeof Users;
+  icon?: typeof Users;
   label: string;
   value: number;
+  tone?: string;
+  active?: boolean;
+  onClick?: () => void;
 }) {
-  return (
-    <div className={`${cardClass} flex items-center gap-3 p-3 sm:p-4`}>
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent-primary/12 text-accent-primary">
-        <Icon className="h-5 w-5" />
+  const content = (
+    <>
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+          tone || "bg-accent-primary/12 text-accent-primary"
+        }`}
+      >
+        {Icon ? <Icon className="h-5 w-5" /> : <span className="text-sm font-black">{value}</span>}
       </div>
       <div>
         <p className="text-xs font-semibold text-text-muted">{label}</p>
         <p className="text-xl font-bold text-text-primary sm:text-2xl">{value}</p>
       </div>
-    </div>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${cardClass} flex items-center gap-3 p-3 text-right transition hover:opacity-90 sm:p-4 ${
+          active ? "ring-2 ring-accent-primary" : ""
+        }`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={`${cardClass} flex items-center gap-3 p-3 sm:p-4`}>{content}</div>
   );
 }

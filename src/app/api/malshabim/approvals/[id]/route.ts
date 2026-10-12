@@ -29,10 +29,19 @@ export async function POST(
   }
 
   const approved = parsed.data.action === "approve";
-  const status = approved ? "אושר" : "בטיפול";
+  // Do not upgrade an interviewer "לא אושר" decision to approved.
+  const status = approved
+    ? existing.candidate_status === "לא אושר"
+      ? "לא אושר"
+      : "אושר ולא שובץ"
+    : "לא אושר";
   const logEntry = {
     date: new Date().toISOString(),
-    changes: approved ? "אישור מנהל" : "דחיית אישור מנהל",
+    changes: approved
+      ? status === "לא אושר"
+        ? "אישור מנהל — נשמר לא אושר"
+        : "אישור מנהל — אושר ולא שובץ"
+      : "דחיית אישור מנהל — לא אושר",
     updated_by: access.profile.name,
   };
 

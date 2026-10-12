@@ -17,23 +17,31 @@ const SKIP_MIN_CORRECT = 4;
 export function StepSummary({
   data,
   onChange,
+  observanceFailed = false,
 }: {
   data: InterviewFormData;
   onChange: (next: InterviewFormData) => void;
+  observanceFailed?: boolean;
 }) {
-  const skipped = data.quiz_skipped === true;
+  const skipped = !observanceFailed && data.quiz_skipped === true;
   const allQuestions = data.quiz_questions || [];
   const questions = skipped ? allQuestions.slice(0, 5) : allQuestions;
-  const correct = questions.filter((q) => q.is_correct).length;
-  const total = questions.length || 1;
-  const score = Math.round((correct / total) * 100);
-  const passed = skipped ? correct >= SKIP_MIN_CORRECT : correct >= PASS_MIN_CORRECT;
+  const correct = observanceFailed ? 0 : questions.filter((q) => q.is_correct).length;
+  const total = observanceFailed ? 0 : questions.length || 1;
+  const score = observanceFailed
+    ? 0
+    : Math.round((correct / Math.max(total, 1)) * 100);
+  const passed = observanceFailed
+    ? false
+    : skipped
+      ? correct >= SKIP_MIN_CORRECT
+      : correct >= PASS_MIN_CORRECT;
 
   useEffect(() => {
     if (data.quiz_score === score && data.quiz_passed === passed) return;
     onChange({ ...data, quiz_score: score, quiz_passed: passed });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [score, passed]);
+  }, [score, passed, observanceFailed]);
 
   const set = <K extends keyof InterviewFormData>(key: K, value: InterviewFormData[K]) =>
     onChange({ ...data, [key]: value });
@@ -47,11 +55,15 @@ export function StepSummary({
       <div className="flex items-center justify-between rounded-2xl bg-accent-primary p-5 text-white">
         <div>
           <p className="text-sm opacity-80">
-            תוצאת המבחן {skipped ? `(${BIYENISH_LABEL})` : ""}
+            {observanceFailed
+              ? "תוצאת המבחן — דולג עקב שמירת מצוות"
+              : `תוצאת המבחן ${skipped ? `(${BIYENISH_LABEL})` : ""}`}
           </p>
-          <p className="text-4xl font-black">{score}</p>
+          <p className="text-4xl font-black">{observanceFailed ? "—" : score}</p>
           <p className="text-sm opacity-80">
-            {correct} מתוך {total} תשובות נכונות
+            {observanceFailed
+              ? "לא בוצע מבחן ידע"
+              : `${correct} מתוך ${total} תשובות נכונות`}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -75,7 +87,7 @@ export function StepSummary({
         סטטוס
         <select
           className={fieldClass}
-          value={data.candidate_status || "ממתין לריאיון"}
+          value={data.candidate_status || "בטיפול"}
           onChange={(e) => set("candidate_status", e.target.value)}
         >
           {CANDIDATE_STATUSES.map((status) => (
