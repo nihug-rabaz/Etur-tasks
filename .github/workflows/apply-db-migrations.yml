@@ -31,42 +31,46 @@ jobs:
           npm install -g vercel@54.21.1
           npm install @neondatabase/serverless
 
-      - name: Apply migrations via vercel env run
+      - name: Pull production env and apply migrations
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
           VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
-          DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
-          # Prefer explicit GitHub secret when present
-          if [ -n "${DATABASE_URL_SECRET:-}" ] && [[ "$DATABASE_URL_SECRET" == postgres* ]]; then
-            export DATABASE_URL="$DATABASE_URL_SECRET"
-            echo "source=GITHUB_SECRET"
-            host="$(node -e "console.log(new URL(process.env.DATABASE_URL.replace(/^postgresql:/i,'http:')).host)")"
-            echo "production db host=$host"
-            touch .env.local
-            IFS=',' read -ra SCRIPTS <<< "${{ github.event.inputs.migrations }}"
-            for script in "${SCRIPTS[@]}"; do
-              script="$(echo "$script" | xargs)"
-              [ -z "$script" ] && continue
-              echo "::group::Running scripts/$script"
-              node "scripts/$script"
-              echo "::endgroup::"
-            done
-            exit 0
-          fi
 
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          touch .env.local
 
-          # vercel env run injects production secrets into the child process
+          if [ -f .vercel/.env.production.local ]; then
+            cp .vercel/.env.production.local .env.local
+          elif [ -f .env.production.local ]; then
+            cp .env.production.local .env.local
+          else
+            echo "No production env file after vercel pull"
+            ls -la .vercel || true
+            exit 1
+          fi
+
+          node -e "
+            const fs = require('fs');
+            const raw = fs.readFileSync('.env.local', 'utf8');
+            let url = '';
+            for (const line of raw.split(/\r?\n/)) {
+              if (!line.startsWith('DATABASE_URL=')) continue;
+              url = line.slice('DATABASE_URL='.length).trim().replace(/^[\"']|[\"']$/g, '');
+            }
+            if (!url || url === '[SENSITIVE]') {
+              console.error('DATABASE_URL missing or redacted in pulled env');
+              process.exit(1);
+            }
+            console.log('production db host=' + new URL(url.replace(/^postgresql:/i, 'http:')).host);
+          "
+
           IFS=',' read -ra SCRIPTS <<< "${{ github.event.inputs.migrations }}"
           for script in "${SCRIPTS[@]}"; do
             script="$(echo "$script" | xargs)"
             [ -z "$script" ] && continue
-            echo "::group::Running scripts/$script via vercel env run"
-            # Prevent local wrong .env.local from overriding; empty file is fine
-            vercel env run -e production --token "$VERCEL_TOKEN" -- node "scripts/$script"
+            echo "::group::Running scripts/$script"
+            node "scripts/$script"
             echo "::endgroup::"
           done

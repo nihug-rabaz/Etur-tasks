@@ -1,10 +1,11 @@
 import { neon } from "@neondatabase/serverless";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { resolve, dirname, join } from "path";
 import { fileURLToPath } from "url";
 
-function loadEnvLocal() {
-  const raw = readFileSync(resolve(process.cwd(), ".env.local"), "utf8");
+function loadEnvFile(path) {
+  if (!existsSync(path)) return false;
+  const raw = readFileSync(path, "utf8");
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
@@ -19,6 +20,18 @@ function loadEnvLocal() {
       value = value.slice(1, -1);
     }
     if (!process.env[key]) process.env[key] = value;
+  }
+  return true;
+}
+
+function loadEnvLocal() {
+  const candidates = [
+    ".env.local",
+    ".vercel/.env.production.local",
+    ".env.production.local",
+  ];
+  for (const candidate of candidates) {
+    if (loadEnvFile(resolve(process.cwd(), candidate))) return;
   }
 }
 
