@@ -27,115 +27,46 @@ jobs:
           node-version: "24"
 
       - name: Install tools
-        run: npm install @neondatabase/serverless
+        run: |
+          npm install -g vercel@54.21.1
+          npm install @neondatabase/serverless
 
-      - name: Resolve production DATABASE_URL
+      - name: Apply migrations via vercel env run
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
           VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
-          # Optional override if Vercel Sensitive decryption is blocked for the token
           DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
-          node <<'NODE'
-          const fs = require("fs");
-          const https = require("https");
+          # Prefer explicit GitHub secret when present
+          if [ -n "${DATABASE_URL_SECRET:-}" ] && [[ "$DATABASE_URL_SECRET" == postgres* ]]; then
+            export DATABASE_URL="$DATABASE_URL_SECRET"
+            echo "source=GITHUB_SECRET"
+            host="$(node -e "console.log(new URL(process.env.DATABASE_URL.replace(/^postgresql:/i,'http:')).host)")"
+            echo "production db host=$host"
+            touch .env.local
+            IFS=',' read -ra SCRIPTS <<< "${{ github.event.inputs.migrations }}"
+            for script in "${SCRIPTS[@]}"; do
+              script="$(echo "$script" | xargs)"
+              [ -z "$script" ] && continue
+              echo "::group::Running scripts/$script"
+              node "scripts/$script"
+              echo "::endgroup::"
+            done
+            exit 0
+          fi
 
-          function getJson(url, headers) {
-            return new Promise((resolve, reject) => {
-              const req = https.get(url, { headers }, (res) => {
-                let body = "";
-                res.on("data", (c) => (body += c));
-                res.on("end", () => {
-                  if (res.statusCode && res.statusCode >= 400) {
-                    reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 300)}`));
-                    return;
-                  }
-                  try {
-                    resolve(JSON.parse(body));
-                  } catch (e) {
-                    reject(e);
-                  }
-                });
-              });
-              req.on("error", reject);
-            });
-          }
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          touch .env.local
 
-          async function resolveUrl() {
-            const fromSecret = (process.env.DATABASE_URL_SECRET || "").trim();
-            if (fromSecret && /^postgres/i.test(fromSecret)) {
-              console.log("source=GITHUB_SECRET");
-              return fromSecret;
-            }
-
-            const token = process.env.VERCEL_TOKEN;
-            const projectId = process.env.VERCEL_PROJECT_ID;
-            const teamId = process.env.VERCEL_ORG_ID;
-            if (!token) throw new Error("Missing VERCEL_TOKEN");
-
-            const listUrl =
-              `https://api.vercel.com/v9/projects/${projectId}/env` +
-              `?decrypt=true&teamId=${encodeURIComponent(teamId)}`;
-            const listed = await getJson(listUrl, {
-              Authorization: `Bearer ${token}`,
-            });
-            const envs = Array.isArray(listed.envs) ? listed.envs : [];
-            const dbEnv = envs.find(
-              (e) =>
-                e.key === "DATABASE_URL" &&
-                (!e.target || e.target.includes("production")),
-            );
-            if (!dbEnv) {
-              throw new Error("DATABASE_URL not found in Vercel project env");
-            }
-
-            let value = dbEnv.value || "";
-            if (!value || value === "[SENSITIVE]" || dbEnv.sensitive) {
-              const oneUrl =
-                `https://api.vercel.com/v1/env/${dbEnv.id}` +
-                `?teamId=${encodeURIComponent(teamId)}`;
-              const one = await getJson(oneUrl, {
-                Authorization: `Bearer ${token}`,
-              });
-              value = one.value || one.decryptedValue || "";
-            }
-
-            if (!value || value === "[SENSITIVE]" || !/^postgres/i.test(value)) {
-              throw new Error(
-                "Could not decrypt DATABASE_URL. Add repo secret DATABASE_URL (Neon production) and re-run.",
-              );
-            }
-            console.log("source=VERCEL_API");
-            return value;
-          }
-
-          resolveUrl()
-            .then((url) => {
-              const host = new URL(url.replace(/^postgresql:/i, "http:")).host;
-              console.log("production db host=", host);
-              fs.appendFileSync(
-                process.env.GITHUB_ENV,
-                `DATABASE_URL<<EOF\n${url}\nEOF\n`,
-              );
-              fs.writeFileSync(".env.local", "");
-            })
-            .catch((err) => {
-              console.error(err.message || err);
-              process.exit(1);
-            });
-          NODE
-
-      - name: Apply migrations
-        run: |
-          set -euo pipefail
-          test -n "${DATABASE_URL:-}"
+          # vercel env run injects production secrets into the child process
           IFS=',' read -ra SCRIPTS <<< "${{ github.event.inputs.migrations }}"
           for script in "${SCRIPTS[@]}"; do
             script="$(echo "$script" | xargs)"
-            if [ -z "$script" ]; then continue; fi
-            echo "::group::Running scripts/$script"
-            node "scripts/$script"
+            [ -z "$script" ] && continue
+            echo "::group::Running scripts/$script via vercel env run"
+            # Prevent local wrong .env.local from overriding; empty file is fine
+            vercel env run -e production --token "$VERCEL_TOKEN" -- node "scripts/$script"
             echo "::endgroup::"
           done
