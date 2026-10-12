@@ -27,40 +27,104 @@ jobs:
           node-version: "24"
 
       - name: Install tools
-        run: |
-          npm install -g vercel@54.21.1
-          npm install @neondatabase/serverless
+        run: npm install @neondatabase/serverless
 
-      - name: Pull production env from Vercel
+      - name: Resolve production DATABASE_URL
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
           VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
+          # Optional override if Vercel Sensitive decryption is blocked for the token
+          DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          test -f .vercel/.env.production.local
-          # Export DATABASE_URL without printing secrets (heredoc-safe for special chars)
           node <<'NODE'
           const fs = require("fs");
-          const raw = fs.readFileSync(".vercel/.env.production.local", "utf8");
-          let url = "";
-          for (const line of raw.split(/\r?\n/)) {
-            if (!line.startsWith("DATABASE_URL=")) continue;
-            url = line.slice("DATABASE_URL=".length).trim().replace(/^["']|["']$/g, "");
+          const https = require("https");
+
+          function getJson(url, headers) {
+            return new Promise((resolve, reject) => {
+              const req = https.get(url, { headers }, (res) => {
+                let body = "";
+                res.on("data", (c) => (body += c));
+                res.on("end", () => {
+                  if (res.statusCode && res.statusCode >= 400) {
+                    reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 300)}`));
+                    return;
+                  }
+                  try {
+                    resolve(JSON.parse(body));
+                  } catch (e) {
+                    reject(e);
+                  }
+                });
+              });
+              req.on("error", reject);
+            });
           }
-          if (!url || url === "[SENSITIVE]" || !/^postgres/i.test(url)) {
-            console.error("DATABASE_URL missing or redacted after vercel pull");
-            process.exit(1);
+
+          async function resolveUrl() {
+            const fromSecret = (process.env.DATABASE_URL_SECRET || "").trim();
+            if (fromSecret && /^postgres/i.test(fromSecret)) {
+              console.log("source=GITHUB_SECRET");
+              return fromSecret;
+            }
+
+            const token = process.env.VERCEL_TOKEN;
+            const projectId = process.env.VERCEL_PROJECT_ID;
+            const teamId = process.env.VERCEL_ORG_ID;
+            if (!token) throw new Error("Missing VERCEL_TOKEN");
+
+            const listUrl =
+              `https://api.vercel.com/v9/projects/${projectId}/env` +
+              `?decrypt=true&teamId=${encodeURIComponent(teamId)}`;
+            const listed = await getJson(listUrl, {
+              Authorization: `Bearer ${token}`,
+            });
+            const envs = Array.isArray(listed.envs) ? listed.envs : [];
+            const dbEnv = envs.find(
+              (e) =>
+                e.key === "DATABASE_URL" &&
+                (!e.target || e.target.includes("production")),
+            );
+            if (!dbEnv) {
+              throw new Error("DATABASE_URL not found in Vercel project env");
+            }
+
+            let value = dbEnv.value || "";
+            if (!value || value === "[SENSITIVE]" || dbEnv.sensitive) {
+              const oneUrl =
+                `https://api.vercel.com/v1/env/${dbEnv.id}` +
+                `?teamId=${encodeURIComponent(teamId)}`;
+              const one = await getJson(oneUrl, {
+                Authorization: `Bearer ${token}`,
+              });
+              value = one.value || one.decryptedValue || "";
+            }
+
+            if (!value || value === "[SENSITIVE]" || !/^postgres/i.test(value)) {
+              throw new Error(
+                "Could not decrypt DATABASE_URL. Add repo secret DATABASE_URL (Neon production) and re-run.",
+              );
+            }
+            console.log("source=VERCEL_API");
+            return value;
           }
-          const host = new URL(url.replace(/^postgresql:/i, "http:")).host;
-          console.log("production db host=", host);
-          fs.appendFileSync(
-            process.env.GITHUB_ENV,
-            `DATABASE_URL<<EOF\n${url}\nEOF\n`,
-          );
-          // Prevent local apply scripts from failing on missing .env.local
-          fs.writeFileSync(".env.local", "");
+
+          resolveUrl()
+            .then((url) => {
+              const host = new URL(url.replace(/^postgresql:/i, "http:")).host;
+              console.log("production db host=", host);
+              fs.appendFileSync(
+                process.env.GITHUB_ENV,
+                `DATABASE_URL<<EOF\n${url}\nEOF\n`,
+              );
+              fs.writeFileSync(".env.local", "");
+            })
+            .catch((err) => {
+              console.error(err.message || err);
+              process.exit(1);
+            });
           NODE
 
       - name: Apply migrations
