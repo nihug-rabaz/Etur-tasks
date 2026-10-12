@@ -1,0 +1,77 @@
+name: Apply DB Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      migrations:
+        description: "Comma-separated migration apply scripts under scripts/"
+        required: false
+        type: string
+        default: "apply-malshabim-status-v2-migration.mjs,apply-nagadim-enrichment-migration.mjs,apply-notification-media-migration.mjs,apply-agam-cycle-invite-slug-migration.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Apply migrations on production DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install tools
+        run: |
+          npm install -g vercel@54.21.1
+          npm install @neondatabase/serverless
+
+      - name: Pull production env from Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
+          VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
+        run: |
+          set -euo pipefail
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          test -f .vercel/.env.production.local
+          # Export DATABASE_URL without printing secrets (heredoc-safe for special chars)
+          node <<'NODE'
+          const fs = require("fs");
+          const raw = fs.readFileSync(".vercel/.env.production.local", "utf8");
+          let url = "";
+          for (const line of raw.split(/\r?\n/)) {
+            if (!line.startsWith("DATABASE_URL=")) continue;
+            url = line.slice("DATABASE_URL=".length).trim().replace(/^["']|["']$/g, "");
+          }
+          if (!url || url === "[SENSITIVE]" || !/^postgres/i.test(url)) {
+            console.error("DATABASE_URL missing or redacted after vercel pull");
+            process.exit(1);
+          }
+          const host = new URL(url.replace(/^postgresql:/i, "http:")).host;
+          console.log("production db host=", host);
+          fs.appendFileSync(
+            process.env.GITHUB_ENV,
+            `DATABASE_URL<<EOF\n${url}\nEOF\n`,
+          );
+          // Prevent local apply scripts from failing on missing .env.local
+          fs.writeFileSync(".env.local", "");
+          NODE
+
+      - name: Apply migrations
+        run: |
+          set -euo pipefail
+          test -n "${DATABASE_URL:-}"
+          IFS=',' read -ra SCRIPTS <<< "${{ github.event.inputs.migrations }}"
+          for script in "${SCRIPTS[@]}"; do
+            script="$(echo "$script" | xargs)"
+            if [ -z "$script" ]; then continue; fi
+            echo "::group::Running scripts/$script"
+            node "scripts/$script"
+            echo "::endgroup::"
+          done
