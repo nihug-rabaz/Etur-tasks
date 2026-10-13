@@ -21,7 +21,7 @@ import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
   CANDIDATE_STATUSES,
   INSTRUCTION_STATUSES,
-  STATUS_COLORS,
+  STATUS_BADGE_CLASS,
   formatDateTime,
   normalizeCandidateStatus,
 } from "@/modules/malshabim/lib/status";
@@ -205,10 +205,24 @@ export function MalshabimCandidateFilePage({
     }
   };
 
-  if (!loaded || !c) {
+  if (!loaded) {
     return (
       <div className="flex items-center justify-center p-10">
         <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+      </div>
+    );
+  }
+
+  if (!c) {
+    return (
+      <div className={`${formShellClass} gap-4 p-6`} dir="rtl">
+        <p className="text-sm font-bold text-text-primary">לא ניתן לפתוח את התיק</p>
+        <p className="text-sm text-text-secondary">
+          התיק לא נמצא או שאין הרשאה לצפות בו.
+        </p>
+        <Link href="/malshabim" className={secondaryButtonClass}>
+          חזרה לרשימה
+        </Link>
       </div>
     );
   }
@@ -281,7 +295,7 @@ export function MalshabimCandidateFilePage({
             {c.status_type ? <Chip>{c.status_type}</Chip> : null}
             {c.request_type ? <Chip>{c.request_type}</Chip> : null}
             <span
-              className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_COLORS[status]}`}
+              className={`rounded-full px-2 py-0.5 text-xs font-bold ${STATUS_BADGE_CLASS[status]}`}
             >
               {status}
             </span>

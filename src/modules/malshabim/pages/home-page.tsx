@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import {
   CANDIDATE_STATUSES,
+  STATUS_BADGE_CLASS,
   STATUS_COLORS,
   filterCandidates,
   normalizeCandidateStatus,
@@ -81,10 +82,12 @@ export function MalshabimHomePage({
   const canEdit = canEditRole(initialRole);
   const isAdmin = initialRole === "admin";
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
   const [importing, setImporting] = useState(false);
   const [candidates, setCandidates] = useState(initialCandidates);
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filters, setFilters] = useState<MalshabimCandidateFilters>({
     search: "",
     track: "all",
@@ -100,10 +103,39 @@ export function MalshabimHomePage({
     () => candidates.filter((c) => !c.is_draft),
     [candidates],
   );
+  /** Table follows chip filters only — search opens a popup instead. */
   const filtered = useMemo(
-    () => filterCandidates(active, filters),
-    [active, filters],
+    () =>
+      filterCandidates(active, {
+        track: filters.track,
+        candidateStatus: filters.candidateStatus,
+        requestType: filters.requestType,
+      }),
+    [active, filters.track, filters.candidateStatus, filters.requestType],
   );
+  const searchQuery = (filters.search || "").trim();
+  const searchHits = useMemo(
+    () =>
+      searchQuery.length >= 1
+        ? filterCandidates(active, { search: searchQuery }).slice(0, 25)
+        : [],
+    [active, searchQuery],
+  );
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (!searchBoxRef.current?.contains(event.target as Node)) setSearchOpen(false);
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSearchOpen(false);
+    };
+    window.addEventListener("mousedown", handleClick);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, []);
 
   const statusCounts = useMemo(() => {
     const counts = Object.fromEntries(
@@ -130,13 +162,16 @@ export function MalshabimHomePage({
   const selectedStatuses = asSelectedList(filters.candidateStatus);
   const selectedRequestTypes = asSelectedList(filters.requestType);
   const filtersActive =
-    Boolean(filters.search?.trim()) ||
+    Boolean(searchQuery) ||
     (filters.track && filters.track !== "all") ||
     selectedStatuses.length > 0 ||
     selectedRequestTypes.length > 0;
+  const showSearchPanel = searchOpen && searchQuery.length >= 1;
 
-  const clearFilters = () =>
+  const clearFilters = () => {
     setFilters({ search: "", track: "all", candidateStatus: [], requestType: [] });
+    setSearchOpen(false);
+  };
 
   const toggleStatusFilter = (status: MalshabimCandidateStatus) => {
     setFilter("candidateStatus", toggleFilterValue(filters.candidateStatus, status));
@@ -189,7 +224,7 @@ export function MalshabimHomePage({
 
   return (
     <div className={pageShellClass} dir="rtl">
-      <div className={`${panelClass} min-w-0 overflow-hidden p-4 sm:p-5`}>
+      <div className={`${panelClass} relative z-20 min-w-0 overflow-visible p-4 sm:p-5`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
             <h1 className={pageTitleClass}>מלש״בים</h1>
@@ -243,17 +278,84 @@ export function MalshabimHomePage({
         </div>
 
         <div className="mt-4 min-w-0 space-y-3">
-          <div className="relative flex items-center">
-            <Search
-              className="pointer-events-none absolute start-4 h-4 w-4 text-text-muted"
-              aria-hidden
-            />
-            <input
-              className={searchClass}
-              placeholder="חיפוש לפי שם, טלפון, ת.ז, עיר…"
-              value={filters.search || ""}
-              onChange={(e) => setFilter("search", e.target.value)}
-            />
+          <div className="relative z-30" ref={searchBoxRef}>
+            <div className="relative flex items-center">
+              <Search
+                className="pointer-events-none absolute start-4 h-4 w-4 text-text-muted"
+                aria-hidden
+              />
+              <input
+                className={searchClass}
+                placeholder="חיפוש לפי שם, טלפון, ת.ז, עיר…"
+                value={filters.search || ""}
+                onChange={(e) => {
+                  setFilter("search", e.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
+                aria-expanded={showSearchPanel}
+                aria-controls="malshabim-search-results"
+                autoComplete="off"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  className="absolute end-3 rounded-full p-1 text-text-muted transition hover:bg-surface-2 hover:text-text-primary"
+                  aria-label="נקה חיפוש"
+                  onClick={() => {
+                    setFilter("search", "");
+                    setSearchOpen(false);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+            {showSearchPanel ? (
+              <div
+                id="malshabim-search-results"
+                role="listbox"
+                className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-50 max-h-80 overflow-y-auto rounded-2xl border border-border-weak bg-surface-1 p-2 shadow-xl shadow-black/10"
+              >
+                {searchHits.length === 0 ? (
+                  <p className="px-3 py-4 text-center text-sm font-medium text-text-muted">
+                    לא נמצאו תוצאות
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-1">
+                    {searchHits.map((c) => {
+                      const status = normalizeCandidateStatus(c.candidate_status);
+                      return (
+                        <li key={c.id}>
+                          <Link
+                            href={`/malshabim/candidates/${c.id}`}
+                            role="option"
+                            className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition hover:bg-surface-2"
+                            onClick={() => setSearchOpen(false)}
+                          >
+                            <div className="min-w-0 text-right">
+                              <p className="truncate font-bold text-text-primary">
+                                {c.full_name || "ללא שם"}
+                              </p>
+                              <p className="truncate text-xs font-medium text-text-muted">
+                                {[c.phone, c.city, c.serial_number != null ? `מס׳ ${c.serial_number}` : null]
+                                  .filter(Boolean)
+                                  .join(" · ") || "—"}
+                              </p>
+                            </div>
+                            <span
+                              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
+                            >
+                              {status}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <select
@@ -438,15 +540,16 @@ export function MalshabimHomePage({
               <tbody>
                 {filtered.map((c) => {
                   const status = normalizeCandidateStatus(c.candidate_status);
+                  const fileHref = `/malshabim/candidates/${c.id}`;
                   return (
-                    <tr key={c.id} className={tableRowClass}>
+                    <tr key={c.id} className={`${tableRowClass} group`}>
                       <td className="px-4 py-3 font-semibold text-text-muted">
-                        <Link href={`/malshabim/candidates/${c.id}`}>
+                        <Link href={fileHref} className="hover:text-accent-primary">
                           {c.serial_number ?? "—"}
                         </Link>
                       </td>
                       <td className="px-4 py-3 font-bold text-text-primary">
-                        <Link href={`/malshabim/candidates/${c.id}`}>
+                        <Link href={fileHref} className="hover:text-accent-primary">
                           {c.full_name || "—"}
                         </Link>
                       </td>
@@ -454,7 +557,7 @@ export function MalshabimHomePage({
                       <td className="px-4 py-3 text-text-secondary">{c.city || "—"}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_COLORS[status]}`}
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
                         >
                           {status}
                         </span>
@@ -464,11 +567,11 @@ export function MalshabimHomePage({
                       </td>
                       <td className="px-4 py-3">
                         <Link
-                          href={`/malshabim/candidates/${c.id}`}
-                          className="inline-flex items-center gap-1 rounded-full bg-accent-primary/12 px-2.5 py-1 text-xs font-bold text-accent-primary transition hover:bg-accent-primary/20"
+                          href={fileHref}
+                          className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
                           aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
                         >
-                          כניסה
+                          פתח תיק
                           <ChevronLeft className="h-3.5 w-3.5" />
                         </Link>
                       </td>

@@ -13,11 +13,20 @@ export const CANDIDATE_STATUSES: MalshabimCandidateStatus[] = [
 
 export const INSTRUCTION_STATUSES = ["בטיפול", "הושלם"] as const;
 
+/** Solid status tones — safe on chips, StatCards, and board column headers. */
 export const STATUS_COLORS: Record<MalshabimCandidateStatus, string> = {
   בטיפול: "bg-amber-500 text-white",
   "אושר ושובץ": "bg-violet-600 text-white",
   "אושר ולא שובץ": "bg-emerald-600 text-white",
   "לא אושר": "bg-rose-600 text-white",
+};
+
+/** Extra emphasis for compact badges (list / search / file). */
+export const STATUS_BADGE_CLASS: Record<MalshabimCandidateStatus, string> = {
+  בטיפול: `${STATUS_COLORS["בטיפול"]} shadow-sm shadow-amber-500/35`,
+  "אושר ושובץ": `${STATUS_COLORS["אושר ושובץ"]} shadow-sm shadow-violet-600/35`,
+  "אושר ולא שובץ": `${STATUS_COLORS["אושר ולא שובץ"]} shadow-sm shadow-emerald-600/35`,
+  "לא אושר": `${STATUS_COLORS["לא אושר"]} shadow-sm shadow-rose-600/35`,
 };
 
 /** Map legacy stored values to the current status set */
