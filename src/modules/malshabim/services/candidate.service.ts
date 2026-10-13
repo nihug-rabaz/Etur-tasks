@@ -5,9 +5,13 @@ import type {
   MalshabimUpdateLogEntry,
 } from "@/modules/malshabim/types";
 
-function asJson(value: unknown): unknown {
-  if (value === undefined) return null;
-  return value;
+/**
+ * Neon binds JS arrays as Postgres array literals, which are invalid for jsonb.
+ * Always pass JSON text and cast with `::jsonb` at the SQL bind site.
+ */
+function asJson(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  return JSON.stringify(value);
 }
 
 function normalizeId(value: string | null | undefined): string | null {
@@ -240,26 +244,26 @@ export class MalshabimCandidateService extends BaseService {
         ${input.enlistment_date ?? null},
         ${input.interview_at ?? null},
         ${input.next_status_update_at ?? null},
-        ${asJson(input.observance ?? {})},
-        ${asJson(input.quiz_questions ?? [])},
+        ${asJson(input.observance ?? {})}::jsonb,
+        ${asJson(input.quiz_questions ?? [])}::jsonb,
         ${input.quiz_score ?? null},
         ${input.quiz_passed ?? false},
         ${input.quiz_skipped ?? false},
         ${input.interview_summary ?? null},
         ${input.interviewer_notes ?? null},
         ${input.instructions ?? null},
-        ${asJson(input.instruction_items ?? [])},
-        ${asJson(input.instruction_recipients ?? [])},
+        ${asJson(input.instruction_items ?? [])}::jsonb,
+        ${asJson(input.instruction_recipients ?? [])}::jsonb,
         ${input.is_draft ?? false},
         ${input.draft_step ?? null},
-        ${asJson(input.update_log ?? [])},
+        ${asJson(input.update_log ?? [])}::jsonb,
         ${input.created_by ?? null},
         ${input.created_by_name ?? null},
         ${input.interviewer_user_id ?? null},
         ${input.awaiting_admin_approval ?? false},
         ${input.approval_requested_at ?? null},
         ${input.interview_reminder_sent_at ?? null},
-        ${asJson(input.request_meta ?? {})}
+        ${asJson(input.request_meta ?? {})}::jsonb
       )
       returning *
     `;
@@ -370,25 +374,25 @@ export class MalshabimCandidateService extends BaseService {
         enlistment_date = ${next.enlistment_date ?? null},
         interview_at = ${next.interview_at ?? null},
         next_status_update_at = ${next.next_status_update_at ?? null},
-        observance = ${asJson(next.observance ?? {})},
-        quiz_questions = ${asJson(next.quiz_questions ?? [])},
+        observance = ${asJson(next.observance ?? {})}::jsonb,
+        quiz_questions = ${asJson(next.quiz_questions ?? [])}::jsonb,
         quiz_score = ${next.quiz_score ?? null},
         quiz_passed = ${next.quiz_passed ?? false},
         quiz_skipped = ${next.quiz_skipped ?? false},
         interview_summary = ${next.interview_summary ?? null},
         interviewer_notes = ${next.interviewer_notes ?? null},
         instructions = ${next.instructions ?? null},
-        instruction_items = ${asJson(next.instruction_items ?? [])},
-        instruction_recipients = ${asJson(next.instruction_recipients ?? [])},
+        instruction_items = ${asJson(next.instruction_items ?? [])}::jsonb,
+        instruction_recipients = ${asJson(next.instruction_recipients ?? [])}::jsonb,
         is_draft = ${next.is_draft ?? false},
         draft_step = ${next.draft_step ?? null},
-        update_log = ${asJson(next.update_log ?? [])},
+        update_log = ${asJson(next.update_log ?? [])}::jsonb,
         created_by_name = ${next.created_by_name ?? null},
         interviewer_user_id = ${next.interviewer_user_id ?? null},
         awaiting_admin_approval = ${next.awaiting_admin_approval ?? false},
         approval_requested_at = ${next.approval_requested_at ?? null},
         interview_reminder_sent_at = ${next.interview_reminder_sent_at ?? null},
-        request_meta = ${asJson(next.request_meta ?? {})},
+        request_meta = ${asJson(next.request_meta ?? {})}::jsonb,
         updated_at = now()
       where id = ${id}
       returning *
