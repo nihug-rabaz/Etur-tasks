@@ -1,6 +1,5 @@
 "use client";
 
-import { TaskPlanAssignedBadge } from "@/components/tasks/task-plan-assigned-badge";
 import { TaskQuickStatus } from "@/components/tasks/task-quick-status";
 import type { DomainKey } from "@/lib/ui/domains";
 
@@ -21,7 +20,6 @@ export function TaskStatusControls({
   size = "md",
   onUpdated,
   className = "",
-  domainSlug,
 }: TaskStatusControlsProps) {
   return (
     <TaskQuickStatus
@@ -30,13 +28,6 @@ export function TaskStatusControls({
       size={size}
       onUpdated={onUpdated}
       className={className}
-      belowStatus={
-        <TaskPlanAssignedBadge
-          taskId={taskId}
-          domainSlug={domainSlug}
-          className="w-full justify-center text-center"
-        />
-      }
     />
   );
 }

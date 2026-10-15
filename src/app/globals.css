@@ -12,6 +12,94 @@
   );
 }
 
+.intro-entry-gate {
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 38%, rgba(124, 58, 237, 0.28), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 20% 80%, rgba(34, 184, 207, 0.14), transparent 65%),
+    radial-gradient(ellipse 45% 35% at 85% 75%, rgba(251, 146, 60, 0.12), transparent 60%),
+    linear-gradient(180deg, #120f1f 0%, #0c0a14 55%, #08070d 100%);
+}
+
+.intro-entry-gate__glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 42%);
+}
+
+.intro-entry-gate__logo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: clamp(8.5rem, 28vw, 11.5rem);
+  height: clamp(8.5rem, 28vw, 11.5rem);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.97);
+  padding: clamp(0.85rem, 2.8vw, 1.2rem);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.5),
+    0 22px 60px rgba(0, 0, 0, 0.45),
+    0 0 56px rgba(167, 139, 250, 0.28);
+}
+
+.intro-entry-button {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: min(18rem, 86vw);
+  border: 0;
+  border-radius: 9999px;
+  padding: 1rem 1.85rem;
+  cursor: pointer;
+  color: #fff;
+  text-align: center;
+  background:
+    linear-gradient(120deg, #7c3aed 0%, #5b21b6 42%, #0e7490 100%);
+  background-size: 160% 160%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 16px 40px rgba(91, 33, 182, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition:
+    box-shadow 200ms ease,
+    background-position 400ms ease;
+}
+
+.intro-entry-button:hover,
+.intro-entry-button:focus-visible {
+  background-position: 100% 50%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 20px 48px rgba(91, 33, 182, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 36px rgba(34, 184, 207, 0.28);
+  outline: none;
+}
+
+.intro-entry-button:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.75);
+  outline-offset: 5px;
+}
+
+.intro-entry-button__label {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-entry-button {
+    transition: none;
+  }
+}
+
 .intro-launch-orbit {
   --orbit-size: min(86vw, 34rem);
   position: relative;
