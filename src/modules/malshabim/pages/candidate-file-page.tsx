@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   History,
@@ -12,6 +13,7 @@ import {
   Save,
   Send,
   ShieldCheck,
+  Trash2,
   User,
   XCircle,
 } from "lucide-react";
@@ -64,7 +66,9 @@ export function MalshabimCandidateFilePage({
   const [savingNotes, setSavingNotes] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [submittingApproval, setSubmittingApproval] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(initialCandidate));
+  const router = useRouter();
 
   useEffect(() => {
     if (initialCandidate) return;
@@ -108,6 +112,20 @@ export function MalshabimCandidateFilePage({
 
   const canEdit = canEditRole(role);
   const isAdmin = role === "admin";
+
+  const deleteFile = async () => {
+    if (!isAdmin || !c) return;
+    if (!window.confirm("למחוק את התיק לצמיתות? הפעולה אינה ניתנת לביטול.")) return;
+    setDeleting(true);
+    try {
+      await malshabimFetch(`/api/malshabim/candidates/${c.id}`, { method: "DELETE" });
+      toast.success("התיק נמחק");
+      router.push("/malshabim");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
+      setDeleting(false);
+    }
+  };
 
   const patchCandidate = async (
     fields: Record<string, unknown>,
@@ -243,31 +261,48 @@ export function MalshabimCandidateFilePage({
         <Link href="/malshabim" className={secondaryButtonClass}>
           חזרה לרשימה
         </Link>
-        {canEdit ? (
-          <div className="flex flex-wrap gap-2">
-            {!c.awaiting_admin_approval ? (
-              <button
-                type="button"
-                className={secondaryButtonClass}
-                disabled={submittingApproval}
-                onClick={() => void submitForApproval()}
+        <div className="flex flex-wrap gap-2">
+          {canEdit ? (
+            <>
+              {!c.awaiting_admin_approval ? (
+                <button
+                  type="button"
+                  className={secondaryButtonClass}
+                  disabled={submittingApproval}
+                  onClick={() => void submitForApproval()}
+                >
+                  {submittingApproval ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  פתח תיק לאישור מנהל
+                </button>
+              ) : null}
+              <Link
+                href={`/malshabim/interview?id=${c.id}`}
+                className={primaryButtonClass}
               >
-                {submittingApproval ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                פתח תיק לאישור מנהל
-              </button>
-            ) : null}
-            <Link
-              href={`/malshabim/interview?id=${c.id}`}
-              className={primaryButtonClass}
+                <Pencil className="h-4 w-4" /> עריכה
+              </Link>
+            </>
+          ) : null}
+          {isAdmin ? (
+            <button
+              type="button"
+              className={`${secondaryButtonClass} !text-rose-600`}
+              disabled={deleting}
+              onClick={() => void deleteFile()}
             >
-              <Pencil className="h-4 w-4" /> עריכה
-            </Link>
-          </div>
-        ) : null}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              מחיקת תיק
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <article className={`${panelClass} flex flex-col gap-4 p-5 sm:flex-row sm:items-center`}>

@@ -59,10 +59,23 @@ export function getLastStatusUpdateDate(
   },
 ): string | null {
   const statusLogs = (candidate.update_log || [])
-    .filter((log: MalshabimUpdateLogEntry) => (log.changes || "").includes("סטטוס"))
+    .filter((log: MalshabimUpdateLogEntry) => {
+      const changes = log.changes || "";
+      // Ignore instruction-status logs; match work-status updates only.
+      if (changes.includes("הנחיה")) return false;
+      return (
+        changes.includes("סטטוס עודכן") ||
+        changes.includes("candidate_status") ||
+        /^סטטוס\b/.test(changes.trim())
+      );
+    })
     .map((log) => log.date)
     .filter(Boolean) as string[];
-  if (statusLogs.length) return statusLogs[statusLogs.length - 1];
+  if (statusLogs.length) {
+    return statusLogs.reduce((latest, date) =>
+      new Date(date) > new Date(latest) ? date : latest,
+    );
+  }
   return candidate.updated_date ?? candidate.updated_at ?? null;
 }
 
@@ -70,6 +83,7 @@ export type MalshabimCandidateFilters = {
   search?: string;
   track?: string | string[];
   candidateStatus?: string | string[];
+  statusType?: string | string[];
   requestType?: string | string[];
   fromDate?: string;
   toDate?: string;
@@ -121,6 +135,7 @@ export function filterCandidates<T extends MalshabimCandidate>(
       (!query || text.includes(query)) &&
       matchesMulti(filters.track, candidate.recruitment_track) &&
       matchesMulti(filters.candidateStatus, status) &&
+      matchesMulti(filters.statusType, candidate.status_type) &&
       matchesMulti(filters.requestType, candidate.request_type) &&
       (!from || (updatedAt && updatedAt >= from)) &&
       (!to || (updatedAt && updatedAt <= to))

@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronUp,
-  Download,
   FileSpreadsheet,
   FileText,
+  KanbanSquare,
+  LayoutGrid,
+  List,
   Pencil,
   Plus,
   Search,
@@ -28,8 +31,13 @@ import {
   normalizeCandidateStatus,
   type MalshabimCandidateFilters,
 } from "@/modules/malshabim/lib/status";
-import { RECRUITMENT_TRACKS, REQUEST_TYPES } from "@/modules/malshabim/lib/question-bank";
+import {
+  RECRUITMENT_TRACKS,
+  REQUEST_TYPES,
+  STATUS_TYPES,
+} from "@/modules/malshabim/lib/question-bank";
 import { downloadCandidatesCsv } from "@/modules/malshabim/lib/csv";
+import { downloadCandidatesExcel } from "@/modules/malshabim/lib/excel-report";
 import {
   exportTemplate,
   parseTemplateFile,
@@ -88,11 +96,15 @@ export function MalshabimHomePage({
   const [draftsOpen, setDraftsOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [filters, setFilters] = useState<MalshabimCandidateFilters>({
     search: "",
     track: "all",
     candidateStatus: [],
-    requestType: [],
+    statusType: "all",
+    requestType: "all",
+    fromDate: "",
+    toDate: "",
   });
 
   const drafts = useMemo(
@@ -103,15 +115,9 @@ export function MalshabimHomePage({
     () => candidates.filter((c) => !c.is_draft),
     [candidates],
   );
-  /** Table follows chip filters only — search opens a popup instead. */
   const filtered = useMemo(
-    () =>
-      filterCandidates(active, {
-        track: filters.track,
-        candidateStatus: filters.candidateStatus,
-        requestType: filters.requestType,
-      }),
-    [active, filters.track, filters.candidateStatus, filters.requestType],
+    () => filterCandidates(active, filters),
+    [active, filters],
   );
   const searchQuery = (filters.search || "").trim();
   const searchHits = useMemo(
@@ -160,16 +166,18 @@ export function MalshabimHomePage({
   ) => setFilters((prev) => ({ ...prev, [key]: value }));
 
   const selectedStatuses = asSelectedList(filters.candidateStatus);
-  const selectedRequestTypes = asSelectedList(filters.requestType);
-  const filtersActive =
-    Boolean(searchQuery) ||
-    (filters.track && filters.track !== "all") ||
-    selectedStatuses.length > 0 ||
-    selectedRequestTypes.length > 0;
   const showSearchPanel = searchOpen && searchQuery.length >= 1;
 
   const clearFilters = () => {
-    setFilters({ search: "", track: "all", candidateStatus: [], requestType: [] });
+    setFilters({
+      search: "",
+      track: "all",
+      candidateStatus: [],
+      statusType: "all",
+      requestType: "all",
+      fromDate: "",
+      toDate: "",
+    });
     setSearchOpen(false);
   };
 
@@ -177,20 +185,30 @@ export function MalshabimHomePage({
     setFilter("candidateStatus", toggleFilterValue(filters.candidateStatus, status));
   };
 
-  const deleteDraft = async (id: string) => {
-    if (!canEdit) return;
-    if (!window.confirm("למחוק את הטיוטה?")) return;
+  const deleteCandidate = async (id: string, isDraft: boolean) => {
+    if (isDraft ? !canEdit : !isAdmin) return;
+    const message = isDraft
+      ? "למחוק את הטיוטה?"
+      : "למחוק את התיק לצמיתות? הפעולה אינה ניתנת לביטול.";
+    if (!window.confirm(message)) return;
     setDeletingId(id);
     try {
       await malshabimFetch(`/api/malshabim/candidates/${id}`, { method: "DELETE" });
       setCandidates((list) => list.filter((c) => c.id !== id));
-      toast.success("הטיוטה נמחקה");
+      toast.success(isDraft ? "הטיוטה נמחקה" : "התיק נמחק");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
     } finally {
       setDeletingId(null);
     }
   };
+
+  const viewToggleClass = (activeMode: boolean) =>
+    `inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${
+      activeMode
+        ? "bg-text-primary text-white"
+        : "bg-surface-2 text-text-secondary hover:bg-surface-2/80"
+    }`;
 
   const onImportFile = async (file: File | null) => {
     if (!file || !isAdmin) return;
@@ -227,12 +245,16 @@ export function MalshabimHomePage({
       <div className={`${panelClass} relative z-20 min-w-0 overflow-visible p-4 sm:p-5`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <h1 className={pageTitleClass}>מלש״בים</h1>
-            <p className={pageSubtitleClass}>
-              {filtered.length} מועמדים מוצגים · {stats.total} פעילים
-            </p>
+            <h1 className={pageTitleClass}>תיקי מועמדים</h1>
+            <p className={pageSubtitleClass}>סינון, ייצוא ומעבר בין תצוגות</p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            <Link href="/malshabim/board" className={secondaryButtonClass}>
+              <KanbanSquare className="h-4 w-4" /> טבלת עבודה
+            </Link>
+            <Link href="/malshabim/statistics" className={secondaryButtonClass}>
+              <BarChart3 className="h-4 w-4" /> סטטיסטיקות
+            </Link>
             {canEdit ? (
               <>
                 <Link href="/malshabim/interview" className={primaryButtonClass}>
@@ -243,13 +265,6 @@ export function MalshabimHomePage({
                 </Link>
               </>
             ) : null}
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              onClick={() => downloadCandidatesCsv(filtered)}
-            >
-              <Download className="h-4 w-4" /> ייצוא CSV
-            </button>
             {canEdit ? (
               <button
                 type="button"
@@ -282,6 +297,37 @@ export function MalshabimHomePage({
           </div>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            className={viewToggleClass(false)}
+            onClick={() => downloadCandidatesExcel(filtered)}
+          >
+            Excel
+          </button>
+          <button
+            type="button"
+            className={viewToggleClass(false)}
+            onClick={() => downloadCandidatesCsv(filtered)}
+          >
+            CSV
+          </button>
+          <button
+            type="button"
+            className={viewToggleClass(viewMode === "grid")}
+            onClick={() => setViewMode("grid")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> GRID
+          </button>
+          <button
+            type="button"
+            className={viewToggleClass(viewMode === "list")}
+            onClick={() => setViewMode("list")}
+          >
+            <List className="h-3.5 w-3.5" /> רשימה
+          </button>
+        </div>
+
         <div className="mt-4 min-w-0 space-y-3">
           <div className="relative z-30" ref={searchBoxRef}>
             <div className="relative flex items-center">
@@ -291,7 +337,7 @@ export function MalshabimHomePage({
               />
               <input
                 className={searchClass}
-                placeholder="חיפוש לפי שם, טלפון, ת.ז, עיר…"
+                placeholder="מס' תיק, שם, טלפון, ת.ז, סיכום…"
                 value={filters.search || ""}
                 onChange={(e) => {
                   setFilter("search", e.target.value);
@@ -362,61 +408,117 @@ export function MalshabimHomePage({
               </div>
             ) : null}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-            <select
-              className={`${selectClass} sm:max-w-[12rem]`}
-              value={typeof filters.track === "string" ? filters.track : "all"}
-              onChange={(e) => setFilter("track", e.target.value)}
-              aria-label="מסלול"
-            >
-              <option value="all">כל המסלולים</option>
-              {RECRUITMENT_TRACKS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <div className="flex flex-1 flex-wrap gap-1.5">
-              {CANDIDATE_STATUSES.map((status) => {
-                const activeChip = selectedStatuses.includes(status);
-                return (
-                  <button
-                    key={status}
-                    type="button"
-                    className={activeChip ? chipActiveClass : chipIdleClass}
-                    onClick={() => toggleStatusFilter(status)}
-                  >
-                    {status}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {REQUEST_TYPES.map((type) => {
-                const activeChip = selectedRequestTypes.includes(type);
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    className={activeChip ? chipActiveClass : chipIdleClass}
-                    onClick={() =>
-                      setFilter("requestType", toggleFilterValue(filters.requestType, type))
-                    }
-                  >
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
+              איתור / בקשה
+              <select
+                className={selectClass}
+                value={typeof filters.requestType === "string" ? filters.requestType : "all"}
+                onChange={(e) => setFilter("requestType", e.target.value)}
+              >
+                <option value="all">הכול</option>
+                {REQUEST_TYPES.map((type) => (
+                  <option key={type} value={type}>
                     {type}
-                  </button>
-                );
-              })}
-            </div>
-            {filtersActive ? (
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
+              מסלול גיוס
+              <select
+                className={selectClass}
+                value={typeof filters.track === "string" ? filters.track : "all"}
+                onChange={(e) => setFilter("track", e.target.value)}
+              >
+                <option value="all">כל המסלולים</option>
+                {RECRUITMENT_TRACKS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
+              סטטוס
+              <select
+                className={selectClass}
+                value={typeof filters.statusType === "string" ? filters.statusType : "all"}
+                onChange={(e) => setFilter("statusType", e.target.value)}
+              >
+                <option value="all">כל הסטטוסים</option>
+                {STATUS_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[12rem]">
+              סטטוס עבודה
+              <select
+                className={selectClass}
+                value={selectedStatuses[0] || "all"}
+                onChange={(e) =>
+                  setFilter(
+                    "candidateStatus",
+                    e.target.value === "all" ? [] : [e.target.value],
+                  )
+                }
+              >
+                <option value="all">כל הסטטוסים</option>
+                {CANDIDATE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-bold text-text-muted">
+              סטטוס עודכן מ-
+              <input
+                type="date"
+                className={selectClass}
+                value={filters.fromDate || ""}
+                onChange={(e) => setFilter("fromDate", e.target.value)}
+              />
+            </label>
+            <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-bold text-text-muted">
+              סטטוס עודכן עד
+              <input
+                type="date"
+                className={selectClass}
+                value={filters.toDate || ""}
+                onChange={(e) => setFilter("toDate", e.target.value)}
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-2 sm:ms-auto">
+              <span className="text-xs font-bold text-text-muted">
+                {filtered.length} מתוך {stats.total}
+              </span>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2 sm:ms-auto"
+                className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2"
                 onClick={clearFilters}
               >
-                <X className="h-3.5 w-3.5" /> נקה
+                <X className="h-3.5 w-3.5" /> ניקוי
               </button>
-            ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {CANDIDATE_STATUSES.map((status) => {
+              const activeChip = selectedStatuses.includes(status);
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  className={activeChip ? chipActiveClass : chipIdleClass}
+                  onClick={() => toggleStatusFilter(status)}
+                >
+                  {status}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -503,7 +605,7 @@ export function MalshabimHomePage({
                           type="button"
                           className={`${secondaryButtonClass} !text-rose-600`}
                           disabled={deletingId === c.id}
-                          onClick={() => void deleteDraft(c.id)}
+                          onClick={() => void deleteCandidate(c.id, true)}
                         >
                           <Trash2 className="h-4 w-4" />
                           {deletingId === c.id ? "מוחק…" : "מחיקה"}
@@ -527,6 +629,54 @@ export function MalshabimHomePage({
 
       {filtered.length === 0 ? (
         <div className={emptyStateClass}>אין מועמדים להצגה</div>
+      ) : viewMode === "grid" ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((c) => {
+            const status = normalizeCandidateStatus(c.candidate_status);
+            const fileHref = `/malshabim/candidates/${c.id}`;
+            return (
+              <div key={c.id} className={`${cardClass} flex flex-col gap-3 p-4`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-base font-bold text-text-primary">
+                      {c.full_name || "ללא שם"}
+                    </p>
+                    <p className="text-xs font-medium text-text-muted">
+                      #{c.serial_number ?? "—"}
+                      {c.recruitment_track ? ` · ${c.recruitment_track}` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
+                  >
+                    {status}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-text-secondary">{c.phone || "—"}</p>
+                <div className="mt-auto flex flex-wrap items-center gap-2">
+                  <Link
+                    href={fileHref}
+                    className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                  >
+                    פתח תיק
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </Link>
+                  {isAdmin ? (
+                    <button
+                      type="button"
+                      className={`${secondaryButtonClass} !text-rose-600`}
+                      disabled={deletingId === c.id}
+                      onClick={() => void deleteCandidate(c.id, false)}
+                      aria-label={`מחק תיק של ${c.full_name || "מועמד"}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className={`${panelClass} overflow-hidden`}>
           <div className="overflow-x-auto">
@@ -571,14 +721,27 @@ export function MalshabimHomePage({
                         {c.recruitment_track || "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={fileHref}
-                          className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
-                          aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
-                        >
-                          פתח תיק
-                          <ChevronLeft className="h-3.5 w-3.5" />
-                        </Link>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Link
+                            href={fileHref}
+                            className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                            aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
+                          >
+                            פתח תיק
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </Link>
+                          {isAdmin ? (
+                            <button
+                              type="button"
+                              className={`${secondaryButtonClass} !px-2 !text-rose-600`}
+                              disabled={deletingId === c.id}
+                              onClick={() => void deleteCandidate(c.id, false)}
+                              aria-label={`מחק תיק של ${c.full_name || "מועמד"}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
