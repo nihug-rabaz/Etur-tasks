@@ -19,6 +19,12 @@ export const malshabimModule: AppModuleDefinition = {
       roles: ["admin", "user"],
     },
     {
+      label: "חייבים ראיון",
+      href: "/malshabim/waitlist",
+      description: "פניות חדשות שממתינות לראיון",
+      roles: ["admin", "user", "viewer"],
+    },
+    {
       label: "לוח עבודה",
       href: "/malshabim/board",
       description: "לוח עבודה לפי סטטוס",
@@ -46,6 +52,7 @@ export const malshabimModule: AppModuleDefinition = {
   breadcrumbLabels: {
     malshabim: "מלש״בים",
     interview: "ראיון",
+    waitlist: "חייבים ראיון",
     board: "לוח עבודה",
     statistics: "סטטיסטיקה",
     candidates: "מועמדים",

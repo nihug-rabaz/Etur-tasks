@@ -3,7 +3,7 @@ import { MalshabimInterviewPage } from "@/modules/malshabim/pages/interview-page
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 
 interface PageProps {
-  searchParams: Promise<{ id?: string }>;
+  searchParams: Promise<{ id?: string; waitlistId?: string }>;
 }
 
 export default async function Page({ searchParams }: PageProps) {
@@ -18,6 +18,7 @@ export default async function Page({ searchParams }: PageProps) {
   return (
     <MalshabimInterviewPage
       editId={params.id ?? null}
+      waitlistId={params.waitlistId ?? null}
       canEdit={accessService.canEdit(access.role)}
     />
   );

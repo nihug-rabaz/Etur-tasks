@@ -7,7 +7,7 @@ on:
         description: "Comma-separated migration apply scripts under scripts/"
         required: false
         type: string
-        default: "apply-malshabim-status-v2-migration.mjs,apply-nagadim-enrichment-migration.mjs,apply-notification-media-migration.mjs,apply-agam-cycle-invite-slug-migration.mjs"
+        default: "apply-malshabim-status-v2-migration.mjs,apply-nagadim-enrichment-migration.mjs,apply-notification-media-migration.mjs,apply-agam-cycle-invite-slug-migration.mjs,apply-malshabim-interview-waitlist-migration.mjs"
 
 permissions:
   contents: read

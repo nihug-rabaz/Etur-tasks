@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   BookOpen,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -174,9 +175,11 @@ function canEditRole(role: ModuleRole | null): boolean {
 
 export function MalshabimInterviewPage({
   editId = null,
+  waitlistId = null,
   canEdit: initialCanEdit = false,
 }: {
   editId?: string | null;
+  waitlistId?: string | null;
   canEdit?: boolean;
 }) {
   const router = useRouter();
@@ -190,6 +193,13 @@ export function MalshabimInterviewPage({
   const [showObservanceWarning, setShowObservanceWarning] = useState(false);
   const [observanceFailed, setObservanceFailed] = useState(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [activeWaitlistId, setActiveWaitlistId] = useState<string | null>(waitlistId);
+  const [pendingDonePrompt, setPendingDonePrompt] = useState<{
+    waitlistId: string;
+    name: string;
+    candidateId: string;
+  } | null>(null);
+  const [markingDone, setMarkingDone] = useState(false);
   const [interviewers, setInterviewers] = useState<InterviewerOption[]>([]);
   const [duplicateAlert, setDuplicateAlert] = useState<{
     field: string;
@@ -222,6 +232,10 @@ export function MalshabimInterviewPage({
           setCanEdit(canEditRole(res.role));
           setUserName(res.currentUserName || "");
           const form = candidateToForm(res.candidate);
+          // Keep waitlist link only while still a draft opened from the waitlist.
+          setActiveWaitlistId(
+            res.candidate.is_draft && waitlistId ? waitlistId : null,
+          );
           if (canEditRole(res.role)) {
             const openLog = {
               date: new Date().toISOString(),
@@ -241,7 +255,9 @@ export function MalshabimInterviewPage({
           }
         } else {
           const [list, interviewersRes] = await Promise.all([
-            malshabimFetch<{ role: ModuleRole }>("/api/malshabim/candidates"),
+            malshabimFetch<{ role: ModuleRole; currentUserName?: string }>(
+              "/api/malshabim/candidates",
+            ),
             interviewersPromise,
           ]);
           setInterviewers(
@@ -251,7 +267,22 @@ export function MalshabimInterviewPage({
             })),
           );
           setCanEdit(canEditRole(list.role));
-          setData(emptyDraft());
+          setUserName(list.currentUserName || "");
+          const draft = emptyDraft();
+          if (waitlistId) {
+            try {
+              const waitlistRes = await malshabimFetch<{
+                entry: { id: string; full_name: string; phone: string };
+              }>(`/api/malshabim/waitlist/${waitlistId}`);
+              draft.full_name = waitlistRes.entry.full_name;
+              draft.phone = waitlistRes.entry.phone;
+              setActiveWaitlistId(waitlistRes.entry.id);
+            } catch {
+              toast.error("לא נמצאה הפנייה ברשימת ההמתנה");
+              setActiveWaitlistId(null);
+            }
+          }
+          setData(draft);
         }
       } catch {
         toast.error("טעינת הראיון נכשלה");
@@ -259,7 +290,7 @@ export function MalshabimInterviewPage({
         setLoaded(true);
       }
     })();
-  }, [editId]);
+  }, [editId, waitlistId]);
 
   if (!loaded || !data) {
     return (
@@ -378,10 +409,17 @@ export function MalshabimInterviewPage({
           "/api/malshabim/candidates",
           { method: "POST", body: JSON.stringify(payload) },
         );
-        router.replace(`/malshabim/interview?id=${created.candidate.id}`);
+        setData((prev) => (prev ? { ...prev, id: created.candidate.id } : prev));
+        const waitlistQuery = activeWaitlistId
+          ? `&waitlistId=${encodeURIComponent(activeWaitlistId)}`
+          : "";
+        router.replace(
+          `/malshabim/interview?id=${created.candidate.id}${waitlistQuery}`,
+        );
       }
       toast.success("הטיוטה נשמרה");
-      if (editId) router.push("/malshabim");
+      // Stay on the interview when linked to a waitlist so mark-done still works.
+      if (editId && !activeWaitlistId) router.push("/malshabim");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שמירת טיוטה נכשלה");
     } finally {
@@ -495,6 +533,8 @@ export function MalshabimInterviewPage({
         payload.quiz_passed = payload.quiz_skipped ? correct >= 4 : correct >= 11;
       }
 
+      let savedCandidateId = editId;
+
       if (editId) {
         const changes = computeChanges(
           original as unknown as Parameters<typeof computeChanges>[0],
@@ -522,7 +562,6 @@ export function MalshabimInterviewPage({
           body: JSON.stringify(payload),
         });
         toast.success("התיק נשמר בהצלחה");
-        router.push(`/malshabim/candidates/${editId}`);
       } else {
         payload.update_log = [
           {
@@ -535,13 +574,48 @@ export function MalshabimInterviewPage({
           "/api/malshabim/candidates",
           { method: "POST", body: JSON.stringify(payload) },
         );
+        savedCandidateId = created.candidate.id;
         toast.success("התיק נפתח לאישור מנהל");
-        router.push(`/malshabim/candidates/${created.candidate.id}`);
+      }
+
+      if (activeWaitlistId && savedCandidateId) {
+        setPendingDonePrompt({
+          waitlistId: activeWaitlistId,
+          name: data.full_name || "החייל",
+          candidateId: savedCandidateId,
+        });
+      } else if (savedCandidateId) {
+        router.push(`/malshabim/candidates/${savedCandidateId}`);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "שמירה נכשלה");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const finishAfterWaitlistPrompt = (candidateId: string) => {
+    setPendingDonePrompt(null);
+    setActiveWaitlistId(null);
+    router.push(`/malshabim/candidates/${candidateId}`);
+  };
+
+  const confirmWaitlistDone = async (markDone: boolean) => {
+    if (!pendingDonePrompt) return;
+    const { waitlistId: id, candidateId } = pendingDonePrompt;
+    if (!markDone) {
+      finishAfterWaitlistPrompt(candidateId);
+      return;
+    }
+    setMarkingDone(true);
+    try {
+      await malshabimFetch(`/api/malshabim/waitlist/${id}`, { method: "DELETE" });
+      toast.success("סומן כבוצע והוסר מרשימת חייבים לראיון");
+      setMarkingDone(false);
+      finishAfterWaitlistPrompt(candidateId);
+    } catch {
+      setMarkingDone(false);
+      toast.error("התיק נשמר, אך הסרה מהרשימה נכשלה — נסו שוב או הסירו ידנית מהרשימה");
     }
   };
 
@@ -791,6 +865,46 @@ export function MalshabimInterviewPage({
                 }}
               >
                 המשך בכל זאת לסיכום
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {pendingDonePrompt ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4">
+          <div className={`${panelClass} max-w-md p-6`} dir="rtl">
+            <div className="mb-3 flex justify-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+                <CheckCircle2 className="h-7 w-7" />
+              </div>
+            </div>
+            <h2 className="text-center text-lg font-bold text-text-primary">
+              הראיון נשמר בהצלחה
+            </h2>
+            <p className="mt-3 text-center text-sm text-text-secondary">
+              <strong className="text-text-primary">{pendingDonePrompt.name}</strong> מופיע גם
+              ברשימת &quot;חייבים ראיון&quot;. לסמן כבוצע ולהוריד מהרשימה?
+            </p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                disabled={markingDone}
+                onClick={() => void confirmWaitlistDone(true)}
+              >
+                {markingDone ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                כן, לסמן כבוצע
+              </button>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                disabled={markingDone}
+                onClick={() => void confirmWaitlistDone(false)}
+              >
+                לא, להשאיר ברשימה
               </button>
             </div>
           </div>

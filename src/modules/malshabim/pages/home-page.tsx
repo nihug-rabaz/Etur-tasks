@@ -234,9 +234,14 @@ export function MalshabimHomePage({
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             {canEdit ? (
-              <Link href="/malshabim/interview" className={primaryButtonClass}>
-                <Plus className="h-4 w-4" /> ראיון חדש
-              </Link>
+              <>
+                <Link href="/malshabim/interview" className={primaryButtonClass}>
+                  <Plus className="h-4 w-4" /> ראיון חדש
+                </Link>
+                <Link href="/malshabim/waitlist?new=1" className={secondaryButtonClass}>
+                  <Plus className="h-4 w-4" /> פנייה חדשה
+                </Link>
+              </>
             ) : null}
             <button
               type="button"

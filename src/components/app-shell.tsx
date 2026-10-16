@@ -63,6 +63,7 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
     "/agam/admin/users",
     "/malshabim",
     "/malshabim/interview",
+    "/malshabim/waitlist",
     "/malshabim/board",
     "/malshabim/statistics",
     "/malshabim/admin/users",
