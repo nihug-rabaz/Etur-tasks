@@ -18,6 +18,7 @@ import {
   Search,
   Trash2,
   Upload,
+  UserRoundSearch,
   Users,
   X,
   XCircle,
@@ -97,6 +98,7 @@ export function MalshabimHomePage({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
   const [filters, setFilters] = useState<MalshabimCandidateFilters>({
     search: "",
     track: "all",
@@ -106,6 +108,21 @@ export function MalshabimHomePage({
     fromDate: "",
     toDate: "",
   });
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await malshabimFetch<{ count?: number; entries?: unknown[] }>(
+          "/api/malshabim/waitlist",
+        );
+        setWaitlistCount(
+          typeof res.count === "number" ? res.count : (res.entries?.length ?? 0),
+        );
+      } catch {
+        setWaitlistCount(null);
+      }
+    })();
+  }, []);
 
   const drafts = useMemo(
     () => candidates.filter((c) => c.is_draft),
@@ -249,6 +266,18 @@ export function MalshabimHomePage({
             <p className={pageSubtitleClass}>סינון, ייצוא ומעבר בין תצוגות</p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            <Link
+              href="/malshabim/waitlist"
+              className={`${primaryButtonClass} !bg-violet-600 hover:!bg-violet-700`}
+            >
+              <UserRoundSearch className="h-4 w-4" />
+              חייבים ראיון
+              {waitlistCount != null && waitlistCount > 0 ? (
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black">
+                  {waitlistCount}
+                </span>
+              ) : null}
+            </Link>
             <Link href="/malshabim/board" className={secondaryButtonClass}>
               <KanbanSquare className="h-4 w-4" /> טבלת עבודה
             </Link>
