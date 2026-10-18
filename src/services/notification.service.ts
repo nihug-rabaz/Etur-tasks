@@ -257,14 +257,60 @@ export class NotificationService extends BaseService {
     );
   }
 
+  /** Daily 10:00 Israel digest of מחכים לראיון for malshabim module users. */
+  public async notifyMalshabimWaitlistMorningDigest(input: {
+    dayKey: string;
+    entries: Array<{ full_name: string; phone: string }>;
+  }): Promise<number> {
+    if (!this.push.isReady()) return 0;
+    if (input.entries.length === 0) return 0;
+
+    const recipientIds = await this.getMalshabimRecipientIds();
+    if (recipientIds.length === 0) return 0;
+
+    const maxNames = 12;
+    const nameLines = input.entries.slice(0, maxNames).map((entry, index) => {
+      const phone = entry.phone?.trim() ? ` · ${entry.phone.trim()}` : "";
+      return `${index + 1}. ${entry.full_name || "ללא שם"}${phone}`;
+    });
+    const remaining = input.entries.length - nameLines.length;
+    const moreLine =
+      remaining > 0 ? `\n…ועוד ${remaining} ממתינים` : "";
+    const url = this.malshabimWaitlistUrl();
+    const text =
+      "היי — רשימת מחכים לראיון להיום\n" +
+      `סה״כ ממתינים: ${input.entries.length}\n` +
+      nameLines.join("\n") +
+      moreLine +
+      (url ? `\nלפתיחת הרשימה: ${url}` : "");
+
+    return this.sendToUsers(
+      recipientIds,
+      text,
+      url || undefined,
+      (userId) => `malshabim-waitlist-morning:${input.dayKey}:${userId}`,
+    );
+  }
+
   private async getMalshabimAdminIds(): Promise<string[]> {
     const users = await new ModuleRoleService().listModuleUsers("malshabim");
     return users.filter((user) => user.role === "admin").map((user) => user.user_id);
   }
 
+  private async getMalshabimRecipientIds(): Promise<string[]> {
+    const users = await new ModuleRoleService().listModuleUsers("malshabim");
+    return [...new Set(users.map((user) => user.user_id).filter(Boolean))];
+  }
+
   private malshabimCandidateUrl(candidateId: string): string {
     const origin = AppUrls.getOrigin();
     const path = `/malshabim/candidates/${candidateId}`;
+    return origin ? `${origin}${path}` : path;
+  }
+
+  private malshabimWaitlistUrl(): string {
+    const origin = AppUrls.getOrigin();
+    const path = "/malshabim/waitlist";
     return origin ? `${origin}${path}` : path;
   }
 

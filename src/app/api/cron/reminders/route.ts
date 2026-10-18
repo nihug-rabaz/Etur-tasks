@@ -3,11 +3,14 @@ import { AppSettingsService, isMorningSummaryDue } from "@/services/app-settings
 import { DailyPlanService } from "@/services/daily-plan.service";
 import { NotificationService } from "@/services/notification.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
+import { MalshabimWaitlistService } from "@/modules/malshabim/services/waitlist.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { Env } from "@/lib/env";
 
 const ISRAEL_TZ = "Asia/Jerusalem";
 const TOMORROW_REMINDER_HOURS = { from: 8, to: 20 };
+/** Israel wall-clock window for waitlist morning digest (cron runs every 10m). */
+const WAITLIST_MORNING_HOUR = 10;
 
 function jerusalemNowParts(date: Date) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -57,6 +60,7 @@ export async function GET(request: Request) {
     dueTomorrowSent: number;
     dailySummarySent: number;
     malshabimInterviewRemindersSent: number;
+    malshabimWaitlistMorningSent: number;
     skipped: string[];
   } = {
     ok: true,
@@ -67,6 +71,7 @@ export async function GET(request: Request) {
     dueTomorrowSent: 0,
     dailySummarySent: 0,
     malshabimInterviewRemindersSent: 0,
+    malshabimWaitlistMorningSent: 0,
     skipped: [],
   };
 
@@ -237,6 +242,25 @@ export async function GET(request: Request) {
         interview_reminder_sent_at: new Date().toISOString(),
       });
     }
+  }
+
+  // 10:00 Israel — push מחכים לראיון list to malshabim users (once per day via delivery keys).
+  if (hour === WAITLIST_MORNING_HOUR && minute < 10) {
+    const waitlistEntries = await new MalshabimWaitlistService().list(100);
+    if (waitlistEntries.length === 0) {
+      result.skipped.push("malshabimWaitlistMorningEmpty");
+    } else {
+      result.malshabimWaitlistMorningSent =
+        await notificationService.notifyMalshabimWaitlistMorningDigest({
+          dayKey,
+          entries: waitlistEntries.map((entry) => ({
+            full_name: entry.full_name,
+            phone: entry.phone,
+          })),
+        });
+    }
+  } else {
+    result.skipped.push("malshabimWaitlistMorning");
   }
 
   return NextResponse.json(result);
