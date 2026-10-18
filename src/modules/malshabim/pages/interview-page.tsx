@@ -610,7 +610,7 @@ export function MalshabimInterviewPage({
     setMarkingDone(true);
     try {
       await malshabimFetch(`/api/malshabim/waitlist/${id}`, { method: "DELETE" });
-      toast.success("סומן כבוצע והוסר מרשימת חייבים לראיון");
+      toast.success("סומן כבוצע והוסר מרשימת מחכים לראיון");
       setMarkingDone(false);
       finishAfterWaitlistPrompt(candidateId);
     } catch {
@@ -884,7 +884,7 @@ export function MalshabimInterviewPage({
             </h2>
             <p className="mt-3 text-center text-sm text-text-secondary">
               <strong className="text-text-primary">{pendingDonePrompt.name}</strong> מופיע גם
-              ברשימת &quot;חייבים ראיון&quot;. לסמן כבוצע ולהוריד מהרשימה?
+              ברשימת &quot;מחכים לראיון&quot;. לסמן כבוצע ולהוריד מהרשימה?
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button

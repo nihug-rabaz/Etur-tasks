@@ -266,12 +266,25 @@ export function MalshabimHomePage({
             <p className={pageSubtitleClass}>סינון, ייצוא ומעבר בין תצוגות</p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            {canEdit ? (
+              <Link href="/malshabim/interview" className={primaryButtonClass}>
+                <Plus className="h-4 w-4" /> ראיון חדש
+              </Link>
+            ) : null}
+            {canEdit ? (
+              <Link
+                href="/malshabim/waitlist?new=1"
+                className={`${primaryButtonClass} !bg-violet-600 hover:!bg-violet-700`}
+              >
+                <Plus className="h-4 w-4" /> פנייה חדשה
+              </Link>
+            ) : null}
             <Link
               href="/malshabim/waitlist"
-              className={`${primaryButtonClass} !bg-violet-600 hover:!bg-violet-700`}
+              className={`${primaryButtonClass} !bg-amber-500 hover:!bg-amber-600`}
             >
               <UserRoundSearch className="h-4 w-4" />
-              חייבים ראיון
+              מחכים לראיון
               {waitlistCount != null && waitlistCount > 0 ? (
                 <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black">
                   {waitlistCount}
@@ -284,16 +297,6 @@ export function MalshabimHomePage({
             <Link href="/malshabim/statistics" className={secondaryButtonClass}>
               <BarChart3 className="h-4 w-4" /> סטטיסטיקות
             </Link>
-            {canEdit ? (
-              <>
-                <Link href="/malshabim/interview" className={primaryButtonClass}>
-                  <Plus className="h-4 w-4" /> ראיון חדש
-                </Link>
-                <Link href="/malshabim/waitlist?new=1" className={secondaryButtonClass}>
-                  <Plus className="h-4 w-4" /> פנייה חדשה
-                </Link>
-              </>
-            ) : null}
             {canEdit ? (
               <button
                 type="button"

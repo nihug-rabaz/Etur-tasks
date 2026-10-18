@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Phone, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Loader2, Phone, Plus, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
@@ -93,7 +93,7 @@ export function MalshabimWaitlistPage({
 
   const removeEntry = async (id: string) => {
     if (!canEdit) return;
-    if (!window.confirm("להסיר את הפנייה מרשימת חייבים לראיון?")) return;
+    if (!window.confirm("להסיר את הפנייה מרשימת מחכים לראיון?")) return;
     setDeletingId(id);
     try {
       await malshabimFetch(`/api/malshabim/waitlist/${id}`, { method: "DELETE" });
@@ -118,16 +118,26 @@ export function MalshabimWaitlistPage({
     <div className={pageShellClass} dir="rtl">
       <div className={`${panelClass} p-4 sm:p-5`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className={pageTitleClass}>חייבים ראיון</h1>
-            <p className={pageSubtitleClass}>
-              פניות חדשות שממתינות לתחילת ראיון · {entries.length} ברשימה
-            </p>
+          <div className="flex min-w-0 flex-wrap items-start gap-3">
+            <Link
+              href="/malshabim"
+              className={secondaryButtonClass}
+              aria-label="חזרה לתיקי מועמדים"
+            >
+              <ArrowRight className="h-4 w-4" />
+              חזרה
+            </Link>
+            <div>
+              <h1 className={pageTitleClass}>מחכים לראיון</h1>
+              <p className={pageSubtitleClass}>
+                פניות חדשות שממתינות לתחילת ראיון · {entries.length} ברשימה
+              </p>
+            </div>
           </div>
           {canEdit ? (
             <button
               type="button"
-              className={primaryButtonClass}
+              className={`${primaryButtonClass} !bg-violet-600 hover:!bg-violet-700`}
               onClick={() => setShowForm((open) => !open)}
             >
               <Plus className="h-4 w-4" />
@@ -206,7 +216,7 @@ export function MalshabimWaitlistPage({
                       href={`/malshabim/interview?waitlistId=${entry.id}`}
                       className={primaryButtonClass}
                     >
-                      התחלת ראיון / למילוי
+                      התחלת ראיון
                     </Link>
                     <button
                       type="button"
