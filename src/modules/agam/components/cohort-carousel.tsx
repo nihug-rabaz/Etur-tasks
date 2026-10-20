@@ -145,7 +145,7 @@ export function CohortCarousel({
             );
 
             const className =
-              "ui-card block shrink-0 rounded-xl bg-surface-1 transition hover:bg-surface-2/70";
+              "ui-card block shrink-0 rounded-xl bg-accent-primary/[0.1] transition hover:bg-accent-primary/[0.16] dark:bg-accent-primary/18 dark:hover:bg-accent-primary/26";
             const style = { width: CARD_WIDTH };
 
             const guardClick = (event: MouseEvent) => {
