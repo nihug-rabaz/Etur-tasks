@@ -3,16 +3,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronUp,
+  ClipboardCheck,
   FileSpreadsheet,
   FileText,
   KanbanSquare,
   LayoutGrid,
   List,
+  Loader2,
   Pencil,
   Plus,
   Search,
@@ -99,6 +100,12 @@ export function MalshabimHomePage({
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(
+    null,
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<MalshabimCandidateStatus>("בטיפול");
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [filters, setFilters] = useState<MalshabimCandidateFilters>({
     search: "",
     track: "all",
@@ -123,6 +130,22 @@ export function MalshabimHomePage({
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    void (async () => {
+      try {
+        const res = await malshabimFetch<{ candidates?: unknown[] }>(
+          "/api/malshabim/approvals",
+        );
+        setPendingApprovalCount(
+          Array.isArray(res.candidates) ? res.candidates.length : 0,
+        );
+      } catch {
+        setPendingApprovalCount(null);
+      }
+    })();
+  }, [isAdmin]);
 
   const drafts = useMemo(
     () => candidates.filter((c) => c.is_draft),
@@ -202,21 +225,62 @@ export function MalshabimHomePage({
     setFilter("candidateStatus", toggleFilterValue(filters.candidateStatus, status));
   };
 
-  const deleteCandidate = async (id: string, isDraft: boolean) => {
-    if (isDraft ? !canEdit : !isAdmin) return;
-    const message = isDraft
-      ? "למחוק את הטיוטה?"
-      : "למחוק את התיק לצמיתות? הפעולה אינה ניתנת לביטול.";
-    if (!window.confirm(message)) return;
+  const deleteDraft = async (id: string) => {
+    if (!canEdit) return;
+    if (!window.confirm("למחוק את הראיון שלא הושלם?")) return;
     setDeletingId(id);
     try {
       await malshabimFetch(`/api/malshabim/candidates/${id}`, { method: "DELETE" });
       setCandidates((list) => list.filter((c) => c.id !== id));
-      toast.success(isDraft ? "הטיוטה נמחקה" : "התיק נמחק");
+      toast.success("נמחק");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const ids = filtered.map((c) => c.id);
+    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : ids);
+  };
+
+  const applyBulkStatus = async () => {
+    if (!canEdit || selectedIds.length === 0) return;
+    setBulkSaving(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) =>
+          malshabimFetch(`/api/malshabim/candidates/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              candidate_status: bulkStatus,
+              update_log_entry: {
+                changes: `סטטוס עודכן ל: ${bulkStatus} (עדכון מרובה)`,
+                updated_by: "מערכת",
+              },
+            }),
+          }),
+        ),
+      );
+      setCandidates((list) =>
+        list.map((c) =>
+          selectedIds.includes(c.id) ? { ...c, candidate_status: bulkStatus } : c,
+        ),
+      );
+      setSelectedIds([]);
+      toast.success(`עודכן סטטוס ל־${selectedIds.length} תיקים`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "עדכון מרובה נכשל");
+    } finally {
+      setBulkSaving(false);
     }
   };
 
@@ -294,9 +358,20 @@ export function MalshabimHomePage({
             <Link href="/malshabim/board" className={secondaryButtonClass}>
               <KanbanSquare className="h-4 w-4" /> טבלת עבודה
             </Link>
-            <Link href="/malshabim/statistics" className={secondaryButtonClass}>
-              <BarChart3 className="h-4 w-4" /> סטטיסטיקות
-            </Link>
+            {isAdmin ? (
+              <Link
+                href="/malshabim/admin/approvals"
+                className={`${primaryButtonClass} !bg-emerald-600 hover:!bg-emerald-700`}
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                ממתינים לאישור
+                {pendingApprovalCount != null && pendingApprovalCount > 0 ? (
+                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black">
+                    {pendingApprovalCount}
+                  </span>
+                ) : null}
+              </Link>
+            ) : null}
             {canEdit ? (
               <button
                 type="button"
@@ -575,7 +650,7 @@ export function MalshabimHomePage({
         ))}
         <StatCard
           icon={FileText}
-          label="טיוטות"
+          label="ראיונות שלא הושלמו"
           value={stats.drafts}
           onClick={() => setDraftsOpen(true)}
         />
@@ -600,9 +675,11 @@ export function MalshabimHomePage({
             aria-expanded={draftsOpen}
           >
             <div>
-              <h2 className="text-base font-bold text-text-primary">טיוטות</h2>
+              <h2 className="text-base font-bold text-text-primary">
+                ראיונות שלא הושלמו
+              </h2>
               <p className="text-xs font-medium text-text-muted">
-                {drafts.length} טיוטות שמורות
+                {drafts.length} ראיונות שמורים
               </p>
             </div>
             {draftsOpen ? (
@@ -637,7 +714,7 @@ export function MalshabimHomePage({
                           type="button"
                           className={`${secondaryButtonClass} !text-rose-600`}
                           disabled={deletingId === c.id}
-                          onClick={() => void deleteCandidate(c.id, true)}
+                          onClick={() => void deleteDraft(c.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                           {deletingId === c.id ? "מוחק…" : "מחיקה"}
@@ -659,6 +736,45 @@ export function MalshabimHomePage({
         </div>
       ) : null}
 
+      {canEdit && filtered.length > 0 ? (
+        <div className={`${panelClass} flex flex-wrap items-center gap-2 p-3`}>
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-text-secondary">
+            <input
+              type="checkbox"
+              checked={
+                filtered.length > 0 &&
+                filtered.every((c) => selectedIds.includes(c.id))
+              }
+              onChange={toggleSelectAllFiltered}
+            />
+            בחר הכל ({selectedIds.length})
+          </label>
+          <select
+            className={`${selectClass} !w-auto`}
+            value={bulkStatus}
+            onChange={(e) =>
+              setBulkStatus(e.target.value as MalshabimCandidateStatus)
+            }
+            disabled={selectedIds.length === 0 || bulkSaving}
+          >
+            {CANDIDATE_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={primaryButtonClass}
+            disabled={selectedIds.length === 0 || bulkSaving}
+            onClick={() => void applyBulkStatus()}
+          >
+            {bulkSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            שנה סטטוס לנבחרים
+          </button>
+        </div>
+      ) : null}
+
       {filtered.length === 0 ? (
         <div className={emptyStateClass}>אין מועמדים להצגה</div>
       ) : viewMode === "grid" ? (
@@ -669,14 +785,25 @@ export function MalshabimHomePage({
             return (
               <div key={c.id} className={`${cardClass} flex flex-col gap-3 p-4`}>
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-base font-bold text-text-primary">
-                      {c.full_name || "ללא שם"}
-                    </p>
-                    <p className="text-xs font-medium text-text-muted">
-                      #{c.serial_number ?? "—"}
-                      {c.recruitment_track ? ` · ${c.recruitment_track}` : ""}
-                    </p>
+                  <div className="flex min-w-0 items-start gap-2">
+                    {canEdit ? (
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={selectedIds.includes(c.id)}
+                        onChange={() => toggleSelected(c.id)}
+                        aria-label={`בחר את ${c.full_name || "מועמד"}`}
+                      />
+                    ) : null}
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-bold text-text-primary">
+                        {c.full_name || "ללא שם"}
+                      </p>
+                      <p className="text-xs font-medium text-text-muted">
+                        #{c.serial_number ?? "—"}
+                        {c.recruitment_track ? ` · ${c.recruitment_track}` : ""}
+                      </p>
+                    </div>
                   </div>
                   <span
                     className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
@@ -693,17 +820,6 @@ export function MalshabimHomePage({
                     פתח תיק
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </Link>
-                  {isAdmin ? (
-                    <button
-                      type="button"
-                      className={`${secondaryButtonClass} !text-rose-600`}
-                      disabled={deletingId === c.id}
-                      onClick={() => void deleteCandidate(c.id, false)}
-                      aria-label={`מחק תיק של ${c.full_name || "מועמד"}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  ) : null}
                 </div>
               </div>
             );
@@ -715,6 +831,7 @@ export function MalshabimHomePage({
             <table className="w-full min-w-[700px] text-right text-sm">
               <thead className={tableHeadClass}>
                 <tr>
+                  {canEdit ? <th className="px-3 py-3"> </th> : null}
                   <th className="px-4 py-3">מס׳</th>
                   <th className="px-4 py-3">שם</th>
                   <th className="px-4 py-3">טלפון</th>
@@ -730,6 +847,16 @@ export function MalshabimHomePage({
                   const fileHref = `/malshabim/candidates/${c.id}`;
                   return (
                     <tr key={c.id} className={`${tableRowClass} group`}>
+                      {canEdit ? (
+                        <td className="px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(c.id)}
+                            onChange={() => toggleSelected(c.id)}
+                            aria-label={`בחר את ${c.full_name || "מועמד"}`}
+                          />
+                        </td>
+                      ) : null}
                       <td className="px-4 py-3 font-semibold text-text-muted">
                         <Link href={fileHref} className="hover:text-accent-primary">
                           {c.serial_number ?? "—"}
@@ -753,27 +880,14 @@ export function MalshabimHomePage({
                         {c.recruitment_track || "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <Link
-                            href={fileHref}
-                            className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
-                            aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
-                          >
-                            פתח תיק
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </Link>
-                          {isAdmin ? (
-                            <button
-                              type="button"
-                              className={`${secondaryButtonClass} !px-2 !text-rose-600`}
-                              disabled={deletingId === c.id}
-                              onClick={() => void deleteCandidate(c.id, false)}
-                              aria-label={`מחק תיק של ${c.full_name || "מועמד"}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          ) : null}
-                        </div>
+                        <Link
+                          href={fileHref}
+                          className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                          aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
+                        >
+                          פתח תיק
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Link>
                       </td>
                     </tr>
                   );

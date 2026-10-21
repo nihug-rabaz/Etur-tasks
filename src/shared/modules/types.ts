@@ -56,7 +56,10 @@ export function getModuleNavItems(
   access: ModuleAccessContext,
   options?: { isImpersonating?: boolean },
 ): ModuleNavItem[] {
-  const role = access.moduleRoles[moduleDef.id] ?? (access.isPlatformAdmin ? "admin" : undefined);
+  // Platform admins always get module admin nav (even if they also have a lower module role row).
+  const role = access.isPlatformAdmin
+    ? "admin"
+    : access.moduleRoles[moduleDef.id];
   if (!role) return [];
 
   const showAdmin = role === "admin" && !options?.isImpersonating;

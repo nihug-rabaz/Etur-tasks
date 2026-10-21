@@ -44,7 +44,7 @@ import type { ModuleRole } from "@/shared/modules/types";
 const STEPS = ["פרטים אישיים", "שמירת מצוות", "מבחן ידע", "סיכום והנחיות"];
 
 const OBSERVANCE_FAIL_MESSAGE =
-  'החייל אינו עומד בתנאי הסוף של שמירת המצוות. לתקן תשובות, או להמשיך לסיכום לסגירת התיק (דילוג על מבחן ידע)?';
+  'אחת התשובות היא "לא" — החייל לא עומד בתנאי הסף של שמירת המצוות. לתקן תשובות, או להמשיך לסיכום לסגירת התיק (דילוג על מבחן ידע)?';
 
 function emptyDraft(): InterviewFormData {
   return {
@@ -204,6 +204,9 @@ export function MalshabimInterviewPage({
   const [duplicateAlert, setDuplicateAlert] = useState<{
     field: string;
     existingName: string;
+    existingId?: string;
+    serial?: number | null;
+    solution?: string;
   } | null>(null);
   const [duplicateHint, setDuplicateHint] = useState<string | null>(null);
 
@@ -230,7 +233,7 @@ export function MalshabimInterviewPage({
             })),
           );
           setCanEdit(canEditRole(res.role));
-          setUserName(res.currentUserName || "");
+          setUserName((res.currentUserName || "").trim() || "משתמש");
           const form = candidateToForm(res.candidate);
           // Keep waitlist link only while still a draft opened from the waitlist.
           setActiveWaitlistId(
@@ -267,7 +270,7 @@ export function MalshabimInterviewPage({
             })),
           );
           setCanEdit(canEditRole(list.role));
-          setUserName(list.currentUserName || "");
+          setUserName((list.currentUserName || "").trim() || "משתמש");
           const draft = emptyDraft();
           if (waitlistId) {
             try {
@@ -334,7 +337,7 @@ export function MalshabimInterviewPage({
       (data.request_type === "איתור" || data.request_type === "בקשה") &&
       !(data.request_meta?.requester || "").trim()
     ) {
-      toast.error("יש למלא שם מבקש");
+      toast.error("יש למלא שם הפונה");
       return false;
     }
     return true;
@@ -417,11 +420,11 @@ export function MalshabimInterviewPage({
           `/malshabim/interview?id=${created.candidate.id}${waitlistQuery}`,
         );
       }
-      toast.success("הטיוטה נשמרה");
+      toast.success("הראיון נשמר");
       // Stay on the interview when linked to a waitlist so mark-done still works.
       if (editId && !activeWaitlistId) router.push("/malshabim");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "שמירת טיוטה נכשלה");
+      toast.error(err instanceof Error ? err.message : "שמירת ראיון נכשלה");
     } finally {
       setSaving(false);
     }
@@ -430,6 +433,7 @@ export function MalshabimInterviewPage({
   const checkDuplicates = async (override?: {
     id_number?: string | null;
     personal_number?: string | null;
+    phone?: string | null;
   }) => {
     const idNumber =
       override && "id_number" in override ? override.id_number : data.id_number;
@@ -437,17 +441,28 @@ export function MalshabimInterviewPage({
       override && "personal_number" in override
         ? override.personal_number
         : data.personal_number;
+    const phone =
+      override && "phone" in override ? override.phone : data.phone;
     const all = await malshabimFetch<{ candidates: MalshabimCandidate[] }>(
       "/api/malshabim/candidates",
     );
     const others = all.candidates.filter((c) => c.id !== editId && !c.is_draft);
-    const normalizeId = (value: string) => value.replace(/\D/g, "").replace(/^0+/, "") || "0";
+    const normalizeDigits = (value: string) =>
+      value.replace(/\D/g, "").replace(/^0+/, "") || "0";
     if (idNumber) {
-      const normalized = normalizeId(idNumber);
+      const normalized = normalizeDigits(idNumber);
       const dup = others.find(
-        (c) => c.id_number && normalizeId(c.id_number) === normalized,
+        (c) => c.id_number && normalizeDigits(c.id_number) === normalized,
       );
-      if (dup) return { field: "תעודת זהות", existingName: dup.full_name || "—" };
+      if (dup) {
+        return {
+          field: "תעודת זהות",
+          existingName: dup.full_name || "—",
+          existingId: dup.id,
+          serial: dup.serial_number,
+          solution: "פתחו את התיק הקיים או עדכנו את מספר תעודת הזהות",
+        };
+      }
     }
     if (personalNumber) {
       const dup = others.find(
@@ -455,12 +470,38 @@ export function MalshabimInterviewPage({
           c.personal_number &&
           c.personal_number.trim() === personalNumber.trim(),
       );
-      if (dup) return { field: "מספר אישי (מ.א)", existingName: dup.full_name || "—" };
+      if (dup) {
+        return {
+          field: "מספר אישי (מ.א)",
+          existingName: dup.full_name || "—",
+          existingId: dup.id,
+          serial: dup.serial_number,
+          solution: "פתחו את התיק הקיים או עדכנו את המספר האישי",
+        };
+      }
+    }
+    if (phone) {
+      const normalized = phone.replace(/\D/g, "");
+      const dup = others.find(
+        (c) => c.phone && c.phone.replace(/\D/g, "") === normalized,
+      );
+      if (dup) {
+        return {
+          field: "מספר טלפון",
+          existingName: dup.full_name || "—",
+          existingId: dup.id,
+          serial: dup.serial_number,
+          solution: "פתחו את התיק הקיים או בדקו אם זו אותה פנייה",
+        };
+      }
     }
     return null;
   };
 
-  const checkDuplicateOnField = async (field: "id_number" | "personal_number", value: string) => {
+  const checkDuplicateOnField = async (
+    field: "id_number" | "personal_number" | "phone",
+    value: string,
+  ) => {
     if (!value.trim()) {
       setDuplicateHint(null);
       return;
@@ -473,15 +514,47 @@ export function MalshabimInterviewPage({
       const dup = await checkDuplicates({
         id_number: field === "id_number" ? value : null,
         personal_number: field === "personal_number" ? value : null,
+        phone: field === "phone" ? value : null,
       });
       if (dup) {
-        setDuplicateHint(`${dup.field} כבר קיימת בתיק של ${dup.existingName}`);
+        const where =
+          dup.serial != null ? `תיק #${dup.serial}` : `התיק של ${dup.existingName}`;
+        setDuplicateHint(
+          `${dup.field} כבר קיים ב${where}. ${dup.solution}`,
+        );
         setDuplicateAlert(dup);
       } else {
         setDuplicateHint(null);
       }
     } catch {
       // Silent — save flow will re-check.
+    }
+  };
+
+  const warnIfOnWaitlist = async () => {
+    if (activeWaitlistId) return;
+    const name = (data.full_name || "").trim().toLowerCase();
+    const phoneDigits = (data.phone || "").replace(/\D/g, "");
+    if (!name && !phoneDigits) return;
+    try {
+      const res = await malshabimFetch<{
+        entries: Array<{ id: string; full_name: string; phone: string }>;
+      }>("/api/malshabim/waitlist");
+      const hit = (res.entries || []).find((entry) => {
+        const entryPhone = (entry.phone || "").replace(/\D/g, "");
+        const samePhone = phoneDigits && entryPhone && entryPhone === phoneDigits;
+        const sameName =
+          name && (entry.full_name || "").trim().toLowerCase() === name;
+        return Boolean(samePhone || sameName);
+      });
+      if (hit) {
+        setActiveWaitlistId(hit.id);
+        toast.message(
+          `${hit.full_name} מופיע כבר ברשימת מחכים לראיון — בסוף השמירה תוכלו לסמן כבוצע`,
+        );
+      }
+    } catch {
+      // non-blocking
     }
   };
 
@@ -688,7 +761,7 @@ export function MalshabimInterviewPage({
           <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-200">
             <p className="flex items-center gap-2 font-bold">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              אחת מהתשובות היא &quot;לא&quot; — המבחן דולג (לא ביינ״יש)
+              אחת התשובות היא &quot;לא&quot; — החייל לא עומד בתנאי הסף של שמירת המצוות
             </p>
             <p className="mt-2">{OBSERVANCE_FAIL_MESSAGE}</p>
           </div>
@@ -702,11 +775,14 @@ export function MalshabimInterviewPage({
           <StepPersonal
             data={data}
             onChange={setData}
-            interviewers={interviewers}
             onIdBlur={(value) => void checkDuplicateOnField("id_number", value)}
             onPersonalNumberBlur={(value) =>
               void checkDuplicateOnField("personal_number", value)
             }
+            onPhoneBlur={(value) => {
+              void checkDuplicateOnField("phone", value);
+              void warnIfOnWaitlist();
+            }}
           />
         ) : (
           screens[step]
@@ -735,7 +811,7 @@ export function MalshabimInterviewPage({
               ) : (
                 <BookOpen className="h-4 w-4" />
               )}
-              שמור טיוטה
+              שמור ראיון
             </button>
           ) : null}
           {editId && !data.is_draft ? (
@@ -750,7 +826,14 @@ export function MalshabimInterviewPage({
             </button>
           ) : null}
           {step < STEPS.length - 1 ? (
-            <button type="button" className={primaryButtonClass} onClick={next}>
+            <button
+              type="button"
+              className={primaryButtonClass}
+              onClick={() => {
+                if (step === 0) void warnIfOnWaitlist();
+                next();
+              }}
+            >
               הבא <ChevronLeft className="h-4 w-4" />
             </button>
           ) : (
@@ -763,7 +846,7 @@ export function MalshabimInterviewPage({
               disabled={saving}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {!editId || data.is_draft ? "פתח תיק לאישור מנהל" : "שמור"}
+              {!editId || data.is_draft ? "פתח תיק" : "שמור"}
             </button>
           )}
         </div>
@@ -776,16 +859,34 @@ export function MalshabimInterviewPage({
               <AlertTriangle className="h-5 w-5" /> נתון כפול במערכת
             </h2>
             <p className="mt-3 text-sm text-text-secondary">
-              <span className="font-semibold">{duplicateAlert.field}</span> שהוזן כבר קיים בתיק של{" "}
-              <span className="font-bold text-text-primary">{duplicateAlert.existingName}</span>.
+              <span className="font-semibold">{duplicateAlert.field}</span> כבר קיים ב
+              {duplicateAlert.serial != null
+                ? `תיק #${duplicateAlert.serial}`
+                : `התיק של ${duplicateAlert.existingName}`}
+              .
             </p>
-            <button
-              type="button"
-              className={`${primaryButtonClass} mt-5`}
-              onClick={() => setDuplicateAlert(null)}
-            >
-              הבנתי, אתקן
-            </button>
+            {duplicateAlert.solution ? (
+              <p className="mt-2 text-sm font-medium text-text-primary">
+                פתרון: {duplicateAlert.solution}
+              </p>
+            ) : null}
+            <div className="mt-5 flex flex-wrap gap-2">
+              {duplicateAlert.existingId ? (
+                <Link
+                  href={`/malshabim/candidates/${duplicateAlert.existingId}`}
+                  className={primaryButtonClass}
+                >
+                  פתח תיק קיים
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => setDuplicateAlert(null)}
+              >
+                הבנתי, אתקן
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -793,7 +894,7 @@ export function MalshabimInterviewPage({
       {showLeaveConfirm ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className={`${panelClass} max-w-md p-6`} dir="rtl">
-            <h2 className="text-lg font-bold text-text-primary">האם לשמור טיוטה?</h2>
+            <h2 className="text-lg font-bold text-text-primary">האם לשמור ראיון?</h2>
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"

@@ -173,7 +173,7 @@ export const RECRUITMENT_TRACKS = [
   "מתנדב",
 ] as const;
 
-export const REQUEST_TYPES = ["איתור", "בקשה", "ריקים"] as const;
+export const REQUEST_TYPES = ["איתור", "בקשה"] as const;
 export const STATUS_TYPES = ['מלש"ב', "חייל"] as const;
 
 export const BIYENISH_LABEL = 'ביינ"יש\\חרדי';

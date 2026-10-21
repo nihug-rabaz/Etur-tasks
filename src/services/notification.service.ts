@@ -221,18 +221,42 @@ export class NotificationService extends BaseService {
   }): Promise<number> {
     if (!this.push.isReady()) return 0;
     const adminIds = await this.getMalshabimAdminIds();
-    const url = this.malshabimCandidateUrl(input.candidateId);
+    const url = this.malshabimApprovalsUrl();
     const text =
       "בקשה לאישור מלש״ב\n" +
       `מועמד: ${input.fullName}\n` +
-      `מבקש: ${input.requesterName}` +
-      (url ? `\nקישור לתיק: ${url}` : "");
+      `נפתח ע״י: ${input.requesterName}` +
+      (url ? `\nלאישור מנהל: ${url}` : "");
     return this.sendToUsers(
       adminIds,
       text,
       url || undefined,
       (userId) =>
         `malshabim-approval-requested:${input.candidateId}:${userId}:${Date.now()}`,
+    );
+  }
+
+  public async notifyMalshabimWaitlistCreated(input: {
+    entryId: string;
+    fullName: string;
+    phone: string;
+    createdByName: string;
+  }): Promise<number> {
+    if (!this.push.isReady()) return 0;
+    const recipientIds = await this.getMalshabimRecipientIds();
+    if (recipientIds.length === 0) return 0;
+    const url = this.malshabimWaitlistUrl();
+    const text =
+      "פנייה חדשה — מחכים לראיון\n" +
+      `שם: ${input.fullName}\n` +
+      `טלפון: ${input.phone}\n` +
+      `נוסף ע״י: ${input.createdByName}` +
+      (url ? `\nלרשימה: ${url}` : "");
+    return this.sendToUsers(
+      recipientIds,
+      text,
+      url || undefined,
+      (userId) => `malshabim-waitlist-created:${input.entryId}:${userId}`,
     );
   }
 
@@ -311,6 +335,12 @@ export class NotificationService extends BaseService {
   private malshabimWaitlistUrl(): string {
     const origin = AppUrls.getOrigin();
     const path = "/malshabim/waitlist";
+    return origin ? `${origin}${path}` : path;
+  }
+
+  private malshabimApprovalsUrl(): string {
+    const origin = AppUrls.getOrigin();
+    const path = "/malshabim/admin/approvals";
     return origin ? `${origin}${path}` : path;
   }
 

@@ -111,10 +111,18 @@ export class MalshabimCandidateService extends BaseService {
   public async findDuplicate(input: {
     idNumber?: string | null;
     personalNumber?: string | null;
+    phone?: string | null;
     excludeId?: string | null;
-  }): Promise<{ field: "id_number" | "personal_number"; candidate: MalshabimCandidate } | null> {
+  }): Promise<
+    | {
+        field: "id_number" | "personal_number" | "phone";
+        candidate: MalshabimCandidate;
+      }
+    | null
+  > {
     const idNumber = normalizeId(input.idNumber);
     const personalNumber = normalizeId(input.personalNumber);
+    const phone = normalizeId(input.phone);
     const excludeId = input.excludeId ?? null;
     const db = this.getDb();
 
@@ -162,6 +170,28 @@ export class MalshabimCandidateService extends BaseService {
       if (rows[0]) return { field: "personal_number", candidate: rows[0] };
     }
 
+    if (phone) {
+      const rows = excludeId
+        ? await db<MalshabimCandidate[]>`
+            select * from malshabim_candidates
+            where is_draft = false
+              and phone is not null
+              and btrim(phone) <> ''
+              and regexp_replace(phone, '\\D', '', 'g') = ${phone}
+              and id <> ${excludeId}
+            limit 1
+          `
+        : await db<MalshabimCandidate[]>`
+            select * from malshabim_candidates
+            where is_draft = false
+              and phone is not null
+              and btrim(phone) <> ''
+              and regexp_replace(phone, '\\D', '', 'g') = ${phone}
+            limit 1
+          `;
+      if (rows[0]) return { field: "phone", candidate: rows[0] };
+    }
+
     return null;
   }
 
@@ -170,13 +200,25 @@ export class MalshabimCandidateService extends BaseService {
     const dup = await this.findDuplicate({
       idNumber: input.id_number,
       personalNumber: input.personal_number,
+      phone: input.phone,
       excludeId,
     });
     if (!dup) return;
+    const where =
+      dup.candidate.serial_number != null
+        ? `תיק מס׳ ${dup.candidate.serial_number}`
+        : dup.candidate.full_name
+          ? `התיק של ${dup.candidate.full_name}`
+          : "תיק קיים";
     if (dup.field === "id_number") {
-      throw new Error("תעודת זהות כבר קיימת במערכת");
+      throw new Error(`תעודת זהות כבר קיימת ב${where}. פתרון: פתחו את התיק הקיים או עדכנו ת.ז.`);
     }
-    throw new Error("מספר אישי כבר קיים במערכת");
+    if (dup.field === "phone") {
+      throw new Error(
+        `מספר טלפון כבר קיים ב${where}. פתרון: פתחו את התיק הקיים או בדקו אם זו אותה פנייה.`,
+      );
+    }
+    throw new Error(`מספר אישי כבר קיים ב${where}. פתרון: פתחו את התיק הקיים או עדכנו מ.א.`);
   }
 
   public async listAwaitingApproval(): Promise<MalshabimCandidate[]> {

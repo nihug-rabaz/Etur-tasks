@@ -28,6 +28,7 @@ export async function GET() {
     candidates,
     role: access.role,
     currentUserId: access.profile.id,
+    currentUserName: access.profile.name || "",
   });
 }
 

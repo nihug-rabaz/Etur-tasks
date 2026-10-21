@@ -3,7 +3,7 @@ import type { AppModuleDefinition } from "@/shared/modules/types";
 export const malshabimModule: AppModuleDefinition = {
   id: "malshabim",
   label: "מלש״בים",
-  description: "ראיונות, תיקי מועמדים, לוח עבודה וסטטיסטיקה למלש״בים",
+  description: "ראיונות, תיקי מועמדים ולוח עבודה למלש״בים",
   href: "/malshabim",
   navItems: [
     {
@@ -30,16 +30,10 @@ export const malshabimModule: AppModuleDefinition = {
       description: "לוח עבודה לפי סטטוס",
       roles: ["admin", "user", "viewer"],
     },
-    {
-      label: "סטטיסטיקה",
-      href: "/malshabim/statistics",
-      description: "סיכומים ומדדים",
-      roles: ["admin", "user", "viewer"],
-    },
   ],
   adminNavItems: [
     {
-      label: "אישורים",
+      label: "ממתינים לאישור",
       href: "/malshabim/admin/approvals",
       description: "תיקים הממתינים לאישור מנהל",
     },
@@ -54,10 +48,9 @@ export const malshabimModule: AppModuleDefinition = {
     interview: "ראיון",
     waitlist: "מחכים לראיון",
     board: "לוח עבודה",
-    statistics: "סטטיסטיקה",
     candidates: "מועמדים",
     admin: "ניהול",
     users: "משתמשים",
-    approvals: "אישורים",
+    approvals: "ממתינים לאישור",
   },
 };

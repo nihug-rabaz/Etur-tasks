@@ -158,8 +158,9 @@ export function MalshabimWaitlistPage({
               className={fieldClass}
               placeholder="מספר טלפון *"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              inputMode="tel"
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+              inputMode="numeric"
+              maxLength={15}
             />
             <div className="flex flex-wrap gap-2">
               <button

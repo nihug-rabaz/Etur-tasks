@@ -27,7 +27,7 @@ export const MALSHABIM_TEMPLATE_HEADERS: Record<MalshabimTemplateColumn, string>
   enlistment_date: "תאריך גיוס",
   status_type: "סטטוס",
   request_type: "איתור / בקשה",
-  request_requester: "מבקש",
+  request_requester: "שם הפונה",
   request_unit: "יחידה",
   request_role: "תפקיד",
 };

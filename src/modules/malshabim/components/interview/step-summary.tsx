@@ -52,16 +52,20 @@ export function StepSummary({
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between rounded-2xl bg-accent-primary p-5 text-white">
+      <div
+        className={`flex items-center justify-between rounded-2xl p-5 text-white ${
+          observanceFailed || skipped ? "bg-violet-600" : "bg-accent-primary"
+        }`}
+      >
         <div>
           <p className="text-sm opacity-80">
-            {observanceFailed
-              ? "תוצאת המבחן — דולג עקב שמירת מצוות"
-              : `תוצאת המבחן ${skipped ? `(${BIYENISH_LABEL})` : ""}`}
+            {observanceFailed || skipped
+              ? "תוצאות המבחן — לא בוצע מבחן ידע"
+              : "תוצאת המבחן"}
           </p>
-          <p className="text-4xl font-black">{observanceFailed ? "—" : score}</p>
+          <p className="text-4xl font-black">{observanceFailed || skipped ? "—" : score}</p>
           <p className="text-sm opacity-80">
-            {observanceFailed
+            {observanceFailed || skipped
               ? "לא בוצע מבחן ידע"
               : `${correct} מתוך ${total} תשובות נכונות`}
           </p>

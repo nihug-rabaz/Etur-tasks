@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
   History,
@@ -13,7 +12,6 @@ import {
   Save,
   Send,
   ShieldCheck,
-  Trash2,
   User,
   XCircle,
 } from "lucide-react";
@@ -66,9 +64,7 @@ export function MalshabimCandidateFilePage({
   const [savingNotes, setSavingNotes] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [submittingApproval, setSubmittingApproval] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(initialCandidate));
-  const router = useRouter();
 
   useEffect(() => {
     if (initialCandidate) return;
@@ -112,20 +108,6 @@ export function MalshabimCandidateFilePage({
 
   const canEdit = canEditRole(role);
   const isAdmin = role === "admin";
-
-  const deleteFile = async () => {
-    if (!isAdmin || !c) return;
-    if (!window.confirm("למחוק את התיק לצמיתות? הפעולה אינה ניתנת לביטול.")) return;
-    setDeleting(true);
-    try {
-      await malshabimFetch(`/api/malshabim/candidates/${c.id}`, { method: "DELETE" });
-      toast.success("התיק נמחק");
-      router.push("/malshabim");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
-      setDeleting(false);
-    }
-  };
 
   const patchCandidate = async (
     fields: Record<string, unknown>,
@@ -276,7 +258,7 @@ export function MalshabimCandidateFilePage({
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  פתח תיק לאישור מנהל
+                  פתח תיק
                 </button>
               ) : null}
               <Link
@@ -286,21 +268,6 @@ export function MalshabimCandidateFilePage({
                 <Pencil className="h-4 w-4" /> עריכה
               </Link>
             </>
-          ) : null}
-          {isAdmin ? (
-            <button
-              type="button"
-              className={`${secondaryButtonClass} !text-rose-600`}
-              disabled={deleting}
-              onClick={() => void deleteFile()}
-            >
-              {deleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-              מחיקת תיק
-            </button>
           ) : null}
         </div>
       </div>
@@ -384,7 +351,6 @@ export function MalshabimCandidateFilePage({
         <dl className="grid gap-3 sm:grid-cols-2">
           <Field label="תאריך גיוס" value={c.enlistment_date} />
           <Field label="מועד ראיון" value={formatDateTime(c.interview_at)} />
-          <Field label="מראיין" value={interviewerLabel} />
           <Field label="נוצר ע״י" value={c.created_by_name} />
           <Field
             label="נשלח לאישור"
@@ -398,9 +364,9 @@ export function MalshabimCandidateFilePage({
           <h2 className="text-lg font-bold text-text-primary">פרטי בקשה</h2>
           <dl className="grid gap-3 sm:grid-cols-2">
             <Field label="סוג" value={c.request_type} />
-            <Field label="מבקש" value={requestMeta.requester} />
-            <Field label="יחידה" value={requestMeta.unit} />
-            <Field label="תפקיד" value={requestMeta.role} />
+            <Field label="שם הפונה" value={requestMeta.requester} />
+            <Field label="לאיזו יחידה" value={requestMeta.unit} />
+            <Field label="לאיזה תפקיד" value={requestMeta.role} />
           </dl>
         </article>
       ) : null}

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 const INTRO_VIDEO_SRC = "/intro.mp4";
+const INTRO_DISMISS_KEY = "etur-intro-dismissed";
 
 type IntroPhase = "ready" | "playing" | "complete" | "failed";
 
@@ -42,16 +43,31 @@ const launchItems = [
 
 export function IntroSplash() {
   const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(true);
+  const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<IntroPhase>("ready");
   const videoRef = useRef<HTMLVideoElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    try {
+      // Show intro once per browser tab session — refresh keeps the current page.
+      if (sessionStorage.getItem(INTRO_DISMISS_KEY) !== "1") {
+        setVisible(true);
+      }
+    } catch {
+      setVisible(true);
+    }
   }, []);
 
-  const dismiss = useCallback(() => setVisible(false), []);
+  const dismiss = useCallback(() => {
+    try {
+      sessionStorage.setItem(INTRO_DISMISS_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setVisible(false);
+  }, []);
   const complete = useCallback(() => {
     for (const video of [videoRef.current, backgroundVideoRef.current]) {
       if (!video) continue;

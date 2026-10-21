@@ -22,9 +22,10 @@ export class MalshabimAccessService {
     if (!profile) return { error: "Unauthorized" as const, status: 401 as const };
 
     let role = await this.getModuleRole(profile.id);
-    if (!role) {
-      const real = await this.authorizationService.getRealProfile();
-      if (real?.role === "admin") role = "admin";
+    // Platform admins always get malshabim admin (even if they also have a module user row).
+    const real = await this.authorizationService.getRealProfile();
+    if (real?.role === "admin") {
+      role = "admin";
     }
     if (!role) return { error: "Forbidden" as const, status: 403 as const };
 

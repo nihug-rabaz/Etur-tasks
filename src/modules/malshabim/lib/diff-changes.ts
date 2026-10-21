@@ -28,7 +28,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 const REQUEST_META_LABELS: Record<string, string> = {
-  requester: "מבקש",
+  requester: "שם הפונה",
   unit: "יחידה",
   role: "תפקיד",
 };

@@ -10,15 +10,16 @@ export type InterviewerOption = { id: string; name: string };
 export function StepPersonal({
   data,
   onChange,
-  interviewers = [],
   onIdBlur,
   onPersonalNumberBlur,
+  onPhoneBlur,
 }: {
   data: InterviewFormData;
   onChange: (next: InterviewFormData) => void;
   interviewers?: InterviewerOption[];
   onIdBlur?: (value: string) => void;
   onPersonalNumberBlur?: (value: string) => void;
+  onPhoneBlur?: (value: string) => void;
 }) {
   const idTouched = Boolean(data.id_number && data.id_number.length > 0);
   const idValid = !idTouched || validateIsraeliId(data.id_number);
@@ -57,6 +58,7 @@ export function StepPersonal({
             className={fieldClass}
             value={data.phone || ""}
             onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+            onBlur={(e) => onPhoneBlur?.(e.target.value)}
             placeholder="05XXXXXXXX"
             inputMode="numeric"
             maxLength={15}
@@ -165,21 +167,6 @@ export function StepPersonal({
           </select>
         </label>
         <label className="space-y-1.5 text-sm font-bold text-text-primary">
-          מראיין
-          <select
-            className={fieldClass}
-            value={data.interviewer_user_id || ""}
-            onChange={(e) => set("interviewer_user_id", e.target.value || null)}
-          >
-            <option value="">בחר מראיין</option>
-            {interviewers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1.5 text-sm font-bold text-text-primary">
           מועד ראיון קרוב
           <input
             type="datetime-local"
@@ -202,30 +189,30 @@ export function StepPersonal({
       {showRequestMeta ? (
         <div className="grid gap-4 rounded-2xl bg-surface-2/50 p-4 md:grid-cols-3">
           <label className="space-y-1.5 text-sm font-bold text-text-primary">
-            מבקש <span className="text-rose-600">*</span>
+            שם הפונה <span className="text-rose-600">*</span>
             <input
               className={fieldClass}
               value={requestMeta.requester || ""}
               onChange={(e) => setRequestMeta("requester", e.target.value)}
-              placeholder="שם המבקש"
+              placeholder="שם הפונה"
             />
           </label>
           <label className="space-y-1.5 text-sm font-bold text-text-primary">
-            יחידה
+            לאיזו יחידה
             <input
               className={fieldClass}
               value={requestMeta.unit || ""}
               onChange={(e) => setRequestMeta("unit", e.target.value)}
-              placeholder="יחידה"
+              placeholder="לאיזו יחידה"
             />
           </label>
           <label className="space-y-1.5 text-sm font-bold text-text-primary">
-            תפקיד
+            לאיזה תפקיד
             <input
               className={fieldClass}
               value={requestMeta.role || ""}
               onChange={(e) => setRequestMeta("role", e.target.value)}
-              placeholder="תפקיד"
+              placeholder="לאיזה תפקיד"
             />
           </label>
         </div>

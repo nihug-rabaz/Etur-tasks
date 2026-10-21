@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimWaitlistService } from "@/modules/malshabim/services/waitlist.service";
+import { NotificationService } from "@/services/notification.service";
 
 export async function GET() {
   const access = await new MalshabimAccessService().requireMalshabimAccess();
@@ -32,10 +33,24 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
   }
+  const digitsOnly = parsed.data.phone.replace(/\D/g, "");
+  if (!digitsOnly) {
+    return NextResponse.json({ error: "מספר טלפון חייב להכיל ספרות בלבד" }, { status: 400 });
+  }
   const entry = await new MalshabimWaitlistService().create({
     full_name: parsed.data.full_name,
-    phone: parsed.data.phone,
+    phone: digitsOnly,
     created_by: access.profile.id,
   });
+  try {
+    await new NotificationService().notifyMalshabimWaitlistCreated({
+      entryId: entry.id,
+      fullName: entry.full_name,
+      phone: entry.phone,
+      createdByName: access.profile.name || "משתמש",
+    });
+  } catch {
+    // Creating the inquiry must succeed even if push fails.
+  }
   return NextResponse.json({ entry }, { status: 201 });
 }
