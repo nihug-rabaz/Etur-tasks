@@ -87,6 +87,26 @@ export type MalshabimCandidateFilters = {
   requestType?: string | string[];
   fromDate?: string;
   toDate?: string;
+  /** Filter by request_meta.unit */
+  unit?: string | string[];
+};
+
+/** Board sketch buckets — overlay on candidate_status + awaiting_admin_approval. */
+export type MalshabimBoardBucket = "awaiting" | "open" | "done";
+
+export function getBoardBucket(
+  candidate: Pick<MalshabimCandidate, "candidate_status" | "awaiting_admin_approval">,
+): MalshabimBoardBucket {
+  if (candidate.awaiting_admin_approval) return "awaiting";
+  const status = normalizeCandidateStatus(candidate.candidate_status);
+  if (status === "בטיפול") return "open";
+  return "done";
+}
+
+export const BOARD_BUCKET_LABELS: Record<MalshabimBoardBucket, string> = {
+  awaiting: "ממתינים לאישור",
+  open: "בטיפול",
+  done: "הושלמו",
 };
 
 function matchesMulti(filter: string | string[] | undefined, value: string | null | undefined) {
@@ -108,6 +128,7 @@ export function filterCandidates<T extends MalshabimCandidate>(
     const lastStatusUpdate = getLastStatusUpdateDate(candidate);
     const updatedAt = lastStatusUpdate ? new Date(lastStatusUpdate) : null;
     const status = normalizeCandidateStatus(candidate.candidate_status);
+    const meta = candidate.request_meta || {};
     const text = [
       candidate.serial_number,
       candidate.full_name,
@@ -119,6 +140,9 @@ export function filterCandidates<T extends MalshabimCandidate>(
       status,
       candidate.status_type,
       candidate.request_type,
+      meta.requester,
+      meta.unit,
+      meta.role,
       candidate.interview_summary,
       candidate.instructions,
       candidate.interviewer_notes,
@@ -137,6 +161,10 @@ export function filterCandidates<T extends MalshabimCandidate>(
       matchesMulti(filters.candidateStatus, status) &&
       matchesMulti(filters.statusType, candidate.status_type) &&
       matchesMulti(filters.requestType, candidate.request_type) &&
+      matchesMulti(
+        filters.unit,
+        typeof meta.unit === "string" ? meta.unit.trim() : meta.unit,
+      ) &&
       (!from || (updatedAt && updatedAt >= from)) &&
       (!to || (updatedAt && updatedAt <= to))
     );
