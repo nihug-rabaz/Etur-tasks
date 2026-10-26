@@ -122,7 +122,8 @@ export class MalshabimCandidateService extends BaseService {
   > {
     const idNumber = normalizeId(input.idNumber);
     const personalNumber = normalizeId(input.personalNumber);
-    const phone = normalizeId(input.phone);
+    const phoneRaw = normalizeId(input.phone);
+    const phone = phoneRaw ? phoneRaw.replace(/\D/g, "") : null;
     const excludeId = input.excludeId ?? null;
     const db = this.getDb();
 
@@ -171,13 +172,22 @@ export class MalshabimCandidateService extends BaseService {
     }
 
     if (phone) {
+      const phoneAlt =
+        phone.length === 10 && phone.startsWith("0")
+          ? phone.slice(1)
+          : phone.length === 9
+            ? `0${phone}`
+            : phone;
       const rows = excludeId
         ? await db<MalshabimCandidate[]>`
             select * from malshabim_candidates
             where is_draft = false
               and phone is not null
               and btrim(phone) <> ''
-              and regexp_replace(phone, '\\D', '', 'g') = ${phone}
+              and (
+                regexp_replace(phone, '\\D', '', 'g') = ${phone}
+                or regexp_replace(phone, '\\D', '', 'g') = ${phoneAlt}
+              )
               and id <> ${excludeId}
             limit 1
           `
@@ -186,7 +196,10 @@ export class MalshabimCandidateService extends BaseService {
             where is_draft = false
               and phone is not null
               and btrim(phone) <> ''
-              and regexp_replace(phone, '\\D', '', 'g') = ${phone}
+              and (
+                regexp_replace(phone, '\\D', '', 'g') = ${phone}
+                or regexp_replace(phone, '\\D', '', 'g') = ${phoneAlt}
+              )
             limit 1
           `;
       if (rows[0]) return { field: "phone", candidate: rows[0] };

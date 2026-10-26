@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { redirectMalshabimLogin } from "@/modules/malshabim/lib/auth-redirect";
 import { MalshabimCandidateFilePage } from "@/modules/malshabim/pages/candidate-file-page";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
@@ -10,7 +11,8 @@ interface PageProps {
 export default async function Page({ params }: PageProps) {
   const access = await new MalshabimAccessService().requireMalshabimAccess();
   if ("error" in access) {
-    redirect(access.status === 401 ? "/login" : "/");
+    if (access.status === 401) await redirectMalshabimLogin("/malshabim");
+    redirect("/");
   }
 
   const { id } = await params;

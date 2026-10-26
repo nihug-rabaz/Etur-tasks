@@ -1,5 +1,12 @@
 const FALLBACK = "/";
 
+/** Build `/login?callbackUrl=…` so post-auth returns to the intended in-app path. */
+export function loginRedirectPath(intended: string, fallback = FALLBACK): string {
+  const safe = sanitizeCallbackUrl(intended, fallback);
+  if (!safe || safe === "/") return "/login";
+  return `/login?callbackUrl=${encodeURIComponent(safe)}`;
+}
+
 export function sanitizeCallbackUrl(raw: string | null | undefined, fallback = FALLBACK): string {
   if (!raw) return fallback;
   let value = raw.trim();

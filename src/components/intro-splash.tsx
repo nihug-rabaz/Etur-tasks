@@ -77,6 +77,13 @@ export function IntroSplash() {
       }
     }
 
+    // Persist dismiss as soon as the module grid appears so refresh
+    // does not replay the intro in this tab session.
+    try {
+      sessionStorage.setItem(INTRO_DISMISS_KEY, "1");
+    } catch {
+      // ignore
+    }
     setPhase("complete");
   }, []);
 

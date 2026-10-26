@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
+  AlertTriangle,
   CheckCircle2,
   History,
   Loader2,
@@ -34,6 +35,10 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/modules/malshabim/lib/ui";
+import {
+  findWaitlistByPhone,
+  type WaitlistEntryLike,
+} from "@/modules/malshabim/lib/waitlist-match";
 import type {
   MalshabimCandidate,
   MalshabimInstructionItem,
@@ -65,6 +70,8 @@ export function MalshabimCandidateFilePage({
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [submittingApproval, setSubmittingApproval] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(initialCandidate));
+  const [waitlistWarn, setWaitlistWarn] = useState<WaitlistEntryLike | null>(null);
+  const [waitlistChecked, setWaitlistChecked] = useState(false);
 
   useEffect(() => {
     if (initialCandidate) return;
@@ -86,6 +93,22 @@ export function MalshabimCandidateFilePage({
       }
     })();
   }, [candidateId, initialCandidate]);
+
+  useEffect(() => {
+    if (!c?.phone || waitlistChecked) return;
+    setWaitlistChecked(true);
+    void (async () => {
+      try {
+        const res = await malshabimFetch<{ entries: WaitlistEntryLike[] }>(
+          "/api/malshabim/waitlist",
+        );
+        const hit = findWaitlistByPhone(res.entries || [], c.phone);
+        if (hit) setWaitlistWarn(hit);
+      } catch {
+        // non-blocking
+      }
+    })();
+  }, [c?.phone, waitlistChecked]);
 
   useEffect(() => {
     const interviewerId = c?.interviewer_user_id;
@@ -548,6 +571,33 @@ export function MalshabimCandidateFilePage({
           </ul>
         )}
       </article>
+
+      {waitlistWarn ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className={`${panelClass} max-w-md p-6`} dir="rtl">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-amber-700">
+              <AlertTriangle className="h-5 w-5" /> מופיע ברשימת מחכים לראיון
+            </h2>
+            <p className="mt-3 text-sm text-text-secondary">
+              מספר הטלפון של התיק כבר רשום בפניות בשם{" "}
+              <strong className="text-text-primary">{waitlistWarn.full_name}</strong> (
+              {waitlistWarn.phone}).
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                onClick={() => setWaitlistWarn(null)}
+              >
+                הבנתי
+              </button>
+              <Link href="/malshabim/waitlist" className={secondaryButtonClass}>
+                פתח רשימת פניות
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

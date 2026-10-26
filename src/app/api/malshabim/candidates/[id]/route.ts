@@ -76,7 +76,8 @@ function isDuplicateError(error: unknown): error is Error {
   if (!(error instanceof Error)) return false;
   return (
     error.message.includes("תעודת זהות כבר קיימת") ||
-    error.message.includes("מספר אישי כבר קיים")
+    error.message.includes("מספר אישי כבר קיים") ||
+    error.message.includes("מספר טלפון כבר קיים")
   );
 }
 

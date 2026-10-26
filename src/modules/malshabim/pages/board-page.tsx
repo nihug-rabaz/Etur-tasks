@@ -340,7 +340,7 @@ export function MalshabimBoardPage({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className={`grid gap-3 ${isAdmin ? "sm:grid-cols-2" : ""}`}>
         <Link
           href="/malshabim/waitlist"
           className={`${cardClass} flex items-center gap-3 p-4 transition hover:opacity-90`}
@@ -368,17 +368,7 @@ export function MalshabimBoardPage({
               <p className="text-2xl font-black text-text-primary">{awaitingCount}</p>
             </div>
           </Link>
-        ) : (
-          <div className={`${cardClass} flex items-center gap-3 p-4`}>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600/15 text-emerald-700">
-              <ClipboardCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-text-muted">ממתינים לאישור</p>
-              <p className="text-2xl font-black text-text-primary">{awaitingCount}</p>
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
 
       <div className="space-y-3">

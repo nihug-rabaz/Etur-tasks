@@ -38,13 +38,17 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/modules/malshabim/lib/ui";
+import {
+  findWaitlistByPhone,
+  type WaitlistEntryLike,
+} from "@/modules/malshabim/lib/waitlist-match";
 import type { MalshabimCandidate } from "@/modules/malshabim/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
 const STEPS = ["פרטים אישיים", "שמירת מצוות", "מבחן ידע", "סיכום והנחיות"];
 
 const OBSERVANCE_FAIL_MESSAGE =
-  'אחת התשובות היא "לא" — החייל לא עומד בתנאי הסף של שמירת המצוות. לתקן תשובות, או להמשיך לסיכום לסגירת התיק (דילוג על מבחן ידע)?';
+  'אם אחת מתשובות הסף (שמירת מצוות) היא "לא" — החייל לא עומד בתנאי הסף. אפשר לתקן את התשובות, או להמשיך לסיכום לסגירת התיק (דילוג על מבחן ידע).';
 
 function emptyDraft(): InterviewFormData {
   return {
@@ -209,6 +213,7 @@ export function MalshabimInterviewPage({
     solution?: string;
   } | null>(null);
   const [duplicateHint, setDuplicateHint] = useState<string | null>(null);
+  const [waitlistWarn, setWaitlistWarn] = useState<WaitlistEntryLike | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -482,9 +487,13 @@ export function MalshabimInterviewPage({
     }
     if (phone) {
       const normalized = phone.replace(/\D/g, "");
-      const dup = others.find(
-        (c) => c.phone && c.phone.replace(/\D/g, "") === normalized,
-      );
+      const strip0 = (value: string) =>
+        value.length === 10 && value.startsWith("0") ? value.slice(1) : value;
+      const dup = others.find((c) => {
+        if (!c.phone) return false;
+        const other = c.phone.replace(/\D/g, "");
+        return other === normalized || strip0(other) === strip0(normalized);
+      });
       if (dup) {
         return {
           field: "מספר טלפון",
@@ -532,30 +541,28 @@ export function MalshabimInterviewPage({
   };
 
   const warnIfOnWaitlist = async () => {
-    if (activeWaitlistId) return;
-    const name = (data.full_name || "").trim().toLowerCase();
-    const phoneDigits = (data.phone || "").replace(/\D/g, "");
-    if (!name && !phoneDigits) return;
+    if (activeWaitlistId || waitlistWarn) return;
+    if (!(data.phone || "").replace(/\D/g, "")) return;
     try {
       const res = await malshabimFetch<{
-        entries: Array<{ id: string; full_name: string; phone: string }>;
+        entries: WaitlistEntryLike[];
       }>("/api/malshabim/waitlist");
-      const hit = (res.entries || []).find((entry) => {
-        const entryPhone = (entry.phone || "").replace(/\D/g, "");
-        const samePhone = phoneDigits && entryPhone && entryPhone === phoneDigits;
-        const sameName =
-          name && (entry.full_name || "").trim().toLowerCase() === name;
-        return Boolean(samePhone || sameName);
-      });
+      const hit = findWaitlistByPhone(res.entries || [], data.phone);
       if (hit) {
         setActiveWaitlistId(hit.id);
-        toast.message(
-          `${hit.full_name} מופיע כבר ברשימת מחכים לראיון — בסוף השמירה תוכלו לסמן כבוצע`,
-        );
+        setWaitlistWarn(hit);
       }
     } catch {
       // non-blocking
     }
+  };
+
+  const failedObservanceLabels = (): string[] => {
+    if (!data) return [];
+    const obs = data.observance || {};
+    return OBSERVANCE_QUESTIONS.filter((q) => obs[q.key]?.answer === "לא").map(
+      (q) => q.label,
+    );
   };
 
   const save = async (opts?: { openForApproval?: boolean }) => {
@@ -661,7 +668,24 @@ export function MalshabimInterviewPage({
         router.push(`/malshabim/candidates/${savedCandidateId}`);
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "שמירה נכשלה");
+      const message = err instanceof Error ? err.message : "שמירה נכשלה";
+      if (
+        message.includes("כבר קיים") ||
+        message.includes("כפילות") ||
+        message.includes("409")
+      ) {
+        const dup = await checkDuplicates().catch(() => null);
+        if (dup) {
+          setDuplicateAlert(dup);
+          setDuplicateHint(
+            `${dup.field} כבר קיים ב${
+              dup.serial != null ? `תיק #${dup.serial}` : `התיק של ${dup.existingName}`
+            }. ${dup.solution}`,
+          );
+          return;
+        }
+      }
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -929,13 +953,49 @@ export function MalshabimInterviewPage({
         </div>
       ) : null}
 
+      {waitlistWarn ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className={`${panelClass} max-w-md p-6`} dir="rtl">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-amber-700">
+              <AlertTriangle className="h-5 w-5" /> מופיע ברשימת מחכים לראיון
+            </h2>
+            <p className="mt-3 text-sm text-text-secondary">
+              מספר הטלפון{" "}
+              <strong className="text-text-primary">{waitlistWarn.phone}</strong> כבר
+              רשום בפניות בשם{" "}
+              <strong className="text-text-primary">{waitlistWarn.full_name}</strong>.
+              בסוף השמירה תוכלו לסמן את הפנייה כבוצעה.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                onClick={() => setWaitlistWarn(null)}
+              >
+                הבנתי, ממשיכים
+              </button>
+              <Link href="/malshabim/waitlist" className={secondaryButtonClass}>
+                פתח רשימת פניות
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showObservanceWarning ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className={`${panelClass} max-w-md p-6`} dir="rtl">
             <h2 className="flex items-center gap-2 text-lg font-bold text-rose-600">
-              <AlertTriangle className="h-5 w-5" /> אחת מהתשובות היא &quot;לא&quot;
+              <AlertTriangle className="h-5 w-5" /> אחת מתשובות הסף היא &quot;לא&quot;
             </h2>
             <p className="mt-3 text-sm text-text-secondary">{OBSERVANCE_FAIL_MESSAGE}</p>
+            {failedObservanceLabels().length > 0 ? (
+              <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-text-primary">
+                {failedObservanceLabels().map((label) => (
+                  <li key={label}>{label}</li>
+                ))}
+              </ul>
+            ) : null}
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"
