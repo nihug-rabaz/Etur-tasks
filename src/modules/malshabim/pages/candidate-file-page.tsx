@@ -64,7 +64,6 @@ export function MalshabimCandidateFilePage({
   const [c, setC] = useState<MalshabimCandidate | null>(initialCandidate);
   const [role, setRole] = useState<ModuleRole | null>(initialRole);
   const [userName, setUserName] = useState(initialUserName);
-  const [interviewerName, setInterviewerName] = useState("");
   const [notes, setNotes] = useState(initialCandidate?.interviewer_notes || "");
   const [savingNotes, setSavingNotes] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -109,25 +108,6 @@ export function MalshabimCandidateFilePage({
       }
     })();
   }, [c?.phone, waitlistChecked]);
-
-  useEffect(() => {
-    const interviewerId = c?.interviewer_user_id;
-    if (!interviewerId) {
-      setInterviewerName("");
-      return;
-    }
-    void (async () => {
-      try {
-        const res = await malshabimFetch<{
-          interviewers?: Array<{ user_id: string; name: string }>;
-        }>("/api/malshabim/interviewers");
-        const match = (res.interviewers || []).find((u) => u.user_id === interviewerId);
-        setInterviewerName(match?.name || "");
-      } catch {
-        setInterviewerName("");
-      }
-    })();
-  }, [c?.interviewer_user_id]);
 
   const canEdit = canEditRole(role);
   const isAdmin = role === "admin";
@@ -257,8 +237,6 @@ export function MalshabimCandidateFilePage({
   >;
   const requestMeta = c.request_meta || {};
   const instructionItems = (c.instruction_items || []) as MalshabimInstructionItem[];
-  const interviewerLabel =
-    interviewerName || c.created_by_name || (c.interviewer_user_id ? "מראיין משויך" : null);
 
   return (
     <div className={formShellClass} dir="rtl">
@@ -281,7 +259,7 @@ export function MalshabimCandidateFilePage({
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  פתח תיק
+                  שלח לאישור
                 </button>
               ) : null}
               <Link

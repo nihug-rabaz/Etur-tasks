@@ -82,6 +82,39 @@ function toggleFilterValue(
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
 
+const HOME_FILTERS_KEY = "malshabim-home-filters";
+const HOME_VIEW_KEY = "malshabim-home-view-mode";
+
+const DEFAULT_FILTERS: MalshabimCandidateFilters = {
+  search: "",
+  track: "all",
+  candidateStatus: [],
+  statusType: "all",
+  requestType: "all",
+  fromDate: "",
+  toDate: "",
+};
+
+function loadStoredFilters(): MalshabimCandidateFilters {
+  try {
+    const raw = sessionStorage.getItem(HOME_FILTERS_KEY);
+    if (!raw) return DEFAULT_FILTERS;
+    const parsed = JSON.parse(raw) as MalshabimCandidateFilters;
+    return { ...DEFAULT_FILTERS, ...parsed, search: "" };
+  } catch {
+    return DEFAULT_FILTERS;
+  }
+}
+
+function loadStoredViewMode(): "list" | "grid" {
+  try {
+    const raw = sessionStorage.getItem(HOME_VIEW_KEY);
+    return raw === "grid" ? "grid" : "list";
+  } catch {
+    return "list";
+  }
+}
+
 export function MalshabimHomePage({
   initialCandidates,
   initialRole,
@@ -96,25 +129,43 @@ export function MalshabimHomePage({
   const [importing, setImporting] = useState(false);
   const [candidates, setCandidates] = useState(initialCandidates);
   const [draftsOpen, setDraftsOpen] = useState(false);
+  const [filesOpen, setFilesOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
-  const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(
-    null,
+  const [pendingApprovalCount, setPendingApprovalCount] = useState<number | null>(() =>
+    initialCandidates.filter((c) => !c.is_draft && c.awaiting_admin_approval).length,
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkStatus, setBulkStatus] = useState<MalshabimCandidateStatus>("בטיפול");
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [filters, setFilters] = useState<MalshabimCandidateFilters>({
-    search: "",
-    track: "all",
-    candidateStatus: [],
-    statusType: "all",
-    requestType: "all",
-    fromDate: "",
-    toDate: "",
-  });
+  const [filters, setFilters] = useState<MalshabimCandidateFilters>(DEFAULT_FILTERS);
+
+  useEffect(() => {
+    setFilters(loadStoredFilters());
+    setViewMode(loadStoredViewMode());
+    setFiltersHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    try {
+      const persistable = {
+        track: filters.track,
+        candidateStatus: filters.candidateStatus,
+        statusType: filters.statusType,
+        requestType: filters.requestType,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+      };
+      sessionStorage.setItem(HOME_FILTERS_KEY, JSON.stringify(persistable));
+      sessionStorage.setItem(HOME_VIEW_KEY, viewMode);
+    } catch {
+      // ignore
+    }
+  }, [filters, viewMode, filtersHydrated]);
 
   useEffect(() => {
     void (async () => {
@@ -209,16 +260,13 @@ export function MalshabimHomePage({
   const showSearchPanel = searchOpen && searchQuery.length >= 1;
 
   const clearFilters = () => {
-    setFilters({
-      search: "",
-      track: "all",
-      candidateStatus: [],
-      statusType: "all",
-      requestType: "all",
-      fromDate: "",
-      toDate: "",
-    });
+    setFilters(DEFAULT_FILTERS);
     setSearchOpen(false);
+    try {
+      sessionStorage.removeItem(HOME_FILTERS_KEY);
+    } catch {
+      // ignore
+    }
   };
 
   const toggleStatusFilter = (status: MalshabimCandidateStatus) => {
@@ -275,8 +323,9 @@ export function MalshabimHomePage({
           selectedIds.includes(c.id) ? { ...c, candidate_status: bulkStatus } : c,
         ),
       );
+      const updatedCount = selectedIds.length;
       setSelectedIds([]);
-      toast.success(`עודכן סטטוס ל־${selectedIds.length} תיקים`);
+      toast.success(`עודכן סטטוס ל־${updatedCount} תיקים`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "עדכון מרובה נכשל");
     } finally {
@@ -321,201 +370,284 @@ export function MalshabimHomePage({
     }
   };
 
+  const actionCardClass =
+    "flex min-h-[108px] flex-col justify-between rounded-2xl border border-border-weak bg-surface-1 p-4 text-right shadow-sm transition hover:border-accent-primary/40 hover:shadow-md";
+
   return (
     <div className={pageShellClass} dir="rtl">
-      <div className={`${panelClass} relative z-20 min-w-0 overflow-visible p-4 sm:p-5`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
-          <div className="min-w-0">
-            <h1 className={pageTitleClass}>תיקי מועמדים</h1>
-            <p className={pageSubtitleClass}>סינון, ייצוא ומעבר בין תצוגות</p>
+      {/* Action hub — Ari sketch intent for /malshabim */}
+      <section className="overflow-hidden rounded-3xl border border-border-weak bg-gradient-to-b from-surface-1 to-surface-2/60 shadow-sm">
+        <div className="border-b border-border-weak px-4 py-5 sm:px-6">
+          <p className="text-xs font-bold tracking-wide text-text-muted">מודול מלש״בים</p>
+          <h1 className={`${pageTitleClass} mt-1 !text-3xl`}>מלש״בים</h1>
+          <p className={pageSubtitleClass}>
+            מה דורש טיפול עכשיו · {filtered.length} תיקים מוצגים מתוך {stats.total}
+          </p>
+        </div>
+
+        <div className="relative z-30 border-b border-border-weak px-4 py-4 sm:px-6" ref={searchBoxRef}>
+          <div className="relative flex items-center">
+            <Search
+              className="pointer-events-none absolute start-4 h-4 w-4 text-text-muted"
+              aria-hidden
+            />
+            <input
+              className={`${searchClass} !rounded-2xl !border !border-border-weak !bg-surface-2 !py-3.5`}
+              placeholder="חיפוש מלש״ב — מס׳ תיק, שם, טלפון, ת.ז…"
+              value={filters.search || ""}
+              onChange={(e) => {
+                setFilter("search", e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              aria-controls="malshabim-search-results"
+              autoComplete="off"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                className="absolute end-3 rounded-full p-1 text-text-muted transition hover:bg-surface-1 hover:text-text-primary"
+                aria-label="נקה חיפוש"
+                onClick={() => {
+                  setFilter("search", "");
+                  setSearchOpen(false);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
-            {canEdit ? (
-              <Link href="/malshabim/interview" className={primaryButtonClass}>
-                <Plus className="h-4 w-4" /> ראיון חדש
-              </Link>
-            ) : null}
-            {canEdit ? (
-              <Link
-                href="/malshabim/waitlist?new=1"
-                className={`${primaryButtonClass} !bg-violet-600 hover:!bg-violet-700`}
-              >
-                <Plus className="h-4 w-4" /> פנייה חדשה
-              </Link>
-            ) : null}
-            <Link
-              href="/malshabim/waitlist"
-              className={`${primaryButtonClass} !bg-amber-500 hover:!bg-amber-600`}
+          {showSearchPanel ? (
+            <div
+              id="malshabim-search-results"
+              role="listbox"
+              className="absolute inset-x-4 top-[calc(100%-0.25rem)] z-50 max-h-80 overflow-y-auto rounded-2xl border border-border-weak bg-surface-1 p-2 shadow-xl shadow-black/10 sm:inset-x-6"
             >
-              <UserRoundSearch className="h-4 w-4" />
-              מחכים לראיון
-              {waitlistCount != null && waitlistCount > 0 ? (
-                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black">
-                  {waitlistCount}
+              {searchHits.length === 0 ? (
+                <p className="px-3 py-4 text-center text-sm font-medium text-text-muted">
+                  לא נמצאו תוצאות
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {searchHits.map((c) => {
+                    const status = normalizeCandidateStatus(c.candidate_status);
+                    return (
+                      <li key={c.id}>
+                        <Link
+                          href={`/malshabim/candidates/${c.id}`}
+                          role="option"
+                          className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition hover:bg-surface-2"
+                          onClick={() => setSearchOpen(false)}
+                        >
+                          <div className="min-w-0 text-right">
+                            <p className="truncate font-bold text-text-primary">
+                              {c.full_name || "ללא שם"}
+                            </p>
+                            <p className="truncate text-xs font-medium text-text-muted">
+                              {[c.phone, c.city, c.serial_number != null ? `מס׳ ${c.serial_number}` : null]
+                                .filter(Boolean)
+                                .join(" · ") || "—"}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
+                          >
+                            {status}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          className={`grid gap-3 p-4 sm:p-6 ${
+            isAdmin ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-2 lg:grid-cols-3"
+          }`}
+        >
+          {canEdit ? (
+            <Link href="/malshabim/interview" className={actionCardClass}>
+              <span className="rounded-xl bg-accent-primary/15 p-2 text-accent-primary">
+                <Plus className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-base font-black text-text-primary">ראיון חדש</p>
+                <p className="text-xs font-medium text-text-muted">פתיחת תיק ראיון</p>
+              </div>
+            </Link>
+          ) : null}
+          {canEdit ? (
+            <Link href="/malshabim/waitlist?new=1" className={actionCardClass}>
+              <span className="rounded-xl bg-violet-600/15 p-2 text-violet-700">
+                <Plus className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-base font-black text-text-primary">פנייה חדשה</p>
+                <p className="text-xs font-medium text-text-muted">רישום למחכים לראיון</p>
+              </div>
+            </Link>
+          ) : null}
+          <Link href="/malshabim/waitlist" className={actionCardClass}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="rounded-xl bg-amber-500/15 p-2 text-amber-700">
+                <UserRoundSearch className="h-5 w-5" />
+              </span>
+              <p className="text-3xl font-black tabular-nums text-text-primary">
+                {waitlistCount ?? "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-base font-black text-text-primary">מחכים לראיון</p>
+              <p className="text-xs font-medium text-text-muted">רשימת פניות ממתינות</p>
+            </div>
+          </Link>
+          {isAdmin ? (
+            <Link href="/malshabim/admin/approvals" className={actionCardClass}>
+              <div className="flex items-start justify-between gap-2">
+                <span className="rounded-xl bg-emerald-600/15 p-2 text-emerald-700">
+                  <ClipboardCheck className="h-5 w-5" />
                 </span>
-              ) : null}
+                <p className="text-3xl font-black tabular-nums text-text-primary">
+                  {pendingApprovalCount ?? "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-base font-black text-text-primary">מחכים לאישור מנהל</p>
+                <p className="text-xs font-medium text-text-muted">אישור או דחייה</p>
+              </div>
             </Link>
-            <Link href="/malshabim/board" className={secondaryButtonClass}>
-              <KanbanSquare className="h-4 w-4" /> טבלת עבודה
-            </Link>
-            {isAdmin ? (
-              <Link
-                href="/malshabim/admin/approvals"
-                className={`${primaryButtonClass} !bg-emerald-600 hover:!bg-emerald-700`}
-              >
-                <ClipboardCheck className="h-4 w-4" />
-                ממתינים לאישור
-                {pendingApprovalCount != null && pendingApprovalCount > 0 ? (
-                  <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-black">
-                    {pendingApprovalCount}
-                  </span>
-                ) : null}
-              </Link>
-            ) : null}
-            {canEdit ? (
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-2 border-t border-border-weak px-4 py-4 sm:px-6">
+          <Link href="/malshabim/board" className={primaryButtonClass}>
+            <KanbanSquare className="h-4 w-4" /> טבלת עבודה
+          </Link>
+          {canEdit ? (
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              onClick={() => exportTemplate()}
+            >
+              <FileSpreadsheet className="h-4 w-4" /> ייצא תבנית
+            </button>
+          ) : null}
+          {isAdmin ? (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={(e) => void onImportFile(e.target.files?.[0] ?? null)}
+              />
               <button
                 type="button"
                 className={secondaryButtonClass}
-                onClick={() => exportTemplate()}
+                disabled={importing}
+                onClick={() => fileInputRef.current?.click()}
               >
-                <FileSpreadsheet className="h-4 w-4" /> ייצא תבנית
+                <Upload className="h-4 w-4" />
+                {importing ? "מייבא…" : "ייבא אקסל"}
               </button>
-            ) : null}
-            {isAdmin ? (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={(e) => void onImportFile(e.target.files?.[0] ?? null)}
-                />
-                <button
-                  type="button"
-                  className={secondaryButtonClass}
-                  disabled={importing}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="h-4 w-4" />
-                  {importing ? "מייבא…" : "ייבא אקסל"}
-                </button>
-              </>
-            ) : null}
-          </div>
+            </>
+          ) : null}
         </div>
+      </section>
 
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            className={viewToggleClass(false)}
-            onClick={() => downloadCandidatesExcel(filtered)}
-          >
-            Excel
-          </button>
-          <button
-            type="button"
-            className={viewToggleClass(false)}
-            onClick={() => downloadCandidatesCsv(filtered)}
-          >
-            CSV
-          </button>
-          <button
-            type="button"
-            className={viewToggleClass(viewMode === "grid")}
-            onClick={() => setViewMode("grid")}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" /> GRID
-          </button>
-          <button
-            type="button"
-            className={viewToggleClass(viewMode === "list")}
-            onClick={() => setViewMode("list")}
-          >
-            <List className="h-3.5 w-3.5" /> רשימה
-          </button>
-        </div>
-
-        <div className="mt-4 min-w-0 space-y-3">
-          <div className="relative z-30" ref={searchBoxRef}>
-            <div className="relative flex items-center">
-              <Search
-                className="pointer-events-none absolute start-4 h-4 w-4 text-text-muted"
-                aria-hidden
-              />
-              <input
-                className={searchClass}
-                placeholder="מס' תיק, שם, טלפון, ת.ז, סיכום…"
-                value={filters.search || ""}
-                onChange={(e) => {
-                  setFilter("search", e.target.value);
-                  setSearchOpen(true);
-                }}
-                onFocus={() => setSearchOpen(true)}
-                aria-expanded={showSearchPanel}
-                aria-controls="malshabim-search-results"
-                autoComplete="off"
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  className="absolute end-3 rounded-full p-1 text-text-muted transition hover:bg-surface-2 hover:text-text-primary"
-                  aria-label="נקה חיפוש"
-                  onClick={() => {
-                    setFilter("search", "");
-                    setSearchOpen(false);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-            {showSearchPanel ? (
-              <div
-                id="malshabim-search-results"
-                role="listbox"
-                className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-50 max-h-80 overflow-y-auto rounded-2xl border border-border-weak bg-surface-1 p-2 shadow-xl shadow-black/10"
+      {/* Collapsible: work that needs attention */}
+      {(isAdmin && (pendingApprovalCount ?? 0) > 0) || (waitlistCount ?? 0) > 0 ? (
+        <section className={`${cardClass} overflow-hidden`}>
+          <div className="space-y-0 divide-y divide-border-weak">
+            {(waitlistCount ?? 0) > 0 ? (
+              <Link
+                href="/malshabim/waitlist"
+                className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-surface-2/50 sm:px-5"
               >
-                {searchHits.length === 0 ? (
-                  <p className="px-3 py-4 text-center text-sm font-medium text-text-muted">
-                    לא נמצאו תוצאות
+                <div>
+                  <p className="font-bold text-text-primary">מחכים לראיון</p>
+                  <p className="text-xs text-text-muted">{waitlistCount} פניות ממתינות לטיפול</p>
+                </div>
+                <ChevronLeft className="h-4 w-4 text-text-muted" />
+              </Link>
+            ) : null}
+            {isAdmin && (pendingApprovalCount ?? 0) > 0 ? (
+              <Link
+                href="/malshabim/admin/approvals"
+                className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-surface-2/50 sm:px-5"
+              >
+                <div>
+                  <p className="font-bold text-text-primary">מחכים לאישור מנהל</p>
+                  <p className="text-xs text-text-muted">
+                    {pendingApprovalCount} תיקים ממתינים לאישור
                   </p>
-                ) : (
-                  <ul className="flex flex-col gap-1">
-                    {searchHits.map((c) => {
-                      const status = normalizeCandidateStatus(c.candidate_status);
-                      return (
-                        <li key={c.id}>
-                          <Link
-                            href={`/malshabim/candidates/${c.id}`}
-                            role="option"
-                            className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition hover:bg-surface-2"
-                            onClick={() => setSearchOpen(false)}
-                          >
-                            <div className="min-w-0 text-right">
-                              <p className="truncate font-bold text-text-primary">
-                                {c.full_name || "ללא שם"}
-                              </p>
-                              <p className="truncate text-xs font-medium text-text-muted">
-                                {[c.phone, c.city, c.serial_number != null ? `מס׳ ${c.serial_number}` : null]
-                                  .filter(Boolean)
-                                  .join(" · ") || "—"}
-                              </p>
-                            </div>
-                            <span
-                              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
-                            >
-                              {status}
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
+                </div>
+                <ChevronLeft className="h-4 w-4 text-text-muted" />
+              </Link>
             ) : null}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+        </section>
+      ) : null}
+
+      {/* Files area — filters + list (secondary to hub) */}
+      <section className={`${panelClass} relative z-20 min-w-0 overflow-visible`}>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 p-4 text-right sm:p-5"
+          onClick={() => setFilesOpen((open) => !open)}
+          aria-expanded={filesOpen}
+        >
+          <div>
+            <h2 className="text-lg font-black text-text-primary">תיקי מועמדים</h2>
+            <p className="text-xs font-medium text-text-muted">
+              סינון, ייצוא ורשימה · {filtered.length} מוצגים
+            </p>
+          </div>
+          {filesOpen ? (
+            <ChevronUp className="h-5 w-5 text-text-muted" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-text-muted" />
+          )}
+        </button>
+
+        {filesOpen ? (
+          <div className="space-y-3 border-t border-border-weak p-4 sm:p-5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                className={viewToggleClass(false)}
+                onClick={() => downloadCandidatesExcel(filtered)}
+              >
+                Excel
+              </button>
+              <button
+                type="button"
+                className={viewToggleClass(false)}
+                onClick={() => downloadCandidatesCsv(filtered)}
+              >
+                CSV
+              </button>
+              <button
+                type="button"
+                className={viewToggleClass(viewMode === "grid")}
+                onClick={() => setViewMode("grid")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> GRID
+              </button>
+              <button
+                type="button"
+                className={viewToggleClass(viewMode === "list")}
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-3.5 w-3.5" /> רשימה
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
             <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
               איתור / בקשה
               <select
@@ -627,44 +759,42 @@ export function MalshabimHomePage({
               );
             })}
           </div>
-        </div>
-      </div>
 
-      {/* Live dashboard squares */}
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={Users}
-          label="סה״כ מועמדים"
-          value={stats.total}
-          onClick={clearFilters}
-        />
-        {CANDIDATE_STATUSES.map((status) => (
-          <StatCard
-            key={status}
-            label={status}
-            value={statusCounts[status]}
-            tone={STATUS_COLORS[status]}
-            active={selectedStatuses.includes(status)}
-            onClick={() => toggleStatusFilter(status)}
-          />
-        ))}
-        <StatCard
-          icon={FileText}
-          label="ראיונות שלא הושלמו"
-          value={stats.drafts}
-          onClick={() => setDraftsOpen(true)}
-        />
-        <StatCard
-          icon={CheckCircle2}
-          label="עברו מבחן"
-          value={stats.quizPassed}
-        />
-        <StatCard
-          icon={XCircle}
-          label="לא עברו מבחן"
-          value={stats.quizFailed}
-        />
-      </div>
+          {/* Live dashboard squares */}
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+              icon={Users}
+              label="סה״כ מועמדים"
+              value={stats.total}
+              onClick={clearFilters}
+            />
+            {CANDIDATE_STATUSES.map((status) => (
+              <StatCard
+                key={status}
+                label={status}
+                value={statusCounts[status]}
+                tone={STATUS_COLORS[status]}
+                active={selectedStatuses.includes(status)}
+                onClick={() => toggleStatusFilter(status)}
+              />
+            ))}
+            <StatCard
+              icon={FileText}
+              label="ראיונות שלא הושלמו"
+              value={stats.drafts}
+              onClick={() => setDraftsOpen(true)}
+            />
+            <StatCard
+              icon={CheckCircle2}
+              label="עברו מבחן"
+              value={stats.quizPassed}
+            />
+            <StatCard
+              icon={XCircle}
+              label="לא עברו מבחן"
+              value={stats.quizFailed}
+            />
+          </div>
 
       {drafts.length > 0 ? (
         <div className={`${cardClass} overflow-hidden`}>
@@ -826,7 +956,7 @@ export function MalshabimHomePage({
           })}
         </div>
       ) : (
-        <div className={`${panelClass} overflow-hidden`}>
+        <div className="overflow-hidden rounded-2xl border border-border-weak bg-surface-1">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px] text-right text-sm">
               <thead className={tableHeadClass}>
@@ -897,6 +1027,9 @@ export function MalshabimHomePage({
           </div>
         </div>
       )}
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
