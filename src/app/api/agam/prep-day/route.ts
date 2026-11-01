@@ -12,6 +12,7 @@ const bodySchema = z.object({
   socialDynamicsScore: z.number().nullable(),
   socialDynamicsFeedback: z.string(),
   generalImpression: z.string(),
+  passed: z.boolean().nullable().optional(),
 });
 
 export async function POST(request: Request) {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     social_dynamics_score: parsed.data.socialDynamicsScore,
     social_dynamics_feedback: parsed.data.socialDynamicsFeedback,
     general_impression: parsed.data.generalImpression,
+    passed: parsed.data.passed,
   });
   await new AgamCandidateService().addTimeline({
     candidate_id: parsed.data.candidateId,

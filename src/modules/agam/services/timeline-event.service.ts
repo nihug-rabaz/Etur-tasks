@@ -19,23 +19,43 @@ export class AgamTimelineEventService extends BaseService {
     `;
   }
 
+  public async listForCycle(cycleId: string | null, limit = 100): Promise<AgamTimelineEventItem[]> {
+    const db = this.getDb();
+    if (!cycleId) {
+      return db<AgamTimelineEventItem[]>`
+        select * from agam_timeline_events
+        where cycle_id is null
+        order by sort_order asc, event_date asc nulls last, created_at asc
+        limit ${limit}
+      `;
+    }
+    return db<AgamTimelineEventItem[]>`
+      select * from agam_timeline_events
+      where cycle_id = ${cycleId} or cycle_id is null
+      order by sort_order asc, event_date asc nulls last, created_at asc
+      limit ${limit}
+    `;
+  }
+
   public async create(input: {
     title: string;
     event_date?: string | null;
     event_type: AgamTimelineEventItem["event_type"];
     notes?: string | null;
     sort_order?: number;
+    cycle_id?: string | null;
     created_by_id?: string | null;
   }): Promise<AgamTimelineEventItem> {
     const db = this.getDb();
     const rows = await db<AgamTimelineEventItem[]>`
-      insert into agam_timeline_events (title, event_date, event_type, notes, sort_order, created_by_id)
+      insert into agam_timeline_events (title, event_date, event_type, notes, sort_order, cycle_id, created_by_id)
       values (
         ${input.title},
         ${input.event_date ?? null},
         ${input.event_type},
         ${input.notes ?? null},
         ${input.sort_order ?? 0},
+        ${input.cycle_id ?? null},
         ${input.created_by_id ?? null}
       )
       returning *

@@ -37,6 +37,8 @@ export async function POST(request: Request) {
       upload_source: "candidate",
       notes: null,
       uploaded_by_name: candidate.full_name,
+      file_size: file.size,
+      content_type: file.type || null,
     });
     await candidateService.addTimeline({
       candidate_id: candidateId,
@@ -48,15 +50,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "UPLOAD_FAILED";
-    if (message === "BLOB_REQUIRED") {
-      return NextResponse.json({ error: "העלאת קבצים דורשת אחסון מוגדר בשרת" }, { status: 503 });
-    }
     if (message === "FILE_TOO_LARGE") {
-      return NextResponse.json({ error: "הקובץ גדול מדי" }, { status: 413 });
+      return NextResponse.json({ error: "הקובץ גדול מדי — עד 4MB" }, { status: 413 });
     }
     if (message === "INVALID_FILE_TYPE" || message === "INVALID_FILE_NAME") {
-      return NextResponse.json({ error: "סוג קובץ לא נתמך" }, { status: 400 });
+      return NextResponse.json(
+        { error: "סוג קובץ לא נתמך — PDF, Word, Excel או תמונה" },
+        { status: 400 },
+      );
     }
+    console.error("[agam/public/upload] upload failed:", error);
     return NextResponse.json({ error: "העלאה נכשלה" }, { status: 500 });
   }
 }

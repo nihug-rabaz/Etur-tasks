@@ -6,8 +6,10 @@ import { IntroSplash } from "@/components/intro-splash";
 import { OneSignalBootstrap } from "@/components/onesignal/onesignal-bootstrap";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { FontScaleRoot } from "@/components/ui/font-scale-root";
+import { isAgamCandidateSoldier } from "@/modules/agam/lib/candidate-access";
 import { AuthorizationService } from "@/services/authorization.service";
 import { ProfileService } from "@/services/profile.service";
+import { ModuleRoleService } from "@/shared/services/module-role.service";
 import { getFontScaleOption } from "@/lib/ui/font-scale";
 import "./globals.css";
 
@@ -72,12 +74,20 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const profile = await new AuthorizationService().getCurrentProfile();
+  const moduleRoles = profile
+    ? await new ModuleRoleService().getRolesForUser(profile.id)
+    : {};
+  const candidateSoldier = isAgamCandidateSoldier({
+    platformRole: profile?.role,
+    moduleRoles,
+  });
   const fontScale = profile
     ? await new ProfileService().getFontScale(profile.id)
     : getFontScaleOption("default");
   const pathname = (await headers()).get("x-etur-pathname") ?? "";
   const isPublicAgam =
     pathname.startsWith("/agam/apply") || pathname.startsWith("/agam/upload");
+  const hidePlatformChrome = isPublicAgam || candidateSoldier;
 
   return (
     <html
@@ -95,9 +105,9 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <FontScaleRoot initialPreset={fontScale.preset} />
         <OneSignalBootstrap externalId={profile?.id} />
-        {isPublicAgam ? null : <IntroSplash />}
+        {hidePlatformChrome ? null : <IntroSplash />}
         {children}
-        {isPublicAgam ? null : <PwaInstallPrompt />}
+        {hidePlatformChrome ? null : <PwaInstallPrompt />}
         <Toaster richColors theme="light" />
       </body>
     </html>

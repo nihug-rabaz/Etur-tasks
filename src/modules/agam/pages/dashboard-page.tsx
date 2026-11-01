@@ -1,61 +1,24 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
-import { CheckCircle2, Hourglass, ListTodo, Users, XCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
 import { CreateAgamTaskDrawer } from "@/modules/agam/components/create-task-drawer";
-import { CohortCarousel } from "@/modules/agam/components/cohort-carousel";
+import { CohortSpotlight } from "@/modules/agam/components/cohort-spotlight";
 import { AgamTimelineStrip } from "@/modules/agam/components/timeline-strip";
 import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
-import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
-import {
-  panelClass,
-  pageShellClass,
-  panelPadClass,
-  secondaryButtonClass,
-  dividerClass,
-} from "@/modules/agam/lib/ui";
+import { panelClass, pageShellClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamCycle, AgamLinkedTask, AgamOrgSettings, AgamTimelineEventItem } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
-
-function buildCohortCards(cycles: AgamCycle[]) {
-  const map = new Map<
-    string,
-    { key: string; year: number | null; cycleCount: number; candidateCount: number }
-  >();
-  for (const cycle of cycles) {
-    const year = cycle.cohort_year ?? null;
-    const key = year == null ? "none" : String(year);
-    const existing = map.get(key);
-    if (existing) {
-      existing.cycleCount += 1;
-      existing.candidateCount += cycle.candidate_count ?? 0;
-    } else {
-      map.set(key, {
-        key,
-        year,
-        cycleCount: 1,
-        candidateCount: cycle.candidate_count ?? 0,
-      });
-    }
-  }
-  return [...map.values()].sort((a, b) => {
-    if (a.year == null && b.year == null) return 0;
-    if (a.year == null) return 1;
-    if (b.year == null) return -1;
-    return b.year - a.year;
-  });
-}
 
 export function AgamDashboardPage({
   initialCandidates = [],
   initialSettings = null,
   initialRole = null,
   initialTimelineEvents = [],
+  initialTimelineCycle = null,
   initialGeneralTasks = [],
   initialCycles = [],
   initialCurrentUserId = "",
@@ -64,6 +27,7 @@ export function AgamDashboardPage({
   initialSettings?: AgamOrgSettings | null;
   initialRole?: ModuleRole | null;
   initialTimelineEvents?: AgamTimelineEventItem[];
+  initialTimelineCycle?: AgamCycle | null;
   initialGeneralTasks?: AgamLinkedTask[];
   initialCycles?: AgamCycle[];
   initialCurrentUserId?: string;
@@ -73,6 +37,7 @@ export function AgamDashboardPage({
   const [settings, setSettings] = useState<AgamOrgSettings | null>(initialSettings);
   const [role, setRole] = useState<ModuleRole | null>(initialRole);
   const [timelineEvents, setTimelineEvents] = useState<AgamTimelineEventItem[]>(initialTimelineEvents);
+  const [timelineCycle, setTimelineCycle] = useState<AgamCycle | null>(initialTimelineCycle);
   const [generalTasks, setGeneralTasks] = useState<AgamLinkedTask[]>(initialGeneralTasks);
   const [cycles, setCycles] = useState<AgamCycle[]>(initialCycles);
   const [currentUserId, setCurrentUserId] = useState(initialCurrentUserId);
@@ -84,12 +49,28 @@ export function AgamDashboardPage({
       .catch(() => toast.error("טעינת המשימות נכשלה"));
   };
 
+  const loadTimeline = useCallback(async (cycleId?: string | null) => {
+    const query = cycleId ? `?cycleId=${encodeURIComponent(cycleId)}` : "";
+    const timelineData = await agamFetch<{
+      events: AgamTimelineEventItem[];
+      cycle: AgamCycle | null;
+      cycles?: AgamCycle[];
+    }>(`/api/agam/timeline${query}`);
+    setTimelineEvents(timelineData.events ?? []);
+    setTimelineCycle(timelineData.cycle ?? null);
+    if (timelineData.cycles) setCycles(timelineData.cycles);
+  }, []);
+
   useEffect(() => {
     if (hasSSR) return;
     void Promise.all([
       agamFetch<{ candidates: AgamCandidate[]; role: ModuleRole; currentUserId: string }>("/api/agam/candidates"),
       agamFetch<{ settings: AgamOrgSettings | null }>("/api/agam/settings"),
-      agamFetch<{ events: AgamTimelineEventItem[] }>("/api/agam/timeline"),
+      agamFetch<{
+        events: AgamTimelineEventItem[];
+        cycle: AgamCycle | null;
+        cycles: AgamCycle[];
+      }>("/api/agam/timeline"),
       agamFetch<{ tasks: AgamLinkedTask[] }>("/api/agam/tasks?general=1"),
       agamFetch<{ cycles: AgamCycle[] }>("/api/agam/cycles"),
     ])
@@ -98,89 +79,57 @@ export function AgamDashboardPage({
         setRole(candidatesData.role);
         setSettings(settingsData.settings);
         setTimelineEvents(timelineData.events ?? []);
+        setTimelineCycle(timelineData.cycle ?? null);
         setGeneralTasks(tasksData.tasks ?? []);
-        setCycles(cyclesData.cycles ?? []);
+        setCycles(cyclesData.cycles?.length ? cyclesData.cycles : timelineData.cycles ?? []);
         setCurrentUserId(candidatesData.currentUserId ?? "");
       })
       .catch(() => toast.error("טעינת המועמדים נכשלה"))
       .finally(() => setLoaded(true));
   }, [hasSSR]);
 
-  const isRamad = canRamad(role);
-  const cohortCards = useMemo(() => buildCohortCards(cycles), [cycles]);
-  const stats = {
-    total: candidates.length,
-    pending: candidates.filter((row) => row.status === "pending").length,
-    passed: candidates.filter((row) => row.status === "passed").length,
-    notPassed: candidates.filter((row) => row.status === "not_passed").length,
-  };
-  const recent = candidates.slice(0, 8);
-
   if (!loaded) {
     return <p className="p-6 text-sm text-text-muted">טוען…</p>;
   }
 
   return (
-    <div className={pageShellClass}>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <article className={`${panelClass} ${panelPadClass} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-                הרבנות הצבאית
-              </p>
-              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-text-primary sm:text-[1.85rem]">
-                {settings?.unit_name ?? "קצינים"}
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-text-secondary">
-                ניהול תהליך המיון לקורס קציני דת — מפרטי המועמד ועד החלטה סופית.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {canEvaluate(role) ? <CreateCandidateDrawer /> : null}
-                {canEvaluate(role) ? (
-                  <CreateAgamTaskDrawer requireCycle triggerClassName={secondaryButtonClass} />
-                ) : null}
-              </div>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={settings?.logo_url || "/logo-mador-omtz.png"}
-              alt={settings?.unit_name ?? "קצינים"}
-              className="h-16 w-auto object-contain sm:h-20"
-            />
-          </article>
+    <div className={`${pageShellClass} gap-5`}>
+      <header className="flex flex-wrap items-center justify-between gap-4 px-1 pt-1">
+        <div className="flex min-w-0 items-center gap-3.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={settings?.logo_url || "/logo-mador-omtz.png"}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded-2xl bg-surface-1 object-contain p-1.5 shadow-sm ring-1 ring-black/[0.05] dark:ring-white/10"
+          />
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl font-black tracking-tight text-text-primary">
+              {settings?.unit_name ?? "קצינים"}
+            </h1>
+            <p className="truncate text-xs font-semibold text-text-muted">
+              הרבנות הצבאית · מיון לקורס קציני דת
+            </p>
+          </div>
+        </div>
+        {canEvaluate(role) ? <CreateCandidateDrawer /> : null}
+      </header>
 
-          <article>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-text-primary">שנתונים</h2>
-                <p className="text-xs text-text-muted">בחרו שנתון כדי להיכנס למחזורים</p>
-              </div>
-              <Link href="/agam/cycles" className="text-xs font-bold text-accent-primary">
-                הכל
-              </Link>
-            </div>
-            {cohortCards.length === 0 ? (
-              <div className={`${panelClass} ${panelPadClass} text-center text-sm text-text-muted`}>
-                אין שנתונים עדיין — צרו מחזור עם שנתון במסך השנתונים.
-              </div>
-            ) : (
-              <CohortCarousel
-                items={cohortCards}
-                getHref={(key) => `/agam/cycles?year=${key}`}
-              />
-            )}
-          </article>
-
-          {isRamad ? (
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard icon={Users} label="סה״כ מועמדים" value={stats.total} />
-              <StatCard icon={Hourglass} label="ממתינים" value={stats.pending} />
-              <StatCard icon={CheckCircle2} label="עברו" value={stats.passed} />
-              <StatCard icon={XCircle} label="לא עברו" value={stats.notPassed} />
-            </section>
-          ) : null}
-
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <CohortSpotlight
+            cycles={cycles}
+            candidates={candidates}
+            canCreate={canEvaluate(role)}
+            onCycleCreated={(cycle) => {
+              setCycles((current) => [cycle, ...current]);
+              void loadTimeline(cycle.id).catch(() => undefined);
+            }}
+            onActiveCycleChange={(cycle) => {
+              if (!cycle) return;
+              if (timelineCycle?.id === cycle.id) return;
+              void loadTimeline(cycle.id).catch(() => toast.error("טעינת לוח הזמנים נכשלה"));
+            }}
+          />
           <GeneralTasksCard
             tasks={generalTasks}
             currentUserId={currentUserId}
@@ -188,71 +137,21 @@ export function AgamDashboardPage({
             canAdmin={canRamad(role)}
             onChanged={refreshTasks}
           />
-
-          <article className={`${panelClass} ${panelPadClass}`}>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-bold text-text-primary">מועמדים אחרונים</h2>
-              <Link href="/agam/candidates" className="text-xs font-bold text-text-primary">
-                הכל
-              </Link>
-            </div>
-            {recent.length === 0 ? (
-              <p className="text-sm text-text-muted">אין מועמדים עדיין.</p>
-            ) : (
-              <ul>
-                {recent.map((candidate) => (
-                  <li key={candidate.id} className={dividerClass}>
-                    <Link
-                      href={`/agam/candidates/${candidate.id}`}
-                      className="flex flex-wrap items-center gap-2 py-2 transition hover:opacity-80"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-bold text-text-primary">{candidate.full_name}</p>
-                        <p className="text-xs text-text-muted" dir="ltr">
-                          {candidate.personal_number}
-                        </p>
-                      </div>
-                      {candidate.status !== "pending" ? (
-                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_TONES[candidate.status]}`}>
-                          {STATUS_LABELS[candidate.status]}
-                        </span>
-                      ) : null}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
         </div>
 
-        <aside className="w-full shrink-0 overflow-visible pt-3 lg:sticky lg:top-20 lg:w-[16.5rem] lg:self-start xl:w-[18rem]">
+        <aside className="flex flex-col gap-5 lg:sticky lg:top-20">
           <AgamTimelineStrip
             events={timelineEvents}
+            cycle={timelineCycle}
+            cycles={cycles}
             canManage={canEvaluate(role)}
             onEventsChange={setTimelineEvents}
+            onCycleChange={(cycleId) => {
+              void loadTimeline(cycleId).catch(() => toast.error("טעינת לוח הזמנים נכשלה"));
+            }}
           />
         </aside>
       </div>
-    </div>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: ComponentType<{ size?: number; className?: string }>;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className={`${panelClass} p-3.5`}>
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-text-secondary">{label}</p>
-        <Icon size={16} className="text-text-primary" />
-      </div>
-      <p className="mt-2 text-2xl font-extrabold text-text-primary">{value}</p>
     </div>
   );
 }
@@ -270,18 +169,30 @@ function GeneralTasksCard({
   canAdmin: boolean;
   onChanged: () => void;
 }) {
+  const open = tasks.filter((task) => task.status !== "completed");
+  const done = tasks.filter((task) => task.status === "completed");
+  const visible = [...open, ...done].slice(0, 6);
   return (
-    <article className={`${panelClass} ${panelPadClass}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <ListTodo size={18} className="text-text-primary" />
-        <h2 className="text-lg font-bold text-text-primary">משימות</h2>
-        {canEdit ? <CreateAgamTaskDrawer requireCycle onCreated={onChanged} /> : null}
+    <article className={`${panelClass} px-5 pb-4 pt-5`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-base font-extrabold text-text-primary">משימות</h2>
+          <span className="text-xs font-semibold text-text-muted">{open.length} פתוחות</span>
+        </div>
+        {canEdit ? (
+          <CreateAgamTaskDrawer
+            requireCycle
+            onCreated={onChanged}
+            triggerLabel="משימה"
+            triggerClassName="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-text-primary transition hover:bg-surface-2"
+          />
+        ) : null}
       </div>
       <ul className="mt-3 space-y-1.5">
-        {tasks.length === 0 ? (
+        {visible.length === 0 ? (
           <li className="text-sm text-text-muted">אין משימות עדיין.</li>
         ) : (
-          tasks.slice(0, 8).map((task) => (
+          visible.map((task) => (
             <AgamTaskRow
               key={task.id}
               task={task}

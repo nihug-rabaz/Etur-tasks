@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
 import type { Profile, UserAccessStatus } from "@/types/models";
 import type { ModuleRole } from "@/shared/modules/types";
@@ -53,9 +54,10 @@ const APP_DEFS: Array<{
     label: "קצינים",
     roles: [
       { value: "user", label: "ממיין", hint: "מילוי ראיונות, הערכות, סמ״ח ומסמכים" },
-      { value: "ramad", label: "מנהל", hint: "ארכיון, ייצוא PDF והחלטה סופית" },
+      { value: "ramad", label: "רמ״ד", hint: "ארכיון, ייצוא PDF והחלטה סופית" },
       { value: "viewer", label: "צופה", hint: "צפייה בתיקים בלבד" },
       { value: "admin", label: "מנהל", hint: "ניהול מלא כולל שאלון, קריטריונים והגדרות" },
+      { value: "candidate", label: "חייל מועמד", hint: "צפייה בתיק שלו בלבד — סטטוס ומיקום במסלול" },
     ],
   },
   {
@@ -85,6 +87,90 @@ function resolveAccessStatus(user: Profile): UserAccessStatus {
   return user.is_approved ? "approved" : "pending";
 }
 
+function ModuleAccessRow({
+  app,
+  userId,
+  initialRole,
+  action,
+}: {
+  app: (typeof APP_DEFS)[number];
+  userId: string;
+  initialRole: ModuleRole | null;
+  action: (formData: FormData) => Promise<void>;
+}) {
+  const router = useRouter();
+  const [enabled, setEnabled] = useState(Boolean(initialRole));
+  const [role, setRole] = useState<ModuleRole>(initialRole ?? app.roles[0].value);
+  const [pending, startTransition] = useTransition();
+
+  const save = (nextEnabled: boolean, nextRole: ModuleRole) => {
+    const prev = { enabled, role };
+    setEnabled(nextEnabled);
+    setRole(nextRole);
+    const formData = new FormData();
+    formData.set("userId", userId);
+    formData.set("moduleId", app.id);
+    formData.set("enabled", nextEnabled ? "1" : "0");
+    formData.set("role", nextRole);
+    startTransition(async () => {
+      try {
+        await action(formData);
+        toast.success(nextEnabled ? `ההרשאה ל${app.label} נשמרה` : `הגישה ל${app.label} הוסרה`);
+        router.refresh();
+      } catch {
+        setEnabled(prev.enabled);
+        setRole(prev.role);
+        toast.error("שמירת ההרשאה נכשלה");
+      }
+    });
+  };
+
+  return (
+    <div
+      className={`rounded-xl border border-[#e6e9ef] bg-white p-3 transition dark:border-slate-700 dark:bg-slate-800/60 ${
+        pending ? "opacity-70" : ""
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-semibold text-[#323338] dark:text-slate-100">{app.label}</span>
+        <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#676879]">
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={pending}
+            onChange={(e) => save(e.target.checked, role)}
+            className="h-4 w-4 rounded border-[#c5c7d0]"
+          />
+          {pending ? "שומר…" : enabled ? "כן" : "לא"}
+        </label>
+      </div>
+      <div className="relative mt-2">
+        <select
+          value={role}
+          disabled={!enabled || pending}
+          onChange={(e) => save(true, e.target.value as ModuleRole)}
+          className="w-full cursor-pointer appearance-none rounded-md border border-[#c5c7d0] bg-white py-2 ps-3 pe-8 text-sm font-medium text-[#323338] outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        >
+          {app.roles.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={14}
+          className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[#676879]"
+        />
+      </div>
+      {enabled ? (
+        <p className="mt-2 text-[11px] leading-snug text-[#676879] dark:text-slate-400">
+          {app.roles.find((option) => option.value === role)?.hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function roleShortLabel(moduleId: string, role: ModuleRole): string {
   if (moduleId === "dovrut") {
     if (role === "admin") return "מנהל";
@@ -94,8 +180,9 @@ function roleShortLabel(moduleId: string, role: ModuleRole): string {
   }
   if (moduleId === "agam") {
     if (role === "admin") return "מנהל";
-    if (role === "ramad") return "מנהל";
+    if (role === "ramad") return "רמ״ד";
     if (role === "viewer") return "צופה";
+    if (role === "candidate") return "חייל מועמד";
     return "ממיין";
   }
   if (role === "admin") return "מנהל";
@@ -512,68 +599,15 @@ export function UsersManagementPanel({
                           <div>
                             <p className="mb-3 text-sm font-semibold text-[#323338] dark:text-slate-100">גישה לאפליקציות</p>
                             <div className="space-y-3">
-                              {APP_DEFS.map((app) => {
-                                const currentRole = moduleRoles[app.id] ?? "user";
-                                const enabled = Boolean(moduleRoles[app.id]);
-                                return (
-                                  <form
-                                    key={app.id}
-                                    action={setModuleRoleAction}
-                                    className="rounded-xl border border-[#e6e9ef] bg-white p-3 dark:border-slate-700 dark:bg-slate-800/60"
-                                  >
-                                    <input type="hidden" name="userId" value={user.id} />
-                                    <input type="hidden" name="moduleId" value={app.id} />
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-sm font-semibold text-[#323338] dark:text-slate-100">
-                                        {app.label}
-                                      </span>
-                                      <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#676879]">
-                                        <input
-                                          type="checkbox"
-                                          name="enabled"
-                                          value="1"
-                                          defaultChecked={enabled}
-                                          onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                                          className="h-4 w-4 rounded border-[#c5c7d0]"
-                                        />
-                                        {enabled ? "כן" : "לא"}
-                                      </label>
-                                    </div>
-                                    <div className="relative mt-2">
-                                      <select
-                                        name="role"
-                                        defaultValue={currentRole}
-                                        disabled={!enabled}
-                                        onChange={(e) => {
-                                          const form = e.currentTarget.form;
-                                          if (!form) return;
-                                          const enabledInput = form.elements.namedItem("enabled") as HTMLInputElement | null;
-                                          if (enabledInput && !enabledInput.checked) {
-                                            enabledInput.checked = true;
-                                          }
-                                          form.requestSubmit();
-                                        }}
-                                        className="w-full cursor-pointer appearance-none rounded-md border border-[#c5c7d0] bg-white py-2 ps-3 pe-8 text-sm font-medium text-[#323338] outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-                                      >
-                                        {app.roles.map((role) => (
-                                          <option key={role.value} value={role.value}>
-                                            {role.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <ChevronDown
-                                        size={14}
-                                        className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[#676879]"
-                                      />
-                                    </div>
-                                    {enabled ? (
-                                      <p className="mt-2 text-[11px] leading-snug text-[#676879] dark:text-slate-400">
-                                        {app.roles.find((role) => role.value === currentRole)?.hint}
-                                      </p>
-                                    ) : null}
-                                  </form>
-                                );
-                              })}
+                              {APP_DEFS.map((app) => (
+                                <ModuleAccessRow
+                                  key={`${app.id}:${moduleRoles[app.id] ?? "none"}`}
+                                  app={app}
+                                  userId={user.id}
+                                  initialRole={moduleRoles[app.id] ?? null}
+                                  action={setModuleRoleAction}
+                                />
+                              ))}
                             </div>
                           </div>
                           <div>

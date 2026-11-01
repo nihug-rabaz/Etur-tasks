@@ -1,4 +1,5 @@
 import { AgamAccessService } from "@/modules/agam/services/access.service";
+import { candidateGaps } from "@/modules/agam/lib/gaps";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
@@ -239,7 +240,7 @@ export async function getDomainCandidate(input: {
         status: c.status,
         command: c.command,
         cycle: c.cycle_name,
-        gaps: c.gaps,
+        gaps: candidateGaps(c),
         ramadNotes: c.ramad_notes,
         href: `/agam/candidates/${c.id}`,
       },

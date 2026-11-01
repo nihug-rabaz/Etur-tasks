@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { scheduleSchema } from "@/modules/agam/lib/cycle-schedule-schema";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCycleService } from "@/modules/agam/services/cycle.service";
 
@@ -29,6 +30,7 @@ const updateSchema = z.object({
   cycleDate: z.string().min(4).optional(),
   cohortYear: z.number().int().nullable().optional(),
   notes: z.string().nullable().optional(),
+  schedule: scheduleSchema.optional(),
   archived: z.boolean().optional(),
   rotateInviteSlug: z.boolean().optional(),
   assignCandidateIds: z.array(z.string().uuid()).optional(),
@@ -80,6 +82,7 @@ export async function PUT(
     cycle_date: parsed.data.cycleDate,
     cohort_year: parsed.data.cohortYear,
     notes: parsed.data.notes,
+    schedule: parsed.data.schedule ?? undefined,
   });
   const candidates = await service.listCandidates(id);
   return NextResponse.json({ cycle, candidates });

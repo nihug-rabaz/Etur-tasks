@@ -49,27 +49,137 @@ export const STATUS_TONES: Record<string, string> = {
 
 export type AgamThresholdInputType = "score" | "time" | "count";
 
+export type AgamThresholdFamily = "mikraot_israel" | "weapon_test" | "fitness_run" | "fitness_strength";
+
+const THRESHOLD_ATTEMPTS = [1, 2, 3, 4] as const;
+
+/** Old single-key fields → attempt #1 (read fallback only). */
+export const LEGACY_THRESHOLD_KEYS: Record<string, string> = {
+  mikraot_israel: "mikraot_israel_1",
+  weapon_test: "weapon_test_1",
+  fitness_run: "fitness_run_1",
+  fitness_strength: "fitness_strength_1",
+};
+
+export function thresholdFamily(key: string): AgamThresholdFamily | null {
+  const match = key.match(/^(mikraot_israel|weapon_test|fitness_run|fitness_strength)(?:_\d+)?$/);
+  return (match?.[1] as AgamThresholdFamily | undefined) ?? null;
+}
+
 export const THRESHOLD_TESTS: Array<{
   key: string;
   label: string;
   inputType: AgamThresholdInputType;
   inputLabel?: string;
+  family: AgamThresholdFamily;
+  attempt: number;
 }> = [
-  { key: "mikraot_israel", label: "מקראות ישראל", inputType: "score", inputLabel: "ציון 1–100" },
-  { key: "weapon_test", label: "בוחן נשק", inputType: "score", inputLabel: "ציון 1–100" },
-  {
-    key: "fitness_run",
-    label: "כושר גופני – ריצה",
-    inputType: "time",
+  ...THRESHOLD_ATTEMPTS.map((attempt) => ({
+    key: `mikraot_israel_${attempt}`,
+    label: `מקראות ישראל ${attempt}`,
+    inputType: "score" as const,
+    inputLabel: "ציון 1–100",
+    family: "mikraot_israel" as const,
+    attempt,
+  })),
+  ...THRESHOLD_ATTEMPTS.map((attempt) => ({
+    key: `weapon_test_${attempt}`,
+    label: `בוחן נשק ${attempt}`,
+    inputType: "score" as const,
+    inputLabel: "ציון 1–100",
+    family: "weapon_test" as const,
+    attempt,
+  })),
+  ...THRESHOLD_ATTEMPTS.map((attempt) => ({
+    key: `fitness_run_${attempt}`,
+    label: `ריצה ${attempt}`,
+    inputType: "time" as const,
     inputLabel: "זמן ריצה:",
-  },
-  {
-    key: "fitness_strength",
-    label: "כושר גופני – כוח",
-    inputType: "count",
+    family: "fitness_run" as const,
+    attempt,
+  })),
+  ...THRESHOLD_ATTEMPTS.map((attempt) => ({
+    key: `fitness_strength_${attempt}`,
+    label: `שכיבות סמיכה ${attempt}`,
+    inputType: "count" as const,
     inputLabel: "כמות שכיבות סמיכה:",
-  },
+    family: "fitness_strength" as const,
+    attempt,
+  })),
 ];
+
+/** Pass cutoffs by family (auto עבר / לא עבר). */
+export const THRESHOLD_PASS: Record<AgamThresholdFamily, { scoreMin?: number; countMin?: number; timeMax?: string }> = {
+  mikraot_israel: { scoreMin: 70 },
+  weapon_test: { scoreMin: 70 },
+  fitness_run: { timeMax: "17:10" },
+  fitness_strength: { countMin: 12 },
+};
+
+/** Parse "m:ss" / "mm:ss" into total seconds. Returns null if invalid. */
+export function parseThresholdTime(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  const match = String(raw).trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds >= 60) return null;
+  return minutes * 60 + seconds;
+}
+
+type ThresholdPassInput = {
+  score?: number | null;
+  time?: string | null;
+  count?: number | null;
+};
+
+/** Derive עבר/לא עבר from the entered value. Null when there is no usable value. */
+export function computeThresholdPass(key: string, entry: ThresholdPassInput | null | undefined): boolean | null {
+  if (!entry) return null;
+  const family = thresholdFamily(key);
+  const rule = family ? THRESHOLD_PASS[family] : undefined;
+  if (!rule) return null;
+
+  if (rule.scoreMin != null) {
+    const score = entry.score;
+    if (score == null || !Number.isFinite(Number(score))) return null;
+    return Number(score) >= rule.scoreMin;
+  }
+  if (rule.countMin != null) {
+    const count = entry.count;
+    if (count == null || !Number.isFinite(Number(count))) return null;
+    return Number(count) >= rule.countMin;
+  }
+  if (rule.timeMax != null) {
+    const actual = parseThresholdTime(entry.time);
+    const max = parseThresholdTime(rule.timeMax);
+    if (actual == null || max == null) return null;
+    return actual <= max;
+  }
+  return null;
+}
+
+/** Attach auto `pass` onto a threshold entry from its numeric/time fields. */
+export function withAutoThresholdPass<T extends ThresholdPassInput & { pass?: boolean | null }>(
+  key: string,
+  entry: T,
+): T {
+  return { ...entry, pass: computeThresholdPass(key, entry) };
+}
+
+/** Map legacy single keys onto attempt #1; keep modern keys as-is. */
+export function normalizeThresholdTests<T>(
+  raw: Record<string, T> | null | undefined,
+): Record<string, T> {
+  if (!raw) return {};
+  const next: Record<string, T> = { ...raw };
+  for (const [legacy, modern] of Object.entries(LEGACY_THRESHOLD_KEYS)) {
+    if (next[modern] == null && next[legacy] != null) {
+      next[modern] = next[legacy];
+    }
+  }
+  return next;
+}
 
 export const PROFESSIONAL_CRITERIA: Array<{ key: string; label: string }> = [
   { key: "public_speaking", label: "עמידה ודיבור בפני קהל" },

@@ -21,6 +21,7 @@ export class AgamPrepDayService extends BaseService {
     social_dynamics_score: number | null;
     social_dynamics_feedback: string | null;
     general_impression: string | null;
+    passed?: boolean | null;
   }): Promise<AgamPrepDayEvaluation> {
     const existing = (await this.listByCandidate(input.candidate_id)).find(
       (row) => row.evaluator_id === input.evaluator_id,
@@ -36,6 +37,7 @@ export class AgamPrepDayService extends BaseService {
           social_dynamics_score = ${input.social_dynamics_score},
           social_dynamics_feedback = ${input.social_dynamics_feedback},
           general_impression = ${input.general_impression},
+          passed = ${input.passed !== undefined ? input.passed : existing.passed},
           updated_at = now()
         where id = ${existing.id}
         returning *
@@ -45,7 +47,7 @@ export class AgamPrepDayService extends BaseService {
     const rows = await db<AgamPrepDayEvaluation[]>`
       insert into agam_preparation_day_evaluations (
         candidate_id, evaluator_id, evaluator_name, mikra_score, conversation_score,
-        conversation_feedback, social_dynamics_score, social_dynamics_feedback, general_impression
+        conversation_feedback, social_dynamics_score, social_dynamics_feedback, general_impression, passed
       )
       values (
         ${input.candidate_id},
@@ -56,7 +58,8 @@ export class AgamPrepDayService extends BaseService {
         ${input.conversation_feedback},
         ${input.social_dynamics_score},
         ${input.social_dynamics_feedback},
-        ${input.general_impression}
+        ${input.general_impression},
+        ${input.passed ?? null}
       )
       returning *
     `;

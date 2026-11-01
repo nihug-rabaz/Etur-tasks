@@ -181,13 +181,32 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
   useEffect(() => {
     close();
     setOpenPreview(null);
+    if (closePreviewTimer.current) {
+      clearTimeout(closePreviewTimer.current);
+      closePreviewTimer.current = null;
+    }
   }, [pathname, close]);
 
+  // Keep scroll-lock independent of hover-preview state so cleanup never gets stuck.
   useEffect(() => {
     if (!open) {
       setOpenPreview(null);
       return;
     }
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (openPreview) {
@@ -197,18 +216,14 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
       close();
     };
     document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open, close, openPreview]);
 
   return (
     <>
       <div
         role="presentation"
+        aria-hidden={!open}
         onClick={close}
         className={`fixed inset-0 z-[60] bg-[#020617]/55 backdrop-blur-sm transition-opacity duration-300 ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
@@ -218,8 +233,11 @@ export function SideMenu({ items, userLabel, userAvatarUrl, showLogout = true, s
       <aside
         id="app-side-menu"
         aria-hidden={!open}
+        inert={!open ? true : undefined}
         className={`side-panel fixed inset-y-0 right-0 z-[65] flex w-[min(420px,88vw)] flex-col overflow-hidden text-text-primary shadow-[-30px_0_60px_-20px_rgba(22,24,29,0.25)] transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          open ? "translate-x-0" : "translate-x-full"
+          open
+            ? "pointer-events-auto translate-x-0"
+            : "pointer-events-none translate-x-full"
         }`}
       >
         <div className="pointer-events-none absolute inset-0 opacity-70">

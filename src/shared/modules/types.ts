@@ -1,4 +1,10 @@
-export type ModuleRole = "admin" | "user" | "approver" | "viewer" | "ramad";
+export type ModuleRole =
+  | "admin"
+  | "user"
+  | "approver"
+  | "viewer"
+  | "ramad"
+  | "candidate";
 
 export interface ModuleNavItem {
   label: string;
@@ -67,6 +73,12 @@ export function getModuleNavItems(
   if (role === "approver") {
     return moduleDef.navItems.filter(
       (item) => !item.adminOnly && (item.roles?.includes("approver") ?? false),
+    );
+  }
+
+  if (role === "candidate") {
+    return moduleDef.navItems.filter(
+      (item) => !item.adminOnly && (item.roles?.includes("candidate") ?? false),
     );
   }
 

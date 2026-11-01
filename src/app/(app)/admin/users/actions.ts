@@ -6,7 +6,7 @@ import { NeonDatabase } from "@/lib/db/neon";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
 import type { ModuleRole } from "@/shared/modules/types";
 
-const MODULE_ROLES: ModuleRole[] = ["admin", "user", "viewer", "approver", "ramad"];
+const MODULE_ROLES: ModuleRole[] = ["admin", "user", "viewer", "approver", "ramad", "candidate"];
 
 function revalidateUsersPaths() {
   revalidatePath("/admin/users");

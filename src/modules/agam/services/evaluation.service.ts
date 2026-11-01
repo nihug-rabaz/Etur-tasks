@@ -106,6 +106,7 @@ export class AgamDayEvaluationService extends BaseService {
     feedback_data: Record<string, string>;
     final_score: number | null;
     final_feedback: string | null;
+    passed?: boolean | null;
     criteria: Array<{ key: string; weight: number }>;
   }): Promise<AgamDayEvaluation> {
     const weighted = ScoringEngine.calcWeightedScore(input.scores_data, input.criteria);
@@ -124,6 +125,7 @@ export class AgamDayEvaluationService extends BaseService {
           feedback_data = ${input.feedback_data},
           final_score = ${input.final_score},
           final_feedback = ${input.final_feedback},
+          passed = ${input.passed !== undefined ? input.passed : existing.passed},
           weighted_score = ${weighted},
           updated_at = now()
         where id = ${input.id}
@@ -134,7 +136,7 @@ export class AgamDayEvaluationService extends BaseService {
     const rows = await db<AgamDayEvaluation[]>`
       insert into agam_day_evaluations (
         candidate_id, evaluator_id, evaluator_name, scores_data, feedback_data,
-        final_score, final_feedback, weighted_score
+        final_score, final_feedback, passed, weighted_score
       )
       values (
         ${input.candidate_id},
@@ -144,6 +146,7 @@ export class AgamDayEvaluationService extends BaseService {
         ${input.feedback_data},
         ${input.final_score},
         ${input.final_feedback},
+        ${input.passed ?? null},
         ${weighted}
       )
       returning *

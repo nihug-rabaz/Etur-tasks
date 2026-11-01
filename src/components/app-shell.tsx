@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ImpersonationBanner, type ImpersonationViewState } from "@/components/admin/impersonation-banner";
 import { SideMenu, SideMenuTrigger, useSideMenu, type SideMenuItem } from "@/components/side-menu";
@@ -23,6 +25,7 @@ import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { AssistantFloatingPanel } from "@/components/assistant/floating-panel";
 import { DovrutCreateFabStack } from "@/modules/dovrut/components/dovrut-create-fab-stack";
 import { AgamCreateFabStack } from "@/modules/agam/components/create-fab-stack";
+import { isAgamCandidateSoldier } from "@/modules/agam/lib/candidate-access";
 import { previewKeyForHref } from "@/modules/dovrut/lib/nav-preview";
 import { TasksLiveSyncProvider } from "@/components/tasks/tasks-live-sync";
 import { writeLastModuleId } from "@/shared/modules/last-module";
@@ -106,7 +109,65 @@ function getBreadcrumbHref(segments: string[], index: number): string | null {
   return isDynamicDetails ? href : null;
 }
 
-export function AppShell({ children }: { children: ReactNode }) {
+/** Hide raw UUIDs / opaque ids from the top crumb trail. */
+function breadcrumbLabelForSegment(
+  segment: string,
+  labels: Record<string, string>,
+): string | null {
+  if (labels[segment]) return labels[segment];
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(segment)) {
+    return null;
+  }
+  if (/^[A-Za-z0-9_-]{16,}$/.test(segment)) return null;
+  return segment;
+}
+
+function CandidateShell({
+  children,
+  userLabel,
+}: {
+  children: ReactNode;
+  userLabel: string | null;
+}) {
+  return (
+    <div className="relative flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[color-mix(in_srgb,var(--background)_92%,#e8ecf3)] text-text-primary dark:bg-background">
+      <header className="sticky top-0 z-30 border-b border-border-weak/40 bg-surface-1/90 px-3 py-2.5 backdrop-blur-md sm:px-4">
+        <div className="mx-auto flex w-full max-w-lg items-center gap-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[10px] font-bold uppercase tracking-[0.16em] text-text-muted">קצינים</p>
+            <h1 className="truncate text-sm font-extrabold text-text-primary">
+              תיק אישי{userLabel ? ` · ${userLabel}` : ""}
+            </h1>
+          </div>
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            aria-label="התנתקות"
+            title="התנתקות"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2 text-text-muted transition hover:bg-danger/15 hover:text-danger"
+          >
+            <LogOut size={16} />
+          </button>
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-3 pb-10 pt-3 sm:px-4">
+        {children}
+      </main>
+      <footer className="shrink-0 px-4 py-3">
+        <DevelopedByCredit compact />
+      </footer>
+    </div>
+  );
+}
+
+export function AppShell({
+  children,
+  candidateShell = false,
+}: {
+  children: ReactNode;
+  candidateShell?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const segments = pathname.split("/").filter(Boolean);
@@ -170,6 +231,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     }),
     [isRealAdmin, moduleRoles],
   );
+  const candidateMode =
+    candidateShell ||
+    (moduleRolesLoaded &&
+      isAgamCandidateSoldier({
+        isPlatformAdmin: isRealAdmin,
+        platformRole: session?.user?.role,
+        moduleRoles,
+      }));
 
   const { module: activeModule, items: moduleNavItems } = useMemo(
     () => getNavForPathname(pathname, access, { isImpersonating }),
@@ -241,11 +310,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [activeModuleId]);
 
   useEffect(() => {
-    if (!moduleRolesLoaded || !session?.user || isHome) return;
+    if (!candidateMode) return;
+    const allowed =
+      pathname.startsWith("/agam/me") ||
+      pathname.startsWith("/settings/profile") ||
+      pathname.startsWith("/login");
+    if (!allowed) {
+      router.replace("/agam/me");
+    }
+  }, [candidateMode, pathname, router]);
+
+  useEffect(() => {
+    if (!moduleRolesLoaded || !session?.user || isHome || candidateMode) return;
     if (activeModuleId === "tasks" && !canAccessModule("tasks", access)) {
       router.replace("/");
     }
-  }, [moduleRolesLoaded, session?.user, isHome, activeModuleId, access, router]);
+  }, [moduleRolesLoaded, session?.user, isHome, activeModuleId, access, router, candidateMode]);
+
+  if (candidateMode) {
+    return <CandidateShell userLabel={userLabel}>{children}</CandidateShell>;
+  }
 
   return (
     <CloseRequestsProvider enabled={showTasksChrome}>
@@ -299,8 +383,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </li>
                 {segments.map((segment, index) => {
                   if (segment === "dashboard" && index === 0) return null;
+                  const label = breadcrumbLabelForSegment(segment, routeLabel);
+                  if (!label) return null;
                   const href = getBreadcrumbHref(segments, index);
-                  const label = routeLabel[segment] ?? segment;
                   return (
                     <li key={`${segment}-${index}`} className="inline-flex items-center gap-1.5 sm:gap-2">
                       <span className="text-text-muted/50">/</span>

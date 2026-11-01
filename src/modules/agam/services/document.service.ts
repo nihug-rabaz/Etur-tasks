@@ -3,6 +3,7 @@ import { BaseService } from "@/services/base.service";
 import { Env } from "@/lib/env";
 import { sanitizeFileName, validateUploadFile } from "@/modules/agam/lib/file-validation";
 import {
+  DB_FILE_PREFIX,
   MAX_UPLOAD_BYTES_WITH_BLOB,
   MAX_UPLOAD_BYTES_WITHOUT_BLOB,
 } from "@/modules/agam/lib/document-types";
@@ -33,11 +34,14 @@ export class AgamDocumentService extends BaseService {
     upload_source: AgamUploadSource | null;
     notes: string | null;
     uploaded_by_name: string | null;
+    file_size?: number | null;
+    content_type?: string | null;
   }): Promise<AgamDocument> {
     const db = this.getDb();
     const rows = await db<AgamDocument[]>`
       insert into agam_candidate_documents (
-        candidate_id, name, file_url, document_type, upload_source, notes, uploaded_by_name
+        candidate_id, name, file_url, document_type, upload_source, notes, uploaded_by_name,
+        file_size, content_type
       )
       values (
         ${input.candidate_id},
@@ -46,7 +50,9 @@ export class AgamDocumentService extends BaseService {
         ${input.document_type},
         ${input.upload_source},
         ${input.notes},
-        ${input.uploaded_by_name}
+        ${input.uploaded_by_name},
+        ${input.file_size ?? null},
+        ${input.content_type ?? null}
       )
       returning *
     `;
@@ -62,11 +68,28 @@ export class AgamDocumentService extends BaseService {
     return rows.length > 0;
   }
 
-  public async delete(id: string): Promise<boolean> {
+  public async setApproval(id: string, approverName: string | null): Promise<boolean> {
     const db = this.getDb();
     const rows = await db<{ id: string }[]>`
-      delete from agam_candidate_documents where id = ${id} returning id
+      update agam_candidate_documents
+      set approved_at = ${approverName ? new Date().toISOString() : null},
+        approved_by_name = ${approverName},
+        updated_at = now()
+      where id = ${id}
+      returning id
     `;
+    return rows.length > 0;
+  }
+
+  public async delete(id: string): Promise<boolean> {
+    const db = this.getDb();
+    const rows = await db<{ id: string; file_url: string }[]>`
+      delete from agam_candidate_documents where id = ${id} returning id, file_url
+    `;
+    const fileId = rows[0] ? this.dbFileId(rows[0].file_url) : null;
+    if (fileId) {
+      await db`delete from agam_document_files where id = ${fileId}::uuid`;
+    }
     return rows.length > 0;
   }
 
@@ -76,7 +99,7 @@ export class AgamDocumentService extends BaseService {
     const token = Env.get("BLOB_READ_WRITE_TOKEN");
     const maxBytes = token ? MAX_UPLOAD_BYTES_WITH_BLOB : MAX_UPLOAD_BYTES_WITHOUT_BLOB;
     if (file.size > maxBytes) {
-      throw new Error(token ? "FILE_TOO_LARGE" : "BLOB_REQUIRED");
+      throw new Error("FILE_TOO_LARGE");
     }
     if (token) {
       const blob = await put(`agam/${candidateId}/${Date.now()}-${safeName}`, file, {
@@ -85,7 +108,28 @@ export class AgamDocumentService extends BaseService {
       });
       return blob.url;
     }
-    throw new Error("BLOB_REQUIRED");
+    const db = this.getDb();
+    const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+    const rows = await db<{ id: string }[]>`
+      insert into agam_document_files (content_type, data_base64)
+      values (${file.type || "application/octet-stream"}, ${base64})
+      returning id
+    `;
+    return `${DB_FILE_PREFIX}${rows[0].id}`;
+  }
+
+  public dbFileId(fileUrl: string): string | null {
+    return fileUrl.startsWith(DB_FILE_PREFIX) ? fileUrl.slice(DB_FILE_PREFIX.length) : null;
+  }
+
+  public async readDbFile(fileId: string): Promise<{ bytes: Buffer; contentType: string } | null> {
+    const db = this.getDb();
+    const rows = await db<{ content_type: string; data_base64: string }[]>`
+      select content_type, data_base64 from agam_document_files where id = ${fileId}::uuid limit 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    return { bytes: Buffer.from(row.data_base64, "base64"), contentType: row.content_type };
   }
 
   public resolveDownloadUrl(fileUrl: string): string {

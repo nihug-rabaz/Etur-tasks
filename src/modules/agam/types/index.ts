@@ -3,7 +3,7 @@ export type AgamRankColor = "green" | "orange" | "red";
 
 export type AgamQuestionType = "pre_screening" | "interview";
 
-export type AgamFieldType = "text" | "number" | "select" | "textarea";
+export type AgamFieldType = "text" | "number" | "select" | "textarea" | "date";
 
 export type AgamConditionOperator = "eq" | "neq" | "gt" | "lt" | "gte" | "lte";
 
@@ -29,17 +29,41 @@ export type AgamStageKey =
   | "documents"
   | "final_decision";
 
+export interface AgamRankingRow {
+  id: string;
+  full_name: string;
+  personal_number: string;
+  status: AgamCandidateStatus;
+  planning_index: number | null;
+  dapar: number | null;
+  cycle_rank: number | null;
+  day_average: number | null;
+  prep_average: number | null;
+  smach_average: number | null;
+}
+
 export interface AgamCandidate {
   id: string;
   full_name: string;
   personal_number: string;
   phone: string | null;
+  email: string | null;
+  linked_user_id: string | null;
   command: string | null;
   direct_commander_name: string | null;
   direct_commander_role: string | null;
   gaps: string | null;
+  exemptions: string | null;
+  km: string | null;
   planning_index: number | null;
   dapar: number | null;
+  remaining_cycles: string | null;
+  release_date: string | null;
+  cycle_bahad1_date?: string | null;
+  cycle_rank: number | null;
+  cycle_rank_total?: number;
+  kahas: number | null;
+  tash: number | null;
   rank_color: AgamRankColor | null;
   needs_sakmar: boolean | null;
   mabdak_approval: boolean | null;
@@ -57,6 +81,15 @@ export interface AgamCandidate {
   cycle_name?: string | null;
 }
 
+export type AgamTrackStageState = "pending" | "current" | "done";
+
+export interface AgamTrackStage {
+  key: AgamStageKey;
+  name: string;
+  description: string;
+  state: AgamTrackStageState;
+}
+
 export interface AgamCycle {
   id: string;
   name: string;
@@ -69,18 +102,64 @@ export interface AgamCycle {
   created_at: string;
   updated_at: string;
   candidate_count?: number;
+  schedule?: AgamCycleSchedule | null;
+}
+
+export type AgamCycleScheduleKey =
+  | "selection_day"
+  | "fitness_test"
+  | "prep_day"
+  | "fitness_theory_test"
+  | "smach_start"
+  | "smach_mikra"
+  | "smach_weapon"
+  | "smach_run"
+  | "smach_pushups"
+  | "smach_end"
+  | "bahad1_intake";
+
+/** Per-cycle schedule dates (YYYY-MM-DD); missing keys mean "no date yet". */
+export type AgamCycleSchedule = Partial<Record<AgamCycleScheduleKey, string | null>>;
+
+export type AgamDashboardEventType =
+  | "hasbara"
+  | "selection_day"
+  | "fitness_test"
+  | "prep_day"
+  | "theory_test"
+  | "smach"
+  | "smach_test"
+  | "mabdak"
+  | "bahad1"
+  | "general";
+
+export interface AgamTimelineTemplate {
+  id: string;
+  title: string;
+  event_type: AgamDashboardEventType;
+  day_offset: number;
+  notes: string | null;
+  sort_order: number;
+  created_by_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AgamTimelineEventItem {
   id: string;
   title: string;
   event_date: string | null;
-  event_type: "hasbara" | "selection_day" | "prep_day" | "smach" | "mabdak" | "bahad1" | "general";
+  event_type: AgamDashboardEventType;
   notes: string | null;
   sort_order?: number;
   created_by_id: string | null;
   created_at: string;
   updated_at: string;
+  cycle_id?: string | null;
+  is_template?: boolean;
+  template_id?: string | null;
+  day_offset?: number | null;
+  schedule_key?: AgamCycleScheduleKey | null;
 }
 
 export interface AgamLinkedTask {
@@ -128,6 +207,7 @@ export interface AgamDayEvaluation {
   final_score: number | null;
   final_feedback: string | null;
   weighted_score: number | null;
+  passed: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -143,6 +223,7 @@ export interface AgamPrepDayEvaluation {
   social_dynamics_score: number | null;
   social_dynamics_feedback: string | null;
   general_impression: string | null;
+  passed: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -159,6 +240,7 @@ export interface AgamSmachEvaluation {
   key_points: string | null;
   decision: AgamSmachDecision | null;
   decision_reasoning: string | null;
+  passed: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -207,6 +289,10 @@ export interface AgamDocument {
   upload_source: AgamUploadSource | null;
   notes: string | null;
   uploaded_by_name: string | null;
+  file_size: number | null;
+  content_type: string | null;
+  approved_at: string | null;
+  approved_by_name: string | null;
   created_at: string;
   updated_at: string;
 }

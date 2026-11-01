@@ -50,8 +50,11 @@ export function AgamQuestionField({
         />
       ) : (
         <input
-          type={question.field_type === "number" ? "number" : "text"}
+          type={
+            question.field_type === "number" ? "number" : question.field_type === "date" ? "date" : "text"
+          }
           className={fieldClass}
+          dir={question.field_type === "date" ? "ltr" : undefined}
           value={value}
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}

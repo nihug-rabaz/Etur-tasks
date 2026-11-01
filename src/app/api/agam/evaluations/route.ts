@@ -22,6 +22,7 @@ const bodySchema = z.object({
   feedbackData: z.record(z.string(), z.string()),
   finalScore: z.number().nullable(),
   finalFeedback: z.string(),
+  passed: z.boolean().nullable().optional(),
 });
 
 export async function POST(request: Request) {
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
       feedback_data: parsed.data.feedbackData,
       final_score: parsed.data.finalScore,
       final_feedback: parsed.data.finalFeedback,
+      passed: parsed.data.passed,
       criteria,
     });
   } catch (error) {

@@ -144,6 +144,7 @@ export function AgamApplyWizard({ inviteSlug }: { inviteSlug?: string }) {
   }
 
   if (done) {
+    const emailHint = String(form.civilian_email ?? "").trim();
     return (
       <AgamPublicChrome>
         <div className={`${panelClass} w-full max-w-lg p-8 text-center sm:p-10`}>
@@ -162,6 +163,22 @@ export function AgamApplyWizard({ inviteSlug }: { inviteSlug?: string }) {
               {dateLabel}
             </p>
           ) : null}
+          <div className="mt-6 rounded-2xl bg-surface-2/80 px-4 py-4 text-start">
+            <p className="text-sm font-extrabold text-text-primary">המשיכו לאזור האישי</p>
+            <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+              התחברו עם Google באותו מייל שנרשמתם בשאלון
+              {emailHint ? (
+                <>
+                  {" "}
+                  (<span dir="ltr" className="font-semibold text-text-primary">{emailHint}</span>)
+                </>
+              ) : null}
+              . כך תוכלו לראות פרטים, ציונים ולהעלות מסמכים.
+            </p>
+            <a href="/login?callbackUrl=%2Fagam%2Fme" className={`${primaryButtonClass} mt-4 w-full`}>
+              התחברות עם Google
+            </a>
+          </div>
         </div>
       </AgamPublicChrome>
     );

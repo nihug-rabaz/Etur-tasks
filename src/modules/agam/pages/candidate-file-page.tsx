@@ -5,45 +5,53 @@ import {
   AlertTriangle,
   ArrowRight,
   Award,
-  CheckCircle2,
+  BookOpen,
+  ClipboardCheck,
+  X,
+  Check,
+  ChevronDown,
   ChevronLeft,
-  ClipboardList,
+  Copy,
   FileText,
   FolderOpen,
+  Gauge,
+  HeartPulse,
   MessageSquare,
   Pencil,
-  Plus,
+  Shield,
+  ShieldCheck,
   Trash2,
+  Trophy,
+  UserRound,
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { toast } from "sonner";
 import { DaySelectionStage } from "@/modules/agam/components/stages/day-selection-stage";
-import { DocumentsStage } from "@/modules/agam/components/stages/documents-stage";
+import { CandidateDocumentsCenter } from "@/modules/agam/components/candidate-documents-center";
 import { PreparationDayStage } from "@/modules/agam/components/stages/preparation-day-stage";
 import { SmachStage, SmachReadOnlyCard } from "@/modules/agam/components/stages/smach-stage";
 import { SummaryDecision } from "@/modules/agam/components/stages/summary-decision";
-import { ChronoStageBlocks, ScreenerChronoMenu } from "@/modules/agam/components/candidate-file-chrome";
 import { CreateAgamTaskDrawer } from "@/modules/agam/components/create-task-drawer";
-import { AgamQuestionField } from "@/modules/agam/components/question-field";
-import { AgamTaskRow } from "@/modules/agam/components/task-row";
-import { Drawer } from "@/components/ui/drawer";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { formatAgamDateTime } from "@/modules/agam/lib/date-format";
-import { SOURCE_LABELS } from "@/modules/agam/lib/document-types";
-import { groupQuestionsBySection } from "@/modules/agam/lib/questions";
-import { documentDownloadHref } from "@/modules/agam/lib/document-download";
+import { formatAgamDate, formatAgamDateTime, toDateInputValue } from "@/modules/agam/lib/date-format";
 import {
   canEvaluate as roleCanEvaluate,
   canModifyTimelineEvent,
   canRamad as roleCanRamad,
   canScreen as roleCanScreen,
 } from "@/modules/agam/lib/permissions";
-import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
+import { CandidateExamsCard } from "@/modules/agam/components/test-results-cards";
+import { isSportsResultsDocument } from "@/modules/agam/lib/document-types";
 import {
-  cardClass,
-  dividerClass,
-  dividerTopClass,
+  CaseRow,
+  CaseRows,
+  CaseSectionHead,
+  HeroAction,
+  caseCardClass,
+  type CaseTone,
+} from "@/modules/agam/components/case-file-kit";
+import {
   fieldClass,
   innerCardClass,
   panelClass,
@@ -52,10 +60,11 @@ import {
   pageShellClass,
 } from "@/modules/agam/lib/ui";
 import { BAHAD1_CHECKLIST } from "@/modules/agam/lib/bahad1-checklist";
+import { candidateGaps } from "@/modules/agam/lib/gaps";
+import { groupQuestionsBySection, isQuestionVisible, parseQuestionOptions } from "@/modules/agam/lib/questions";
 import {
   AGAM_STAGES,
-  STATUS_LABELS,
-  STATUS_TONES,
+  PROFESSIONAL_CRITERIA,
 } from "@/modules/agam/lib/stages";
 import type {
   AgamCandidate,
@@ -72,16 +81,6 @@ import type {
   AgamTimelineItem,
 } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
-
-const TIMELINE_ICONS: Record<string, ComponentType<{ size?: number; className?: string }>> = {
-  questionnaire: ClipboardList,
-  interview: MessageSquare,
-  evaluation: Award,
-  document: FolderOpen,
-  decision: CheckCircle2,
-  stage_change: ArrowRight,
-  note: FileText,
-};
 
 type FilePayload = {
   candidate: AgamCandidate;
@@ -107,12 +106,20 @@ const RANK_COLORS: Record<string, { label: string; className: string }> = {
   red: { label: "אדום", className: "bg-surface-2 text-text-primary" },
 };
 
+const RANK_DOTS: Record<string, string> = {
+  green: "bg-emerald-500",
+  orange: "bg-[var(--agam-orange,#f97316)]",
+  red: "bg-rose-500",
+};
+
 export function AgamCandidateFilePage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
   const id = params.id;
-  const stage = (searchParams.get("stage") as AgamStageKey | null) ?? null;
+  const requestedStage = (searchParams.get("stage") as AgamStageKey | null) ?? null;
+  const documentsRequested = requestedStage === "documents";
+  const stage = documentsRequested ? null : requestedStage;
   const [payload, setPayload] = useState<FilePayload | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -150,87 +157,24 @@ export function AgamCandidateFilePage() {
     );
   }
 
-  const activeStage = visibleStages.find((item) => item.key === stage) ?? null;
-
   return (
     <div className={pageShellClass}>
-      <header className={`${panelClass} p-5 sm:p-6`}>
-        <Link
-          href={isScreener ? "/agam/cycles" : "/agam/candidates"}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
-        >
-          <ChevronLeft size={14} className="rotate-180" />
-          {isScreener ? "מחזורים" : "מועמדים"}
-        </Link>
+      <CaseHero payload={payload} isScreener={isScreener} canEvaluate={canEvaluate} />
 
-        <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-              תיק מועמד{isScreener ? " · ממיין" : ""}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <h1
-                className={`font-extrabold tracking-tight text-text-primary ${
-                  isScreener ? "text-4xl sm:text-[2.6rem]" : "text-3xl sm:text-[2.1rem]"
-                }`}
-              >
-                {candidate.full_name}
-              </h1>
-              {candidate.status !== "pending" ? (
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_TONES[candidate.status]}`}
-                >
-                  {STATUS_LABELS[candidate.status]}
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-2 text-sm text-text-secondary" dir="ltr">
-              {[candidate.personal_number, candidate.phone, candidate.cycle_name].filter(Boolean).join(" · ")}
-            </p>
-            {activeStage ? (
-              <p className="mt-2 text-xs font-semibold text-text-muted">{activeStage.name}</p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {!isScreener ? (
-              <>
-                <Link href={`/agam/candidates/${candidate.id}/interview`} className={secondaryButtonClass}>
-                  ראיון
-                </Link>
-                <Link href={`/agam/candidates/${candidate.id}/evaluation`} className={secondaryButtonClass}>
-                  הערכה
-                </Link>
-                <Link href={`/agam/candidates/${candidate.id}?stage=documents`} className={secondaryButtonClass}>
-                  מסמכים
-                </Link>
-              </>
-            ) : null}
-            {canEvaluate ? (
-              <CreateAgamTaskDrawer
-                candidateId={candidate.id}
-                cycleId={candidate.cycle_id}
-                candidateName={candidate.full_name}
-                cycleName={candidate.cycle_name}
-                triggerClassName={secondaryButtonClass}
-                triggerLabel="משימה"
-              />
-            ) : null}
-          </div>
+      {stage ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href={`/agam/candidates/${candidate.id}`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-surface-1 px-3.5 py-2 text-[13px] font-bold text-text-secondary shadow-[0_0_0_1px_rgba(22,24,29,0.06)] transition hover:text-text-primary"
+          >
+            <ArrowRight size={14} />
+            חזרה לתיק
+          </Link>
+          <span className="text-[15px] font-extrabold text-text-primary">
+            {visibleStages.find((item) => item.key === stage)?.name}
+          </span>
         </div>
-
-        <nav className={`mt-5 flex gap-1 overflow-x-auto pt-4 ${dividerTopClass}`}>
-          <StageTab href={`/agam/candidates/${candidate.id}`} active={!stage} label="סקירה" />
-          {visibleStages.map((item) => (
-            <StageTab
-              key={item.key}
-              href={`/agam/candidates/${candidate.id}?stage=${item.key}`}
-              active={stage === item.key}
-              label={item.name}
-            />
-          ))}
-        </nav>
-      </header>
+      ) : null}
 
       {!stage ? (
         <Overview
@@ -239,6 +183,7 @@ export function AgamCandidateFilePage() {
           canRamad={canRamad}
           canEvaluate={canEvaluate}
           onSaved={() => void load()}
+          initialDocumentsOpen={documentsRequested}
         />
       ) : stage === "day_selection" ? (
         <DaySelectionStage
@@ -267,13 +212,6 @@ export function AgamCandidateFilePage() {
           canEvaluate={canEvaluate}
           onSaved={() => void load()}
         />
-      ) : stage === "documents" ? (
-        <DocumentsStage
-          candidateId={candidate.id}
-          documents={payload.documents}
-          canEvaluate={canEvaluate}
-          onSaved={() => void load()}
-        />
       ) : stage === "final_decision" ? (
         <SummaryDecision
           candidate={candidate}
@@ -296,19 +234,318 @@ export function AgamCandidateFilePage() {
   );
 }
 
-function StageTab({ href, active, label }: { href: string; active: boolean; label: string }) {
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, 2).map((part) => part[0]).join("") || "?";
+}
+
+const GAP_HINTS: Record<string, string> = {
+  "הקצאת קבע": "תאריך השחרור פחות משלושה חודשים מהקליטה לבה״ד 1",
+  "נדרש רח״ט תומכ״א": "מדד תכנוני 1",
+  "נדרש באישור ראש עתכא״ס": "מדד תכנוני 2",
+};
+
+function HeroGaps({ gaps }: { gaps: string[] }) {
+  if (gaps.length === 0) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+        <Check size={13} />
+        ללא פערים
+      </span>
+    );
+  }
   return (
-    <Link
-      href={href}
-      className={`relative shrink-0 rounded-lg px-3.5 py-2 text-xs font-bold transition ${
-        active ? "text-text-primary" : "text-text-muted hover:text-text-primary hover:bg-surface-2/80"
+    <ul className="flex flex-wrap items-center gap-1.5" aria-label="פערים">
+      {gaps.map((gap) => (
+        <li
+          key={gap}
+          title={GAP_HINTS[gap]}
+          className="inline-flex shrink-0 cursor-help items-center gap-1.5 rounded-full bg-amber-500/12 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200"
+        >
+          <AlertTriangle size={13} className="shrink-0" />
+          {gap}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CaseHero({
+  payload,
+  isScreener,
+  canEvaluate,
+}: {
+  payload: FilePayload;
+  isScreener: boolean;
+  canEvaluate: boolean;
+}) {
+  const { candidate } = payload;
+  const searchParams = useSearchParams();
+  const fromParam = searchParams.get("from");
+  const [fromCycleId, setFromCycleId] = useState<string | null>(fromParam);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const key = `agam:candidate-from:${candidate.id}`;
+    if (fromParam) {
+      sessionStorage.setItem(key, fromParam);
+      setFromCycleId(fromParam);
+    } else {
+      setFromCycleId(sessionStorage.getItem(key));
+    }
+  }, [candidate.id, fromParam]);
+
+  const backCycleId = fromCycleId ?? candidate.cycle_id;
+  const backHref = backCycleId
+    ? `/agam?cycle=${backCycleId}`
+    : isScreener
+      ? "/agam/cycles"
+      : "/agam/candidates";
+  const backLabel = backCycleId
+    ? backCycleId === candidate.cycle_id && candidate.cycle_name
+      ? `מחזור ${candidate.cycle_name}`
+      : "חזרה למחזור"
+    : isScreener
+      ? "מחזורים"
+      : "מועמדים";
+
+  const gaps = candidateGaps(candidate);
+
+  const copyNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(candidate.personal_number);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      toast.error("ההעתקה נכשלה");
+    }
+  };
+
+
+  return (
+    <header className="relative pt-12">
+      <Link
+        href={backHref}
+        className="absolute start-0 top-0 inline-flex h-9 items-center gap-1.5 rounded-full bg-surface-1 px-3.5 text-xs font-bold text-text-secondary shadow-[0_1px_3px_rgba(22,24,29,0.12)] transition hover:text-text-primary"
+      >
+        <ArrowRight size={15} />
+        {backLabel}
+      </Link>
+
+      <section className={`${caseCardClass} px-5 py-4 sm:px-6`}>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent-primary/12 text-lg font-extrabold text-accent-primary">
+              {initialsOf(candidate.full_name)}
+            </div>
+            <h1 className="truncate text-[1.6rem] font-extrabold leading-tight tracking-tight text-text-primary">
+              {candidate.full_name}
+            </h1>
+            <button
+              type="button"
+              onClick={() => void copyNumber()}
+              className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-surface-2 px-4 py-2 text-lg font-extrabold text-text-primary transition hover:bg-accent-primary/10 hover:text-accent-primary"
+              title="העתקת מספר אישי"
+            >
+              <span dir="ltr" className="tabular-nums tracking-wide">
+                {candidate.personal_number}
+              </span>
+              {copied ? <Check size={15} /> : <Copy size={15} className="text-text-muted" />}
+            </button>
+            <HeroGaps gaps={gaps} />
+          </div>
+
+          <div className="flex shrink-0 items-center gap-4">
+          {candidate.cycle_id && candidate.cycle_rank != null && candidate.cycle_rank_total ? (
+            <Link
+              href={`/agam/cycles/${candidate.cycle_id}/ranking`}
+              title="מעבר לדירוג המחזור"
+              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-text-secondary transition hover:text-text-primary"
+            >
+              <Trophy size={14} className="text-text-muted" />
+              <span>
+                ממוקם במקום{" "}
+                <span className="text-base font-extrabold tabular-nums text-text-primary">{candidate.cycle_rank}</span>{" "}
+                מתוך <span className="font-bold tabular-nums">{candidate.cycle_rank_total}</span>
+              </span>
+            </Link>
+          ) : null}
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-surface-2 p-1">
+            {!isScreener ? (
+              <>
+                <HeroAction icon={MessageSquare} label="ראיון" href={`/agam/candidates/${candidate.id}/interview`} />
+                <HeroAction icon={Award} label="הערכת יום מיונים" href={`/agam/candidates/${candidate.id}/evaluation`} />
+              </>
+            ) : null}
+            {canEvaluate ? (
+              <CreateAgamTaskDrawer
+                candidateId={candidate.id}
+                cycleId={candidate.cycle_id}
+                candidateName={candidate.full_name}
+                cycleName={candidate.cycle_name}
+                triggerClassName="inline-flex h-10 items-center gap-1 rounded-full bg-text-primary px-3.5 text-xs font-bold text-white transition hover:-translate-y-px dark:bg-white dark:text-black"
+                triggerLabel="משימה"
+              />
+            ) : null}
+          </div>
+          </div>
+        </div>
+      </section>
+    </header>
+  );
+}
+
+function prepFeedback(row: {
+  conversation_feedback: string | null;
+  social_dynamics_feedback: string | null;
+  general_impression: string | null;
+}): Array<{ label: string; text: string }> {
+  return [
+    { label: "העברת שיחה", text: row.conversation_feedback },
+    { label: "דינמיקות חברתיות", text: row.social_dynamics_feedback },
+    { label: "התרשמות כללית", text: row.general_impression },
+  ].flatMap((item) => (item.text?.trim() ? [{ label: item.label, text: item.text.trim() }] : []));
+}
+
+function averageOf(values: Array<number | null | undefined>): number | null {
+  const nums = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (nums.length === 0) return null;
+  return Math.round((nums.reduce((sum, value) => sum + value, 0) / nums.length) * 10) / 10;
+}
+
+function VerdictPill({ rows }: { rows: Array<{ passed: boolean | null }> }) {
+  const pass = rows.filter((row) => row.passed === true).length;
+  const fail = rows.filter((row) => row.passed === false).length;
+  if (pass === 0 && fail === 0) return null;
+  const passed = pass >= fail;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${
+        passed
+          ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+          : "bg-rose-500/12 text-rose-700 dark:text-rose-300"
       }`}
     >
-      {label}
+      {passed ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
+      {passed ? "עבר" : "לא עבר"}
+      {pass + fail > 1 ? <span className="tabular-nums opacity-70">({pass}/{pass + fail})</span> : null}
+    </span>
+  );
+}
+
+function ScoreBadge({ value, suffix }: { value: number | null; suffix?: string }) {
+  if (value == null) return null;
+  return (
+    <span className="inline-flex items-baseline gap-0.5 rounded-xl bg-surface-2 px-2.5 py-1" dir="ltr">
+      <span className="text-base font-extrabold tabular-nums text-text-primary">{value}</span>
+      {suffix ? <span className="text-[10px] font-bold text-text-muted">{suffix}</span> : null}
+    </span>
+  );
+}
+
+const STAGE_HEAD_TONES: Record<CaseTone, string> = {
+  sky: "bg-sky-50/80 dark:bg-sky-500/10",
+  emerald: "bg-emerald-50/80 dark:bg-emerald-500/10",
+  amber: "bg-amber-50/80 dark:bg-amber-500/10",
+  rose: "bg-rose-50/80 dark:bg-rose-500/10",
+  slate: "bg-slate-100/80 dark:bg-white/[0.05]",
+  violet: "bg-violet-50/80 dark:bg-violet-500/10",
+};
+
+const STAGE_ICON_TONES: Record<CaseTone, string> = {
+  sky: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+  emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  rose: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+  slate: "bg-slate-100 text-slate-600 dark:bg-white/[0.05] dark:text-slate-300",
+  violet: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+};
+
+type StageTab = {
+  id: string;
+  icon: ComponentType<{ size?: number; className?: string }>;
+  title: string;
+  subtitle: string;
+  tone: CaseTone;
+  summary?: ReactNode;
+  href?: string;
+  content: ReactNode;
+};
+
+/** Card tabs: selecting a card reveals its content in a panel below. */
+function StageTabs({ tabs, defaultId }: { tabs: StageTab[]; defaultId?: string }) {
+  const [activeId, setActiveId] = useState<string | null>(defaultId ?? tabs[0]?.id ?? null);
+  const active = tabs.find((tab) => tab.id === activeId) ?? null;
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 md:items-stretch" role="tablist" aria-label="שלבי תיק">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const selected = tab.id === activeId;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveId((current) => (current === tab.id ? null : tab.id))}
+              className={`${caseCardClass} group flex h-full min-w-0 flex-col text-start transition ${
+                selected
+                  ? "shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent-primary)_45%,transparent),0_14px_32px_-16px_rgba(22,24,29,0.3)]"
+                  : "hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_rgba(22,24,29,0.07),0_14px_32px_-16px_rgba(22,24,29,0.3)]"
+              }`}
+            >
+              <span
+                className={`flex h-full items-center gap-3 px-4 py-3 md:flex-col md:items-stretch md:gap-3 md:px-3.5 md:py-4 ${STAGE_HEAD_TONES[tab.tone]}`}
+              >
+                <span className="flex min-w-0 flex-1 items-center gap-3 md:flex-col md:items-center md:gap-2.5 md:text-center">
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-1 shadow-sm ${STAGE_ICON_TONES[tab.tone]}`}
+                  >
+                    <Icon size={17} />
+                  </span>
+                  <span className="min-w-0 truncate text-[15px] font-extrabold text-text-primary md:whitespace-normal md:leading-snug">
+                    {tab.title}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5 md:mt-auto md:w-full md:justify-between">
+                  {tab.summary ? <span className="flex flex-wrap items-center gap-1.5">{tab.summary}</span> : <span />}
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-1/80 text-text-muted transition ${
+                      selected ? "bg-surface-1 text-text-primary" : "group-hover:bg-surface-1 group-hover:text-text-primary"
+                    }`}
+                  >
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${selected ? "rotate-180" : ""}`} />
+                  </span>
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {active ? (
-        <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-text-primary" />
+        <section className={`${caseCardClass}`} role="tabpanel" aria-label={active.title}>
+          <div className={`flex flex-wrap items-center gap-3 px-4 py-3 ${STAGE_HEAD_TONES[active.tone]}`}>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-extrabold text-text-primary">{active.title}</p>
+              {active.subtitle ? <p className="mt-0.5 text-xs text-text-muted">{active.subtitle}</p> : null}
+            </div>
+            {active.href ? (
+              <Link
+                href={active.href}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-1 px-3 py-1.5 text-xs font-bold text-text-secondary transition hover:text-text-primary"
+              >
+                למסך המלא
+                <ChevronLeft size={13} />
+              </Link>
+            ) : null}
+          </div>
+          <div className="p-4 sm:p-5">{active.content}</div>
+        </section>
       ) : null}
-    </Link>
+    </div>
   );
 }
 
@@ -318,25 +555,19 @@ function Overview({
   canRamad,
   canEvaluate,
   onSaved,
+  initialDocumentsOpen = false,
 }: {
   payload: FilePayload;
   role: ModuleRole | null;
   canRamad: boolean;
   canEvaluate: boolean;
   onSaved: () => void;
+  initialDocumentsOpen?: boolean;
 }) {
-  const data = (payload.candidate.questionnaire_data ?? {}) as Record<string, unknown>;
-  const sections = groupQuestionsBySection(payload.preQuestions);
+  const router = useRouter();
   const currentUserId = payload.currentUserId;
   const candidateId = payload.candidate.id;
-  const isScreener = roleCanScreen(role);
-  const [profileCollapsed, setProfileCollapsed] = useState(false);
-  const [questionnaireCollapsed, setQuestionnaireCollapsed] = useState(false);
-  const [questionnaireEditing, setQuestionnaireEditing] = useState(false);
-  const [questionnaireData, setQuestionnaireData] = useState<Record<string, unknown>>(data);
-  const [savingQuestionnaire, setSavingQuestionnaire] = useState(false);
-  const [activityOpen, setActivityOpen] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
+  const [documentsOpen, setDocumentsOpen] = useState(initialDocumentsOpen);
 
   const isExceptional =
     (payload.candidate.planning_index === 1 || payload.candidate.planning_index === 2) &&
@@ -354,462 +585,313 @@ function Overview({
   const smachNotes = notesFor("smach");
   const otherNotes = notesFor("other");
 
-  const stats = useMemo(
-    () => [
-      { label: "ראיונות", value: payload.interviews.length + interviewNotes.length },
-      { label: "הערכות יום", value: payload.evaluations.length + daySelectionNotes.length },
-      { label: "מסמכים", value: payload.documents.length },
-      { label: "משימות", value: payload.tasks.length },
-    ],
-    [
-      payload.interviews.length,
-      payload.evaluations.length,
-      payload.documents.length,
-      payload.tasks.length,
-      interviewNotes.length,
-      daySelectionNotes.length,
-    ],
+  const notesList = (notes: AgamTimelineItem[]) => (
+    <AssessmentNoteList
+      notes={notes}
+      currentUserId={currentUserId}
+      role={payload.role}
+      candidateId={candidateId}
+      onSaved={onSaved}
+    />
   );
 
-  const saveQuestionnaire = async () => {
-    setSavingQuestionnaire(true);
-    try {
-      await agamFetch(`/api/agam/candidates/${candidateId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ questionnaire_data: questionnaireData }),
-      });
-      toast.success("השאלון עודכן");
-      setQuestionnaireEditing(false);
-      onSaved();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "שמירה נכשלה");
-    } finally {
-      setSavingQuestionnaire(false);
-    }
-  };
+  const countLabel = (count: number, one: string, many: string) =>
+    count === 0 ? null : count === 1 ? `${one} אחד` : `${count} ${many}`;
+
+  const dayAverage = averageOf(payload.evaluations.map((row) => row.final_score ?? row.weighted_score));
+  const daySubtitle =
+    [
+      countLabel(payload.interviews.length, "ראיון", "ראיונות"),
+      countLabel(payload.evaluations.length, "מעריך", "מעריכים"),
+    ]
+      .filter(Boolean)
+      .join(" · ") || "טרם הוזנו ראיון או הערכות";
+
+  const prepAverage = averageOf(
+    payload.prepDays.map((row) => averageOf([row.mikra_score, row.conversation_score, row.social_dynamics_score])),
+  );
+  const prepSubtitle = countLabel(payload.prepDays.length, "מעריך", "מעריכים") ?? "טרם הוזנו הערכות";
+
+  const smachProfessional = averageOf(
+    payload.smach.map((row) =>
+      averageOf(PROFESSIONAL_CRITERIA.map((criterion) => row.professional_scores?.[criterion.key])),
+    ),
+  );
+  const smachWeighted = averageOf(payload.smach.map((row) => row.weighted_score));
+  const latestSmach = [...payload.smach].sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  )[0];
+  const smachSubtitle =
+    [countLabel(payload.smach.length, "מעריך", "מעריכים"), latestSmach?.decision].filter(Boolean).join(" · ") ||
+    "טרם הוזנו הערכות";
+
+  const profileSubtitle =
+    [
+      payload.candidate.command,
+      payload.candidate.planning_index != null ? `מדד ${payload.candidate.planning_index}` : null,
+      payload.candidate.dapar != null ? `דפ״ר ${payload.candidate.dapar}` : null,
+      payload.candidate.kahas != null ? `קה״ס ${payload.candidate.kahas}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "שירות, נתוני מיון, התניות והערות";
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      {/* Chronological column — first in DOM = right in RTL */}
-      <aside className="flex w-full shrink-0 flex-col gap-4 lg:sticky lg:top-20 lg:w-[17rem] lg:self-start xl:w-[18.5rem]">
-        <ChronoStageBlocks
-          candidateId={candidateId}
-          interviews={payload.interviews}
-          evaluations={payload.evaluations}
-          prepDays={payload.prepDays}
-          smach={payload.smach}
-        />
-        {isScreener ? (
-          <ScreenerChronoMenu candidateId={candidateId} interviews={payload.interviews} />
-        ) : null}
-        {canEvaluate ? (
-          <div className="flex flex-wrap gap-2">
-            <CreateAgamTaskDrawer
-              candidateId={candidateId}
-              cycleId={payload.candidate.cycle_id}
-              candidateName={payload.candidate.full_name}
-              cycleName={payload.candidate.cycle_name}
-              triggerClassName={secondaryButtonClass}
-              triggerLabel="משימה"
-            />
-            <button type="button" className={secondaryButtonClass} onClick={() => setTasksOpen(true)}>
-              משימות ({payload.tasks.length})
-            </button>
-            <button type="button" className={secondaryButtonClass} onClick={() => setActivityOpen(true)}>
-              פעילות
-            </button>
-          </div>
-        ) : (
-          <button type="button" className={secondaryButtonClass} onClick={() => setActivityOpen(true)}>
-            פעילות בתיק
-          </button>
-        )}
-      </aside>
-
-      <div className="flex min-w-0 flex-1 flex-col gap-6">
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className="flex min-w-0 flex-col gap-3.5">
         {isExceptional ? (
-          <section className="flex items-start gap-3 rounded-3xl bg-rose-500/[0.08] p-5 text-text-primary">
+          <section className="flex items-start gap-3 rounded-3xl bg-rose-500/[0.08] px-5 py-4 text-text-primary shadow-[inset_0_0_0_1px_rgba(225,29,72,0.15)]">
             <AlertTriangle className="mt-0.5 shrink-0 text-rose-600" size={18} />
             <div>
               <p className="text-sm font-extrabold">התראת חייל חריג</p>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-0.5 text-sm text-text-secondary">
                 מדד תכנוני {payload.candidate.planning_index} ודפ״ר {payload.candidate.dapar}.
               </p>
             </div>
           </section>
         ) : null}
 
-        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className={`${panelClass} px-4 py-4`}>
-              <p className="text-[11px] font-semibold text-text-muted">{stat.label}</p>
-              <p className="mt-2 text-2xl font-extrabold tracking-tight text-text-primary">{stat.value}</p>
-            </div>
-          ))}
-        </section>
-
-        <CandidateProfileCard
-          candidate={payload.candidate}
-          canEvaluate={canEvaluate}
-          onSaved={onSaved}
-          collapsed={profileCollapsed}
-          onToggleCollapse={() => setProfileCollapsed((value) => !value)}
-        />
-
-        <section className={`${panelClass} border-2 border-text-primary/15 p-6`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-extrabold text-text-primary">החלטה סופית</h2>
-              <p className="mt-0.5 text-xs text-text-muted">סטטוס והערות מנהל</p>
-            </div>
-            {payload.candidate.status !== "pending" ? (
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_TONES[payload.candidate.status]}`}
-              >
-                {STATUS_LABELS[payload.candidate.status]}
-              </span>
-            ) : (
-              <span className="text-xs font-bold text-text-muted">טרם הוחלט</span>
-            )}
-          </div>
-          {canRamad && payload.candidate.ramad_notes ? (
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">
-              {payload.candidate.ramad_notes}
-            </p>
-          ) : (
-            <p className="mt-3 text-sm text-text-muted">אין הערות מנהל.</p>
-          )}
-          {canRamad ? (
-            <Link
-              href={`/agam/candidates/${payload.candidate.id}?stage=final_decision`}
-              className={`${primaryButtonClass} mt-4`}
-            >
-              פתיחת החלטה / ייצוא PDF
-            </Link>
-          ) : null}
-        </section>
-
-        <section className={`${panelClass} p-6`}>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-text-primary">פרטי המועמד</h2>
-              <p className="mt-0.5 text-xs text-text-muted">שאלון ופרטים אישיים</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {canEvaluate && !questionnaireCollapsed ? (
-                <button
-                  type="button"
-                  className={questionnaireEditing ? primaryButtonClass : secondaryButtonClass}
-                  onClick={() => {
-                    if (questionnaireEditing) {
-                      setQuestionnaireData(data);
-                      setQuestionnaireEditing(false);
-                    } else {
-                      setQuestionnaireData(data);
-                      setQuestionnaireEditing(true);
-                    }
-                  }}
-                >
-                  <Pencil size={14} />
-                  {questionnaireEditing ? "ביטול" : "עריכה"}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={secondaryButtonClass}
-                onClick={() => setQuestionnaireCollapsed((value) => !value)}
-              >
-                {questionnaireCollapsed ? "פתח" : "כווץ"}
-              </button>
-            </div>
-          </div>
-          {!questionnaireCollapsed ? (
-            <>
-              {sections.length === 0 ? (
-                <p className="mt-3 text-sm text-text-muted">אין שאלות מוגדרות.</p>
-              ) : (
-                <div className="mt-5 space-y-6">
-                  {sections.map(([sectionKey, section]) => (
-                    <div key={sectionKey}>
-                      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-muted">
-                        {section.name}
-                      </p>
-                      {questionnaireEditing ? (
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {section.items.map((question) => (
-                            <AgamQuestionField
-                              key={question.id}
-                              question={question}
-                              value={String(questionnaireData[question.field_key] ?? "")}
-                              onChange={(value) =>
-                                setQuestionnaireData((current) => ({ ...current, [question.field_key]: value }))
-                              }
-                            />
-                          ))}
+        <StageTabs
+          defaultId="profile"
+          tabs={[
+            {
+              id: "profile",
+              icon: UserRound,
+              title: "פרטים אישיים",
+              subtitle: profileSubtitle,
+              tone: "slate",
+              content: (
+                <CandidateProfileCard
+                  candidate={payload.candidate}
+                  questions={payload.preQuestions}
+                  canEvaluate={canEvaluate}
+                  onSaved={onSaved}
+                  embedded
+                />
+              ),
+            },
+            {
+              id: "day",
+              icon: Award,
+              title: "יום מיונים",
+              subtitle: daySubtitle,
+              tone: "sky",
+              href: `/agam/candidates/${candidateId}?stage=day_selection`,
+              summary: (
+                <>
+                  <VerdictPill rows={payload.evaluations} />
+                  <ScoreBadge value={dayAverage} />
+                </>
+              ),
+              content: (
+                <div className="grid gap-5 md:grid-cols-2">
+                  <EvalGroup title="ראיונות" count={payload.interviews.length + interviewNotes.length}>
+                    {payload.interviews.length === 0 && interviewNotes.length === 0 ? (
+                      <EvalEmpty label="אין ראיונות" />
+                    ) : (
+                      payload.interviews.map((interview) => (
+                        <div key={interview.id} className="rounded-xl bg-surface-2/70 px-3.5 py-2.5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-bold text-text-primary">
+                              {interview.evaluator_name ?? "מעריך"}
+                            </p>
+                            {interview.recommendation ? (
+                              <span className="rounded-full bg-surface-1 px-2 py-0.5 text-[11px] font-bold text-text-secondary">
+                                {interview.recommendation}
+                              </span>
+                            ) : null}
+                          </div>
+                          {interview.evaluator_assessment ? (
+                            <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-text-muted">
+                              {interview.evaluator_assessment}
+                            </p>
+                          ) : null}
                         </div>
-                      ) : (
-                        <dl className="grid gap-px overflow-hidden rounded-2xl bg-black/[0.04] sm:grid-cols-2 dark:bg-white/[0.06]">
-                          {section.items.map((question) => (
-                            <div key={question.id} className="bg-surface-1 px-4 py-3">
-                              <dt className="text-[11px] font-medium text-text-muted">{question.question_text}</dt>
-                              <dd className="mt-1 text-sm font-semibold text-text-primary">
-                                {String(data[question.field_key] ?? "—")}
-                              </dd>
+                      ))
+                    )}
+                    {notesList(interviewNotes)}
+                  </EvalGroup>
+
+                  <EvalGroup
+                    title="הערכות מעריכים"
+                    count={payload.evaluations.length + daySelectionNotes.length}
+                  >
+                    {payload.evaluations.length === 0 && daySelectionNotes.length === 0 ? (
+                      <EvalEmpty label="אין הערכות" />
+                    ) : (
+                      payload.evaluations.map((evaluation) => (
+                        <div
+                          key={evaluation.id}
+                          className="flex items-center justify-between gap-2 rounded-xl bg-surface-2/70 px-3.5 py-2.5"
+                        >
+                          <p className="text-sm font-bold text-text-primary">
+                            {evaluation.evaluator_name ?? "מעריך"}
+                          </p>
+                          <span className="flex items-center gap-2">
+                            <VerdictPill rows={[evaluation]} />
+                            <span className="text-base font-extrabold tabular-nums text-text-primary">
+                              {evaluation.final_score ?? evaluation.weighted_score ?? "—"}
+                            </span>
+                          </span>
+                        </div>
+                      ))
+                    )}
+                    {notesList(daySelectionNotes)}
+                  </EvalGroup>
+                </div>
+              ),
+            },
+            {
+              id: "prep",
+              icon: BookOpen,
+              title: "יום מכין",
+              subtitle: prepSubtitle,
+              tone: "emerald",
+              href: `/agam/candidates/${candidateId}?stage=preparation_day`,
+              summary: (
+                <>
+                  <VerdictPill rows={payload.prepDays} />
+                  <ScoreBadge value={prepAverage} />
+                </>
+              ),
+              content: (
+                <div className="space-y-2">
+                  {payload.prepDays.length === 0 && prepNotes.length === 0 ? (
+                    <EvalEmpty label="אין הערכות" />
+                  ) : (
+                    payload.prepDays.map((row) => (
+                      <div key={row.id} className="py-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-bold text-text-primary">{row.evaluator_name ?? "מעריך"}</p>
+                          <VerdictPill rows={[row]} />
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          {(
+                            [
+                              ["מקראות", row.mikra_score],
+                              ["שיחה", row.conversation_score],
+                              ["דינמיקה", row.social_dynamics_score],
+                            ] as const
+                          ).map(([label, score]) => (
+                            <div key={label} className="rounded-xl bg-surface-2/60 px-2.5 py-2 text-center">
+                              <p className="text-[11px] font-semibold text-text-muted">{label}</p>
+                              <p className="text-sm font-extrabold tabular-nums text-text-primary">
+                                {score ?? "—"}
+                              </p>
                             </div>
                           ))}
-                        </dl>
-                      )}
-                    </div>
-                  ))}
+                        </div>
+                        {prepFeedback(row).length > 0 ? (
+                          <dl className="mt-3 space-y-2.5">
+                            {prepFeedback(row).map(({ label, text }) => (
+                              <div key={label}>
+                                <dt className="text-[11px] font-extrabold text-text-muted">{label}</dt>
+                                <dd className="mt-0.5 whitespace-pre-wrap text-sm leading-relaxed text-text-primary">
+                                  {text}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        ) : null}
+                      </div>
+                    ))
+                  )}
+                  {notesList(prepNotes)}
                 </div>
-              )}
-              {questionnaireEditing ? (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    className={primaryButtonClass}
-                    disabled={savingQuestionnaire}
-                    onClick={() => void saveQuestionnaire()}
-                  >
-                    {savingQuestionnaire ? "שומר..." : "שמירת שאלון"}
-                  </button>
+              ),
+            },
+            {
+              id: "smach",
+              icon: ClipboardCheck,
+              title: "סמ״ח",
+              subtitle: smachSubtitle,
+              tone: "violet",
+              href: `/agam/candidates/${candidateId}?stage=smach`,
+              summary: (
+                <>
+                  <VerdictPill rows={payload.smach} />
+                  <ScoreBadge
+                    value={smachWeighted ?? smachProfessional}
+                    suffix={smachWeighted == null && smachProfessional != null ? "/5" : undefined}
+                  />
+                </>
+              ),
+              content: (
+                <div className="space-y-2">
+                  {payload.smach.length === 0 && smachNotes.length === 0 ? (
+                    <EvalEmpty label="אין הערכות" />
+                  ) : (
+                    payload.smach.map((row) => <SmachReadOnlyCard key={row.id} evaluation={row} />)
+                  )}
+                  {notesList(smachNotes)}
                 </div>
-              ) : null}
-            </>
-          ) : null}
-        </section>
+              ),
+            },
+          ]}
+        />
 
-        <section className={`${panelClass} space-y-6 p-6`}>
-          <div>
-            <h2 className="text-sm font-bold text-text-primary">הערכות</h2>
-            <p className="mt-0.5 text-xs text-text-muted">סיכום לפי שלב</p>
-          </div>
-
-          <EvalGroup title={`ראיונות (${payload.interviews.length + interviewNotes.length})`}>
-            {payload.interviews.length === 0 ? (
-              interviewNotes.length === 0 ? <p className="text-sm text-text-muted">אין ראיונות.</p> : null
-            ) : (
-              payload.interviews.map((interview) => (
-                <div key={interview.id} className="rounded-2xl bg-surface-2/70 px-4 py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-bold text-text-primary">{interview.evaluator_name ?? "מעריך"}</p>
-                    {interview.recommendation ? (
-                      <span className="text-xs font-semibold text-text-secondary">{interview.recommendation}</span>
-                    ) : null}
-                  </div>
-                  {interview.evaluator_assessment ? (
-                    <p className="mt-1 line-clamp-3 text-xs text-text-muted">{interview.evaluator_assessment}</p>
-                  ) : null}
-                </div>
-              ))
-            )}
-            <AssessmentNoteList
-              notes={interviewNotes}
-              currentUserId={currentUserId}
-              role={payload.role}
-              candidateId={candidateId}
-              onSaved={onSaved}
-            />
-          </EvalGroup>
-
-          <EvalGroup title={`יום מיונים (${payload.evaluations.length + daySelectionNotes.length})`}>
-            {payload.evaluations.length === 0 ? (
-              daySelectionNotes.length === 0 ? <p className="text-sm text-text-muted">אין הערכות.</p> : null
-            ) : (
-              payload.evaluations.map((evaluation) => (
-                <div
-                  key={evaluation.id}
-                  className="flex items-center justify-between rounded-2xl bg-surface-2/70 px-4 py-3"
-                >
-                  <p className="text-sm font-bold text-text-primary">{evaluation.evaluator_name ?? "מעריך"}</p>
-                  <p className="text-base font-extrabold text-text-primary">
-                    {evaluation.final_score ?? evaluation.weighted_score ?? "—"}
-                  </p>
-                </div>
-              ))
-            )}
-            <AssessmentNoteList
-              notes={daySelectionNotes}
-              currentUserId={currentUserId}
-              role={payload.role}
-              candidateId={candidateId}
-              onSaved={onSaved}
-            />
-          </EvalGroup>
-
-          <EvalGroup title={`היום המכין (${payload.prepDays.length + prepNotes.length})`}>
-            {payload.prepDays.length === 0 ? (
-              prepNotes.length === 0 ? <p className="text-sm text-text-muted">אין הערכות.</p> : null
-            ) : (
-              payload.prepDays.map((row) => (
-                <div key={row.id} className="rounded-2xl bg-surface-2/70 px-4 py-3 text-sm">
-                  <p className="font-bold text-text-primary">{row.evaluator_name ?? "מעריך"}</p>
-                  <p className="mt-1 text-xs text-text-muted">
-                    מקרא {row.mikra_score ?? "—"} · שיחה {row.conversation_score ?? "—"} · דינמיקה{" "}
-                    {row.social_dynamics_score ?? "—"}
-                  </p>
-                  {row.conversation_feedback ? (
-                    <p className="mt-1 text-xs text-text-secondary">שיחה: {row.conversation_feedback}</p>
-                  ) : null}
-                  {row.social_dynamics_feedback ? (
-                    <p className="mt-1 text-xs text-text-secondary">דינמיקה: {row.social_dynamics_feedback}</p>
-                  ) : null}
-                  {row.general_impression ? (
-                    <p className="mt-1 whitespace-pre-wrap text-xs text-text-primary">{row.general_impression}</p>
-                  ) : null}
-                </div>
-              ))
-            )}
-            <AssessmentNoteList
-              notes={prepNotes}
-              currentUserId={currentUserId}
-              role={payload.role}
-              candidateId={candidateId}
-              onSaved={onSaved}
-            />
-          </EvalGroup>
-
-          <EvalGroup title={`סמ״ח (${payload.smach.length + smachNotes.length})`}>
-            {payload.smach.length === 0 ? (
-              smachNotes.length === 0 ? <p className="text-sm text-text-muted">אין הערכות.</p> : null
-            ) : (
-              payload.smach.map((row) => <SmachReadOnlyCard key={row.id} evaluation={row} />)
-            )}
-            <AssessmentNoteList
-              notes={smachNotes}
-              currentUserId={currentUserId}
-              role={payload.role}
-              candidateId={candidateId}
-              onSaved={onSaved}
-            />
-          </EvalGroup>
-
-          {otherNotes.length > 0 ? (
-            <EvalGroup title={`אחר (${otherNotes.length})`}>
-              <AssessmentNoteList
-                notes={otherNotes}
-                currentUserId={currentUserId}
-                role={payload.role}
-                candidateId={candidateId}
-                onSaved={onSaved}
-              />
+        {otherNotes.length > 0 ? (
+          <section className={`${caseCardClass} p-5`}>
+            <EvalGroup title="הערות נוספות" count={otherNotes.length}>
+              {notesList(otherNotes)}
             </EvalGroup>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
 
-        <section className={`${panelClass} p-6`}>
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h2 className="text-sm font-bold text-text-primary">מסמכים</h2>
-            <Link
-              href={`/agam/candidates/${payload.candidate.id}?stage=documents`}
-              className="text-xs font-semibold text-text-muted transition hover:text-text-primary"
-            >
-              ניהול
-            </Link>
-          </div>
-          {payload.documents.length === 0 ? (
-            <p className="text-sm text-text-muted">אין מסמכים.</p>
-          ) : (
-            <ul>
-              {payload.documents.map((document, index) => (
-                <li key={document.id} className={index === 0 ? undefined : dividerClass}>
-                  <div className="flex flex-wrap items-center justify-between gap-2 py-3.5">
-                    <div className="min-w-0">
-                      <a
-                        className="text-sm font-bold text-text-primary hover:underline"
-                        href={documentDownloadHref(document.id)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {document.name}
-                      </a>
-                      <p className="mt-0.5 text-xs text-text-muted">
-                        {[
-                          document.document_type,
-                          document.uploaded_by_name,
-                          SOURCE_LABELS[document.upload_source ?? ""] ?? null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </p>
-                    </div>
-                    <a
-                      className="text-xs font-bold text-text-muted transition hover:text-text-primary"
-                      href={documentDownloadHref(document.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                      download
-                    >
-                      הורדה
-                    </a>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
       </div>
 
-      <Drawer open={activityOpen} onClose={() => setActivityOpen(false)} title="פעילות בתיק">
-        <CandidateActivityTimeline timeline={payload.timeline} />
-      </Drawer>
-
-      <Drawer open={tasksOpen} onClose={() => setTasksOpen(false)} title="משימות מועמד">
-        <CandidateTasksCard
-          candidateId={payload.candidate.id}
-          tasks={payload.tasks}
-          currentUserId={payload.currentUserId}
-          canEvaluate={canEvaluate}
-          canAdmin={canRamad}
+      <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-20">
+        <CandidateExamsCard
+          candidateId={candidateId}
+          prepDays={payload.prepDays}
+          smach={payload.smach}
+          documents={payload.documents}
+          currentUserId={currentUserId}
+          canEdit={canEvaluate}
+          canApprove={canRamad}
           onSaved={onSaved}
         />
-      </Drawer>
+        {(() => {
+          const paperwork = payload.documents.filter((document) => !isSportsResultsDocument(document));
+          const pending = paperwork.filter((document) => !document.approved_at).length;
+          return (
+            <button
+              type="button"
+              onClick={() => setDocumentsOpen(true)}
+              className={`${caseCardClass} flex w-full items-center gap-3 px-4 py-3 text-start transition hover:bg-surface-2/60`}
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-300">
+                <FolderOpen size={17} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-extrabold text-text-primary">מסמכים</span>
+                <span className="block truncate text-[11px] font-semibold text-text-muted">
+                  {paperwork.length > 0 ? `${paperwork.length} מסמכים בתיק` : "אין מסמכים עדיין"}
+                </span>
+              </span>
+              {pending > 0 ? (
+                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-200">
+                  {pending} ממתינים
+                </span>
+              ) : null}
+              <ChevronLeft size={16} className="shrink-0 text-text-muted" />
+            </button>
+          );
+        })()}
+      </aside>
+
+      <CandidateDocumentsCenter
+        open={documentsOpen}
+        onClose={() => {
+          setDocumentsOpen(false);
+          if (initialDocumentsOpen) router.replace(`/agam/candidates/${candidateId}`, { scroll: false });
+        }}
+        candidate={payload.candidate}
+        documents={payload.documents}
+        canEvaluate={canEvaluate}
+        canApprove={canRamad}
+        onSaved={onSaved}
+      />
     </div>
-  );
-}
-
-function CandidateActivityTimeline({ timeline }: { timeline: AgamTimelineItem[] }) {
-  const sorted = useMemo(
-    () =>
-      [...timeline].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
-    [timeline],
-  );
-
-  return (
-    <section className="flex min-h-[12rem] flex-col">
-      {sorted.length === 0 ? (
-        <p className="py-8 text-center text-sm text-text-muted">אין אירועים עדיין</p>
-      ) : (
-        <div className="ui-card overflow-hidden rounded-2xl bg-surface-2/60">
-          <div className="agam-timeline-vertical min-h-0 max-h-[28rem] overflow-y-auto p-4 pe-2">
-            <div className="agam-timeline-vertical__rail" aria-hidden />
-            {sorted.slice(0, 24).map((item) => {
-              const Icon = TIMELINE_ICONS[item.event_type] ?? FileText;
-              return (
-                <div key={item.id} className="agam-timeline-vertical__item">
-                  <span className="agam-timeline-vertical__node">
-                    <Icon size={13} />
-                  </span>
-                  <div className="min-w-0 pt-0.5">
-                    <p className="truncate text-sm font-extrabold text-text-primary">{item.title}</p>
-                    {item.description ? (
-                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-text-muted">
-                        {item.description}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-[10px] font-semibold text-text-muted">
-                      {[item.actor_name, formatAgamDateTime(item.created_at)].filter(Boolean).join(" · ")}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </section>
   );
 }
 
@@ -819,34 +901,37 @@ function yesNo(value: boolean | null | undefined): string {
   return "לא סומן";
 }
 
-function ProfileField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-surface-2/60 px-3.5 py-3">
-      <p className="text-[11px] font-medium text-text-muted">{label}</p>
-      <p className="mt-1 text-sm font-semibold text-text-primary">{value}</p>
-    </div>
-  );
-}
+const PROFILE_SECTION_META: Record<string, { icon: ComponentType<{ size?: number; className?: string }>; tone: CaseTone }> = {
+  "פרטים אישיים": { icon: UserRound, tone: "slate" },
+  שירות: { icon: Shield, tone: "sky" },
+  "פרטי קשר ותפקיד": { icon: MessageSquare, tone: "violet" },
+  "כנס הסברה": { icon: BookOpen, tone: "emerald" },
+  התניות: { icon: HeartPulse, tone: "amber" },
+};
 
 function CandidateProfileCard({
   candidate,
+  questions = [],
   canEvaluate,
   onSaved,
-  collapsed,
-  onToggleCollapse,
+  embedded = false,
 }: {
   candidate: AgamCandidate;
+  questions?: AgamQuestion[];
   canEvaluate: boolean;
   onSaved: () => void;
-  collapsed: boolean;
-  onToggleCollapse: () => void;
+  embedded?: boolean;
 }) {
   const [command, setCommand] = useState(candidate.command ?? "");
   const [directCommanderName, setDirectCommanderName] = useState(candidate.direct_commander_name ?? "");
   const [directCommanderRole, setDirectCommanderRole] = useState(candidate.direct_commander_role ?? "");
-  const [gaps, setGaps] = useState(candidate.gaps ?? "");
+  const [exemptions, setExemptions] = useState(candidate.exemptions ?? "");
+  const [km, setKm] = useState(candidate.km ?? "");
   const [planningIndex, setPlanningIndex] = useState(candidate.planning_index?.toString() ?? "");
   const [dapar, setDapar] = useState(candidate.dapar?.toString() ?? "");
+  const [releaseDate, setReleaseDate] = useState(candidate.release_date ? toDateInputValue(candidate.release_date) : "");
+  const [kahas, setKahas] = useState(candidate.kahas?.toString() ?? "");
+  const [tash, setTash] = useState(candidate.tash?.toString() ?? "");
   const [rankColor, setRankColor] = useState(candidate.rank_color ?? "");
   const [needsSakmar, setNeedsSakmar] = useState(
     candidate.needs_sakmar == null ? "" : candidate.needs_sakmar ? "yes" : "no",
@@ -866,9 +951,13 @@ function CandidateProfileCard({
     setCommand(candidate.command ?? "");
     setDirectCommanderName(candidate.direct_commander_name ?? "");
     setDirectCommanderRole(candidate.direct_commander_role ?? "");
-    setGaps(candidate.gaps ?? "");
+    setExemptions(candidate.exemptions ?? "");
+    setKm(candidate.km ?? "");
     setPlanningIndex(candidate.planning_index?.toString() ?? "");
     setDapar(candidate.dapar?.toString() ?? "");
+    setReleaseDate(candidate.release_date ? toDateInputValue(candidate.release_date) : "");
+    setKahas(candidate.kahas?.toString() ?? "");
+    setTash(candidate.tash?.toString() ?? "");
     setRankColor(candidate.rank_color ?? "");
     setNeedsSakmar(candidate.needs_sakmar == null ? "" : candidate.needs_sakmar ? "yes" : "no");
     setMabdakApproval(candidate.mabdak_approval == null ? "" : candidate.mabdak_approval ? "yes" : "no");
@@ -889,9 +978,13 @@ function CandidateProfileCard({
           command: command || null,
           direct_commander_name: directCommanderName || null,
           direct_commander_role: directCommanderRole || null,
-          gaps: gaps || null,
+          exemptions: exemptions || null,
+          km: km || null,
           planning_index: planningIndex ? Number(planningIndex) : null,
           dapar: dapar ? Number(dapar) : null,
+          release_date: releaseDate || null,
+          kahas: kahas ? Number(kahas) : null,
+          tash: tash ? Number(tash) : null,
           rank_color: rankColor || null,
           needs_sakmar: needsSakmar ? needsSakmar === "yes" : null,
           mabdak_approval: mabdakApproval ? mabdakApproval === "yes" : null,
@@ -911,49 +1004,238 @@ function CandidateProfileCard({
   };
 
   const checklistDone = BAHAD1_CHECKLIST.filter((item) => checklist[item]).length;
+  const isEditing = editing && canEvaluate;
+  const editInputClass =
+    "ui-field h-8 w-full max-w-[11rem] rounded-lg bg-surface-1 px-2.5 text-sm font-bold text-text-primary outline-none";
+
+  const selectRow = (
+    label: string,
+    value: string,
+    setter: (value: string) => void,
+    options: ReadonlyArray<string | readonly [string, string]>,
+    display: string,
+    emptyLabel = "ללא",
+  ) => (
+    <CaseRow label={label} value={display}>
+      {isEditing ? (
+        <dd className="min-w-0">
+          <select className={editInputClass} value={value} onChange={(event) => setter(event.target.value)}>
+            <option value="">{emptyLabel}</option>
+            {options.map((option) => {
+              const [optionValue, optionLabel] = typeof option === "string" ? [option, option] : option;
+              return (
+                <option key={optionValue} value={optionValue}>
+                  {optionLabel}
+                </option>
+              );
+            })}
+            {value && !options.some((option) => (typeof option === "string" ? option : option[0]) === value) ? (
+              <option value={value}>{value}</option>
+            ) : null}
+          </select>
+        </dd>
+      ) : undefined}
+    </CaseRow>
+  );
+
+  const textRow = (label: string, value: string, setter: (value: string) => void) => (
+    <CaseRow label={label} value={value}>
+      {isEditing ? (
+        <dd className="min-w-0">
+          <input className={editInputClass} value={value} onChange={(event) => setter(event.target.value)} />
+        </dd>
+      ) : undefined}
+    </CaseRow>
+  );
+
+  const yesNoOptions = [
+    ["yes", "כן"],
+    ["no", "לא"],
+  ] as const;
+  const yesNoDisplay = (value: string) => yesNo(value ? value === "yes" : null);
+
+  const notes = [
+    { key: "exemptions", label: "פטורים", icon: ShieldCheck, tone: "slate" as const, value: exemptions, setter: setExemptions },
+    { key: "km", label: "כ״מ", icon: FileText, tone: "violet" as const, value: km, setter: setKm },
+  ];
+
+  const questionnaire = (candidate.questionnaire_data ?? {}) as Record<string, unknown>;
+  const answerText = (key: string) => {
+    const value = questionnaire[key];
+    if (typeof value === "boolean") return value ? "כן" : "לא";
+    if (value == null) return "";
+    const text = String(value).trim();
+    return text;
+  };
+
+  const visibilityValues: Record<string, string> = {};
+  for (const [key, value] of Object.entries(questionnaire)) {
+    visibilityValues[key] = typeof value === "boolean" ? (value ? "כן" : "לא") : value == null ? "" : String(value);
+  }
+  if (!visibilityValues.full_name) visibilityValues.full_name = candidate.full_name;
+  if (!visibilityValues.personal_number) visibilityValues.personal_number = candidate.personal_number;
+  if (!visibilityValues.phone) visibilityValues.phone = candidate.phone ?? "";
+  if (!visibilityValues.civilian_email) visibilityValues.civilian_email = candidate.email ?? "";
+  if (!visibilityValues.command) visibilityValues.command = command;
+  if (!visibilityValues.direct_commander_name) visibilityValues.direct_commander_name = directCommanderName;
+  if (!visibilityValues.release_date) visibilityValues.release_date = releaseDate;
+  if (!visibilityValues.planning_index) visibilityValues.planning_index = planningIndex;
+  if (!visibilityValues.dapar) visibilityValues.dapar = dapar;
+  if (!visibilityValues.tash) visibilityValues.tash = tash;
+  if (!visibilityValues.needs_sakmar) visibilityValues.needs_sakmar = needsSakmar === "yes" ? "כן" : needsSakmar === "no" ? "לא" : "";
+  if (!visibilityValues.mabdak_approval) {
+    visibilityValues.mabdak_approval = mabdakApproval === "yes" ? "כן" : mabdakApproval === "no" ? "לא" : "";
+  }
+  if (!visibilityValues.medical_issue) {
+    visibilityValues.medical_issue = medicalIssue === "yes" ? "כן" : medicalIssue === "no" ? "לא" : "";
+  }
+
+  const resolveQuestionValue = (fieldKey: string): string => {
+    switch (fieldKey) {
+      case "full_name":
+        return answerText(fieldKey) || candidate.full_name;
+      case "personal_number":
+        return answerText(fieldKey) || candidate.personal_number;
+      case "phone":
+        return answerText(fieldKey) || candidate.phone || "";
+      case "civilian_email":
+        return answerText(fieldKey) || candidate.email || "";
+      case "command":
+        return command || answerText(fieldKey);
+      case "direct_commander_name":
+        return directCommanderName || answerText(fieldKey);
+      case "direct_commander_role":
+        return directCommanderRole || answerText(fieldKey);
+      case "release_date": {
+        const raw = releaseDate || answerText(fieldKey);
+        return raw ? formatAgamDate(raw) : "";
+      }
+      case "planning_index":
+        return planningIndex || answerText(fieldKey);
+      case "dapar":
+        return dapar || answerText(fieldKey);
+      case "tash":
+        return tash || answerText(fieldKey);
+      case "needs_sakmar":
+        return needsSakmar ? yesNoDisplay(needsSakmar) : answerText(fieldKey);
+      case "mabdak_approval":
+        return mabdakApproval ? yesNoDisplay(mabdakApproval) : answerText(fieldKey);
+      case "medical_issue":
+        return medicalIssue ? yesNoDisplay(medicalIssue) : answerText(fieldKey);
+      default:
+        return answerText(fieldKey);
+    }
+  };
+
+  const questionSections = groupQuestionsBySection(questions.filter((question) => question.is_active)).map(
+    ([, section]) => ({
+      ...section,
+      items: section.items.filter((question) => isQuestionVisible(question, visibilityValues)),
+    }),
+  ).filter((section) => section.items.length > 0);
+
+  const blockDividerClass =
+    "lg:[&:not(:first-child)]:shadow-[inset_-1px_0_0_rgba(22,24,29,0.06)] dark:lg:[&:not(:first-child)]:shadow-[inset_-1px_0_0_rgba(255,255,255,0.08)]";
+
+  const renderEditableQuestion = (question: AgamQuestion) => {
+    const label = question.question_text;
+    const options = parseQuestionOptions(question.options);
+    switch (question.field_key) {
+      case "command":
+        return textRow(label, command, setCommand);
+      case "direct_commander_name":
+        return textRow(label, directCommanderName, setDirectCommanderName);
+      case "direct_commander_role":
+        return textRow(label, directCommanderRole, setDirectCommanderRole);
+      case "release_date":
+        return (
+          <CaseRow label={label} value={releaseDate ? formatAgamDate(releaseDate) : ""}>
+            {isEditing ? (
+              <dd className="min-w-0">
+                <input
+                  type="date"
+                  className={editInputClass}
+                  value={releaseDate}
+                  onChange={(event) => setReleaseDate(event.target.value)}
+                />
+              </dd>
+            ) : undefined}
+          </CaseRow>
+        );
+      case "planning_index":
+        return selectRow(label, planningIndex, setPlanningIndex, ["1", "2", "3", "4", "5", "6"], planningIndex);
+      case "dapar":
+        return selectRow(
+          label,
+          dapar,
+          setDapar,
+          ["10", "20", "30", "40", "50", "60", "70", "80", "90"],
+          dapar,
+        );
+      case "tash":
+        return selectRow(label, tash, setTash, options.length ? options : ["1", "2", "3", "4", "5", "6", "7"], tash);
+      case "needs_sakmar":
+        return selectRow(label, needsSakmar, setNeedsSakmar, yesNoOptions, yesNoDisplay(needsSakmar), "לא סומן");
+      case "mabdak_approval":
+        return selectRow(label, mabdakApproval, setMabdakApproval, yesNoOptions, yesNoDisplay(mabdakApproval), "לא סומן");
+      case "medical_issue":
+        return selectRow(label, medicalIssue, setMedicalIssue, yesNoOptions, yesNoDisplay(medicalIssue), "לא סומן");
+      default:
+        return <CaseRow key={question.field_key} label={label} value={resolveQuestionValue(question.field_key)} />;
+    }
+  };
 
   return (
-    <section className={`${panelClass} p-6`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-bold text-text-primary">פרטי מועמד</h2>
-          {!collapsed ? (
-            <p className="mt-0.5 text-xs text-text-muted">פיקוד, דירוג ו־checklist לבה״ד 1</p>
-          ) : null}
+    <section className={embedded ? "-m-5 sm:-m-6" : caseCardClass}>
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-accent-primary/[0.06] px-4 py-3">
+        <div className={`min-w-0 items-center gap-3 ${embedded ? "hidden" : "flex"}`}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-1 text-accent-primary shadow-sm">
+            <UserRound size={17} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[15px] font-extrabold text-text-primary">פרטים אישיים</span>
+            <span className="block truncate text-[11px] font-semibold text-text-muted">
+              שירות, נתוני מיון, התניות והערות
+            </span>
+          </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!collapsed ? (
+        <div className="flex items-center gap-2">
+          {rankColor && !isEditing ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-xs font-bold text-text-primary">
+              <span className={`h-2.5 w-2.5 rounded-full ${RANK_DOTS[rankColor] ?? "bg-slate-400"}`} />
+              דירוג {RANK_COLORS[rankColor]?.label ?? rankColor}
+            </span>
+          ) : null}
+          {canEvaluate && !editing ? (
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              onClick={() => setEditing(true)}
+            >
+              <Pencil size={14} />
+              עריכה
+            </button>
+          ) : null}
+          {isEditing ? (
             <>
-              {rankColor ? (
-                <span
-                  className={`inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold ${RANK_COLORS[rankColor]?.className}`}
-                >
-                  {RANK_COLORS[rankColor]?.label}
-                </span>
-              ) : null}
-              {canEvaluate ? (
-                <button
-                  type="button"
-                  className={editing ? primaryButtonClass : secondaryButtonClass}
-                  onClick={() => {
-                    if (editing) setShowCancelPopup(true);
-                    else setEditing(true);
-                  }}
-                >
-                  <Pencil size={15} />
-                  {editing ? "ביטול" : "עריכה"}
-                </button>
-              ) : null}
+              <button type="button" className={primaryButtonClass} disabled={saving} onClick={() => void save()}>
+                {saving ? "שומר…" : "שמירה"}
+              </button>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                disabled={saving}
+                onClick={() => setShowCancelPopup(true)}
+              >
+                ביטול
+              </button>
             </>
           ) : null}
-          <button type="button" className={secondaryButtonClass} onClick={onToggleCollapse}>
-            {collapsed ? "פתח" : "כווץ"}
-          </button>
         </div>
       </div>
 
       {showCancelPopup ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
           <div className="ui-modal w-full max-w-sm rounded-3xl bg-surface-1 p-6">
             <p className="text-base font-extrabold text-text-primary">בטל שינויים?</p>
             <p className="mt-1.5 text-sm text-text-muted">השינויים לא נשמרו. האם לבטל עריכה?</p>
@@ -977,206 +1259,89 @@ function CandidateProfileCard({
         </div>
       ) : null}
 
-      {!collapsed ? (
-        <>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <ProfileField label="שם" value={candidate.full_name} />
-            <ProfileField label="מס׳ אישי" value={candidate.personal_number} />
-            <ProfileField label="פיקוד" value={command || "—"} />
-            <ProfileField label="מפקד ישיר" value={directCommanderName || "—"} />
-            <ProfileField label="תפקיד מפקד ישיר" value={directCommanderRole || "—"} />
-            <ProfileField label="מדד תכנוני" value={planningIndex || "—"} />
-            <ProfileField label="דפ״ר" value={dapar || "—"} />
-            <ProfileField
-              label="צבע דירוג"
-              value={rankColor ? RANK_COLORS[rankColor]?.label ?? rankColor : "—"}
-            />
-            <ProfileField label="צריך סכמר" value={yesNo(needsSakmar ? needsSakmar === "yes" : null)} />
-            <ProfileField
-              label="אישור למבדק"
-              value={yesNo(mabdakApproval ? mabdakApproval === "yes" : null)}
-            />
-            <ProfileField label="בעיה רפואית" value={yesNo(medicalIssue ? medicalIssue === "yes" : null)} />
-            <div className={`${innerCardClass} sm:col-span-2 lg:col-span-3`}>
-              <p className="text-[11px] font-semibold text-text-muted">פערים</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm font-bold text-text-primary">{gaps || "—"}</p>
+      <>
+      <div className="grid shadow-[inset_0_1px_0_rgba(22,24,29,0.06)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:grid-cols-2 xl:grid-cols-3">
+        {questionSections.map((section) => {
+          const meta = PROFILE_SECTION_META[section.name] ?? { icon: ClipboardCheck, tone: "slate" as const };
+          return (
+            <div key={section.name} className={blockDividerClass}>
+              <CaseSectionHead icon={meta.icon} title={section.name} tone={meta.tone} centered />
+              <CaseRows>
+                {section.items.map((question) => (
+                  <div key={question.field_key}>{renderEditableQuestion(question)}</div>
+                ))}
+              </CaseRows>
             </div>
-          </div>
+          );
+        })}
 
-          <div className={`mt-5 ${cardClass}`}>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-extrabold text-text-primary">
-                <ClipboardList size={16} />
-                הכנות לבה״ד 1
-              </div>
-              <span className="text-[11px] font-bold text-text-muted">
-                {checklistDone}/{BAHAD1_CHECKLIST.length}
-              </span>
-            </div>
-            <p className="text-xs text-text-muted">ניהול מלא של הצ׳קליסט במסך המחזור.</p>
-            {candidate.cycle_id ? (
-              <Link
-                href={`/agam/cycles/${candidate.cycle_id}/bahad1`}
-                className={`${secondaryButtonClass} mt-3`}
-              >
-                פתיחת הכנות לבה״ד 1
-              </Link>
-            ) : (
-              <p className="mt-2 text-xs text-text-muted">שייכו את המועמד למחזור כדי לנהל את הצ׳קליסט.</p>
+        <div className={blockDividerClass}>
+          <CaseSectionHead icon={Gauge} title="נתוני צוות" tone="emerald" centered />
+          <CaseRows>
+            {selectRow("קה״ס", kahas, setKahas, ["40", "41", "42", "43"], kahas)}
+            {selectRow(
+              "צבע דירוג",
+              rankColor,
+              setRankColor,
+              [
+                ["green", "ירוק"],
+                ["orange", "כתום"],
+                ["red", "אדום"],
+              ],
+              rankColor ? (RANK_COLORS[rankColor]?.label ?? rankColor) : "",
             )}
-          </div>
-
-          {canEvaluate && editing ? (
-            <div className={`mt-5 grid gap-3 sm:grid-cols-2 ${dividerTopClass} pt-5`}>
-              <input
-                className={fieldClass}
-                placeholder="פיקוד"
-                value={command}
-                onChange={(event) => setCommand(event.target.value)}
-              />
-              <input
-                className={fieldClass}
-                placeholder="שם המפקד הישיר"
-                value={directCommanderName}
-                onChange={(event) => setDirectCommanderName(event.target.value)}
-              />
-              <input
-                className={fieldClass}
-                placeholder="תפקיד מפקד ישיר"
-                value={directCommanderRole}
-                onChange={(event) => setDirectCommanderRole(event.target.value)}
-              />
-              <textarea
-                className={`${fieldClass} sm:col-span-2`}
-                rows={3}
-                placeholder="פערים"
-                value={gaps}
-                onChange={(event) => setGaps(event.target.value)}
-              />
-              <input
-                type="number"
-                className={fieldClass}
-                placeholder="מדד תכנוני"
-                value={planningIndex}
-                onChange={(event) => setPlanningIndex(event.target.value)}
-              />
-              <input
-                type="number"
-                className={fieldClass}
-                placeholder="דפ״ר"
-                value={dapar}
-                onChange={(event) => setDapar(event.target.value)}
-              />
-              <select className={fieldClass} value={rankColor} onChange={(event) => setRankColor(event.target.value)}>
-                <option value="">ללא צבע דירוג</option>
-                <option value="green">ירוק</option>
-                <option value="orange">כתום</option>
-                <option value="red">אדום</option>
-              </select>
-              {(
-                [
-                  ["needsSakmar", "צריך סכמר", needsSakmar, setNeedsSakmar],
-                  ["mabdakApproval", "אישור למבדק", mabdakApproval, setMabdakApproval],
-                  ["medicalIssue", "בעיה רפואית", medicalIssue, setMedicalIssue],
-                ] as const
-              ).map(([key, label, value, setter]) => (
-                <select
-                  key={key}
-                  className={fieldClass}
-                  value={value}
-                  aria-label={label}
-                  onChange={(event) => setter(event.target.value)}
-                >
-                  <option value="">{label} - לא סומן</option>
-                  <option value="yes">{label} - כן</option>
-                  <option value="no">{label} - לא</option>
-                </select>
-              ))}
-              <button type="button" className={primaryButtonClass} disabled={saving} onClick={() => void save()}>
-                {saving ? "שומר..." : "שמירת תיק"}
-              </button>
-            </div>
-          ) : null}
-        </>
-      ) : null}
-    </section>
-  );
-}
-
-function CandidateTasksCard({
-  candidateId,
-  tasks,
-  currentUserId,
-  canEvaluate,
-  canAdmin,
-  onSaved,
-}: {
-  candidateId: string;
-  tasks: AgamLinkedTask[];
-  currentUserId: string;
-  canEvaluate: boolean;
-  canAdmin: boolean;
-  onSaved: () => void;
-}) {
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const createTask = async () => {
-    setSaving(true);
-    try {
-      await agamFetch("/api/agam/tasks", {
-        method: "POST",
-        body: JSON.stringify({ title, dueDate: dueDate || null, candidateId }),
-      });
-      setTitle("");
-      setDueDate("");
-      toast.success("המשימה נוספה גם לאפליקציית המשימות");
-      onSaved();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "יצירת משימה נכשלה");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <section className="space-y-4">
-      {canEvaluate ? (
-        <div className="ui-card space-y-3 rounded-2xl bg-surface-2/60 p-4">
-          <input
-            className={fieldClass}
-            placeholder="משימה חדשה"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-          <TimelineDatePicker value={dueDate} onChange={setDueDate} label="תאריך יעד" />
-          <button
-            type="button"
-            className={`${primaryButtonClass} w-full`}
-            disabled={saving || title.trim().length < 2}
-            onClick={() => void createTask()}
-          >
-            {saving ? "יוצר..." : "הוספת משימה"}
-          </button>
+            <CaseRow label="הכנות לבה״ד 1">
+              <dd className="flex min-w-0 items-center gap-2">
+                <span className="h-1.5 w-16 overflow-hidden rounded-full bg-surface-2">
+                  <span
+                    className="block h-full rounded-full bg-accent-primary"
+                    style={{ width: `${(checklistDone / BAHAD1_CHECKLIST.length) * 100}%` }}
+                  />
+                </span>
+                {candidate.cycle_id ? (
+                  <Link
+                    href={`/agam/cycles/${candidate.cycle_id}/bahad1`}
+                    className="text-[13px] font-extrabold tabular-nums text-text-primary hover:text-accent-primary"
+                    title="פתיחת הכנות לבה״ד 1 במסך המחזור"
+                  >
+                    {checklistDone}/{BAHAD1_CHECKLIST.length}
+                  </Link>
+                ) : (
+                  <span className="text-[13px] font-extrabold tabular-nums text-text-primary">
+                    {checklistDone}/{BAHAD1_CHECKLIST.length}
+                  </span>
+                )}
+              </dd>
+            </CaseRow>
+          </CaseRows>
         </div>
-      ) : null}
-      <ul className="ui-card overflow-hidden rounded-2xl bg-surface-2/60">
-        {tasks.length === 0 ? (
-          <li className="px-4 py-6 text-center text-sm text-text-muted">אין משימות למועמד.</li>
-        ) : (
-          tasks.map((task) => (
-            <li key={task.id} className="ui-list-row px-3 py-2">
-              <AgamTaskRow
-                task={task}
-                currentUserId={currentUserId}
-                canAdmin={canAdmin}
-                onSaved={onSaved}
-              />
-            </li>
-          ))
-        )}
-      </ul>
+      </div>
+
+      <div className="grid shadow-[inset_0_1px_0_rgba(22,24,29,0.06)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:grid-cols-2">
+        {notes.map((note) => (
+          <div key={note.key} className={blockDividerClass}>
+            <CaseSectionHead icon={note.icon} title={note.label} tone={note.tone} centered />
+            <div className="px-4 py-3">
+              {isEditing ? (
+                <textarea
+                  className={fieldClass}
+                  rows={3}
+                  value={note.value}
+                  placeholder={`הוסיפו ${note.label}…`}
+                  onChange={(event) => note.setter(event.target.value)}
+                />
+              ) : note.value ? (
+                <p className="whitespace-pre-wrap text-sm font-semibold leading-relaxed text-text-primary">
+                  {note.value}
+                </p>
+              ) : (
+                <p className="text-sm text-text-muted/70">אין {note.label}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      </>
     </section>
   );
 }
@@ -1304,11 +1469,43 @@ function AssessmentNoteList({
   );
 }
 
-function EvalGroup({ title, children }: { title: string; children: ReactNode }) {
+function EvalGroup({
+  title,
+  count,
+  href,
+  children,
+}: {
+  title: string;
+  count: number;
+  href?: string;
+  children: ReactNode;
+}) {
   return (
-    <div>
-      <h3 className="mb-2 text-xs font-bold text-text-muted">{title}</h3>
+    <div className="min-w-0">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-extrabold text-text-primary">
+          {title}
+          <span className="rounded-full bg-surface-2 px-2 text-[11px] font-bold tabular-nums text-text-muted">
+            {count}
+          </span>
+        </h3>
+        {href ? (
+          <Link
+            href={href}
+            className="inline-flex items-center gap-0.5 text-[11px] font-bold text-text-muted transition hover:text-text-primary"
+          >
+            לשלב
+            <ChevronLeft size={12} />
+          </Link>
+        ) : null}
+      </div>
       <div className="space-y-2">{children}</div>
     </div>
+  );
+}
+
+function EvalEmpty({ label }: { label: string }) {
+  return (
+    <p className="rounded-xl bg-surface-2/50 px-3.5 py-3 text-center text-xs text-text-muted">{label}</p>
   );
 }

@@ -10,7 +10,7 @@ const bodySchema = z.object({
   section_name: z.string().nullable(),
   question_text: z.string().min(1),
   field_key: z.string().min(1),
-  field_type: z.enum(["text", "number", "select", "textarea"]),
+  field_type: z.enum(["text", "number", "select", "textarea", "date"]),
   options: z.string().nullable().optional(),
   is_required: z.boolean(),
   condition_field: z.string().nullable().optional(),

@@ -2,20 +2,19 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Archive, CalendarDays, ChevronDown, Flag, FolderOpen, ListTodo, Plus, Trash2, UserPlus, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Archive, CalendarDays, Check, ChevronDown, Flag, Link2, ListTodo, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2, Trophy, UserPlus, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
+import { CandidateCaseCard, candidateCaseGridClass } from "@/modules/agam/components/candidate-case-card";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
-import { CreateAgamTaskDrawer } from "@/modules/agam/components/create-task-drawer";
-import { CycleInviteShareCard } from "@/modules/agam/components/cycle-invite-share-card";
 import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
+import { cycleInviteAbsoluteUrl } from "@/modules/agam/lib/cycle-invite";
 import { formatAgamDate, toDateInputValue } from "@/modules/agam/lib/date-format";
-import { STATUS_LABELS, STATUS_TONES } from "@/modules/agam/lib/stages";
 import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { canEvaluate, canRamad } from "@/modules/agam/lib/permissions";
-import { cardClass, chipClass, dangerChipClass, fieldClass, pageShellClass, panelClass, panelPadClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { cardClass, fieldClass, iconChipClass, pageShellClass, panelClass, panelPadClass, primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import type { AgamCandidate, AgamCycle, AgamLinkedTask } from "@/modules/agam/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
@@ -41,6 +40,8 @@ export function AgamCycleDetailPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [tasks, setTasks] = useState<AgamLinkedTask[]>([]);
   const [candidateQuery, setCandidateQuery] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [inviteRotating, setInviteRotating] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -131,131 +132,134 @@ export function AgamCycleDetailPage() {
     }
   };
 
+  const copyInviteLink = async () => {
+    if (!cycle.invite_slug) return;
+    try {
+      await navigator.clipboard.writeText(cycleInviteAbsoluteUrl(cycle.invite_slug));
+      setInviteCopied(true);
+      toast.success("קישור ההרשמה הועתק");
+      window.setTimeout(() => setInviteCopied(false), 1800);
+    } catch {
+      toast.error("העתקה נכשלה");
+    }
+  };
+
+  const rotateInviteLink = async () => {
+    if (
+      !window.confirm(
+        "ליצור קישור חדש? הקישור הישן יפסיק לעבוד עבור מועמדים שטרם נרשמו.",
+      )
+    ) {
+      return;
+    }
+    setInviteRotating(true);
+    try {
+      const data = await agamFetch<{ cycle: AgamCycle }>(`/api/agam/cycles/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ rotateInviteSlug: true }),
+      });
+      setPayload((current) => (current ? { ...current, cycle: data.cycle } : current));
+      toast.success("נוצר קישור הרשמה חדש");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "חידוש הקישור נכשל");
+    } finally {
+      setInviteRotating(false);
+    }
+  };
+
+  const metaLine = [
+    formatCycleDate(cycle.cycle_date),
+    cycle.cohort_year ? `שנתון ${cycle.cohort_year}` : null,
+    cycle.notes?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const showInvite = !cycle.archived && Boolean(cycle.invite_slug);
+
   return (
     <div className={`${pageShellClass} mx-auto max-w-5xl`}>
       <header className={`${panelClass} ${panelPadClass}`}>
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            href={cycle.cohort_year != null ? `/agam/cycles?year=${cycle.cohort_year}` : "/agam/cycles"}
-            className="text-xs font-bold text-accent-primary"
-          >
-            ← שנתונים
-          </Link>
-          <span className="text-text-muted/40">|</span>
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-primary/12 text-accent-primary">
+        <Link href="/agam/cycles" className="text-xs font-bold text-accent-primary">
+          ← שנתונים
+        </Link>
+
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-primary/12 text-accent-primary">
               <CalendarDays size={18} />
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-extrabold text-text-primary sm:text-2xl">{cycle.name}</h1>
-              <p className="text-xs font-semibold text-text-secondary">
-                {formatCycleDate(cycle.cycle_date)}
-                {cycle.cohort_year ? ` · שנתון ${cycle.cohort_year}` : ""}
-                {cycle.notes ? ` · ${cycle.notes}` : ""}
-              </p>
+              <h1 className="truncate text-2xl font-extrabold tracking-tight text-text-primary">
+                {cycle.name}
+              </h1>
+              {metaLine ? (
+                <p className="mt-1 text-sm text-text-secondary">{metaLine}</p>
+              ) : null}
+              {showInvite ? (
+                <p className="mt-1 text-xs text-text-muted">שלחו למועמדים למילוי שאלון והצטרפות אוטומטית</p>
+              ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {showInvite ? (
+              <button type="button" className={secondaryButtonClass} onClick={() => void copyInviteLink()}>
+                {inviteCopied ? <Check size={15} /> : <Link2 size={15} />}
+                {inviteCopied ? "הועתק" : "קישור הרשמה"}
+              </button>
+            ) : null}
+            <Link href={`/agam/cycles/${id}/ranking`} className={secondaryButtonClass}>
+              <Trophy size={15} />
+              דירוג
+            </Link>
             <Link href={`/agam/cycles/${id}/bahad1`} className={secondaryButtonClass}>
               <Flag size={15} />
               בה״ד 1
             </Link>
-            {canEdit ? (
-              <>
-                <button type="button" className={secondaryButtonClass} onClick={() => setEditOpen(true)}>
-                  עריכה
-                </button>
-                <button type="button" className={secondaryButtonClass} onClick={() => setAssignOpen(true)}>
-                  <UserPlus size={15} />
-                  שיוך
-                </button>
-                <button type="button" className={primaryButtonClass} onClick={() => setCreateOpen(true)}>
-                  <Plus size={15} />
-                  מועמד
-                </button>
-                <CreateAgamTaskDrawer
-                  cycleId={cycle.id}
-                  cycleName={cycle.name}
-                  triggerClassName={secondaryButtonClass}
-                />
-              </>
-            ) : null}
-            {canDelete ? (
-              <>
-                <button type="button" className={secondaryButtonClass} onClick={() => void archiveCycle()}>
-                  <Archive size={15} />
-                  ארכיון
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600/10 px-3 py-2 text-sm font-bold text-rose-700 transition hover:bg-rose-600/15"
-                  onClick={() => void deleteCycle()}
-                >
-                  מחיקה
-                </button>
-              </>
+            {canEdit || canDelete ? (
+              <CycleManageMenu
+                canEdit={canEdit}
+                canDelete={canDelete}
+                canRotateInvite={canDelete && showInvite}
+                inviteRotating={inviteRotating}
+                onEdit={() => setEditOpen(true)}
+                onArchive={() => void archiveCycle()}
+                onDelete={() => void deleteCycle()}
+                onRotateInvite={() => void rotateInviteLink()}
+              />
             ) : null}
           </div>
         </div>
       </header>
 
-      {!cycle.archived && cycle.invite_slug ? (
-        <CycleInviteShareCard
-          cycle={cycle}
-          canRotate={canDelete}
-          onRotated={(next) =>
-            setPayload((current) => (current ? { ...current, cycle: next } : current))
-          }
-        />
-      ) : null}
-
-      <details className={`${panelClass} ${panelPadClass} group/tasks`}>
-        <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-          <ListTodo size={18} className="text-accent-primary" />
-          <span className="text-base font-extrabold text-text-primary">משימות המחזור</span>
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-bold text-text-muted">
-            {tasks.length}
-          </span>
-          <ChevronDown
-            size={18}
-            className="ms-auto text-text-muted transition group-open/tasks:rotate-180"
-          />
-        </summary>
-        <div className="mt-3 max-w-xl ui-divider-top pt-3">
-          <CycleTasksCard
-            cycleId={id}
-            tasks={tasks}
-            currentUserId={payload.currentUserId}
-            canEvaluate={canEdit}
-            canAdmin={canDelete}
-            onSaved={() => void load()}
-            embedded
-          />
-        </div>
-      </details>
-
       <section className={`${panelClass} ${panelPadClass}`}>
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Users size={18} className="text-accent-primary" />
-              <h2 className="text-lg font-extrabold text-text-primary">מועמדים במחזור</h2>
+              <Users size={17} className="text-accent-primary" />
+              <h2 className="text-base font-extrabold text-text-primary">מועמדים</h2>
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-bold tabular-nums text-text-muted">
+                {candidates.length}
+              </span>
             </div>
-            <p className="mt-0.5 text-xs text-text-muted">
-              {candidates.length} במחזור
-              {statusCounts.pending ? ` · ${statusCounts.pending} ממתינים` : ""}
-              {statusCounts.passed ? ` · ${statusCounts.passed} עברו` : ""}
-            </p>
+            {candidates.length > 0 ? (
+              <p className="mt-0.5 text-xs text-text-muted">
+                {statusCounts.pending ? `${statusCounts.pending} ממתינים` : null}
+                {statusCounts.pending && statusCounts.passed ? " · " : null}
+                {statusCounts.passed ? `${statusCounts.passed} עברו` : null}
+              </p>
+            ) : null}
           </div>
-          {canEdit ? (
+          {canEdit && candidates.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
               <button type="button" className={secondaryButtonClass} onClick={() => setAssignOpen(true)}>
                 <UserPlus size={14} />
-                שיוך קיימים
+                שיוך
               </button>
               <button type="button" className={primaryButtonClass} onClick={() => setCreateOpen(true)}>
                 <Plus size={14} />
-                מועמד חדש
+                מועמד
               </button>
             </div>
           ) : null}
@@ -273,74 +277,80 @@ export function AgamCycleDetailPage() {
         ) : null}
 
         {candidates.length === 0 ? (
-          <div className={`mt-4 flex max-w-sm flex-col items-center justify-center ${cardClass} py-8 text-center`}>
-            <Users className="text-accent-primary/70" size={28} />
-            <p className="mt-3 text-sm font-bold text-text-primary">עדיין אין מועמדים במחזור</p>
-            <p className="mt-1 text-xs text-text-muted">צרו מועמד חדש או שייכו מועמדים קיימים.</p>
+          <div className="mt-5 flex flex-col items-start gap-3 rounded-2xl bg-surface-2/70 px-4 py-5">
+            <p className="text-sm font-bold text-text-primary">עדיין אין מועמדים במחזור</p>
+            <p className="text-xs leading-relaxed text-text-muted">
+              שלחו את קישור ההרשמה, או הוסיפו מועמד ידנית.
+            </p>
             {canEdit ? (
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button type="button" className={primaryButtonClass} onClick={() => setCreateOpen(true)}>
-                  יצירת מועמד
+                  <Plus size={14} />
+                  מועמד חדש
                 </button>
-                <button type="button" className={secondaryButtonClass} onClick={() => setAssignOpen(true)}>
-                  שיוך מועמדים קיימים
+                <button
+                  type="button"
+                  className="text-xs font-bold text-accent-primary transition hover:underline"
+                  onClick={() => setAssignOpen(true)}
+                >
+                  שיוך קיימים
                 </button>
               </div>
             ) : null}
           </div>
         ) : filteredCandidates.length === 0 ? (
-          <p className="mt-6 text-sm text-text-muted">לא נמצאו מועמדים לחיפוש.</p>
+          <p className="mt-5 text-sm text-text-muted">לא נמצאו מועמדים לחיפוש.</p>
         ) : (
-          <ul className="mt-3 flex flex-wrap gap-2.5">
+          <ul className={`mt-3 ${candidateCaseGridClass}`}>
             {filteredCandidates.map((candidate) => (
-              <li key={candidate.id} className="w-[11rem]">
-                <article className="group flex h-full flex-col rounded-2xl bg-surface-2/90 p-3 shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent-primary)_10%,transparent)] transition hover:-translate-y-0.5 hover:bg-surface-1 hover:shadow-[0_10px_28px_-18px_rgba(15,23,42,0.35)]">
-                  <div className="flex items-start gap-2">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-primary/12 text-[11px] font-extrabold text-accent-primary">
-                      {candidateInitials(candidate.full_name)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/agam/candidates/${candidate.id}`}
-                        className="block truncate text-[13px] font-extrabold text-text-primary transition group-hover:text-accent-primary"
-                      >
-                        {candidate.full_name}
-                      </Link>
-                      <p className="mt-0.5 truncate text-[10px] text-text-muted" dir="ltr">
-                        {candidate.personal_number}
-                      </p>
-                    </div>
-                  </div>
-                  <span
-                    className={`mt-2 w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_TONES[candidate.status]}`}
-                  >
-                    {STATUS_LABELS[candidate.status]}
-                  </span>
-                  <div className="mt-auto flex gap-1 pt-2">
-                    <Link
-                      href={`/agam/candidates/${candidate.id}`}
-                      className={`${chipClass} flex-1 justify-center px-2 py-1 text-[11px]`}
-                    >
-                      <FolderOpen size={12} />
-                      תיק
-                    </Link>
-                    {canEdit ? (
+              <li key={candidate.id}>
+                <CandidateCaseCard
+                  candidate={candidate}
+                  fromCycleId={id}
+                  action={
+                    canEdit ? (
                       <button
                         type="button"
-                        className={dangerChipClass}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-text-muted opacity-0 transition hover:bg-rose-500/10 hover:text-rose-600 group-hover:opacity-100 focus-visible:opacity-100"
                         onClick={() => void removeCandidate(candidate.id)}
                         title="הסרה מהמחזור"
+                        aria-label="הסרה מהמחזור"
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={14} />
                       </button>
-                    ) : null}
-                  </div>
-                </article>
+                    ) : null
+                  }
+                />
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      <details className={`${panelClass} group/tasks`}>
+        <summary className={`flex cursor-pointer list-none items-center gap-2 ${panelPadClass} [&::-webkit-details-marker]:hidden`}>
+          <ListTodo size={16} className="text-text-muted" />
+          <span className="text-sm font-bold text-text-primary">משימות</span>
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-bold tabular-nums text-text-muted">
+            {tasks.length}
+          </span>
+          <ChevronDown
+            size={16}
+            className="ms-auto text-text-muted transition group-open/tasks:rotate-180"
+          />
+        </summary>
+        <div className={`ui-divider-top max-w-xl px-4 pb-4 pt-3 sm:px-5`}>
+          <CycleTasksCard
+            cycleId={id}
+            tasks={tasks}
+            currentUserId={payload.currentUserId}
+            canEvaluate={canEdit}
+            canAdmin={canDelete}
+            onSaved={() => void load()}
+            embedded
+          />
+        </div>
+      </details>
 
       <EditCycleDrawer
         cycle={cycle}
@@ -366,11 +376,114 @@ export function AgamCycleDetailPage() {
   );
 }
 
-function candidateInitials(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2);
-  return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`;
+function CycleManageMenu({
+  canEdit,
+  canDelete,
+  canRotateInvite = false,
+  inviteRotating = false,
+  onEdit,
+  onArchive,
+  onDelete,
+  onRotateInvite,
+}: {
+  canEdit: boolean;
+  canDelete: boolean;
+  canRotateInvite?: boolean;
+  inviteRotating?: boolean;
+  onEdit: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
+  onRotateInvite?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        className={iconChipClass}
+        aria-expanded={open}
+        aria-label="פעולות מחזור"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-full z-20 mt-1.5 min-w-[10.5rem] overflow-hidden rounded-xl border border-border-weak bg-surface-1 py-1 shadow-lg">
+          {canEdit ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm font-semibold text-text-primary transition hover:bg-surface-2"
+              onClick={() => {
+                setOpen(false);
+                onEdit();
+              }}
+            >
+              <Pencil size={14} />
+              עריכה
+            </button>
+          ) : null}
+          {canRotateInvite ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm font-semibold text-text-primary transition hover:bg-surface-2 disabled:opacity-50"
+              disabled={inviteRotating}
+              onClick={() => {
+                setOpen(false);
+                onRotateInvite?.();
+              }}
+            >
+              <RefreshCw size={14} className={inviteRotating ? "animate-spin" : undefined} />
+              {inviteRotating ? "מחדש…" : "חידוש קישור"}
+            </button>
+          ) : null}
+          {canDelete ? (
+            <>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm font-semibold text-text-primary transition hover:bg-surface-2"
+                onClick={() => {
+                  setOpen(false);
+                  onArchive();
+                }}
+              >
+                <Archive size={14} />
+                ארכיון
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-3 py-2 text-start text-sm font-semibold text-rose-700 transition hover:bg-rose-500/10"
+                onClick={() => {
+                  setOpen(false);
+                  onDelete();
+                }}
+              >
+                <Trash2 size={14} />
+                מחיקה
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function CycleTasksCard({

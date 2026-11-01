@@ -3,6 +3,7 @@ import type { JWT } from "next-auth/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { randomUUID } from "crypto";
 import { NeonDatabase } from "@/lib/db/neon";
+import { AgamCandidateLinkService } from "@/modules/agam/services/candidate-link.service";
 import { NotificationService } from "@/services/notification.service";
 import { ProfileService } from "@/services/profile.service";
 
@@ -113,6 +114,11 @@ export const authOptions = {
           profile && typeof profile.name === "string" ? profile.name : "Google User";
         try {
           const ensured = await ensureProfile(email, profileName);
+          try {
+            await new AgamCandidateLinkService().linkByEmail(email, ensured.id);
+          } catch (linkError) {
+            console.error("[auth] agam candidate link failed:", linkError);
+          }
           token.userId = ensured.id;
           token.isApproved = ensured.is_approved;
           const picture =

@@ -199,6 +199,17 @@ export function DaySelectionStage({
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {evaluation.passed != null ? (
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-extrabold ${
+                          evaluation.passed
+                            ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+                            : "bg-rose-500/15 text-rose-800 dark:text-rose-200"
+                        }`}
+                      >
+                        {evaluation.passed ? "עבר" : "לא עבר"}
+                      </span>
+                    ) : null}
                     <div className="text-center">
                       <p className="text-2xl font-extrabold text-accent-primary">
                         {evaluation.final_score ?? evaluation.weighted_score ?? "—"}

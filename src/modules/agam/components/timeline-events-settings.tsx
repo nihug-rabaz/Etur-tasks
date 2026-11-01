@@ -3,14 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { formatAgamDate } from "@/modules/agam/lib/date-format";
+import { formatDayOffsetLabel } from "@/modules/agam/lib/cycle-timeline";
 import {
   TIMELINE_EVENT_ICONS,
   TIMELINE_EVENT_LABELS,
-  sortTimelineEvents,
-  timelineRelativeLabel,
   type AgamDashboardTimelineEventType,
 } from "@/modules/agam/lib/timeline-events";
 import {
@@ -22,38 +19,47 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/modules/agam/lib/ui";
-import type { AgamTimelineEventItem } from "@/modules/agam/types";
+import type { AgamTimelineTemplate } from "@/modules/agam/types";
 
-type EventDraft = {
+type TemplateDraft = {
   title: string;
-  eventDate: string;
+  dayOffset: string;
   eventType: AgamDashboardTimelineEventType;
   notes: string;
 };
 
-const emptyDraft = (): EventDraft => ({
+const emptyDraft = (): TemplateDraft => ({
   title: "",
-  eventDate: "",
+  dayOffset: "0",
   eventType: "general",
   notes: "",
 });
 
-function eventToDraft(event: AgamTimelineEventItem): EventDraft {
+function templateToDraft(template: AgamTimelineTemplate): TemplateDraft {
   return {
-    title: event.title,
-    eventDate: String(event.event_date || ""),
-    eventType: event.event_type,
-    notes: event.notes ?? "",
+    title: template.title,
+    dayOffset: String(template.day_offset ?? 0),
+    eventType: template.event_type,
+    notes: template.notes ?? "",
   };
 }
 
-function EventFormFields({
+function parseDayOffset(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) return null;
+  const num = Number(trimmed);
+  if (!Number.isFinite(num) || num < -365 || num > 365) return null;
+  return num;
+}
+
+function TemplateFormFields({
   draft,
   onChange,
 }: {
-  draft: EventDraft;
-  onChange: (next: EventDraft) => void;
+  draft: TemplateDraft;
+  onChange: (next: TemplateDraft) => void;
 }) {
+  const offset = parseDayOffset(draft.dayOffset);
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">
@@ -62,15 +68,26 @@ function EventFormFields({
           className={fieldClass}
           value={draft.title}
           onChange={(e) => onChange({ ...draft, title: e.target.value })}
-          placeholder="לדוגמה: כנס הסברה מחזור אביב"
+          placeholder="לדוגמה: כנס הסברה"
         />
       </div>
       <div>
-          <TimelineDatePicker
-          value={draft.eventDate}
-          onChange={(eventDate) => onChange({ ...draft, eventDate })}
-          label="תאריך (אופציונלי)"
+        <label className="mb-2 block text-xs font-bold text-text-secondary">
+          ימים ביחס לתאריך המחזור
+        </label>
+        <input
+          className={`${fieldClass} text-left`}
+          dir="ltr"
+          inputMode="numeric"
+          value={draft.dayOffset}
+          onChange={(e) => onChange({ ...draft, dayOffset: e.target.value })}
+          placeholder="0"
         />
+        <p className="mt-1.5 text-[11px] font-semibold text-text-muted">
+          {offset == null
+            ? "הזינו מספר שלם בין ‎-365 ל־365"
+            : formatDayOffsetLabel(offset)}
+        </p>
       </div>
       <div>
         <label className="mb-2 block text-xs font-bold text-text-secondary">סוג אירוע</label>
@@ -81,7 +98,9 @@ function EventFormFields({
             onChange({ ...draft, eventType: e.target.value as AgamDashboardTimelineEventType })
           }
         >
-          {Object.entries(TIMELINE_EVENT_LABELS).map(([key, label]) => (
+          {Object.entries(TIMELINE_EVENT_LABELS)
+            .filter(([key]) => key !== "smach_test")
+            .map(([key, label]) => (
             <option key={key} value={key}>
               {label}
             </option>
@@ -103,23 +122,23 @@ function EventFormFields({
 }
 
 export function TimelineEventsSettings() {
-  const [events, setEvents] = useState<AgamTimelineEventItem[]>([]);
+  const [templates, setTemplates] = useState<AgamTimelineTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [createDraft, setCreateDraft] = useState<EventDraft>(emptyDraft);
+  const [createDraft, setCreateDraft] = useState<TemplateDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<EventDraft>(emptyDraft);
+  const [editDraft, setEditDraft] = useState<TemplateDraft>(emptyDraft);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const load = async () => {
     try {
-      const data = await agamFetch<{ events: AgamTimelineEventItem[] }>("/api/agam/timeline");
-      setEvents(data.events ?? []);
+      const data = await agamFetch<{ templates: AgamTimelineTemplate[] }>(
+        "/api/agam/timeline/templates",
+      );
+      setTemplates(data.templates ?? []);
     } catch {
-      toast.error("טעינת אירועי ציר הזמן נכשלה");
+      toast.error("טעינת אירועי המסלול נכשלה");
     } finally {
       setLoading(false);
     }
@@ -129,26 +148,34 @@ export function TimelineEventsSettings() {
     void load();
   }, []);
 
-  const sorted = useMemo(() => sortTimelineEvents(events), [events]);
-
-  const upcomingCount = useMemo(
-    () => sorted.filter((event) => String(event.event_date || "") >= today).length,
-    [sorted, today],
+  const sorted = useMemo(
+    () =>
+      [...templates].sort((a, b) => {
+        if (a.day_offset !== b.day_offset) return a.day_offset - b.day_offset;
+        return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+      }),
+    [templates],
   );
 
   const submitCreate = async () => {
+    const dayOffset = parseDayOffset(createDraft.dayOffset);
+    if (dayOffset == null) {
+      toast.error("יחס הימים אינו תקין");
+      return;
+    }
     setSaving(true);
     try {
-      await agamFetch("/api/agam/timeline", {
+      await agamFetch("/api/agam/timeline/templates", {
         method: "POST",
         body: JSON.stringify({
           title: createDraft.title.trim(),
-          eventDate: createDraft.eventDate || null,
+          dayOffset,
           eventType: createDraft.eventType,
           notes: createDraft.notes.trim() || null,
+          sortOrder: dayOffset,
         }),
       });
-      toast.success("האירוע נוסף לציר הזמן");
+      toast.success("האירוע הקבוע נוסף");
       setCreateDraft(emptyDraft());
       setShowCreate(false);
       await load();
@@ -160,18 +187,24 @@ export function TimelineEventsSettings() {
   };
 
   const submitEdit = async (id: string) => {
+    const dayOffset = parseDayOffset(editDraft.dayOffset);
+    if (dayOffset == null) {
+      toast.error("יחס הימים אינו תקין");
+      return;
+    }
     setSaving(true);
     try {
-      await agamFetch(`/api/agam/timeline?id=${id}`, {
+      await agamFetch(`/api/agam/timeline/templates?id=${id}`, {
         method: "PATCH",
         body: JSON.stringify({
           title: editDraft.title.trim(),
-          eventDate: editDraft.eventDate || null,
+          dayOffset,
           eventType: editDraft.eventType,
           notes: editDraft.notes.trim() || null,
+          sortOrder: dayOffset,
         }),
       });
-      toast.success("האירוע עודכן");
+      toast.success("האירוע הקבוע עודכן");
       setEditingId(null);
       setConfirmDeleteId(null);
       await load();
@@ -185,8 +218,8 @@ export function TimelineEventsSettings() {
   const submitDelete = async (id: string) => {
     setSaving(true);
     try {
-      await agamFetch(`/api/agam/timeline?id=${id}`, { method: "DELETE" });
-      toast.success("האירוע נמחק");
+      await agamFetch(`/api/agam/timeline/templates?id=${id}`, { method: "DELETE" });
+      toast.success("האירוע הקבוע נמחק");
       setConfirmDeleteId(null);
       if (editingId === id) setEditingId(null);
       await load();
@@ -217,22 +250,20 @@ export function TimelineEventsSettings() {
             <div className="max-w-xl">
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1 text-[11px] font-bold text-text-primary">
                 <CalendarDays size={13} />
-                ניהול ציר זמן
+                אירועים קבועים
               </div>
-              <h2 className="text-xl font-extrabold text-text-primary sm:text-2xl">תאריכי אירועים</h2>
+              <h2 className="text-xl font-extrabold text-text-primary sm:text-2xl">
+                מסלול שחוזר בכל מחזור
+              </h2>
               <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                הגדירו כאן את אירועי המדור — כנסים, ימי מיונים, סמ״ח ועוד. התאריכים יופיעו אוטומטית
-                בציר הזמן הראשי בדף הבית, בלי יצירה משם.
+                הגדירו כאן את אירועי המדור הקבועים — כנסים, ימי מיונים, סמ״ח ועוד. בכל מחזור
+                התאריכים יחושבו אוטומטית לפי תאריך המחזור, ויופיעו בלוח הזמנים בדף הבית.
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               <div className="rounded-2xl bg-surface-2 px-4 py-3 text-center">
-                <p className="text-[11px] font-bold text-text-muted">סה״כ</p>
+                <p className="text-[11px] font-bold text-text-muted">אירועים קבועים</p>
                 <p className="text-2xl font-extrabold text-text-primary">{sorted.length}</p>
-              </div>
-              <div className="rounded-2xl bg-surface-2 px-4 py-3 text-center">
-                <p className="text-[11px] font-bold text-text-muted">קרובים</p>
-                <p className="text-2xl font-extrabold text-text-primary">{upcomingCount}</p>
               </div>
             </div>
           </div>
@@ -252,13 +283,13 @@ export function TimelineEventsSettings() {
             }}
           >
             <Plus size={16} />
-            הוספת אירוע
+            הוספת אירוע קבוע
           </button>
         </div>
       ) : (
         <section className={`${panelClass} space-y-4 p-6`}>
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-extrabold text-text-primary">אירוע חדש</h3>
+            <h3 className="text-sm font-extrabold text-text-primary">אירוע קבוע חדש</h3>
             <button
               type="button"
               className={iconChipClass}
@@ -271,16 +302,20 @@ export function TimelineEventsSettings() {
               <X size={16} />
             </button>
           </div>
-          <EventFormFields draft={createDraft} onChange={setCreateDraft} />
+          <TemplateFormFields draft={createDraft} onChange={setCreateDraft} />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className={primaryButtonClass}
-              disabled={saving || createDraft.title.trim().length < 2}
+              disabled={
+                saving ||
+                createDraft.title.trim().length < 2 ||
+                parseDayOffset(createDraft.dayOffset) == null
+              }
               onClick={() => void submitCreate()}
             >
               <Check size={16} />
-              {saving ? "שומר…" : "שמירה לציר הזמן"}
+              {saving ? "שומר…" : "שמירה"}
             </button>
             <button
               type="button"
@@ -302,32 +337,33 @@ export function TimelineEventsSettings() {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-2 text-text-primary">
               <CalendarDays size={22} />
             </div>
-            <p className="text-sm font-bold text-text-primary">אין אירועים עדיין</p>
+            <p className="text-sm font-bold text-text-primary">אין אירועים קבועים עדיין</p>
             <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-text-muted">
-              הוסיפו תאריך ראשון — הוא יופיע מיד בציר הזמן הראשי של קצינים.
+              הוסיפו את מסלול המיון הקבוע — הוא יישכפל אוטומטית לכל מחזור חדש.
             </p>
           </div>
         ) : (
           <ul>
-            {sorted.map((event, index) => {
-              const Icon = TIMELINE_EVENT_ICONS[event.event_type] ?? CalendarDays;
-              const eventDateValue = String(event.event_date || "");
-              const isPast = eventDateValue < today;
-              const relative = timelineRelativeLabel(eventDateValue, today);
-              const isEditing = editingId === event.id;
+            {sorted.map((template, index) => {
+              const Icon = TIMELINE_EVENT_ICONS[template.event_type] ?? CalendarDays;
+              const isEditing = editingId === template.id;
 
               return (
-                <li key={event.id} className={index === 0 ? undefined : dividerClass}>
-                  <div className={`px-5 py-4 sm:px-6 ${isPast ? "opacity-75" : ""}`}>
+                <li key={template.id} className={index === 0 ? undefined : dividerClass}>
+                  <div className="px-5 py-4 sm:px-6">
                     {isEditing ? (
                       <div className="space-y-4">
-                        <EventFormFields draft={editDraft} onChange={setEditDraft} />
+                        <TemplateFormFields draft={editDraft} onChange={setEditDraft} />
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
                             className={primaryButtonClass}
-                            disabled={saving || editDraft.title.trim().length < 2}
-                            onClick={() => void submitEdit(event.id)}
+                            disabled={
+                              saving ||
+                              editDraft.title.trim().length < 2 ||
+                              parseDayOffset(editDraft.dayOffset) == null
+                            }
+                            onClick={() => void submitEdit(template.id)}
                           >
                             <Check size={16} />
                             {saving ? "שומר…" : "שמירת שינויים"}
@@ -353,21 +389,18 @@ export function TimelineEventsSettings() {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="rounded-lg bg-surface-2 px-2 py-0.5 text-[11px] font-bold text-text-primary">
-                                {TIMELINE_EVENT_LABELS[event.event_type]}
+                                {TIMELINE_EVENT_LABELS[template.event_type]}
                               </span>
-                              <span className="text-[11px] font-bold text-text-muted" dir="ltr">
-                                {formatAgamDate(eventDateValue)}
+                              <span className="rounded-full bg-accent-primary/12 px-2 py-0.5 text-[10px] font-bold text-text-primary">
+                                {formatDayOffsetLabel(template.day_offset)}
                               </span>
-                              {relative ? (
-                                <span className="rounded-full bg-accent-primary/12 px-2 py-0.5 text-[10px] font-bold text-text-primary">
-                                  {relative}
-                                </span>
-                              ) : null}
                             </div>
-                            <p className="mt-1 truncate text-sm font-extrabold text-text-primary">{event.title}</p>
-                            {event.notes ? (
+                            <p className="mt-1 truncate text-sm font-extrabold text-text-primary">
+                              {template.title}
+                            </p>
+                            {template.notes ? (
                               <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-text-secondary">
-                                {event.notes}
+                                {template.notes}
                               </p>
                             ) : null}
                           </div>
@@ -378,21 +411,21 @@ export function TimelineEventsSettings() {
                             className={iconChipClass}
                             onClick={() => {
                               setShowCreate(false);
-                              setEditingId(event.id);
-                              setEditDraft(eventToDraft(event));
+                              setEditingId(template.id);
+                              setEditDraft(templateToDraft(template));
                               setConfirmDeleteId(null);
                             }}
                             aria-label="עריכה"
                           >
                             <Pencil size={14} />
                           </button>
-                          {confirmDeleteId === event.id ? (
+                          {confirmDeleteId === template.id ? (
                             <>
                               <button
                                 type="button"
                                 className="inline-flex items-center justify-center rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"
                                 disabled={saving}
-                                onClick={() => void submitDelete(event.id)}
+                                onClick={() => void submitDelete(template.id)}
                               >
                                 {saving ? "מוחק…" : "אישור מחיקה"}
                               </button>
@@ -408,7 +441,7 @@ export function TimelineEventsSettings() {
                             <button
                               type="button"
                               className={dangerChipClass}
-                              onClick={() => setConfirmDeleteId(event.id)}
+                              onClick={() => setConfirmDeleteId(template.id)}
                             >
                               <Trash2 size={14} />
                               מחיקה

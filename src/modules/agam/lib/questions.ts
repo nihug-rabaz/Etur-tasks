@@ -6,6 +6,7 @@ export const FIELD_TYPES: Array<{ value: AgamFieldType; label: string }> = [
   { value: "number", label: "מספר" },
   { value: "select", label: "בחירה" },
   { value: "textarea", label: "פסקה" },
+  { value: "date", label: "תאריך" },
 ];
 
 export const CONDITION_OPERATORS: Array<{ value: AgamConditionOperator; label: string }> = [

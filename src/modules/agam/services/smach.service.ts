@@ -22,6 +22,7 @@ export class AgamSmachService extends BaseService {
     key_points: string | null;
     decision: AgamSmachDecision | null;
     decision_reasoning: string | null;
+    passed?: boolean | null;
   }): Promise<AgamSmachEvaluation> {
     const existing = (await this.listByCandidate(input.candidate_id)).find(
       (row) => row.evaluator_id === input.evaluator_id,
@@ -38,6 +39,7 @@ export class AgamSmachService extends BaseService {
           key_points = ${input.key_points},
           decision = ${input.decision},
           decision_reasoning = ${input.decision_reasoning},
+          passed = ${input.passed !== undefined ? input.passed : existing.passed},
           updated_at = now()
         where id = ${existing.id}
         returning *
@@ -47,7 +49,7 @@ export class AgamSmachService extends BaseService {
     const rows = await db<AgamSmachEvaluation[]>`
       insert into agam_smach_evaluations (
         candidate_id, evaluator_id, evaluator_name, threshold_tests, professional_scores,
-        professional_feedback, weighted_score, key_points, decision, decision_reasoning
+        professional_feedback, weighted_score, key_points, decision, decision_reasoning, passed
       )
       values (
         ${input.candidate_id},
@@ -59,7 +61,8 @@ export class AgamSmachService extends BaseService {
         ${input.weighted_score},
         ${input.key_points},
         ${input.decision},
-        ${input.decision_reasoning}
+        ${input.decision_reasoning},
+        ${input.passed ?? null}
       )
       returning *
     `;

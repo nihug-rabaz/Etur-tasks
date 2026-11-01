@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, Lock } from "lucide-react";
-import { panelClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import { ChevronLeft, Lock, Route, UserCheck } from "lucide-react";
+import { CaseSectionHead, caseCardClass } from "@/modules/agam/components/case-file-kit";
 import type {
   AgamDayEvaluation,
   AgamInterview,
   AgamPrepDayEvaluation,
   AgamSmachEvaluation,
 } from "@/modules/agam/types";
+
+const rowDividerClass =
+  "shadow-[inset_0_-1px_0_rgba(22,24,29,0.05)] last:shadow-none dark:shadow-[inset_0_-1px_0_rgba(255,255,255,0.06)]";
 
 export function ChronoStageBlocks({
   candidateId,
@@ -79,29 +82,42 @@ export function ChronoStageBlocks({
   ];
 
   return (
-    <div className="flex flex-col gap-3">
-      {blocks.map((block) => (
-        <Link
-          key={block.title}
-          href={block.href}
-          className={`${panelClass} group p-4 transition hover:ring-1 hover:ring-black/10 dark:hover:ring-white/15`}
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-base font-extrabold text-text-primary sm:text-lg">{block.title}</p>
-              <p className="mt-1 text-xs leading-relaxed text-text-secondary">{block.metric}</p>
-            </div>
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] font-bold text-text-muted">
-              {block.count}
-            </span>
-          </div>
-          <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-text-muted group-hover:text-text-primary">
-            פתיחה
-            <ChevronLeft size={12} className="rotate-180" />
-          </span>
-        </Link>
-      ))}
-    </div>
+    <section className={caseCardClass}>
+      <CaseSectionHead icon={Route} title="מסלול המיון" tone="emerald" />
+      <ol className="px-2 py-1.5">
+        {blocks.map((block, index) => {
+          const done = block.count > 0;
+          return (
+            <li key={block.title} className={rowDividerClass}>
+              <Link
+                href={block.href}
+                className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition hover:bg-surface-2"
+              >
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums ${
+                    done ? "bg-accent-primary text-white" : "bg-surface-2 text-text-muted"
+                  }`}
+                >
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-sm font-extrabold text-text-primary">
+                    {block.title}
+                    {done ? (
+                      <span className="rounded-full bg-surface-2 px-1.5 text-[10px] font-bold tabular-nums text-text-muted">
+                        {block.count}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="block truncate text-[11px] text-text-muted">{block.metric}</span>
+                </span>
+                <ChevronLeft size={14} className="shrink-0 text-text-muted opacity-0 transition group-hover:opacity-100" />
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -142,34 +158,33 @@ export function ScreenerChronoMenu({
   ];
 
   return (
-    <section className={`${panelClass} p-5`}>
-      <h2 className="text-base font-extrabold text-text-primary">תפריט ממיין</h2>
-      <p className="mt-1 text-xs text-text-muted">לפי סדר כרונולוגי</p>
-      <ul className="mt-4 space-y-2">
-        {items.map((item) =>
-          item.locked ? (
-            <li
-              key={item.label}
-              className="flex items-start gap-2 rounded-xl bg-surface-2/70 px-3 py-2.5 text-sm text-text-muted"
-            >
-              <Lock size={14} className="mt-0.5 shrink-0" />
-              <div>
-                <p className="font-bold">{item.label}</p>
-                <p className="text-[11px]">{item.hint}</p>
-              </div>
-            </li>
-          ) : (
-            <li key={item.label}>
-              <Link href={item.href} className={`${secondaryButtonClass} w-full justify-between`}>
-                <span className="text-start">
-                  <span className="block font-bold">{item.label}</span>
-                  <span className="block text-[11px] font-medium text-text-muted">{item.hint}</span>
+    <section className={caseCardClass}>
+      <CaseSectionHead icon={UserCheck} title="תפריט ממיין" tone="sky" />
+      <ul className="px-2 py-1.5">
+        {items.map((item) => (
+          <li key={item.label} className={rowDividerClass}>
+            {item.locked ? (
+              <div className="flex items-start gap-2.5 px-2 py-2.5 text-text-muted">
+                <Lock size={14} className="mt-0.5 shrink-0" />
+                <span>
+                  <span className="block text-sm font-bold">{item.label}</span>
+                  <span className="block text-[11px]">{item.hint}</span>
                 </span>
-                <ChevronLeft size={14} className="rotate-180 opacity-60" />
+              </div>
+            ) : (
+              <Link
+                href={item.href}
+                className="group flex items-center justify-between gap-2 rounded-xl px-2 py-2.5 transition hover:bg-surface-2"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-text-primary">{item.label}</span>
+                  <span className="block text-[11px] text-text-muted">{item.hint}</span>
+                </span>
+                <ChevronLeft size={14} className="shrink-0 text-text-muted" />
               </Link>
-            </li>
-          ),
-        )}
+            )}
+          </li>
+        ))}
       </ul>
     </section>
   );

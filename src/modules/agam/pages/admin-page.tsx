@@ -92,7 +92,7 @@ export function AgamAdminPage() {
     ["pre", "שאלון מקדים"],
     ["interview", "שאלות ראיון"],
     ["criteria", "קריטריונים"],
-    ["timeline", "ציר זמן"],
+    ["timeline", "אירועים קבועים"],
     ["settings", "הגדרות"],
     ["export", "ייצוא"],
   ];

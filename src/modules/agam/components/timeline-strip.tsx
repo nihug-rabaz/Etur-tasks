@@ -1,68 +1,78 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, Pencil, Plus } from "lucide-react";
+import { CalendarDays, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { TimelineDatePicker } from "@/modules/agam/components/timeline-date-picker";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import {
+  BAHAD1_EMBLEM_SRC,
   TIMELINE_EVENT_ICONS,
   TIMELINE_EVENT_LABELS,
   sortTimelineEvents,
   timelineEventDayKey,
+  timelineNodeSize,
   timelineRelativeLabel,
   timelineStatusLabel,
-  type AgamDashboardTimelineEventType,
 } from "@/modules/agam/lib/timeline-events";
-import {
-  fieldClass,
-  primaryButtonClass,
-  secondaryButtonClass,
-} from "@/modules/agam/lib/ui";
-import type { AgamTimelineEventItem } from "@/modules/agam/types";
+import { primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
+import type { AgamCycle, AgamTimelineEventItem } from "@/modules/agam/types";
 
-type CreateDraft = {
-  title: string;
-  eventDate: string;
-  eventType: AgamDashboardTimelineEventType;
-  notes: string;
-};
+type TimelineStatus = "עבר" | "נותר" | "היום";
 
-const emptyCreateDraft = (): CreateDraft => ({
-  title: "",
-  eventDate: "",
-  eventType: "general",
-  notes: "",
-});
-
-function formatDayMonth(value: string | null): { day: string; month: string } | null {
-  if (!value) return null;
-  const full = formatAgamDate(value);
-  if (!full) return null;
-  const [day, month] = full.split("/");
-  if (!day || !month) return null;
-  return { day, month };
+function formatShortDate(value: string | null): string {
+  if (!value) return "ללא תאריך";
+  return formatAgamDate(value) || "ללא תאריך";
 }
 
 export function AgamTimelineStrip({
   events,
+  cycle = null,
+  cycles = [],
   canManage = false,
   onEventsChange,
+  onCycleChange,
 }: {
   events: AgamTimelineEventItem[];
+  cycle?: AgamCycle | null;
+  cycles?: AgamCycle[];
   canManage?: boolean;
   onEventsChange?: (events: AgamTimelineEventItem[]) => void;
+  onCycleChange?: (cycleId: string) => void;
 }) {
   const [selectedEvent, setSelectedEvent] = useState<AgamTimelineEventItem | null>(null);
   const [dateEvent, setDateEvent] = useState<AgamTimelineEventItem | null>(null);
   const [editDate, setEditDate] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [createDraft, setCreateDraft] = useState<CreateDraft>(emptyCreateDraft);
   const [saving, setSaving] = useState(false);
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const sorted = useMemo(() => sortTimelineEvents(events), [events]);
+  const smachSpan = useMemo(() => {
+    const start = sorted.findIndex((event) => event.schedule_key === "smach_start");
+    const end = sorted.findIndex((event) => event.schedule_key === "smach_end");
+    return start >= 0 && end > start ? { start, end } : null;
+  }, [sorted]);
+  const cycleOptions = useMemo(
+    () =>
+      [...cycles]
+        .filter((row) => !row.archived)
+        .sort((a, b) => String(a.cycle_date).localeCompare(String(b.cycle_date))),
+    [cycles],
+  );
+
+  const counts = useMemo(() => {
+    let past = 0;
+    let remaining = 0;
+    let current = 0;
+    for (const event of sorted) {
+      const status = timelineStatusLabel(timelineEventDayKey(event.event_date), today);
+      if (status === "עבר") past += 1;
+      else if (status === "היום") current += 1;
+      else remaining += 1;
+    }
+    return { past, remaining, current };
+  }, [sorted, today]);
 
   const openEvent = (event: AgamTimelineEventItem) => {
     setDateEvent(null);
@@ -80,19 +90,16 @@ export function AgamTimelineStrip({
     setEditDate(timelineEventDayKey(event.event_date) ?? "");
   };
 
-  const openCreate = () => {
-    setSelectedEvent(null);
-    setDateEvent(null);
-    setCreateDraft(emptyCreateDraft());
-    setCreating(true);
-  };
-
   const patchEventDate = async (eventId: string, nextDate: string | null) => {
     const data = await agamFetch<{ event: AgamTimelineEventItem }>(
       `/api/agam/timeline?id=${eventId}`,
       {
         method: "PATCH",
-        body: JSON.stringify({ eventDate: nextDate, dateOnly: true }),
+        body: JSON.stringify({
+          eventDate: nextDate,
+          dateOnly: true,
+          cycleId: cycle?.id ?? null,
+        }),
       },
     );
     const next = events.map((row) => (row.id === data.event.id ? data.event : row));
@@ -120,279 +127,174 @@ export function AgamTimelineStrip({
     }
   };
 
-  const submitCreate = async () => {
-    if (!canManage) return;
-    const title = createDraft.title.trim();
-    if (!title) {
-      toast.error("נא למלא נושא לאירוע");
-      return;
-    }
-    setSaving(true);
-    try {
-      const data = await agamFetch<{ event: AgamTimelineEventItem }>("/api/agam/timeline", {
-        method: "POST",
-        body: JSON.stringify({
-          title,
-          eventDate: createDraft.eventDate || null,
-          eventType: createDraft.eventType,
-          notes: createDraft.notes.trim() || null,
-        }),
-      });
-      onEventsChange?.(sortTimelineEvents([...events, data.event]));
-      setCreating(false);
-      setCreateDraft(emptyCreateDraft());
-      toast.success("האירוע נוסף לציר הזמן");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "הוספת האירוע נכשלה");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <>
-      <section
-        className="relative mt-2 flex h-full min-h-[22rem] flex-col rounded-[1.25rem]"
-        style={{
-          background: "#c4b8a5",
-          padding: "18px 10px 10px",
-          boxShadow: "0 18px 40px -22px rgba(60,40,20,0.45)",
-        }}
-      >
-        {/* Top spiral binding */}
-        <div className="pointer-events-none absolute inset-x-5 top-0 z-20 flex -translate-y-1/2 justify-between" aria-hidden>
-          {Array.from({ length: 7 }).map((_, index) => (
-            <span
-              key={index}
-              className="block h-3.5 w-3.5 rounded-full border-[2.5px] border-[#8e96a8]"
-              style={{
-                background: "linear-gradient(145deg, #f2f4f8 0%, #a0a8b8 45%, #6d7588 100%)",
-                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7), 0 1px 2px rgba(0,0,0,0.35)",
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Paper sheet */}
-        <div
-          className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-black/10"
-          style={{ backgroundColor: "#fff8ec" }}
-        >
-          <div className="flex shrink-0 items-center justify-between gap-2 border-b border-rose-200/80 px-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-white px-2 py-1 shadow-sm">
-                <CalendarDays size={14} className="text-rose-500" />
-                <span className="text-sm font-extrabold text-stone-800">פנקס זמנים</span>
-              </span>
-              {sorted.length > 0 ? (
-                <span className="text-[11px] font-bold text-sky-700">{sorted.length} רשומות</span>
-              ) : null}
+      <section className="agam-timeline flex h-full min-h-[22rem] flex-col">
+        <header className="agam-timeline__header shrink-0 px-1 pb-3 pt-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">
+                מסלול המיון
+              </p>
+              <h2 className="mt-0.5 text-lg font-extrabold tracking-tight text-text-primary">
+                לוח זמנים
+              </h2>
+              {cycle ? (
+                <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
+                  {cycleOptions.length > 1 && onCycleChange ? (
+                    <select
+                      className="max-w-full truncate rounded-lg border-0 bg-surface-2 px-2 py-1 text-[11px] font-extrabold text-text-primary"
+                      value={cycle.id}
+                      onChange={(event) => onCycleChange(event.target.value)}
+                      aria-label="בחירת מחזור ללוח הזמנים"
+                    >
+                      {cycleOptions.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                          {row.cycle_date ? ` · ${formatAgamDate(row.cycle_date)}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="truncate text-[11px] font-extrabold text-text-primary">
+                      {cycle.name}
+                    </span>
+                  )}
+                  {cycle.cycle_date ? (
+                    <span className="text-[11px] font-bold text-text-muted" dir="ltr">
+                      {formatAgamDate(cycle.cycle_date)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-1.5 text-[11px] font-bold text-text-muted">
+                  אין מחזור פעיל — צרו מחזור כדי לחשב תאריכים
+                </p>
+              )}
             </div>
-            {canManage ? (
-              <button
-                type="button"
-                onClick={openCreate}
-                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-accent-primary px-2.5 text-[11px] font-extrabold text-white transition hover:brightness-105"
-                aria-label="הוספת אירוע לציר הזמן"
-              >
-                <Plus size={14} strokeWidth={2.5} />
-                הוסף
-              </button>
-            ) : null}
           </div>
 
-          {sorted.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-100 text-rose-500">
-                <CalendarDays size={20} />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-stone-800">הפנקס ריק עדיין</p>
-                <p className="mt-1 text-xs leading-relaxed text-stone-500">
-                  {canManage
-                    ? "הוסיפו אירוע ראשון — כנס, יום מיונים או ציון דרך."
-                    : "כשיתווספו אירועים הם יופיעו כאן."}
-                </p>
-              </div>
-              {canManage ? (
-                <button type="button" className={primaryButtonClass} onClick={openCreate}>
-                  <Plus size={15} />
-                  הוספת אירוע
-                </button>
+          {sorted.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="agam-timeline__chip agam-timeline__chip--past">
+                {counts.past} עברו
+              </span>
+              {counts.current > 0 ? (
+                <span className="agam-timeline__chip agam-timeline__chip--today">
+                  {counts.current} היום
+                </span>
               ) : null}
+              <span className="agam-timeline__chip agam-timeline__chip--soon">
+                {counts.remaining} נותרו
+              </span>
             </div>
-          ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto px-2.5 py-2">
-              <div className="relative">
-                <div
-                  className="pointer-events-none absolute bottom-3 top-3 w-px bg-stone-300/80"
-                  style={{ insetInlineStart: "1.05rem" }}
-                  aria-hidden
-                />
-                <ul className="flex flex-col">
-                  {sorted.map((event) => {
-                    const dayKey = timelineEventDayKey(event.event_date);
-                    const status = timelineStatusLabel(dayKey, today);
-                    const isPast = status === "עבר";
-                    const isToday = status === "היום";
-                    const Icon = TIMELINE_EVENT_ICONS[event.event_type] ?? CalendarDays;
-                    const relative = timelineRelativeLabel(dayKey, today);
-                    const stamp = formatDayMonth(dayKey);
+          ) : null}
+        </header>
 
-                    return (
-                      <li
-                        key={event.id}
-                        className={`grid grid-cols-[2.15rem_minmax(0,1fr)] items-start gap-2.5 rounded-lg px-0.5 py-2 transition hover:bg-white/70 ${
-                          isPast ? "opacity-60 hover:opacity-100" : ""
-                        }`}
-                      >
+        {sorted.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 pb-8 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--agam-orange-soft)] text-text-primary">
+              <CalendarDays size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-text-primary">עדיין אין אירועים</p>
+              <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                {cycle
+                  ? "התאריכים נקבעים בלוח הזמנים של המחזור."
+                  : "צרו מחזור כדי להציג את מסלול המיון לפי תאריך המחזור."}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="agam-timeline__body min-h-0 flex-1 px-1 pb-4 pt-3">
+            <ol className="agam-timeline__rail">
+              {sorted.map((event, index) => {
+                const spanClass =
+                  smachSpan && index === smachSpan.start
+                    ? "is-span-start"
+                    : smachSpan && index === smachSpan.end
+                      ? "is-span-end"
+                      : smachSpan && index > smachSpan.start && index < smachSpan.end
+                        ? "is-span-mid"
+                        : "";
+                const dayKey = timelineEventDayKey(event.event_date);
+                const status = timelineStatusLabel(dayKey, today) as TimelineStatus;
+                const next = sorted[index + 1];
+                const nextStatus = next
+                  ? timelineStatusLabel(timelineEventDayKey(next.event_date), today)
+                  : null;
+                const linkClass =
+                  status !== "עבר"
+                    ? ""
+                    : nextStatus === "נותר"
+                      ? "is-link-active"
+                      : "is-link-done";
+                const Icon = TIMELINE_EVENT_ICONS[event.event_type] ?? CalendarDays;
+                const size = timelineNodeSize(event.event_type);
+                const statusClass =
+                  status === "עבר"
+                    ? "is-past"
+                    : status === "היום"
+                      ? "is-today"
+                      : "is-soon";
+
+                return (
+                  <li
+                    key={event.id}
+                    className={`agam-timeline__item agam-timeline__item--${size} ${statusClass} ${linkClass} ${spanClass}`}
+                    style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
+                  >
+                    <button
+                      type="button"
+                      className="agam-timeline__node"
+                      onClick={() => openEvent(event)}
+                      aria-label={`פרטי ${event.title}`}
+                    >
+                      {size === "xl" ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={BAHAD1_EMBLEM_SRC} alt="" className="agam-timeline__emblem" />
+                      ) : size === "sm" ? (
+                        status === "עבר" ? <Check size={10} strokeWidth={3.5} /> : null
+                      ) : status === "עבר" ? (
+                        <Check size={14} strokeWidth={3} />
+                      ) : (
+                        <Icon size={14} />
+                      )}
+                    </button>
+
+                    <article className="agam-timeline__card">
+                      <div className="agam-timeline__meta">
                         <button
                           type="button"
-                          onClick={() => openEvent(event)}
-                          className={`relative z-[1] flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-700 shadow-sm ${
-                            isToday ? "border-orange-300 bg-orange-50 text-orange-700" : ""
-                          }`}
-                          aria-label={`פרטי ${event.title}`}
+                          className="agam-timeline__date"
+                          onClick={() => openDateEdit(event)}
+                          title={canManage ? "עדכון תאריך" : undefined}
+                          dir="ltr"
                         >
-                          <Icon size={13} />
+                          {formatShortDate(dayKey)}
                         </button>
-
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openDateEdit(event)}
-                              className={`relative inline-flex min-w-[2rem] flex-col overflow-hidden rounded-md border border-stone-200 bg-white shadow-sm ${
-                                canManage ? "cursor-pointer hover:-rotate-1" : ""
-                              }`}
-                              title={canManage ? "עדכון תאריך" : undefined}
-                            >
-                              {stamp ? (
-                                <>
-                                  <span
-                                    className="w-full px-1 py-0.5 text-center text-[9px] font-extrabold leading-none text-white"
-                                    style={{ background: "#e11d48" }}
-                                    dir="ltr"
-                                  >
-                                    {stamp.month}
-                                  </span>
-                                  <span
-                                    className="px-1 py-1 text-center text-[12px] font-black leading-none text-stone-800"
-                                    dir="ltr"
-                                  >
-                                    {stamp.day}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="px-1 py-2 text-[9px] font-bold text-stone-400">—</span>
-                              )}
-                              {canManage ? (
-                                <Pencil
-                                  size={8}
-                                  className="absolute -left-0.5 -top-0.5 rounded-full bg-white p-px text-stone-500 opacity-70 shadow"
-                                />
-                              ) : null}
-                            </button>
-                            <span
-                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-                                isPast ? "bg-stone-200/80 text-stone-500" : "bg-orange-100 text-orange-800"
-                              }`}
-                            >
-                              {relative && relative !== "נותר" && relative !== "עבר" ? relative : status}
-                            </span>
-                            <span className="rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-900">
-                              {TIMELINE_EVENT_LABELS[event.event_type]}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => openEvent(event)}
-                            className="mt-1 block w-full truncate text-start text-sm font-extrabold text-stone-800"
-                          >
-                            {event.title}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
-          )}
-        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="agam-timeline__card-btn"
+                        onClick={() => openEvent(event)}
+                      >
+                        <span className="agam-timeline__type">
+                          {TIMELINE_EVENT_LABELS[event.event_type]}
+                        </span>
+                        <h3 className="agam-timeline__title">{event.title}</h3>
+                        {event.notes ? (
+                          <p className="agam-timeline__notes">{event.notes}</p>
+                        ) : null}
+                      </button>
+                    </article>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
       </section>
-
-      <Drawer
-        open={creating}
-        onClose={() => setCreating(false)}
-        title="אירוע חדש"
-        subtitle="יופיע מיד בציר הזמן"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-xs font-bold text-text-secondary">נושא האירוע</label>
-            <input
-              className={fieldClass}
-              value={createDraft.title}
-              onChange={(e) => setCreateDraft({ ...createDraft, title: e.target.value })}
-              placeholder="לדוגמה: כנס הסברה מחזור אביב"
-              autoFocus
-            />
-          </div>
-          <TimelineDatePicker
-            value={createDraft.eventDate}
-            onChange={(eventDate) => setCreateDraft({ ...createDraft, eventDate })}
-            label="תאריך"
-          />
-          <div>
-            <label className="mb-2 block text-xs font-bold text-text-secondary">סוג אירוע</label>
-            <select
-              className={`${fieldClass} min-h-[3rem] py-3 font-bold`}
-              value={createDraft.eventType}
-              onChange={(e) =>
-                setCreateDraft({
-                  ...createDraft,
-                  eventType: e.target.value as AgamDashboardTimelineEventType,
-                })
-              }
-            >
-              {Object.entries(TIMELINE_EVENT_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-2 block text-xs font-bold text-text-secondary">הערות (אופציונלי)</label>
-            <textarea
-              rows={3}
-              className={`${fieldClass} min-h-[5rem] resize-y py-3 text-sm leading-relaxed`}
-              value={createDraft.notes}
-              onChange={(e) => setCreateDraft({ ...createDraft, notes: e.target.value })}
-              placeholder="מיקום, שעה, הוראות לצוות…"
-            />
-          </div>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button
-              type="button"
-              className={primaryButtonClass}
-              disabled={saving}
-              onClick={() => void submitCreate()}
-            >
-              {saving ? "מוסיף…" : "הוספה לציר הזמן"}
-            </button>
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              disabled={saving}
-              onClick={() => setCreating(false)}
-            >
-              ביטול
-            </button>
-          </div>
-        </div>
-      </Drawer>
 
       <Drawer
         open={dateEvent !== null}

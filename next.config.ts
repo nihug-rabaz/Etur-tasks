@@ -37,6 +37,9 @@ function allowedDevOrigins(): string[] {
 const nextConfig: NextConfig = {
   allowedDevOrigins: allowedDevOrigins(),
   serverExternalPackages: ["sharp"],
+  images: {
+    qualities: [75, 95],
+  },
 };
 
 export default nextConfig;

@@ -2,6 +2,9 @@ import { AuthorizationService } from "@/services/authorization.service";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
 import type { ModuleRole } from "@/shared/modules/types";
 import type { AgamUploadSource } from "@/modules/agam/types";
+import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
+
+const STAFF_ROLES: ModuleRole[] = ["admin", "user", "ramad", "viewer"];
 
 export class AgamAccessService {
   private readonly authorizationService = new AuthorizationService();
@@ -18,25 +21,82 @@ export class AgamAccessService {
     return roles.agam ?? null;
   }
 
-  public async requireAgamAccess(minRole: "any" | "ramad" | "admin" = "any") {
+  public isCandidate(role: ModuleRole): boolean {
+    return role === "candidate";
+  }
+
+  public isStaff(role: ModuleRole): boolean {
+    return STAFF_ROLES.includes(role);
+  }
+
+  /** Any Agam role including candidate-soldier (layout / shared gates). */
+  public async requireAnyAgamRole() {
     const profile = await this.requireProfile();
     if (!profile) return { error: "Unauthorized" as const, status: 401 as const };
 
     let role = await this.getModuleRole(profile.id);
+    if (profile.role === "admin") role = "admin";
     if (!role) {
       const real = await this.authorizationService.getRealProfile();
       if (real?.role === "admin") role = "admin";
     }
     if (!role) return { error: "Forbidden" as const, status: 403 as const };
-
-    if (minRole === "admin" && !this.canAdmin(role)) {
-      return { error: "Forbidden" as const, status: 403 as const };
-    }
-    if (minRole === "ramad" && !this.canRamad(role)) {
-      return { error: "Forbidden" as const, status: 403 as const };
-    }
-
     return { profile, role };
+  }
+
+  /** Staff-only access. Candidates are rejected. */
+  public async requireAgamAccess(minRole: "any" | "ramad" | "admin" = "any") {
+    const access = await this.requireAnyAgamRole();
+    if ("error" in access) return access;
+    if (this.isCandidate(access.role)) {
+      return { error: "Forbidden" as const, status: 403 as const };
+    }
+
+    if (minRole === "admin" && !this.canAdmin(access.role)) {
+      return { error: "Forbidden" as const, status: 403 as const };
+    }
+    if (minRole === "ramad" && !this.canRamad(access.role)) {
+      return { error: "Forbidden" as const, status: 403 as const };
+    }
+
+    return access;
+  }
+
+  /**
+   * Candidate self-service (תיק אישי).
+   * Uses the Agam module role only — does not elevate platform admins to staff,
+   * so a linked soldier (or a staffer testing via linked email) can still upload.
+   */
+  public async requireCandidateAccess() {
+    const profile = await this.requireProfile();
+    if (!profile) return { error: "Unauthorized" as const, status: 401 as const };
+
+    const moduleRole = await this.getModuleRole(profile.id);
+    if (moduleRole === "candidate") {
+      return { profile, role: "candidate" as const };
+    }
+
+    // Linked file is enough for self-service even if the user also has a staff Agam role.
+    const candidates = new AgamCandidateService();
+    let linked = await candidates.findByLinkedUser(profile.id);
+    if (!linked && profile.email) {
+      const byEmail = await candidates.findByEmail(profile.email);
+      if (
+        byEmail &&
+        !byEmail.archived &&
+        (!byEmail.linked_user_id || byEmail.linked_user_id === profile.id)
+      ) {
+        if (!byEmail.linked_user_id) {
+          await candidates.setLinkedUser(byEmail.id, profile.id);
+        }
+        linked = { ...byEmail, linked_user_id: profile.id };
+      }
+    }
+    if (linked && !linked.archived) {
+      return { profile, role: "candidate" as const };
+    }
+
+    return { error: "Forbidden" as const, status: 403 as const };
   }
 
   public canAdmin(role: ModuleRole): boolean {
@@ -52,7 +112,7 @@ export class AgamAccessService {
   }
 
   public canView(role: ModuleRole): boolean {
-    return Boolean(role);
+    return this.isStaff(role);
   }
 
   public uploadSourceFor(role: ModuleRole): AgamUploadSource {
@@ -65,6 +125,7 @@ export class AgamAccessService {
     if (role === "admin") return "מנהל";
     if (role === "ramad") return "מנהל";
     if (role === "viewer") return "צופה";
+    if (role === "candidate") return "חייל מועמד";
     return "ממיין";
   }
 

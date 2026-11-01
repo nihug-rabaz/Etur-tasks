@@ -20,6 +20,7 @@ function pickParam(
 
 function moduleEntryHref(moduleId: string, href: string, role?: ModuleRole): string {
   if (moduleId === "dovrut" && role === "approver") return "/dovrut/approvals";
+  if (moduleId === "agam" && role === "candidate") return "/agam/me";
   return href;
 }
 

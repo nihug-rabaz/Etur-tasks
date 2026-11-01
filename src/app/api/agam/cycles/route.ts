@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { scheduleSchema } from "@/modules/agam/lib/cycle-schedule-schema";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCycleService } from "@/modules/agam/services/cycle.service";
 
@@ -22,6 +23,7 @@ const createSchema = z.object({
   cycleDate: z.string().min(4),
   cohortYear: z.number().int().optional().nullable(),
   notes: z.string().optional().nullable(),
+  schedule: scheduleSchema.optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -42,6 +44,7 @@ export async function POST(request: Request) {
     cycle_date: parsed.data.cycleDate,
     cohort_year: parsed.data.cohortYear,
     notes: parsed.data.notes,
+    schedule: parsed.data.schedule ?? undefined,
     created_by_id: access.profile.id,
   });
   return NextResponse.json({ cycle }, { status: 201 });

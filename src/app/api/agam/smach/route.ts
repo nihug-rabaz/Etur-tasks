@@ -13,6 +13,7 @@ const bodySchema = z.object({
   keyPoints: z.string(),
   decision: z.enum(["מומלץ", "מומלץ בהסתייגות", "לא מומלץ"]).nullable(),
   decisionReasoning: z.string(),
+  passed: z.boolean().nullable().optional(),
 });
 
 export async function POST(request: Request) {
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     key_points: parsed.data.keyPoints,
     decision: parsed.data.decision,
     decision_reasoning: parsed.data.decisionReasoning,
+    passed: parsed.data.passed,
   });
   await new AgamCandidateService().addTimeline({
     candidate_id: parsed.data.candidateId,

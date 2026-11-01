@@ -7,6 +7,12 @@ export const agamModule: AppModuleDefinition = {
   href: "/agam",
   navItems: [
     {
+      label: "המצב שלי",
+      href: "/agam/me",
+      description: "סטטוס ומסלול המיון שלך",
+      roles: ["candidate"],
+    },
+    {
       label: "ראשי",
       href: "/agam",
       description: "סקירת קצינים",
@@ -45,6 +51,7 @@ export const agamModule: AppModuleDefinition = {
   ],
   breadcrumbLabels: {
     agam: "קצינים",
+    me: "המצב שלי",
     cycles: "שנתונים",
     candidates: "מועמדים",
     archive: "ארכיון",

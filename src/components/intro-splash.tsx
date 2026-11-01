@@ -1,63 +1,80 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { PlatformPortal } from "@/components/platform-portal";
+import { isAgamCandidateSoldier } from "@/modules/agam/lib/candidate-access";
+import type { ModuleRole } from "@/shared/modules/types";
 
 const INTRO_VIDEO_SRC = "/intro.mp4";
 const INTRO_DISMISS_KEY = "etur-intro-dismissed";
 
 type IntroPhase = "ready" | "playing" | "complete" | "failed";
 
-const launchItems = [
-  {
-    label: "איתור",
-    detail: "קצינים",
-    href: "/agam",
-    image: "/intro/officers.jpg",
-    corner: "top-right",
-  },
-  {
-    label: "מיצוב",
-    detail: "נגדים",
-    href: "/nagadim",
-    image: "/intro/ncos.jpg",
-    corner: "top-left",
-  },
-  {
-    label: "דוברות",
-    detail: "תוכן ואישורים",
-    href: "/dovrut",
-    image: "/intro/books.jpg",
-    corner: "bottom-right",
-  },
-  {
-    label: "מלש״בים",
-    detail: "ראיונות ומעקב",
-    href: "/malshabim",
-    image: "/intro/interviews.jpg",
-    corner: "bottom-left",
-  },
-] as const;
-
 export function IntroSplash() {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<IntroPhase>("ready");
+  const [portalAccess, setPortalAccess] = useState<{
+    isPlatformAdmin: boolean;
+    moduleRoles: Record<string, ModuleRole>;
+  }>({ isPlatformAdmin: true, moduleRoles: {} });
   const videoRef = useRef<HTMLVideoElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setMounted(true);
-    try {
-      // Show intro once per browser tab session — refresh keeps the current page.
-      if (sessionStorage.getItem(INTRO_DISMISS_KEY) !== "1") {
+    let cancelled = false;
+
+    const revealIfNeeded = () => {
+      try {
+        // Show intro once per browser tab session — refresh keeps the current page.
+        if (sessionStorage.getItem(INTRO_DISMISS_KEY) !== "1") {
+          setVisible(true);
+        }
+      } catch {
         setVisible(true);
       }
-    } catch {
-      setVisible(true);
-    }
+    };
+
+    void Promise.all([
+      fetch("/api/auth/session").then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as {
+          user?: { role?: string; isAdmin?: boolean };
+        } | null;
+      }),
+      fetch("/api/modules/roles").then(async (response) => {
+        if (!response.ok) return {};
+        const data = (await response.json()) as { roles?: Record<string, ModuleRole> };
+        return data.roles ?? {};
+      }),
+    ])
+      .then(([session, roles]) => {
+        if (cancelled) return;
+        const isPlatformAdmin =
+          session?.user?.role === "admin" || Boolean(session?.user?.isAdmin);
+        if (
+          isAgamCandidateSoldier({
+            isPlatformAdmin,
+            platformRole: session?.user?.role,
+            moduleRoles: roles,
+          })
+        ) {
+          setVisible(false);
+          return;
+        }
+        setPortalAccess({ isPlatformAdmin, moduleRoles: roles });
+        revealIfNeeded();
+      })
+      .catch(() => {
+        if (!cancelled) revealIfNeeded();
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const dismiss = useCallback(() => {
@@ -221,46 +238,17 @@ export function IntroSplash() {
 
               {phase === "complete" ? (
                 <motion.div
-                  className="intro-module-stage absolute inset-0 z-10"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.55, ease: "easeOut" }}
+                  className="absolute inset-0 z-10 bg-black"
+                  initial={{ opacity: 0, scale: 1.02 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <div className="intro-module-stage__veil" aria-hidden />
-
-                  {launchItems.map((item, index) => (
-                    <motion.div
-                      key={item.href}
-                      className={`intro-module intro-module--${item.corner}`}
-                      initial={{ opacity: 0, scale: 0.9, y: 12 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      transition={{
-                        delay: 0.12 + index * 0.1,
-                        duration: 0.55,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    >
-                      <Link
-                        href={item.href}
-                        onClick={dismiss}
-                        className="intro-module__link"
-                      >
-                        <Image
-                          src={item.image}
-                          alt=""
-                          fill
-                          sizes="(max-width: 768px) 46vw, 26vw"
-                          className="intro-module__image"
-                          priority
-                        />
-                        <span className="intro-module__shade" aria-hidden />
-                        <span className="intro-module__copy">
-                          <span className="intro-module__label">{item.label}</span>
-                          <span className="intro-module__detail">{item.detail}</span>
-                        </span>
-                      </Link>
-                    </motion.div>
-                  ))}
+                  <PlatformPortal
+                    isPlatformAdmin={portalAccess.isPlatformAdmin}
+                    moduleRoles={portalAccess.moduleRoles}
+                    variant="overlay"
+                    onNavigate={dismiss}
+                  />
                 </motion.div>
               ) : null}
             </div>
@@ -284,9 +272,9 @@ export function IntroSplash() {
             <button
               type="button"
               onClick={skipToFinalFrame}
-              className="absolute bottom-6 end-6 z-20 rounded-full bg-black/50 px-7 py-3.5 text-base font-bold text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 sm:px-8 sm:py-4 sm:text-lg"
+              className="absolute bottom-6 end-6 z-20 rounded-full border border-white/15 bg-black/55 px-7 py-3.5 text-base font-bold text-white shadow-lg backdrop-blur-md transition hover:border-white/30 hover:bg-black/75 sm:px-8 sm:py-4 sm:text-lg"
             >
-              דלג
+              דלג לפורטל
             </button>
           ) : null}
         </motion.div>

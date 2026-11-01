@@ -99,9 +99,13 @@ export function CreateCandidateDrawer({
   const [phone, setPhone] = useState("");
   const [command, setCommand] = useState("");
   const [directCommanderName, setDirectCommanderName] = useState("");
-  const [gaps, setGaps] = useState("");
+  const [exemptions, setExemptions] = useState("");
+  const [km, setKm] = useState("");
   const [planningIndex, setPlanningIndex] = useState("");
   const [dapar, setDapar] = useState("");
+  const [releaseDate, setReleaseDate] = useState("");
+  const [kahas, setKahas] = useState("");
+  const [tash, setTash] = useState("");
   const [needsSakmar, setNeedsSakmar] = useState("");
   const [mabdakApproval, setMabdakApproval] = useState("");
   const [medicalIssue, setMedicalIssue] = useState("");
@@ -123,9 +127,13 @@ export function CreateCandidateDrawer({
           cycleId: cycleId || null,
           command: command || null,
           directCommanderName: directCommanderName || null,
-          gaps: gaps || null,
+          exemptions: exemptions || null,
+          km: km || null,
           planningIndex: planningIndex ? Number(planningIndex) : null,
           dapar: dapar ? Number(dapar) : null,
+          releaseDate: releaseDate || null,
+          kahas: kahas ? Number(kahas) : null,
+          tash: tash ? Number(tash) : null,
           needsSakmar: needsSakmar ? needsSakmar === "yes" : null,
           mabdakApproval: mabdakApproval ? mabdakApproval === "yes" : null,
           medicalIssue: medicalIssue ? medicalIssue === "yes" : null,
@@ -138,9 +146,13 @@ export function CreateCandidateDrawer({
       setPhone("");
       setCommand("");
       setDirectCommanderName("");
-      setGaps("");
+      setExemptions("");
+      setKm("");
       setPlanningIndex("");
       setDapar("");
+      setReleaseDate("");
+      setKahas("");
+      setTash("");
       setNeedsSakmar("");
       setMabdakApproval("");
       setMedicalIssue("");
@@ -207,34 +219,92 @@ export function CreateCandidateDrawer({
             </label>
           </div>
           <label className="block space-y-2 text-sm font-bold text-text-secondary">
-            פערים
+            פטורים
             <textarea
               className={fieldClass}
               rows={3}
-              value={gaps}
-              onChange={(event) => setGaps(event.target.value)}
+              value={exemptions}
+              onChange={(event) => setExemptions(event.target.value)}
+            />
+          </label>
+          <label className="block space-y-2 text-sm font-bold text-text-secondary">
+            כ״מ
+            <textarea
+              className={fieldClass}
+              rows={3}
+              value={km}
+              onChange={(event) => setKm(event.target.value)}
             />
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-2 text-sm font-bold text-text-secondary">
               מדד תכנוני
-              <input
-                type="number"
-                className={`${fieldClass} text-left`}
-                dir="ltr"
+              <select
+                className={fieldClass}
                 value={planningIndex}
                 onChange={(event) => setPlanningIndex(event.target.value)}
-              />
+              >
+                <option value="">ללא</option>
+                {[1, 2, 3, 4, 5, 6].map((value) => (
+                  <option key={value} value={String(value)}>
+                    {value}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="block space-y-2 text-sm font-bold text-text-secondary">
               דפ״ר
-              <input
-                type="number"
-                className={`${fieldClass} text-left`}
-                dir="ltr"
+              <select
+                className={fieldClass}
                 value={dapar}
                 onChange={(event) => setDapar(event.target.value)}
+              >
+                <option value="">ללא</option>
+                {[10, 20, 30, 40, 50, 60, 70, 80, 90].map((value) => (
+                  <option key={value} value={String(value)}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              תאריך שחרור
+              <input
+                type="date"
+                className={fieldClass}
+                value={releaseDate}
+                onChange={(event) => setReleaseDate(event.target.value)}
               />
+            </label>
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              קה״ס
+              <select
+                className={fieldClass}
+                value={kahas}
+                onChange={(event) => setKahas(event.target.value)}
+              >
+                <option value="">ללא</option>
+                {[40, 41, 42, 43].map((value) => (
+                  <option key={value} value={String(value)}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-2 text-sm font-bold text-text-secondary">
+              תש״
+              <select
+                className={fieldClass}
+                value={tash}
+                onChange={(event) => setTash(event.target.value)}
+              >
+                <option value="">ללא</option>
+                {[1, 2, 3, 4, 5, 6, 7].map((value) => (
+                  <option key={value} value={String(value)}>
+                    {value}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           {isExceptional ? (

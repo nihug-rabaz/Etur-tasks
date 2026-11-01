@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import { toDateInputValue } from "@/modules/agam/lib/date-format";
+import { candidateGaps } from "@/modules/agam/lib/gaps";
 import { STATUS_LABELS } from "@/modules/agam/lib/stages";
 import type {
   AgamCandidate,
@@ -43,11 +45,17 @@ const QUESTIONNAIRE_FIELD_LABELS: Record<string, string> = {
   direct_commander_name: "שם המפקד הישיר",
   planning_index: "מדד תכנוני",
   dapar: "דפ״ר",
+  remaining_cycles: "מחזורים שנותרו",
+  release_date: "תאריך שחרור",
+  kahas: "קה״ס",
+  tash: "תש״",
   needs_sakmar: "צריך סכמר",
   mabdak_approval: "אישור למבדק",
   medical_issue: "בעיה רפואית",
   internet_test: "מבדק אינטרנט",
   gaps: "פערים",
+  exemptions: "פטורים",
+  km: "כ״מ",
 };
 
 export function exportColumnLabel(field: Pick<ExportField, "group" | "label">): string {
@@ -152,9 +160,14 @@ export const CANDIDATE_EXPORT_FIELDS: ExportField[] = [
     group: "candidate",
     get: (c) => c.direct_commander_name,
   },
-  { key: "candidate.gaps", label: "פערים", group: "candidate", get: (c) => c.gaps },
+  { key: "candidate.gaps", label: "פערים", group: "candidate", get: (c) => candidateGaps(c).join(", ") || null },
+  { key: "candidate.exemptions", label: "פטורים", group: "candidate", get: (c) => c.exemptions },
+  { key: "candidate.km", label: "כ״מ", group: "candidate", get: (c) => c.km },
   { key: "candidate.planning_index", label: "מדד תכנוני", group: "candidate", get: (c) => c.planning_index },
   { key: "candidate.dapar", label: "דפ״ר", group: "candidate", get: (c) => c.dapar },
+  { key: "candidate.release_date", label: "תאריך שחרור", group: "candidate", get: (c) => (c.release_date ? toDateInputValue(c.release_date) : null) },
+  { key: "candidate.kahas", label: "קה״ס", group: "candidate", get: (c) => c.kahas },
+  { key: "candidate.tash", label: "תש״", group: "candidate", get: (c) => c.tash },
   { key: "candidate.rank_color", label: "דירוג צבע", group: "candidate", get: (c) => c.rank_color },
   {
     key: "candidate.needs_sakmar",
