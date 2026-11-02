@@ -2451,3 +2451,233 @@ textarea.hud-title {
 .dark .agam-notepad-date__day {
   color: #f3f4f6;
 }
+
+/* Dovrut briefing print sheet */
+.briefing-print {
+  display: none;
+  color: #0f172a;
+  font-family: var(--font-heebo), Heebo, Arial, sans-serif;
+}
+
+@media print {
+  .briefing-print {
+    display: block !important;
+  }
+}
+
+.briefing-print__hero {
+  margin-bottom: 1.1rem;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  background: linear-gradient(135deg, #0f3d4c 0%, #0e7490 55%, #14b8a6 100%);
+  color: #fff;
+  padding: 1.15rem 1.25rem 1rem;
+  box-shadow: 0 10px 28px rgba(15, 61, 76, 0.22);
+}
+
+.briefing-print__hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.briefing-print__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.88;
+}
+
+.briefing-print__title {
+  margin: 0.35rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.briefing-print__badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.briefing-print__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.85rem;
+}
+
+.briefing-print__chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+.briefing-print__chip--teal { background: rgba(45, 212, 191, 0.28); }
+.briefing-print__chip--amber { background: rgba(251, 191, 36, 0.32); color: #fff7ed; }
+.briefing-print__chip--navy { background: rgba(15, 23, 42, 0.28); }
+.briefing-print__chip--rose { background: rgba(251, 113, 133, 0.3); }
+
+.briefing-print__byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.briefing-print__byline strong {
+  font-weight: 900;
+}
+
+.briefing-print__byline-sep {
+  opacity: 0.55;
+}
+
+.briefing-print__card,
+.briefing-print__person,
+.briefing-print__message {
+  break-inside: avoid;
+  margin-top: 0.85rem;
+  border-radius: 0.95rem;
+  padding: 0.9rem 1rem;
+}
+
+.briefing-print__card--details {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-inline-start: 5px solid #0d9488;
+}
+
+.briefing-print__card--notes {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-inline-start: 5px solid #ea580c;
+}
+
+.briefing-print__h2,
+.briefing-print__section-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.briefing-print__section-title {
+  margin-top: 1.15rem;
+  margin-bottom: 0.55rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid #0e7490;
+  color: #0e7490;
+}
+
+.briefing-print__body {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #1e293b;
+}
+
+.briefing-print__muted {
+  margin: 0.45rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.briefing-print__stack {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.briefing-print__person {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-inline-start: 5px solid #0369a1;
+}
+
+.briefing-print__person-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.briefing-print__person-index {
+  display: inline-flex;
+  height: 1.55rem;
+  width: 1.55rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #0369a1;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.briefing-print__person-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.briefing-print__person-role {
+  margin: 0.1rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0369a1;
+}
+
+.briefing-print__message {
+  background: #f5f3ff;
+  border: 1px solid #c4b5fd;
+  border-inline-start: 5px solid #7c3aed;
+}
+
+.briefing-print__message-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #5b21b6;
+}
+
+.briefing-print__footer {
+  margin-top: 1.35rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed #94a3b8;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+@media print {
+  .dashboard-ambient-bg,
+  [data-side-menu],
+  .pointer-events-none.fixed,
+  button.fixed,
+  .Toaster,
+  #onesignal-bell-container {
+    display: none !important;
+  }
+}

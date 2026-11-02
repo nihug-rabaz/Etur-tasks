@@ -11,6 +11,7 @@ import type {
   DovrutWorkStatus,
 } from "@/modules/dovrut/types";
 import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
+import { BriefingPrintSheet } from "@/modules/dovrut/components/briefing-print-sheet";
 import { IntervieweePicker } from "@/modules/dovrut/components/interviewee-picker";
 import {
   WorkStatusTimeline,
@@ -82,6 +83,18 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [openedBy, setOpenedBy] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/auth/session")
+      .then((response) => response.json())
+      .then((data) => {
+        const name =
+          typeof data?.user?.name === "string" ? data.user.name.trim() : "";
+        if (name) setOpenedBy(name);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const load = useCallback(async () => {
     const data = await dovrutFetch<{
@@ -181,10 +194,8 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         null;
       return {
         name,
-        subject,
         title: subject?.role_title?.trim() || null,
         paragraph: subject ? buildInquiryParagraph(subject) : null,
-        notes: subject?.notes?.trim() || null,
       };
     });
   }, [interviewees, subjects]);
@@ -718,62 +729,13 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         </ul>
       </section>
 
-      {/* Print-only briefing sheet */}
-      <section className="hidden print:block print:p-6" dir="rtl">
-        <h1 className="text-2xl font-bold">{concept.name}</h1>
-        <p className="mt-1 text-sm text-neutral-600">{concept.project_name}</p>
-        {concept.details ? (
-          <div className="mt-4">
-            <h2 className="text-sm font-bold">פרטים</h2>
-            <p className="mt-1 whitespace-pre-wrap text-sm">{concept.details}</p>
-          </div>
-        ) : null}
-        {notes.trim() ? (
-          <div className="mt-4 break-inside-avoid">
-            <h2 className="text-base font-bold">הערות / דגשים לתדרוך</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{notes}</p>
-          </div>
-        ) : null}
-        {briefingInterviewees.length > 0 ? (
-          <div className="mt-4 break-inside-avoid">
-            <h2 className="text-base font-bold">מרואיינים — סיכום</h2>
-            <ul className="mt-3 space-y-4 text-sm">
-              {briefingInterviewees.map((row) => (
-                <li
-                  key={row.name}
-                  className="break-inside-avoid rounded border border-neutral-300 p-3"
-                >
-                  <p className="text-base font-extrabold">
-                    {row.title ? `${row.title} · ${row.name}` : row.name}
-                  </p>
-                  {row.paragraph ? (
-                    <p className="mt-2 whitespace-pre-wrap leading-relaxed">
-                      {row.paragraph}
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-neutral-600">
-                      לא נמצא כרטיס גורם תחקור תואם לשם זה.
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {audienceMessages.length > 0 ? (
-          <div className="mt-4">
-            <h2 className="text-sm font-bold">מסרים</h2>
-            <ul className="mt-2 space-y-2 text-sm">
-              {audienceMessages.map((row) => (
-                <li key={row.id}>
-                  <p className="font-bold">{row.title}</p>
-                  {row.body ? <p className="whitespace-pre-wrap">{row.body}</p> : null}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </section>
+      <BriefingPrintSheet
+        concept={concept}
+        notes={notes}
+        openedBy={openedBy}
+        interviewees={briefingInterviewees}
+        messages={audienceMessages}
+      />
 
       {message ? (
         <p className="text-xs font-semibold text-accent-primary print:hidden">{message}</p>
