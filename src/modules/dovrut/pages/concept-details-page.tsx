@@ -23,6 +23,7 @@ import {
   WORK_STATUS_LABELS,
   buildApprovalFlow,
 } from "@/modules/dovrut/lib/approval-flows";
+import { buildInquiryParagraph } from "@/modules/dovrut/lib/inquiry-subjects";
 import {
   APPROVAL_TRAFFIC_STEPS,
   getApprovalTrafficLights,
@@ -169,6 +170,24 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     () => (concept ? getApprovalTrafficLights(concept) : null),
     [concept],
   );
+
+  const briefingInterviewees = useMemo(() => {
+    return interviewees.map((name) => {
+      const subject =
+        subjects.find((row) => row.name.trim() === name.trim()) ??
+        subjects.find(
+          (row) => row.name.trim().toLowerCase() === name.trim().toLowerCase(),
+        ) ??
+        null;
+      return {
+        name,
+        subject,
+        title: subject?.role_title?.trim() || null,
+        paragraph: subject ? buildInquiryParagraph(subject) : null,
+        notes: subject?.notes?.trim() || null,
+      };
+    });
+  }, [interviewees, subjects]);
 
   const saveFields = async () => {
     setSaving(true);
@@ -709,12 +728,34 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
             <p className="mt-1 whitespace-pre-wrap text-sm">{concept.details}</p>
           </div>
         ) : null}
-        {interviewees.length > 0 ? (
-          <div className="mt-4">
-            <h2 className="text-sm font-bold">מרואיינים</h2>
-            <ul className="mt-1 list-disc pr-5 text-sm">
-              {interviewees.map((name) => (
-                <li key={name}>{name}</li>
+        {briefingInterviewees.length > 0 ? (
+          <div className="mt-4 break-inside-avoid">
+            <h2 className="text-base font-bold">מרואיינים — סיכום</h2>
+            <ul className="mt-3 space-y-4 text-sm">
+              {briefingInterviewees.map((row) => (
+                <li
+                  key={row.name}
+                  className="break-inside-avoid rounded border border-neutral-300 p-3"
+                >
+                  <p className="text-base font-extrabold">
+                    {row.title ? `${row.title} · ${row.name}` : row.name}
+                  </p>
+                  {row.paragraph ? (
+                    <p className="mt-2 whitespace-pre-wrap leading-relaxed">
+                      {row.paragraph}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-neutral-600">
+                      לא נמצא כרטיס גורם תחקור תואם לשם זה.
+                    </p>
+                  )}
+                  {row.notes ? (
+                    <div className="mt-2 border-t border-neutral-200 pt-2">
+                      <p className="text-xs font-bold">הערות</p>
+                      <p className="mt-1 whitespace-pre-wrap">{row.notes}</p>
+                    </div>
+                  ) : null}
+                </li>
               ))}
             </ul>
           </div>
