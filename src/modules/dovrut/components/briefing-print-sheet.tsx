@@ -39,17 +39,22 @@ export function BriefingPrintSheet({
       : [];
 
   return (
-    <section className="briefing-print hidden print:block" dir="rtl">
-      <style>{`
-        @media print {
-          @page { margin: 12mm 14mm; size: A4; }
-          html, body { background: #fff !important; }
-          .briefing-print {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
+    <section className="briefing-print" dir="rtl">
+      <header className="briefing-print__brand">
+        <div className="briefing-print__brand-text">
+          <p className="briefing-print__brand-kicker">מסמך רשמי ממערכת</p>
+          <h2 className="briefing-print__brand-title">מדור אומץ</h2>
+          <p className="briefing-print__brand-sub">
+            רבנות צבאית · מערכת ניהול משימות · מודול דוברות
+          </p>
+        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-mador-omtz.png"
+          alt="לוגו מדור אומץ"
+          className="briefing-print__brand-logo"
+        />
+      </header>
 
       <header className="briefing-print__hero">
         <div className="briefing-print__hero-top">
@@ -151,7 +156,7 @@ export function BriefingPrintSheet({
       ) : null}
 
       <footer className="briefing-print__footer">
-        מערכת דוברות · מסמך תדרוך פנימי
+        הופק ממערכת מדור אומץ · מודול דוברות · מסמך תדרוך פנימי
       </footer>
     </section>
   );

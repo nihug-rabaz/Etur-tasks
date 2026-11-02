@@ -2460,9 +2460,101 @@ textarea.hud-title {
 }
 
 @media print {
+  @page {
+    margin: 10mm 12mm;
+    size: A4;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Hide all app chrome; show only the briefing sheet */
+  body * {
+    visibility: hidden !important;
+  }
+
+  .briefing-print,
+  .briefing-print * {
+    visibility: visible !important;
+  }
+
   .briefing-print {
     display: block !important;
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
+
+  .print\:hidden,
+  .topbar,
+  footer,
+  aside,
+  nav,
+  .sticky,
+  .dashboard-ambient-bg,
+  [data-side-menu],
+  .pointer-events-none.fixed,
+  button.fixed,
+  .Toaster,
+  #onesignal-bell-container {
+    display: none !important;
+  }
+}
+
+.briefing-print__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid #dbe4ee;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.briefing-print__brand-text {
+  min-width: 0;
+}
+
+.briefing-print__brand-kicker {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.briefing-print__brand-title {
+  margin: 0.15rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.briefing-print__brand-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.briefing-print__brand-logo {
+  width: 3.4rem;
+  height: 3.4rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
 }
 
 .briefing-print__hero {
@@ -2669,15 +2761,4 @@ textarea.hud-title {
   font-size: 0.7rem;
   font-weight: 700;
   color: #64748b;
-}
-
-@media print {
-  .dashboard-ambient-bg,
-  [data-side-menu],
-  .pointer-events-none.fixed,
-  button.fixed,
-  .Toaster,
-  #onesignal-bell-container {
-    display: none !important;
-  }
 }
