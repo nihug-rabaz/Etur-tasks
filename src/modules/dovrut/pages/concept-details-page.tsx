@@ -11,6 +11,7 @@ import type {
   DovrutWorkStatus,
 } from "@/modules/dovrut/types";
 import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
+import { IntervieweePicker } from "@/modules/dovrut/components/interviewee-picker";
 import {
   WorkStatusTimeline,
   resolveConceptWorkStatus,
@@ -168,12 +169,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     () => (concept ? getApprovalTrafficLights(concept) : null),
     [concept],
   );
-
-  const intervieweeOptions = useMemo(() => {
-    const names = new Set(subjects.map((s) => s.name));
-    for (const name of interviewees) names.add(name);
-    return [...names].sort((a, b) => a.localeCompare(b, "he"));
-  }, [subjects, interviewees]);
 
   const saveFields = async () => {
     setSaving(true);
@@ -576,9 +571,8 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
           />
           {isArticle ? (
             <>
-              <DovrutCheckboxGroup
-                label="מרואיינים"
-                options={intervieweeOptions.map((value) => ({ value, label: value }))}
+              <IntervieweePicker
+                subjects={subjects}
                 values={interviewees}
                 onChange={setInterviewees}
               />

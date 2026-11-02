@@ -57,7 +57,9 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/agam/upload/") ||
     pathname === "/agam/portal" ||
     pathname.startsWith("/agam/portal/") ||
-    pathname.startsWith("/api/agam/public/");
+    pathname.startsWith("/api/agam/public/") ||
+    pathname.startsWith("/dovrut-approve") ||
+    pathname.startsWith("/api/dovrut/public/");
 
   if (!token && !isPublicAuthPath) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
@@ -114,6 +116,8 @@ export const config = {
     "/settings/:path*",
     "/dovrut",
     "/dovrut/:path*",
+    "/dovrut-approve",
+    "/dovrut-approve/:path*",
     "/agam",
     "/agam/:path*",
     "/malshabim",

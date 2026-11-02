@@ -85,9 +85,11 @@ export default async function RootLayout({
     ? await new ProfileService().getFontScale(profile.id)
     : getFontScaleOption("default");
   const pathname = (await headers()).get("x-etur-pathname") ?? "";
-  const isPublicAgam =
-    pathname.startsWith("/agam/apply") || pathname.startsWith("/agam/upload");
-  const hidePlatformChrome = isPublicAgam || candidateSoldier;
+  const isPublicDeepLink =
+    pathname.startsWith("/agam/apply") ||
+    pathname.startsWith("/agam/upload") ||
+    pathname.startsWith("/dovrut-approve");
+  const hidePlatformChrome = isPublicDeepLink || candidateSoldier;
 
   return (
     <html

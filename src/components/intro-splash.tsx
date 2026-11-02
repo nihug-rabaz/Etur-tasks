@@ -27,6 +27,15 @@ export function IntroSplash() {
     setMounted(true);
     let cancelled = false;
 
+    // Public approval deep links must skip intro + portal entirely.
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (path.startsWith("/dovrut-approve")) {
+        setVisible(false);
+        return;
+      }
+    }
+
     const revealIfNeeded = () => {
       try {
         // Show intro once per browser tab session — refresh keeps the current page.

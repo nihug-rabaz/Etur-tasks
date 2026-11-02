@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
+import { IntervieweePicker } from "@/modules/dovrut/components/interviewee-picker";
 import {
   DEFAULT_APPROVAL_FLAGS,
   DOMAIN_LABELS,
@@ -9,7 +10,11 @@ import {
 } from "@/modules/dovrut/lib/approval-flows";
 import { emitDovrutMutated } from "@/modules/dovrut/lib/dovrut-fetch";
 import { DOVRUT_AUDIENCES } from "@/modules/dovrut/lib/audiences";
-import type { DovrutConceptType, DovrutProject } from "@/modules/dovrut/types";
+import type {
+  DovrutConceptType,
+  DovrutInquirySubject,
+  DovrutProject,
+} from "@/modules/dovrut/types";
 
 export function ItemCreateForm({
   layout = "stacked",
@@ -28,6 +33,8 @@ export function ItemCreateForm({
   const [domains, setDomains] = useState<string[]>(["kashrut"]);
   const [mediaOutlet, setMediaOutlet] = useState("");
   const [interviewer, setInterviewer] = useState("");
+  const [interviewees, setInterviewees] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<DovrutInquirySubject[]>([]);
   const [needsBriefing, setNeedsBriefing] = useState(true);
   const [requiresChief, setRequiresChief] = useState(DEFAULT_APPROVAL_FLAGS.requires_chief_rabbi);
   const [requiresDeputy, setRequiresDeputy] = useState(
@@ -37,6 +44,15 @@ export function ItemCreateForm({
   const [isDraft, setIsDraft] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    void fetch("/api/dovrut/inquiry-subjects")
+      .then((response) => response.json())
+      .then((data) => {
+        setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+      })
+      .catch(() => setSubjects([]));
+  }, []);
 
   useEffect(() => {
     if (defaultProjectId) {
@@ -68,6 +84,7 @@ export function ItemCreateForm({
               target_audience: audiences[0] ?? null,
               media_outlet: mediaOutlet.trim() || null,
               interviewer: interviewer.trim() || null,
+              interviewees,
               needs_briefing: needsBriefing,
               requires_chief_rabbi: requiresChief,
               requires_deputy_commander: requiresDeputy,
@@ -98,6 +115,7 @@ export function ItemCreateForm({
       setDomains(["kashrut"]);
       setMediaOutlet("");
       setInterviewer("");
+      setInterviewees([]);
       setNeedsBriefing(true);
       setRequiresChief(DEFAULT_APPROVAL_FLAGS.requires_chief_rabbi);
       setRequiresDeputy(DEFAULT_APPROVAL_FLAGS.requires_deputy_commander);
@@ -164,6 +182,11 @@ export function ItemCreateForm({
       />
       {type === "article_interview" ? (
         <>
+          <IntervieweePicker
+            subjects={subjects}
+            values={interviewees}
+            onChange={setInterviewees}
+          />
           <input
             value={mediaOutlet}
             onChange={(event) => setMediaOutlet(event.target.value)}
