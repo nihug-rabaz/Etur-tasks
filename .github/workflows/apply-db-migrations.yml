@@ -31,24 +31,31 @@ jobs:
           npm install -g vercel@54.21.1
           npm install @neondatabase/serverless
 
-      - name: Pull production env and apply migrations
+      - name: Apply migrations
         env:
+          # Prefer repo secret — Vercel "Sensitive" env redacts DATABASE_URL on vercel pull.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
           VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
         run: |
           set -euo pipefail
 
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-
-          if [ -f .vercel/.env.production.local ]; then
-            cp .vercel/.env.production.local .env.local
-          elif [ -f .env.production.local ]; then
-            cp .env.production.local .env.local
+          if [ -n "${DATABASE_URL:-}" ] && [ "$DATABASE_URL" != "[SENSITIVE]" ]; then
+            printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env.local
+            echo "Using DATABASE_URL from GitHub Actions secret"
           else
-            echo "No production env file after vercel pull"
-            ls -la .vercel || true
-            exit 1
+            vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+            if [ -f .vercel/.env.production.local ]; then
+              cp .vercel/.env.production.local .env.local
+            elif [ -f .env.production.local ]; then
+              cp .env.production.local .env.local
+            else
+              echo "No production env file after vercel pull"
+              ls -la .vercel || true
+              exit 1
+            fi
           fi
 
           node -e "
@@ -60,7 +67,7 @@ jobs:
               url = line.slice('DATABASE_URL='.length).trim().replace(/^[\"']|[\"']$/g, '');
             }
             if (!url || url === '[SENSITIVE]') {
-              console.error('DATABASE_URL missing or redacted in pulled env');
+              console.error('DATABASE_URL missing or redacted. Set repo secret DATABASE_URL.');
               process.exit(1);
             }
             console.log('production db host=' + new URL(url.replace(/^postgresql:/i, 'http:')).host);
