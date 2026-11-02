@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   DovrutActivityLog,
   DovrutApprovalStatus,
+  DovrutAudienceMessage,
   DovrutConcept,
+  DovrutInquirySubject,
   DovrutWorkStatus,
 } from "@/modules/dovrut/types";
 import { DovrutCheckboxGroup } from "@/modules/dovrut/components/checkbox-group";
@@ -20,17 +22,55 @@ import {
   WORK_STATUS_LABELS,
   buildApprovalFlow,
 } from "@/modules/dovrut/lib/approval-flows";
+import {
+  APPROVAL_TRAFFIC_STEPS,
+  getApprovalTrafficLights,
+  trafficLightColorClass,
+  trafficLightLabel,
+} from "@/modules/dovrut/lib/approval-traffic-light";
 import { DOVRUT_AUDIENCES } from "@/modules/dovrut/lib/audiences";
+
+function formatWhen(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("he-IL");
+  } catch {
+    return iso;
+  }
+}
+
+function buildWhatsAppItemText(
+  concept: DovrutConcept,
+  intervieweeNames: string[],
+): string {
+  const lines = [
+    `*${concept.name}*`,
+    concept.project_name ? `פרויקט: ${concept.project_name}` : "",
+    concept.media_outlet ? `מערכת: ${concept.media_outlet}` : "",
+    concept.details ? concept.details.trim() : "",
+  ].filter(Boolean);
+  if (intervieweeNames.length > 0) {
+    lines.push("", "*מרואיינים:*");
+    for (const name of intervieweeNames) {
+      lines.push(`• ${name}`);
+    }
+  }
+  return lines.join("\n");
+}
 
 export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [concept, setConcept] = useState<DovrutConcept | null>(null);
   const [activity, setActivity] = useState<DovrutActivityLog[]>([]);
   const [notes, setNotes] = useState("");
   const [link, setLink] = useState("");
+  const [publishLink, setPublishLink] = useState("");
   const [mediaOutlet, setMediaOutlet] = useState("");
   const [interviewer, setInterviewer] = useState("");
   const [audiences, setAudiences] = useState<string[]>([]);
   const [domains, setDomains] = useState<string[]>([]);
+  const [interviewees, setInterviewees] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<DovrutInquirySubject[]>([]);
+  const [audienceMessages, setAudienceMessages] = useState<DovrutAudienceMessage[]>([]);
   const [needsBriefing, setNeedsBriefing] = useState(true);
   const [requiresChief, setRequiresChief] = useState(true);
   const [requiresDeputy, setRequiresDeputy] = useState(true);
@@ -51,10 +91,18 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     setActivity(Array.isArray(data.activity) ? data.activity : []);
     setNotes(next?.notes ?? "");
     setLink(next?.link ?? "");
+    setPublishLink(next?.link ?? "");
     setMediaOutlet(next?.media_outlet ?? "");
     setInterviewer(next?.interviewer ?? "");
-    setAudiences(next?.target_audiences?.length ? next.target_audiences : next?.target_audience ? [next.target_audience] : []);
+    setAudiences(
+      next?.target_audiences?.length
+        ? next.target_audiences
+        : next?.target_audience
+          ? [next.target_audience]
+          : [],
+    );
     setDomains(next?.domains?.length ? next.domains : next?.domain ? [next.domain] : []);
+    setInterviewees(next?.interviewees ?? []);
     setNeedsBriefing(Boolean(next?.needs_briefing));
     setRequiresChief(Boolean(next?.requires_chief_rabbi));
     setRequiresDeputy(Boolean(next?.requires_deputy_commander));
@@ -67,6 +115,46 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch("/api/dovrut/inquiry-subjects");
+        const data = await response.json();
+        setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+      } catch {
+        setSubjects([]);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (audiences.length === 0) {
+      setAudienceMessages([]);
+      return;
+    }
+    void (async () => {
+      try {
+        const response = await fetch("/api/dovrut/audiences");
+        const data = await response.json();
+        const all = Array.isArray(data.messages)
+          ? (data.messages as DovrutAudienceMessage[])
+          : [];
+        const audienceSet = new Set(audiences);
+        const domainSet = new Set(domains);
+        setAudienceMessages(
+          all.filter((row) => {
+            if (!audienceSet.has(row.audience)) return false;
+            if (!row.domain) return true;
+            if (domainSet.size === 0) return true;
+            return domainSet.has(row.domain);
+          }),
+        );
+      } catch {
+        setAudienceMessages([]);
+      }
+    })();
+  }, [audiences, domains]);
+
   const flow = useMemo(() => {
     if (!concept || concept.type !== "article_interview") return [] as DovrutApprovalStatus[];
     return buildApprovalFlow({
@@ -75,6 +163,17 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
       requires_branch_head: concept.requires_branch_head,
     });
   }, [concept]);
+
+  const traffic = useMemo(
+    () => (concept ? getApprovalTrafficLights(concept) : null),
+    [concept],
+  );
+
+  const intervieweeOptions = useMemo(() => {
+    const names = new Set(subjects.map((s) => s.name));
+    for (const name of interviewees) names.add(name);
+    return [...names].sort((a, b) => a.localeCompare(b, "he"));
+  }, [subjects, interviewees]);
 
   const saveFields = async () => {
     setSaving(true);
@@ -91,6 +190,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         requires_deputy_commander: requiresDeputy,
         requires_branch_head: requiresBranch,
         linked_task_id: linkedTaskId.trim() || null,
+        interviewees,
       };
       if (concept?.type === "article_interview") {
         body.media_outlet = mediaOutlet.trim() || null;
@@ -156,6 +256,84 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     setMessage("קוד אישור הועתק");
   };
 
+  const markBriefingDone = async () => {
+    setSaving(true);
+    setMessage("");
+    try {
+      const data = await dovrutFetch<{ concept: DovrutConcept }>(
+        `/api/dovrut/concepts/${conceptId}`,
+        { method: "PUT", body: JSON.stringify({ mark_briefing_done: true }) },
+      );
+      if (data.concept) setConcept(data.concept);
+      setMessage("סומן תדרוך כבוצע");
+    } catch {
+      setMessage("סימון תדרוך נכשל");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const publishAndArchive = async () => {
+    const trimmed = publishLink.trim() || link.trim();
+    if (!trimmed) {
+      setMessage("יש להזין קישור לפרסום");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      await dovrutFetch(`/api/dovrut/concepts/${conceptId}`, {
+        method: "PUT",
+        body: JSON.stringify({ publish_link: trimmed }),
+      });
+      const data = await dovrutFetch<{ concept: DovrutConcept }>(
+        `/api/dovrut/concepts/${conceptId}`,
+        { method: "PUT", body: JSON.stringify({ archive: true }) },
+      );
+      if (data.concept) setConcept(data.concept);
+      setLink(trimmed);
+      setPublishLink(trimmed);
+      setMessage("פורסם ונסגר לארכיון");
+    } catch {
+      setMessage("פרסום/ארכוב נכשל");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyWhatsApp = async () => {
+    if (!concept) return;
+    const text = buildWhatsAppItemText(concept, interviewees);
+    await navigator.clipboard.writeText(text);
+    setMessage("הועתק לפורמט וואטסאפ");
+  };
+
+  const openApprovalWhatsApp = async () => {
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/dovrut/concepts/${conceptId}/approval-link`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || "יצירת קישור נכשלה");
+        return;
+      }
+      if (data.waMeUrl) {
+        window.open(data.waMeUrl as string, "_blank", "noopener,noreferrer");
+        setMessage("נפתח wa.me לשליחה");
+      } else {
+        await navigator.clipboard.writeText(String(data.url ?? ""));
+        setMessage("אין טלפון לשלב — הקישור הועתק");
+      }
+    } catch {
+      setMessage("יצירת קישור נכשלה");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const runAiWording = async () => {
     if (!draftText.trim()) return;
     setAiBusy(true);
@@ -181,10 +359,11 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   if (!concept) return <div className="text-sm text-text-muted">טוען אייטם…</div>;
 
   const currentWork = resolveConceptWorkStatus(concept);
+  const isArticle = concept.type === "article_interview";
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-3 py-4 sm:px-6 sm:py-6">
-      <div>
+      <div className="print:hidden">
         <div className="flex items-center justify-between gap-3">
           <Link href="/dovrut/items" className="text-xs font-bold text-accent-primary">
             ← חזרה לאייטמים
@@ -215,9 +394,21 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
               ? ` · קהל: ${concept.target_audience}`
               : ""}
         </p>
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-semibold text-text-muted">
+          {concept.briefing_done_at ? (
+            <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-emerald-800 dark:text-emerald-200">
+              תדרוך: {formatWhen(concept.briefing_done_at)}
+            </span>
+          ) : null}
+          {concept.archived_at ? (
+            <span className="rounded-full bg-slate-500/15 px-2.5 py-1">
+              בארכיון: {formatWhen(concept.archived_at)}
+            </span>
+          ) : null}
+        </div>
       </div>
 
-      <section className="dashboard-glass rounded-3xl p-4 sm:p-5">
+      <section className="dashboard-glass rounded-3xl p-4 sm:p-5 print:hidden">
         <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-extrabold text-text-primary">סטטוס עבודה</h2>
           <span className="rounded-full bg-accent-primary/12 px-2.5 py-1 text-[11px] font-bold text-accent-primary">
@@ -232,17 +423,44 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         />
       </section>
 
-      {concept.type === "article_interview" ? (
-        <section className="dashboard-glass rounded-3xl p-4">
-          <div className="mb-3 flex items-center justify-between gap-2">
+      {isArticle ? (
+        <section className="dashboard-glass rounded-3xl p-4 print:hidden">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold">ציר אישורים</h2>
-            <button
-              type="button"
-              onClick={() => void copyApprovalCode()}
-              className="rounded-lg bg-surface-2 px-2.5 py-1 text-[11px] font-bold"
-            >
-              העתק קוד אישור
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void copyApprovalCode()}
+                className="rounded-lg bg-surface-2 px-2.5 py-1 text-[11px] font-bold"
+              >
+                העתק קוד אישור
+              </button>
+              <button
+                type="button"
+                disabled={saving || !concept.approval_status || concept.approval_status === "approved"}
+                onClick={() => void openApprovalWhatsApp()}
+                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-40"
+              >
+                שלח קישור ב‑WhatsApp
+              </button>
+            </div>
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {APPROVAL_TRAFFIC_STEPS.map((step) => {
+              const status = traffic?.[step] ?? "skipped";
+              return (
+                <div
+                  key={step}
+                  className={`rounded-xl border px-3 py-2 text-xs font-bold ${trafficLightColorClass(status)}`}
+                  title={trafficLightLabel(status)}
+                >
+                  <p>{APPROVAL_STATUS_LABELS[step]}</p>
+                  <p className="mt-0.5 text-[10px] font-semibold opacity-90">
+                    {trafficLightLabel(status)}
+                  </p>
+                </div>
+              );
+            })}
           </div>
           <div className="space-y-2">
             {flow.map((step) => (
@@ -252,10 +470,10 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
                 disabled={saving}
                 onClick={() => void setApproval(step)}
                 className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-start text-sm font-semibold ${
- concept.approval_status === step
- ? "bg-accent-primary/10 text-accent-primary ring-1 ring-accent-primary/30"
- : "bg-surface-2/50 text-text-secondary "
- }`}
+                  concept.approval_status === step
+                    ? "bg-accent-primary/10 text-accent-primary ring-1 ring-accent-primary/30"
+                    : "bg-surface-2/50 text-text-secondary"
+                }`}
               >
                 <span>{APPROVAL_STATUS_LABELS[step]}</span>
                 <span className="text-[10px]">{step}</span>
@@ -265,7 +483,83 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         </section>
       ) : null}
 
-      <section className="dashboard-glass rounded-3xl p-4">
+      {isArticle && (currentWork === "production" || currentWork === "approved") ? (
+        <section className="dashboard-glass rounded-3xl p-4 print:hidden">
+          <h2 className="mb-3 text-sm font-extrabold">ביצוע</h2>
+          <div className="flex flex-wrap gap-2">
+            {concept.needs_briefing ? (
+              <button
+                type="button"
+                disabled={saving || Boolean(concept.briefing_done_at)}
+                onClick={() => void markBriefingDone()}
+                className="rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+              >
+                {concept.briefing_done_at ? "תדרוך בוצע" : "בוצע תדרוך"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="rounded-xl bg-surface-2 px-4 py-2 text-sm font-bold"
+            >
+              הדפס דף תדרוך
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyWhatsApp()}
+              className="rounded-xl bg-emerald-600/90 px-4 py-2 text-sm font-bold text-white"
+            >
+              העתק לוואטסאפ
+            </button>
+          </div>
+
+          {audienceMessages.length > 0 ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-bold text-text-secondary">מסרים לקהל יעד</p>
+              <ul className="space-y-2">
+                {audienceMessages.map((row) => (
+                  <li
+                    key={row.id}
+                    className="rounded-xl bg-surface-2/60 px-3 py-2 text-sm"
+                  >
+                    <p className="font-bold">{row.title}</p>
+                    <p className="text-[11px] text-text-muted">
+                      {row.audience}
+                      {row.domain ? ` · ${DOMAIN_LABELS[row.domain] ?? row.domain}` : ""}
+                    </p>
+                    {row.body ? (
+                      <p className="mt-1 whitespace-pre-wrap text-text-secondary">{row.body}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-text-muted">אין מסרים תואמים לקהלים/תחומים</p>
+          )}
+
+          <div className="mt-5 border-t border-surface-2 pt-4">
+            <p className="mb-2 text-xs font-bold text-text-secondary">פרסום וסגירה</p>
+            <input
+              value={publishLink}
+              onChange={(event) => setPublishLink(event.target.value)}
+              placeholder="קישור לכתבה/ראיון שפורסם"
+              className="mb-2 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
+              dir="ltr"
+            />
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void publishAndArchive()}
+              className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white disabled:opacity-40 dark:bg-slate-200 dark:text-slate-900"
+            >
+              סגור ושגר לארכיון
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="dashboard-glass rounded-3xl p-4 print:hidden">
         <h2 className="mb-3 text-sm font-extrabold">פרטים</h2>
         <div className="grid gap-2">
           <DovrutCheckboxGroup
@@ -280,8 +574,14 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
             values={domains}
             onChange={setDomains}
           />
-          {concept.type === "article_interview" ? (
+          {isArticle ? (
             <>
+              <DovrutCheckboxGroup
+                label="מרואיינים"
+                options={intervieweeOptions.map((value) => ({ value, label: value }))}
+                values={interviewees}
+                onChange={setInterviewees}
+              />
               <input
                 value={mediaOutlet}
                 onChange={(event) => setMediaOutlet(event.target.value)}
@@ -378,7 +678,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         </div>
       </section>
 
-      <section className="dashboard-glass rounded-3xl p-4">
+      <section className="dashboard-glass rounded-3xl p-4 print:hidden">
         <h2 className="mb-3 text-sm font-extrabold">טיימליין פעילות</h2>
         <ul className="space-y-2">
           {activity.map((row) => (
@@ -405,7 +705,44 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         </ul>
       </section>
 
-      {message ? <p className="text-xs font-semibold text-accent-primary">{message}</p> : null}
+      {/* Print-only briefing sheet */}
+      <section className="hidden print:block print:p-6" dir="rtl">
+        <h1 className="text-2xl font-bold">{concept.name}</h1>
+        <p className="mt-1 text-sm text-neutral-600">{concept.project_name}</p>
+        {concept.details ? (
+          <div className="mt-4">
+            <h2 className="text-sm font-bold">פרטים</h2>
+            <p className="mt-1 whitespace-pre-wrap text-sm">{concept.details}</p>
+          </div>
+        ) : null}
+        {interviewees.length > 0 ? (
+          <div className="mt-4">
+            <h2 className="text-sm font-bold">מרואיינים</h2>
+            <ul className="mt-1 list-disc pr-5 text-sm">
+              {interviewees.map((name) => (
+                <li key={name}>{name}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {audienceMessages.length > 0 ? (
+          <div className="mt-4">
+            <h2 className="text-sm font-bold">מסרים</h2>
+            <ul className="mt-2 space-y-2 text-sm">
+              {audienceMessages.map((row) => (
+                <li key={row.id}>
+                  <p className="font-bold">{row.title}</p>
+                  {row.body ? <p className="whitespace-pre-wrap">{row.body}</p> : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
+
+      {message ? (
+        <p className="text-xs font-semibold text-accent-primary print:hidden">{message}</p>
+      ) : null}
     </div>
   );
 }

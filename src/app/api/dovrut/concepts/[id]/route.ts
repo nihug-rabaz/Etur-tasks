@@ -67,6 +67,12 @@ const updateSchema = z.object({
   draft_images: z.array(z.string()).optional(),
   draft_videos: z.array(z.string()).optional(),
   partners: z.array(z.string()).optional(),
+  briefing_done_at: z.string().datetime().nullable().optional(),
+  archived_at: z.string().datetime().nullable().optional(),
+  last_approval_note: z.string().nullable().optional(),
+  archive: z.boolean().optional(),
+  mark_briefing_done: z.boolean().optional(),
+  publish_link: z.string().optional(),
 });
 
 export async function GET(
@@ -103,11 +109,41 @@ export async function PUT(
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
+  const service = new DovrutConceptService();
   if (parsed.data.restore) {
-    const ok = await new DovrutConceptService().restore(id);
+    const ok = await service.restore(id);
     if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    const restored = await new DovrutConceptService().getById(id);
+    const restored = await service.getById(id);
     return NextResponse.json({ concept: restored, item: restored });
+  }
+  if (parsed.data.archive) {
+    const concept = await service.archive(id, access.profile.name, access.profile.email);
+    if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ concept, item: concept });
+  }
+  if (parsed.data.mark_briefing_done) {
+    const concept = await service.markBriefingDone(
+      id,
+      access.profile.name,
+      access.profile.email,
+    );
+    if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ concept, item: concept });
+  }
+  if (parsed.data.publish_link !== undefined) {
+    try {
+      const concept = await service.publishWithLink(
+        id,
+        parsed.data.publish_link,
+        access.profile.name,
+        access.profile.email,
+      );
+      if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ concept, item: concept });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Publish failed";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
   }
   if (
     parsed.data.approval_status &&
@@ -115,9 +151,12 @@ export async function PUT(
   ) {
     return NextResponse.json({ error: "Only admin can set approval status" }, { status: 403 });
   }
-  const existing = await new DovrutConceptService().getById(id);
+  const existing = await service.getById(id);
   const patch = { ...parsed.data };
   delete patch.restore;
+  delete patch.archive;
+  delete patch.mark_briefing_done;
+  delete patch.publish_link;
   const patchKeys = (Object.keys(patch) as Array<keyof typeof patch>).filter(
     (key) => patch[key] !== undefined,
   );
@@ -126,7 +165,7 @@ export async function PUT(
   );
   const workOnly = Boolean(workKey) && patchKeys.length === 1;
   if (workOnly && workKey) {
-    const concept = await new DovrutConceptService().updateWorkStatus(
+    const concept = await service.updateWorkStatus(
       id,
       patch[workKey] as "planning" | "production" | "waiting_approvals" | "approved",
       access.profile.name,
@@ -138,13 +177,38 @@ export async function PUT(
   if (existing?.type === "social_media") {
     patch.link = null;
   }
-  const concept = await new DovrutConceptService().update(
+  // Admin force to fully approved → same outcome as רבצ״ר final: ביצוע + notify
+  if (
+    patch.approval_status === "approved" &&
+    existing?.type === "article_interview" &&
+    existing.approval_status !== "approved"
+  ) {
+    patch.work_status_article = "production";
+  }
+  const concept = await service.update(
     id,
     patch,
     access.profile.name,
     access.profile.email,
   );
   if (!concept) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (
+    patch.approval_status === "approved" &&
+    existing?.approval_status !== "approved" &&
+    concept.type === "article_interview"
+  ) {
+    await service.notifyAdminsOfFullApproval(concept);
+  }
+  if (
+    patch.work_status_article !== undefined ||
+    patch.work_status_social !== undefined ||
+    patch.archived_at !== undefined
+  ) {
+    const { syncLinkedTaskFromConcept } = await import(
+      "@/modules/dovrut/lib/task-status-sync"
+    );
+    await syncLinkedTaskFromConcept(concept);
+  }
   return NextResponse.json({ concept, item: concept });
 }
 

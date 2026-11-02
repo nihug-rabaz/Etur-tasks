@@ -8,6 +8,10 @@
     {
       "path": "/api/dovrut/lifecycle",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/dovrut-news",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

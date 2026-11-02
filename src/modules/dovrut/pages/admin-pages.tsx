@@ -141,6 +141,14 @@ export function DovrutApproversAdminPage() {
   >("waiting_chief_rabbi");
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
+  const [phones, setPhones] = useState({
+    branch_head: "",
+    deputy_commander: "",
+    chief_rabbi: "",
+    idf_spokesperson: "",
+  });
+  const [phonesMsg, setPhonesMsg] = useState("");
+  const [phonesBusy, setPhonesBusy] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -155,6 +163,25 @@ export function DovrutApproversAdminPage() {
             name: user.name,
           })),
       );
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch("/api/dovrut/admin/workflow-settings");
+        const data = await response.json();
+        if (response.ok && data.settings?.phones) {
+          setPhones({
+            branch_head: data.settings.phones.branch_head ?? "",
+            deputy_commander: data.settings.phones.deputy_commander ?? "",
+            chief_rabbi: data.settings.phones.chief_rabbi ?? "",
+            idf_spokesperson: data.settings.phones.idf_spokesperson ?? "",
+          });
+        }
+      } catch {
+        /* ignore */
+      }
     })();
   }, []);
 
@@ -179,12 +206,74 @@ export function DovrutApproversAdminPage() {
     }
   };
 
+  const savePhones = async () => {
+    setPhonesBusy(true);
+    setPhonesMsg("");
+    try {
+      const response = await fetch("/api/dovrut/admin/workflow-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phones }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setPhonesMsg(data.error || "שמירה נכשלה");
+        return;
+      }
+      setPhonesMsg("טלפונים נשמרו");
+    } finally {
+      setPhonesBusy(false);
+    }
+  };
+
+  const phoneFields: Array<{ key: keyof typeof phones; label: string }> = [
+    { key: "branch_head", label: "רמ״ח" },
+    { key: "deputy_commander", label: "רמ״ט" },
+    { key: "chief_rabbi", label: "רבצ״ר" },
+    { key: "idf_spokesperson", label: "דובר צה״ל / דוברות" },
+  ];
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
       <h1 className="text-xl font-bold text-text-primary">ניהול מאשרים ותזכורות</h1>
       <p className="text-sm text-text-secondary">
         תזכורות נשלחות כהתראות דפדפן (OneSignal) למשתמשים שהפעילו התראות.
       </p>
+
+      <section className="dashboard-glass rounded-3xl p-4">
+        <h2 className="mb-2 text-sm font-extrabold">טלפונים לקישורי WhatsApp</h2>
+        <p className="mb-3 text-xs text-text-muted">
+          מספרים בפורמט בינלאומי (למשל 9725…) — לשימוש בשליחת קישור אישור.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {phoneFields.map((field) => (
+            <label key={field.key} className="grid gap-1 text-xs font-bold">
+              {field.label}
+              <input
+                value={phones[field.key]}
+                onChange={(e) =>
+                  setPhones((prev) => ({ ...prev, [field.key]: e.target.value }))
+                }
+                placeholder="9725…"
+                dir="ltr"
+                className="rounded-xl bg-surface-2 px-3 py-2 text-sm font-normal outline-none"
+              />
+            </label>
+          ))}
+        </div>
+        <button
+          type="button"
+          disabled={phonesBusy}
+          onClick={() => void savePhones()}
+          className="mt-3 rounded-xl bg-accent-primary px-4 py-2 text-sm font-bold text-white disabled:opacity-40"
+        >
+          {phonesBusy ? "שומר…" : "שמור טלפונים"}
+        </button>
+        {phonesMsg ? (
+          <p className="mt-2 text-xs font-semibold text-accent-primary">{phonesMsg}</p>
+        ) : null}
+      </section>
+
       <select
         value={step}
         onChange={(e) => setStep(e.target.value as typeof step)}

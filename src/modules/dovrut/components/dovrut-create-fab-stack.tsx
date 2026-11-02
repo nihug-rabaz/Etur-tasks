@@ -7,54 +7,42 @@ import { CreateCampaignDrawer } from "@/modules/dovrut/components/create-campaig
 import { CreateItemDrawer } from "@/modules/dovrut/components/create-item-drawer";
 import { CreateProjectDrawer } from "@/modules/dovrut/components/create-project-drawer";
 
-type CarouselAction = "campaign" | "project" | "item" | "task";
-
-const RADIUS = 120;
-const START_DEG = 100;
-const END_DEG = 200;
-const HUB = 56;
+type StackAction = "campaign" | "project" | "item" | "task";
 
 const ACTIONS: Array<{
-  id: CarouselAction;
+  id: StackAction;
   label: string;
   className: string;
 }> = [
   {
     id: "campaign",
     label: "קמפיין",
-    className: "bg-accent-primary shadow-[0_12px_30px_-8px_rgba(139,92,246,0.55)]",
+    className:
+      "bg-accent-primary shadow-[0_10px_28px_-6px_rgba(139,92,246,0.55)] hover:shadow-[0_14px_32px_-6px_rgba(139,92,246,0.65)]",
   },
   {
     id: "project",
     label: "פרויקט",
-    className: "bg-accent-cyan shadow-[0_12px_30px_-8px_rgba(34,184,207,0.55)]",
+    className:
+      "bg-accent-cyan shadow-[0_10px_28px_-6px_rgba(34,184,207,0.55)] hover:shadow-[0_14px_32px_-6px_rgba(34,184,207,0.65)]",
   },
   {
     id: "item",
     label: "אייטם",
-    className: "bg-gradient-to-l from-accent-primary to-accent-cyan shadow-[0_12px_30px_-8px_rgba(139,92,246,0.45)]",
+    className:
+      "bg-gradient-to-l from-accent-primary to-accent-cyan shadow-[0_10px_28px_-6px_rgba(139,92,246,0.45)] hover:shadow-[0_14px_32px_-6px_rgba(139,92,246,0.55)]",
   },
   {
     id: "task",
     label: "משימה",
-    className: "bg-accent-orange shadow-[0_12px_30px_-8px_rgba(251,146,60,0.6)]",
+    className:
+      "bg-accent-orange shadow-[0_10px_28px_-6px_rgba(251,146,60,0.55)] hover:shadow-[0_14px_32px_-6px_rgba(251,146,60,0.7)]",
   },
 ];
 
-function arcPoint(
-  index: number,
-  total: number,
-  radius: number,
-): { x: number; y: number; tilt: number } {
-  const t = total === 1 ? 0.5 : index / (total - 1);
-  const deg = START_DEG + t * (END_DEG - START_DEG);
-  const rad = (deg * Math.PI) / 180;
-  return {
-    x: Math.cos(rad) * radius,
-    y: -Math.sin(rad) * radius,
-    tilt: 180 - deg,
-  };
-}
+/** Vertical stack: actions expand upward, labels open left of the right-side hub. */
+const STEP_Y = 58;
+const OFFSET_X = 8;
 
 export function DovrutCreateFabStack({
   showEntityCreates = true,
@@ -63,13 +51,12 @@ export function DovrutCreateFabStack({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const [hovered, setHovered] = useState<CarouselAction | null>(null);
-  const [drawer, setDrawer] = useState<CarouselAction | null>(null);
+  const [hovered, setHovered] = useState<StackAction | null>(null);
+  const [drawer, setDrawer] = useState<StackAction | null>(null);
   const [compact, setCompact] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clusterRef = useRef<HTMLDivElement | null>(null);
-  const radius = compact ? 88 : RADIUS;
-  const hub = compact ? 48 : HUB;
+  const stepY = compact ? 50 : STEP_Y;
 
   const openFan = () => {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -123,18 +110,18 @@ export function DovrutCreateFabStack({
     return <CreateTaskDrawer floating floatingSide="end" variant="dovrut" triggerLabel="משימה חדשה" />;
   }
 
+  const stackHeight = stepY * ACTIONS.length + 72;
+
   return (
     <>
       <div
         ref={clusterRef}
-        className="pointer-events-none fixed bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)+3.75rem))] right-3 z-[60] h-[220px] w-[220px] sm:bottom-24 sm:right-5 sm:h-[280px] sm:w-[280px]"
+        className="pointer-events-none fixed bottom-[max(5.25rem,calc(env(safe-area-inset-bottom)+3.75rem))] right-3 z-[60] sm:bottom-24 sm:right-5"
+        style={{ height: stackHeight, width: compact ? 168 : 200 }}
       >
-        <div
-          className="absolute"
-          style={{ right: hub / 2, bottom: hub / 2, width: 0, height: 0 }}
-        >
+        <div className="absolute bottom-0 right-0 flex flex-col items-end">
           {ACTIONS.map((action, index) => {
-            const point = arcPoint(index, ACTIONS.length, radius);
+            const fromBottom = (ACTIONS.length - index) * stepY;
             const active = hovered === action.id;
             return (
               <button
@@ -155,36 +142,43 @@ export function DovrutCreateFabStack({
                   collapseFan();
                 }}
                 style={{
+                  bottom: fromBottom,
+                  right: OFFSET_X,
                   transform: expanded
-                    ? `translate(-50%, -50%) translate(${point.x}px, ${point.y}px) rotate(${point.tilt}deg) scale(${active ? 1.1 : 1})`
-                    : "translate(-50%, -50%) scale(0.35)",
+                    ? `translateY(0) scale(${active ? 1.06 : 1})`
+                    : "translateY(12px) scale(0.4)",
                   opacity: expanded ? 1 : 0,
                   pointerEvents: expanded ? "auto" : "none",
+                  transitionDelay: expanded ? `${index * 35}ms` : "0ms",
                   zIndex: active ? 30 : 10 + index,
                 }}
-                className={`absolute left-0 top-0 inline-flex w-fit origin-center items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-bold text-white transition-[transform,opacity,filter,box-shadow] duration-300 ease-out hover:brightness-110 ${action.className}`}
+                className={`pointer-events-auto absolute inline-flex w-fit origin-bottom-right items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2.5 text-sm font-extrabold text-white transition-[transform,opacity,filter,box-shadow] duration-300 ease-out hover:brightness-110 ${action.className}`}
               >
-                {action.label}
-                <Plus size={15} />
+                <span className="drop-shadow-sm">{action.label}</span>
+                <Plus size={16} strokeWidth={2.6} className="shrink-0 opacity-95" />
               </button>
             );
           })}
+          <button
+            type="button"
+            aria-label="פתיחת יצירה"
+            aria-expanded={expanded}
+            onClick={() => {
+              if (closeTimer.current) clearTimeout(closeTimer.current);
+              setPinned(true);
+              setExpanded(true);
+            }}
+            onMouseEnter={openFan}
+            onMouseLeave={scheduleCloseFan}
+            className="pointer-events-auto relative z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent-orange text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.7)] transition duration-300 hover:scale-110 hover:brightness-105 sm:h-14 sm:w-14"
+          >
+            <Plus
+              size={26}
+              strokeWidth={2.4}
+              className={`transition-transform duration-300 ${expanded ? "rotate-45" : ""}`}
+            />
+          </button>
         </div>
-        <button
-          type="button"
-          aria-label="פתיחת יצירה"
-          aria-expanded={expanded}
-          onClick={() => {
-            if (closeTimer.current) clearTimeout(closeTimer.current);
-            setPinned(true);
-            setExpanded(true);
-          }}
-          onMouseEnter={openFan}
-          onMouseLeave={scheduleCloseFan}
-          className="pointer-events-auto absolute bottom-0 right-0 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-accent-orange text-white shadow-[0_12px_30px_-8px_rgba(251,146,60,0.7)] transition duration-300 hover:scale-110 hover:brightness-105 sm:h-14 sm:w-14"
-        >
-          <Plus size={26} strokeWidth={2.4} />
-        </button>
       </div>
       <CreateCampaignDrawer
         hideTrigger

@@ -98,6 +98,9 @@ export interface DovrutConcept {
   rejection_reason: string | null;
   rejected_at_step: string | null;
   last_rejection_date: string | null;
+  last_approval_note?: string | null;
+  briefing_done_at?: string | null;
+  archived_at?: string | null;
   linked_task_id: string | null;
   is_draft: boolean;
   last_opened_at: string | null;

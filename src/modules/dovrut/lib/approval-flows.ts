@@ -32,8 +32,7 @@ export function getNextApprovalStatus(
 ): DovrutApprovalStatus | null {
   const flow = buildApprovalFlow(flags);
   const index = flow.indexOf(current);
-  if (index < 0) return null;
-  if (index >= flow.length - 1) return "approved";
+  if (index < 0 || index >= flow.length - 1) return null;
   return flow[index + 1] ?? null;
 }
 
@@ -61,9 +60,9 @@ export const DOMAIN_LABELS: Record<string, string> = {
 
 export const WORK_STATUS_LABELS: Record<DovrutWorkStatus, string> = {
   planning: "תכנון",
-  production: "ביצוע",
   waiting_approvals: "ממתין לאישורים",
-  approved: "מאושר",
+  production: "ביצוע",
+  approved: "פורסם",
 };
 
 export const WORK_STATUS_ARTICLE_LABELS = WORK_STATUS_LABELS;
@@ -71,7 +70,7 @@ export const WORK_STATUS_SOCIAL_LABELS = WORK_STATUS_LABELS;
 
 export const WORK_STATUS_ORDER: DovrutWorkStatus[] = [
   "planning",
-  "production",
   "waiting_approvals",
+  "production",
   "approved",
 ];

@@ -250,9 +250,26 @@ export class TaskService extends BaseService {
     return rows[0] ?? null;
   }
 
-  public async updateStatus(taskId: string, status: TaskStatus): Promise<void> {
+  public async updateStatus(
+    taskId: string,
+    status: TaskStatus,
+    options?: { source?: "concept" | "task" },
+  ): Promise<void> {
     const db = this.getDb();
+    const previousRows = await db<Array<{ status: TaskStatus }>>`
+      select status from tasks where id = ${taskId} limit 1
+    `;
+    const previousStatus = previousRows[0]?.status ?? null;
     await db`update tasks set status = ${status}, updated_at = now() where id = ${taskId}`;
+    if (options?.source !== "concept") {
+      const { syncConceptFromTaskStatus } = await import(
+        "@/modules/dovrut/lib/task-status-sync"
+      );
+      await syncConceptFromTaskStatus(taskId, status, {
+        source: options?.source ?? "task",
+        previousStatus,
+      });
+    }
   }
 
   public async delete(taskId: string): Promise<void> {

@@ -1,4 +1,5 @@
 import { BaseService } from "@/services/base.service";
+import { AppUrls } from "@/lib/urls/app-urls";
 import {
   DEFAULT_APPROVAL_FLAGS,
   getInitialApprovalStatus,
@@ -7,6 +8,8 @@ import {
 } from "@/modules/dovrut/lib/approval-flows";
 import type { DovrutListScope } from "@/modules/dovrut/lib/record-scope";
 import { DovrutProjectService } from "@/modules/dovrut/services/project.service";
+import { ModuleRoleService } from "@/shared/services/module-role.service";
+import { OneSignalService } from "@/services/onesignal.service";
 import type {
   DovrutActivityLog,
   DovrutApprovalStatus,
@@ -50,9 +53,11 @@ export class DovrutConceptService extends BaseService {
         and (
           ${scope} = 'deleted' and c.deleted_at is not null
           or ${scope} = 'drafts' and c.deleted_at is null and c.is_draft
+            and c.archived_at is null
           or ${scope} = 'working' and c.deleted_at is null
+            and c.archived_at is null
             and (not c.is_draft or ${projectId}::uuid is not null)
-          or ${scope} = 'archived' and false
+          or ${scope} = 'archived' and c.archived_at is not null and c.deleted_at is null
         )
         and (
           ${!(filters?.activeOnly ?? false)}::boolean
@@ -261,10 +266,27 @@ export class DovrutConceptService extends BaseService {
         linked_task_id = ${
           patch.linked_task_id !== undefined ? patch.linked_task_id : existing.linked_task_id
         },
+        briefing_done_at = ${
+          patch.briefing_done_at !== undefined ? patch.briefing_done_at : existing.briefing_done_at ?? null
+        },
+        archived_at = ${
+          patch.archived_at !== undefined ? patch.archived_at : existing.archived_at ?? null
+        },
+        last_approval_note = ${
+          patch.last_approval_note !== undefined
+            ? patch.last_approval_note
+            : existing.last_approval_note ?? null
+        },
         updated_at = now()
       where id = ${id}
       returning *
     `;
+    if (
+      patch.linked_task_id !== undefined &&
+      patch.linked_task_id !== existing.linked_task_id
+    ) {
+      await this.syncTaskConceptLink(id, existing.linked_task_id, patch.linked_task_id);
+    }
     await this.writeLog({
       concept_id: id,
       project_id: existing.project_id,
@@ -281,31 +303,10 @@ export class DovrutConceptService extends BaseService {
     status: DovrutWorkStatus,
     actorName: string,
     actorEmail?: string | null,
+    options?: { source?: "concept" | "task" },
   ): Promise<DovrutConcept | null> {
-    const existing = await this.getById(id);
-    if (!existing || existing.deleted_at) return null;
-    const db = this.getDb();
-    const isArticle = existing.type === "article_interview";
-    const rows = await db<DovrutConcept[]>`
-      update dovrut_concepts set
-        work_status_article = ${isArticle ? status : existing.work_status_article},
-        work_status_social = ${isArticle ? existing.work_status_social : status},
-        updated_at = now()
-      where id = ${id} and deleted_at is null
-      returning *
-    `;
-    await this.writeLog({
-      concept_id: id,
-      project_id: existing.project_id,
-      action_type: "status_changed",
-      field_changed: isArticle ? "work_status_article" : "work_status_social",
-      old_value: (isArticle ? existing.work_status_article : existing.work_status_social) ?? null,
-      new_value: status,
-      details: "שינוי סטטוס עבודה",
-      user_name: actorName,
-      user_email: actorEmail ?? null,
-    });
-    return rows[0] ? this.withProjectName(rows[0], existing.project_name) : null;
+    // Prefer setWorkStatus so waiting_approvals seeds approval_status + task sync.
+    return this.setWorkStatus(id, status, actorName, actorEmail, options);
   }
 
   private withProjectName(row: DovrutConcept, projectName?: string): DovrutConcept {
@@ -381,12 +382,18 @@ export class DovrutConceptService extends BaseService {
     conceptId: string;
     action: "approve" | "reject";
     approvalStep: DovrutApprovalStatus;
+    notes: string;
     rejectionReason?: string;
     actorName: string;
     actorEmail?: string | null;
   }): Promise<DovrutConcept> {
+    const notes = input.notes?.trim() ?? "";
+    if (!notes) throw new Error("Notes are required");
+
     const concept = await this.getById(input.conceptId);
     if (!concept) throw new Error("Concept not found");
+    if (concept.deleted_at) throw new Error("Concept deleted");
+    if (concept.archived_at) throw new Error("Concept archived");
     if (concept.type !== "article_interview") throw new Error("Concept has no approval flow");
     if (concept.approval_status !== input.approvalStep) {
       throw new Error("Approval step mismatch");
@@ -400,9 +407,13 @@ export class DovrutConceptService extends BaseService {
         approval_status: next,
         rejection_reason: "",
         rejected_at_step: "",
+        last_approval_note: notes,
       };
+      // Full chain approved → ביצוע (production), not פורסם
       if (next === "approved") {
-        patch.work_status_article = "approved";
+        patch.work_status_article = "production";
+      } else if (concept.work_status_article === "planning") {
+        patch.work_status_article = "waiting_approvals";
       }
       const updated = await this.update(concept.id, patch, input.actorName, input.actorEmail);
       await this.writeLog({
@@ -412,12 +423,22 @@ export class DovrutConceptService extends BaseService {
         field_changed: "approval_status",
         old_value: input.approvalStep,
         new_value: next,
-        details: "אישור",
+        details: notes || "אישור",
         user_name: input.actorName,
         user_email: input.actorEmail ?? null,
       });
+      if (next === "approved") {
+        await this.notifyAdminsOfFullApproval(updated!);
+        const { syncLinkedTaskFromConcept } = await import(
+          "@/modules/dovrut/lib/task-status-sync"
+        );
+        await syncLinkedTaskFromConcept(updated!);
+      }
       return updated!;
     }
+
+    const rejectionReason = input.rejectionReason?.trim() ?? "";
+    if (!rejectionReason) throw new Error("Rejection reason is required");
 
     const reset = getInitialApprovalStatus(flags);
     const updated = await this.update(
@@ -425,9 +446,10 @@ export class DovrutConceptService extends BaseService {
       {
         approval_status: reset,
         work_status_article: "planning",
-        rejection_reason: input.rejectionReason ?? "",
+        rejection_reason: rejectionReason,
         rejected_at_step: input.approvalStep,
         last_rejection_date: new Date().toISOString(),
+        last_approval_note: notes,
       },
       input.actorName,
       input.actorEmail,
@@ -439,11 +461,99 @@ export class DovrutConceptService extends BaseService {
       field_changed: "approval_status",
       old_value: input.approvalStep,
       new_value: reset,
-      details: input.rejectionReason ?? "דחייה",
+      details: `${rejectionReason} · ${notes}`,
       user_name: input.actorName,
       user_email: input.actorEmail ?? null,
     });
+    if (updated) {
+      const { syncLinkedTaskFromConcept } = await import(
+        "@/modules/dovrut/lib/task-status-sync"
+      );
+      await syncLinkedTaskFromConcept(updated);
+    }
     return updated!;
+  }
+
+  public async markBriefingDone(
+    id: string,
+    actorName: string,
+    actorEmail?: string | null,
+  ): Promise<DovrutConcept | null> {
+    return this.update(
+      id,
+      { briefing_done_at: new Date().toISOString() },
+      actorName,
+      actorEmail,
+    );
+  }
+
+  public async publishWithLink(
+    id: string,
+    link: string,
+    actorName: string,
+    actorEmail?: string | null,
+  ): Promise<DovrutConcept | null> {
+    const existing = await this.getById(id);
+    if (!existing || existing.deleted_at) return null;
+    const trimmed = link.trim();
+    if (!trimmed) throw new Error("Link is required");
+    const patch: Partial<DovrutConcept> =
+      existing.type === "article_interview"
+        ? { link: trimmed, work_status_article: "approved" }
+        : { work_status_social: "approved" };
+    const updated = await this.update(id, patch, actorName, actorEmail);
+    if (updated) {
+      const { syncLinkedTaskFromConcept } = await import(
+        "@/modules/dovrut/lib/task-status-sync"
+      );
+      await syncLinkedTaskFromConcept(updated);
+    }
+    return updated;
+  }
+
+  public async archive(
+    id: string,
+    actorName: string,
+    actorEmail?: string | null,
+  ): Promise<DovrutConcept | null> {
+    const existing = await this.getById(id);
+    if (!existing || existing.deleted_at) return null;
+    const patch: Partial<DovrutConcept> = {
+      archived_at: new Date().toISOString(),
+    };
+    if (existing.link) {
+      if (existing.type === "article_interview") {
+        patch.work_status_article = "approved";
+      } else {
+        patch.work_status_social = "approved";
+      }
+    }
+    const updated = await this.update(id, patch, actorName, actorEmail);
+    if (updated) {
+      const { syncLinkedTaskFromConcept } = await import(
+        "@/modules/dovrut/lib/task-status-sync"
+      );
+      await syncLinkedTaskFromConcept(updated);
+    }
+    return updated;
+  }
+
+  public async notifyAdminsOfFullApproval(concept: DovrutConcept): Promise<void> {
+    try {
+      const users = await new ModuleRoleService().listModuleUsers("dovrut");
+      const adminIds = users.filter((u) => u.role === "admin").map((u) => u.user_id);
+      if (adminIds.length === 0) return;
+      const origin = AppUrls.getOrigin();
+      const url = origin ? `${origin}/dovrut/items/${concept.id}` : undefined;
+      const text = [
+        "דוברות · אושר לביצוע",
+        concept.name,
+        "כל שלבי האישור הושלמו — ניתן להמשיך לביצוע/פרסום.",
+      ].join("\n");
+      await new OneSignalService().sendDirectMessages(adminIds, text, url);
+    } catch (error) {
+      console.error("[dovrut-approval-notify]", error);
+    }
   }
 
   public async listActivity(conceptId: string): Promise<DovrutActivityLog[]> {
@@ -461,7 +571,45 @@ export class DovrutConceptService extends BaseService {
     actorName: string,
     actorEmail?: string | null,
   ): Promise<DovrutConcept | null> {
-    return this.update(conceptId, { linked_task_id: taskId }, actorName, actorEmail);
+    const existing = await this.getById(conceptId);
+    if (!existing) return null;
+    await this.syncTaskConceptLink(conceptId, existing.linked_task_id, taskId);
+    const updated = await this.update(
+      conceptId,
+      { linked_task_id: taskId },
+      actorName,
+      actorEmail,
+    );
+    if (updated) {
+      const { syncLinkedTaskFromConcept } = await import(
+        "@/modules/dovrut/lib/task-status-sync"
+      );
+      await syncLinkedTaskFromConcept(updated);
+    }
+    return updated;
+  }
+
+  /** Keep tasks.dovrut_concept_id in sync with concepts.linked_task_id. */
+  private async syncTaskConceptLink(
+    conceptId: string,
+    previousTaskId: string | null | undefined,
+    nextTaskId: string | null,
+  ): Promise<void> {
+    const db = this.getDb();
+    if (previousTaskId && previousTaskId !== nextTaskId) {
+      await db`
+        update tasks
+        set dovrut_concept_id = null, updated_at = now()
+        where id = ${previousTaskId} and dovrut_concept_id = ${conceptId}
+      `;
+    }
+    if (nextTaskId) {
+      await db`
+        update tasks
+        set dovrut_concept_id = ${conceptId}, origin = 'dovrut', updated_at = now()
+        where id = ${nextTaskId}
+      `;
+    }
   }
 
   private async writeLog(input: {
@@ -499,16 +647,26 @@ export class DovrutConceptService extends BaseService {
     status: DovrutWorkStatus,
     actorName: string,
     actorEmail?: string | null,
+    options?: { source?: "concept" | "task" },
   ): Promise<DovrutConcept | null> {
     const existing = await this.getById(id);
     if (!existing) return null;
+    let updated: DovrutConcept | null;
     if (existing.type === "article_interview") {
       const patch: Partial<DovrutConcept> = { work_status_article: status };
       if (status === "waiting_approvals" && !existing.approval_status) {
         patch.approval_status = getInitialApprovalStatus(flagsFromConcept(existing));
       }
-      return this.update(id, patch, actorName, actorEmail);
+      updated = await this.update(id, patch, actorName, actorEmail);
+    } else {
+      updated = await this.update(id, { work_status_social: status }, actorName, actorEmail);
     }
-    return this.update(id, { work_status_social: status }, actorName, actorEmail);
+    if (updated) {
+      const { syncLinkedTaskFromConcept } = await import(
+        "@/modules/dovrut/lib/task-status-sync"
+      );
+      await syncLinkedTaskFromConcept(updated, { source: options?.source });
+    }
+    return updated;
   }
 }

@@ -11,6 +11,26 @@ export class DovrutAudienceMessageService extends BaseService {
     `;
   }
 
+  /** Messages whose audience is in `audiences` and domain is null or in `domains`. */
+  public async listByAudiencesDomains(
+    audiences: string[],
+    domains: Array<DovrutDomain | string>,
+  ): Promise<DovrutAudienceMessage[]> {
+    if (audiences.length === 0) return [];
+    const db = this.getDb();
+    const domainList = domains.filter(Boolean);
+    return db<DovrutAudienceMessage[]>`
+      select * from dovrut_audience_messages
+      where audience = any(${audiences}::text[])
+        and (
+          domain is null
+          or ${domainList.length} = 0
+          or domain = any(${domainList}::text[])
+        )
+      order by updated_at desc
+    `;
+  }
+
   public async create(input: {
     audience: string;
     domain?: DovrutDomain | null;

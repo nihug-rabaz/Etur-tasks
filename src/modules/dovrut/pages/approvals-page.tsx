@@ -8,10 +8,17 @@ import { APPROVAL_STATUS_LABELS, DOMAIN_LABELS } from "@/modules/dovrut/lib/appr
 
 const STEPS: Array<{ id: "all" | DovrutApprovalStatus; label: string }> = [
   { id: "all", label: "הכל" },
+  { id: "waiting_branch_head", label: "רמ״ח" },
   { id: "waiting_deputy_commander", label: "רמ״ט" },
   { id: "waiting_chief_rabbi", label: "רבצ״ר" },
-  { id: "waiting_branch_head", label: "רמ״ח" },
 ];
+
+function shortBlurb(text: string | null | undefined, max = 140): string {
+  const value = (text ?? "").trim();
+  if (!value) return "";
+  if (value.length <= max) return value;
+  return `${value.slice(0, max - 1)}…`;
+}
 
 export function DovrutApprovalsPage() {
   const searchParams = useSearchParams();
@@ -22,6 +29,7 @@ export function DovrutApprovalsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("item"));
   const [code, setCode] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [approvedChief, setApprovedChief] = useState<DovrutConcept[]>([]);
@@ -46,10 +54,21 @@ export function DovrutApprovalsPage() {
       setApprovedChief([]);
       return;
     }
-    const response = await fetch("/api/dovrut/concepts?approvalStatus=approved");
+    const response = await fetch(
+      "/api/dovrut/concepts?approvalStatus=approved&activeOnly=1",
+    );
     const data = await response.json();
     const rows = Array.isArray(data.concepts) ? (data.concepts as DovrutConcept[]) : [];
-    setApprovedChief(rows.filter((row) => row.requires_chief_rabbi).slice(0, 12));
+    setApprovedChief(
+      rows
+        .filter(
+          (row) =>
+            row.requires_chief_rabbi &&
+            row.work_status_article === "production" &&
+            !row.archived_at,
+        )
+        .slice(0, 12),
+    );
   }, [step]);
 
   useEffect(() => {
@@ -102,6 +121,14 @@ export function DovrutApprovalsPage() {
 
   const act = async (action: "approve" | "reject") => {
     if (!selected?.approval_status) return;
+    if (!notes.trim()) {
+      setError("יש להזין הערה");
+      return;
+    }
+    if (action === "reject" && !rejectionReason.trim()) {
+      setError("יש להזין סיבת דחייה");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -111,7 +138,8 @@ export function DovrutApprovalsPage() {
         body: JSON.stringify({
           action,
           approvalStep: selected.approval_status,
-          rejectionReason: action === "reject" ? rejectionReason : undefined,
+          notes: notes.trim(),
+          rejectionReason: action === "reject" ? rejectionReason.trim() : undefined,
         }),
       });
       const data = await response.json();
@@ -120,8 +148,50 @@ export function DovrutApprovalsPage() {
         return;
       }
       setRejectionReason("");
+      setNotes("");
       await loadQueue();
       setSelectedId(data.concept?.id ?? selected.id);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approveAll = async () => {
+    const queue = concepts.filter(
+      (row) => row.approval_status && row.approval_status !== "approved",
+    );
+    if (queue.length === 0) {
+      setError("אין אייטמים לאישור בתור המסונן");
+      return;
+    }
+    if (!notes.trim()) {
+      setError("יש להזין הערה משותפת לפני ״אשר הכול״");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    let failed = 0;
+    try {
+      for (const row of queue) {
+        if (!row.approval_status) continue;
+        const response = await fetch(`/api/dovrut/concepts/${row.id}/approval`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "approve",
+            approvalStep: row.approval_status,
+            notes: notes.trim(),
+          }),
+        });
+        if (!response.ok) failed += 1;
+      }
+      setNotes("");
+      setRejectionReason("");
+      await loadQueue();
+      setSelectedId(null);
+      if (failed > 0) {
+        setError(`${failed} אישורים נכשלו מתוך ${queue.length}`);
+      }
     } finally {
       setBusy(false);
     }
@@ -144,10 +214,10 @@ export function DovrutApprovalsPage() {
               setSelectedId(null);
             }}
             className={`rounded-full px-3 py-1.5 text-xs font-bold ${
- step === item.id
- ? "bg-accent-primary text-white"
- : "bg-surface-2 text-text-primary "
- }`}
+              step === item.id
+                ? "bg-accent-primary text-white"
+                : "bg-surface-2 text-text-primary"
+            }`}
           >
             {item.label}
           </button>
@@ -181,10 +251,10 @@ export function DovrutApprovalsPage() {
                 type="button"
                 onClick={() => setSelectedId(concept.id)}
                 className={`w-full min-w-0 overflow-hidden rounded-xl border px-4 py-3 text-start ${
- selectedId === concept.id
- ? "border-accent-primary/40 bg-accent-primary/10 dark:bg-accent-primary/10"
- : "bg-surface-1 shadow-[var(--shadow-soft)]"
- }`}
+                  selectedId === concept.id
+                    ? "border-accent-primary/40 bg-accent-primary/10 dark:bg-accent-primary/10"
+                    : "bg-surface-1 shadow-[var(--shadow-soft)]"
+                }`}
               >
                 <p className="break-words text-sm font-bold">{concept.name}</p>
                 <p className="text-[11px] text-text-muted">
@@ -193,6 +263,16 @@ export function DovrutApprovalsPage() {
                     ? ` · ${APPROVAL_STATUS_LABELS[concept.approval_status]}`
                     : ""}
                 </p>
+                {(concept.interviewees ?? []).length > 0 ? (
+                  <p className="mt-1 text-[11px] text-text-secondary">
+                    מרואיינים: {(concept.interviewees ?? []).join(", ")}
+                  </p>
+                ) : null}
+                {shortBlurb(concept.details) ? (
+                  <p className="mt-1 line-clamp-2 text-[11px] text-text-muted">
+                    {shortBlurb(concept.details)}
+                  </p>
+                ) : null}
               </button>
             </li>
           ))}
@@ -214,16 +294,29 @@ export function DovrutApprovalsPage() {
                   ? APPROVAL_STATUS_LABELS[selected.approval_status]
                   : "אין ציר אישורים"}
               </p>
+              {(selected.interviewees ?? []).length > 0 ? (
+                <p className="mt-2 text-sm text-text-secondary">
+                  <span className="font-bold">מרואיינים: </span>
+                  {(selected.interviewees ?? []).join(", ")}
+                </p>
+              ) : null}
               {selected.details ? (
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm text-text-secondary">
                   {selected.details}
                 </p>
               ) : null}
               <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="הערה (חובה)"
+                required
+                className="mt-4 min-h-20 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
+              />
+              <textarea
                 value={rejectionReason}
                 onChange={(event) => setRejectionReason(event.target.value)}
-                placeholder="סיבת דחייה (אם רלוונטי)"
-                className="mt-4 min-h-20 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
+                placeholder="סיבת דחייה (חובה בדחייה)"
+                className="mt-2 min-h-16 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
               />
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
@@ -254,6 +347,17 @@ export function DovrutApprovalsPage() {
             <p className="py-10 text-center text-sm text-text-muted">בחרו אייטם מהתור</p>
           )}
         </div>
+      </div>
+
+      <div className="sticky bottom-3 z-10 flex justify-center">
+        <button
+          type="button"
+          disabled={busy || concepts.length === 0}
+          onClick={() => void approveAll()}
+          className="rounded-2xl bg-emerald-700 px-6 py-3 text-sm font-extrabold text-white shadow-lg transition hover:brightness-110 disabled:opacity-40"
+        >
+          אשר הכול ({concepts.filter((c) => c.approval_status && c.approval_status !== "approved").length})
+        </button>
       </div>
 
       {step === "waiting_chief_rabbi" && approvedChief.length > 0 ? (
