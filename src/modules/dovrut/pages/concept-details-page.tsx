@@ -728,6 +728,12 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
             <p className="mt-1 whitespace-pre-wrap text-sm">{concept.details}</p>
           </div>
         ) : null}
+        {notes.trim() ? (
+          <div className="mt-4 break-inside-avoid">
+            <h2 className="text-base font-bold">הערות / דגשים לתדרוך</h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">{notes}</p>
+          </div>
+        ) : null}
         {briefingInterviewees.length > 0 ? (
           <div className="mt-4 break-inside-avoid">
             <h2 className="text-base font-bold">מרואיינים — סיכום</h2>
@@ -749,12 +755,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
                       לא נמצא כרטיס גורם תחקור תואם לשם זה.
                     </p>
                   )}
-                  {row.notes ? (
-                    <div className="mt-2 border-t border-neutral-200 pt-2">
-                      <p className="text-xs font-bold">הערות</p>
-                      <p className="mt-1 whitespace-pre-wrap">{row.notes}</p>
-                    </div>
-                  ) : null}
                 </li>
               ))}
             </ul>
