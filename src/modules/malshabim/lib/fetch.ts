@@ -34,7 +34,15 @@ export async function malshabimFetch<T>(
         : response.status === 503
           ? "השירות אינו זמין כרגע"
           : "הבקשה נכשלה";
-    throw new Error((data && typeof data === "object" && data.error) || fallback);
+    const message =
+      (data && typeof data === "object" && data.error) || fallback;
+    const error = new Error(message) as Error & {
+      status?: number;
+      body?: unknown;
+    };
+    error.status = response.status;
+    error.body = data;
+    throw error;
   }
   return data;
 }

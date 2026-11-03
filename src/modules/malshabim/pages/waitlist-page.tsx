@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Loader2, Phone, Plus, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Loader2,
+  Phone,
+  Plus,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
@@ -22,6 +31,14 @@ function canEditRole(role: ModuleRole | null): boolean {
   return role === "admin" || role === "user";
 }
 
+type DuplicatePopup = {
+  message: string;
+  kind?: "waitlist" | "candidate";
+  id?: string;
+  fullName?: string;
+  serialNumber?: number | null;
+};
+
 export function MalshabimWaitlistPage({
   initialEntries = [],
   initialRole = null,
@@ -39,6 +56,7 @@ export function MalshabimWaitlistPage({
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(openForm);
+  const [duplicatePopup, setDuplicatePopup] = useState<DuplicatePopup | null>(null);
 
   const canEdit = canEditRole(role);
 
@@ -86,6 +104,32 @@ export function MalshabimWaitlistPage({
       toast.success("נשמר ברשימת מחכים לראיון");
     } catch (error) {
       const message = error instanceof Error ? error.message : "שמירה נכשלה";
+      const apiError = error as Error & {
+        status?: number;
+        body?: {
+          duplicate?: {
+            kind?: "waitlist" | "candidate";
+            id?: string;
+            full_name?: string;
+            serial_number?: number | null;
+          };
+        };
+      };
+      if (
+        apiError.status === 409 ||
+        message.includes("כפילות") ||
+        message.includes("כבר קיים")
+      ) {
+        const dup = apiError.body?.duplicate;
+        setDuplicatePopup({
+          message,
+          kind: dup?.kind,
+          id: dup?.id,
+          fullName: dup?.full_name,
+          serialNumber: dup?.serial_number,
+        });
+        return;
+      }
       toast.error(message);
     } finally {
       setSaving(false);
@@ -240,6 +284,41 @@ export function MalshabimWaitlistPage({
           </ul>
         </div>
       )}
+
+      {duplicatePopup ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`${panelClass} max-w-md p-6`} dir="rtl" role="dialog" aria-modal="true">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-rose-600">
+              <AlertTriangle className="h-5 w-5" /> נתון כפול במערכת
+            </h2>
+            <p className="mt-3 text-sm text-text-secondary">{duplicatePopup.message}</p>
+            {duplicatePopup.kind === "candidate" && duplicatePopup.serialNumber != null ? (
+              <p className="mt-2 text-sm font-medium text-text-primary">
+                פתרון: פתחו את תיק #{duplicatePopup.serialNumber}
+                {duplicatePopup.fullName ? ` (${duplicatePopup.fullName})` : ""} במקום פנייה חדשה.
+              </p>
+            ) : null}
+            <div className="mt-5 flex flex-wrap gap-2">
+              {duplicatePopup.kind === "candidate" && duplicatePopup.id ? (
+                <Link
+                  href={`/malshabim/candidates/${duplicatePopup.id}`}
+                  className={primaryButtonClass}
+                  onClick={() => setDuplicatePopup(null)}
+                >
+                  פתח תיק קיים
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                onClick={() => setDuplicatePopup(null)}
+              >
+                הבנתי, אתקן
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

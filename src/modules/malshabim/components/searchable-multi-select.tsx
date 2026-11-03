@@ -49,6 +49,16 @@ export function SearchableMultiSelect({
     setMounted(true);
   }, []);
 
+  const showSearch = options.length > 5;
+  const estimatedContentHeight = useMemo(() => {
+    const header = showSearch ? 108 : 44;
+    const row = 44;
+    const listPad = 12;
+    const footer = value.length > 0 ? 56 : 0;
+    const rows = Math.max(filtered.length, 1);
+    return header + rows * row + listPad + footer;
+  }, [filtered.length, showSearch, value.length]);
+
   const syncMenuPosition = () => {
     const el = triggerRef.current;
     if (!el) return;
@@ -56,17 +66,17 @@ export function SearchableMultiSelect({
     const gap = 8;
     const margin = 12;
     const maxPanel = 380;
-    const minPanel = 180;
     const spaceBelow = window.innerHeight - r.bottom - gap - margin;
     const spaceAbove = r.top - gap - margin;
-    const openUp = spaceBelow < minPanel && spaceAbove > spaceBelow;
-    const available = Math.max(160, openUp ? spaceAbove : spaceBelow);
-    const panelHeight = Math.min(maxPanel, available);
+    const preferred = Math.min(maxPanel, estimatedContentHeight);
+    const openUp = spaceBelow < preferred && spaceAbove > spaceBelow;
+    const available = Math.max(120, openUp ? spaceAbove : spaceBelow);
+    const panelHeight = Math.min(preferred, available);
     const width = Math.max(r.width, menuMinWidth);
     const left = Math.min(Math.max(margin, r.left), window.innerWidth - width - margin);
     const top = openUp
       ? Math.max(margin, r.top - gap - panelHeight)
-      : Math.min(r.bottom + gap, window.innerHeight - panelHeight - margin);
+      : r.bottom + gap;
     setMenuRect({ top, left, width, maxH: panelHeight });
   };
 
@@ -84,16 +94,17 @@ export function SearchableMultiSelect({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
-  }, [open, menuMinWidth]);
+  }, [open, menuMinWidth, estimatedContentHeight]);
 
   useEffect(() => {
     if (!open) {
       setSearchQuery("");
       return;
     }
+    if (!showSearch) return;
     const timer = window.setTimeout(() => searchInputRef.current?.focus(), 0);
     return () => window.clearTimeout(timer);
-  }, [open]);
+  }, [open, showSearch]);
 
   useEffect(() => {
     if (!open) return;
@@ -153,26 +164,28 @@ export function SearchableMultiSelect({
         top: menuRect.top,
         left: menuRect.left,
         width: menuRect.width,
-        height: menuRect.maxH,
+        maxHeight: menuRect.maxH,
         zIndex: 20000,
       }}
       className="flex flex-col overflow-hidden rounded-2xl border border-border-weak bg-surface-1 shadow-[0_18px_50px_rgba(2,6,23,0.22)]"
     >
       <div className="shrink-0 space-y-2 border-b border-border-weak/80 p-3">
-        <div className="relative">
-          <Search
-            size={16}
-            className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted"
-          />
-          <input
-            ref={searchInputRef}
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="חיפוש..."
-            className="w-full rounded-xl border border-border-weak bg-surface-2/70 py-2.5 ps-9 pe-3 text-sm text-text-primary outline-none transition focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/20"
-          />
-        </div>
+        {showSearch ? (
+          <div className="relative">
+            <Search
+              size={16}
+              className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-text-muted"
+            />
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="חיפוש..."
+              className="w-full rounded-xl border border-border-weak bg-surface-2/70 py-2.5 ps-9 pe-3 text-sm text-text-primary outline-none transition focus:border-accent-primary/50 focus:ring-2 focus:ring-accent-primary/20"
+            />
+          </div>
+        ) : null}
         <div className="flex items-center justify-between gap-2 px-0.5 text-xs">
           <span className="font-medium text-text-muted">
             {options.length} אפשרויות · נבחרו {value.length}
@@ -199,7 +212,7 @@ export function SearchableMultiSelect({
           </div>
         </div>
       </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1.5">
+      <ul className="min-h-0 overflow-y-auto overscroll-contain py-1.5">
         {filtered.length === 0 ? (
           <li className="px-4 py-8 text-center text-sm text-text-muted">לא נמצאו תוצאות</li>
         ) : (

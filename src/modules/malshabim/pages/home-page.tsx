@@ -12,8 +12,10 @@ import {
   LayoutGrid,
   List,
   Loader2,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   Upload,
   UserRoundSearch,
   X,
@@ -48,6 +50,7 @@ import {
   panelClass,
   primaryButtonClass,
   searchClass,
+  secondaryButtonClass,
   selectClass,
   tableHeadClass,
   tableRowClass,
@@ -120,6 +123,8 @@ export function MalshabimHomePage({
   const [importing, setImporting] = useState(false);
   const [candidates, setCandidates] = useState(initialCandidates);
   const [filesOpen, setFilesOpen] = useState(true);
+  const [draftsOpen, setDraftsOpen] = useState(false);
+  const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [filesSearchOpen, setFilesSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -350,6 +355,21 @@ export function MalshabimHomePage({
     }
   };
 
+  const deleteDraft = async (id: string) => {
+    if (!canEdit) return;
+    if (!window.confirm("למחוק את הראיון שלא הושלם?")) return;
+    setDeletingDraftId(id);
+    try {
+      await malshabimFetch(`/api/malshabim/candidates/${id}`, { method: "DELETE" });
+      setCandidates((list) => list.filter((row) => row.id !== id));
+      toast.success("נמחק");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "מחיקה נכשלה");
+    } finally {
+      setDeletingDraftId(null);
+    }
+  };
+
   const actionCardClass =
     "flex min-h-[108px] flex-col justify-between rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4";
   const sideTileBase =
@@ -447,9 +467,10 @@ export function MalshabimHomePage({
           ) : null}
         </div>
 
-        {/* Cards (right) + action tiles (left) */}
-        <div className="flex flex-col gap-3 p-4 sm:p-6 md:flex-row md:items-stretch md:gap-3">
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Two workflow columns + side action tiles */}
+        <div className="flex flex-col gap-3 p-4 sm:p-5 md:flex-row md:items-stretch md:gap-3">
+          {/* Interview flow (visual right in RTL) */}
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
             {canEdit ? (
               <Link href="/malshabim/interview" className={actionCardClass}>
                 <span className="w-fit rounded-xl bg-accent-primary/15 p-2.5 text-accent-primary">
@@ -471,6 +492,25 @@ export function MalshabimHomePage({
                 </div>
               </div>
             )}
+            <Link
+              href="/malshabim/admin/approvals"
+              className="flex min-h-[108px] flex-1 items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/15 text-emerald-700">
+                <ClipboardCheck className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-muted">אישור או דחייה</p>
+                <p className="text-sm font-black text-text-primary sm:text-base">מחכים לאישור מנהל</p>
+                <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+                  {pendingApprovalCount ?? "—"}
+                </p>
+              </div>
+            </Link>
+          </div>
+
+          {/* Waitlist flow */}
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
             {canEdit ? (
               <Link href="/malshabim/waitlist?new=1" className={actionCardClass}>
                 <span className="w-fit rounded-xl bg-violet-600/15 p-2.5 text-violet-700">
@@ -493,23 +533,8 @@ export function MalshabimHomePage({
               </div>
             )}
             <Link
-              href="/malshabim/admin/approvals"
-              className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/15 text-emerald-700">
-                <ClipboardCheck className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-text-muted">אישור או דחייה</p>
-                <p className="text-sm font-black text-text-primary sm:text-base">מחכים לאישור מנהל</p>
-                <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
-                  {pendingApprovalCount ?? "—"}
-                </p>
-              </div>
-            </Link>
-            <Link
               href="/malshabim/waitlist"
-              className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
+              className="flex min-h-[108px] flex-1 items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
             >
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700">
                 <UserRoundSearch className="h-5 w-5" />
@@ -524,7 +549,8 @@ export function MalshabimHomePage({
             </Link>
           </div>
 
-          <div className="flex w-full shrink-0 flex-col gap-3 md:w-40 lg:w-44">
+          {/* Side actions */}
+          <div className="flex w-full shrink-0 flex-col gap-3 md:w-36 lg:w-40">
             <Link href="/malshabim/board" className={blueTileClass}>
               <KanbanSquare className="h-5 w-5" />
               <span>טבלת עבודה</span>
@@ -563,21 +589,79 @@ export function MalshabimHomePage({
         </div>
       </section>
 
-      {/* Separate tab above candidate files */}
-      <Link
-        href="/malshabim/drafts"
-        className={`${cardClass} flex items-center justify-between gap-3 border border-border-weak bg-surface-1 px-4 py-4 transition hover:border-accent-primary/40 hover:shadow-md sm:px-5`}
-      >
-        <div>
-          <p className="text-base font-black text-text-primary">
-            ראיונות שלא הושלמו
-          </p>
-          <p className="mt-0.5 text-xs font-medium text-text-muted">
-            {drafts.length > 0 ? `${drafts.length} טיוטות שמורות` : "אין טיוטות כרגע"}
-          </p>
-        </div>
-        <ChevronLeft className="h-5 w-5 text-text-muted" />
-      </Link>
+      {/* Drafts — collapsible like candidate files */}
+      <section className={`${panelClass} relative z-20 min-w-0 overflow-visible`}>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 p-4 text-right sm:p-5"
+          onClick={() => setDraftsOpen((open) => !open)}
+          aria-expanded={draftsOpen}
+        >
+          <div>
+            <h2 className="text-lg font-black text-text-primary">ראיונות שלא הושלמו</h2>
+            <p className="text-xs font-medium text-text-muted">
+              {drafts.length > 0 ? `${drafts.length} טיוטות שמורות` : "אין טיוטות כרגע"}
+            </p>
+          </div>
+          {draftsOpen ? (
+            <ChevronUp className="h-5 w-5 text-text-muted" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-text-muted" />
+          )}
+        </button>
+
+        {draftsOpen ? (
+          <div className="space-y-3 border-t border-border-weak p-4 sm:p-5">
+            {drafts.length === 0 ? (
+              <p className={emptyStateClass}>אין ראיונות שלא הושלמו</p>
+            ) : (
+              <ul className="divide-y divide-border-weak overflow-hidden rounded-2xl border border-border-weak bg-surface-1">
+                {drafts.map((c) => (
+                  <li
+                    key={c.id}
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-text-primary">{c.full_name || "ללא שם"}</p>
+                      <p className="text-xs font-medium text-text-muted">
+                        שלב {(c.draft_step ?? 0) + 1} · {c.phone || "—"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canEdit ? (
+                        <>
+                          <Link
+                            href={`/malshabim/interview?id=${c.id}`}
+                            className={primaryButtonClass}
+                          >
+                            <Pencil className="h-4 w-4" /> מילוי
+                          </Link>
+                          <button
+                            type="button"
+                            className={`${secondaryButtonClass} !text-rose-600`}
+                            disabled={deletingDraftId === c.id}
+                            onClick={() => void deleteDraft(c.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {deletingDraftId === c.id ? "מוחק…" : "מחיקה"}
+                          </button>
+                        </>
+                      ) : (
+                        <Link
+                          href={`/malshabim/interview?id=${c.id}`}
+                          className={secondaryButtonClass}
+                        >
+                          צפייה
+                        </Link>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+      </section>
 
       {/* Files area — filters + list */}
       <section className={`${panelClass} relative z-20 min-w-0 overflow-visible`}>

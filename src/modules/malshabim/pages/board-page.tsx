@@ -6,9 +6,9 @@ import {
   ArrowRight,
   BarChart3,
   CheckCircle2,
+  ChevronLeft,
   Download,
   FileText,
-  FolderOpen,
   LayoutGrid,
   List,
   Pencil,
@@ -24,7 +24,6 @@ import {
   STATUS_BADGE_CLASS,
   STATUS_COLORS,
   filterCandidates,
-  formatDateTime,
   normalizeCandidateStatus,
   type MalshabimCandidateFilters,
 } from "@/modules/malshabim/lib/status";
@@ -43,6 +42,8 @@ import {
   pageShellClass,
   secondaryButtonClass,
   selectClass,
+  tableHeadClass,
+  tableRowClass,
 } from "@/modules/malshabim/lib/ui";
 import type {
   MalshabimCandidate,
@@ -565,34 +566,29 @@ export function MalshabimBoardPage({
           })}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl border border-border-weak bg-surface-1 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-border-weak bg-surface-1">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-right text-sm">
-              <thead>
-                <tr className="border-b border-border-weak bg-surface-2/80 text-[11px] font-bold tracking-wide text-text-muted">
+            <table className="w-full min-w-[700px] text-right text-sm">
+              <thead className={tableHeadClass}>
+                <tr>
                   {canEdit ? <th className="px-3 py-3"> </th> : null}
-                  <th className="px-4 py-3">מס׳ תיק</th>
+                  <th className="px-4 py-3">מס׳</th>
                   <th className="px-4 py-3">שם</th>
+                  <th className="px-4 py-3">טלפון</th>
+                  <th className="px-4 py-3">עיר</th>
+                  <th className="px-4 py-3">סטטוס</th>
                   <th className="px-4 py-3">מסלול</th>
-                  <th className="px-4 py-3">סטטוס עבודה</th>
-                  <th className="px-4 py-3">סטטוס מורחב</th>
-                  <th className="px-4 py-3">ראיון קרוב</th>
-                  <th className="px-4 py-3">פעולות</th>
+                  <th className="px-4 py-3"> </th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c, index) => {
+                {filtered.map((c) => {
                   const status = normalizeCandidateStatus(c.candidate_status);
-                  const href = `/malshabim/candidates/${c.id}`;
+                  const fileHref = `/malshabim/candidates/${c.id}`;
                   return (
-                    <tr
-                      key={c.id}
-                      className={`border-b border-border-weak/80 last:border-0 ${
-                        index % 2 === 0 ? "bg-surface-1" : "bg-surface-2/30"
-                      } hover:bg-accent-primary/5`}
-                    >
+                    <tr key={c.id} className={`${tableRowClass} group`}>
                       {canEdit ? (
-                        <td className="px-3 py-3.5">
+                        <td className="px-3 py-3">
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(c.id)}
@@ -601,44 +597,34 @@ export function MalshabimBoardPage({
                           />
                         </td>
                       ) : null}
-                      <td className="px-4 py-3.5 font-semibold text-text-muted">
-                        <Link href={href} className="hover:text-accent-primary">
-                          #{c.serial_number ?? "—"}
+                      <td className="px-4 py-3 font-semibold text-text-muted">
+                        <Link href={fileHref} className="hover:text-accent-primary">
+                          {c.serial_number ?? "—"}
                         </Link>
                       </td>
-                      <td className="px-4 py-3.5 font-bold text-text-primary">
-                        <Link href={href} className="hover:text-accent-primary">
+                      <td className="px-4 py-3 font-bold text-text-primary">
+                        <Link href={fileHref} className="hover:text-accent-primary">
                           {c.full_name || "—"}
                         </Link>
                       </td>
-                      <td className="px-4 py-3.5 text-text-secondary">
-                        {c.recruitment_track || "—"}
-                      </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3 text-text-secondary">{c.phone || "—"}</td>
+                      <td className="px-4 py-3 text-text-secondary">{c.city || "—"}</td>
+                      <td className="px-4 py-3">
                         <span
-                          className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
+                          className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
                         >
                           {status}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5">
-                        {c.advanced_status ? (
-                          <span className="inline-block rounded-full bg-sky-600/15 px-2.5 py-1 text-[11px] font-bold text-sky-800 dark:text-sky-200">
-                            {c.advanced_status}
-                          </span>
-                        ) : (
-                          <span className="text-text-muted">—</span>
-                        )}
+                      <td className="px-4 py-3 text-text-secondary">
+                        {c.recruitment_track || "—"}
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-text-muted">
-                        {c.interview_at ? formatDateTime(c.interview_at) : "—"}
-                      </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
                           {canEdit ? (
                             <button
                               type="button"
-                              className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+                              className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-bold text-text-primary transition hover:bg-surface-2/80"
                               onClick={() => void advanceStatus(c)}
                             >
                               <RefreshCw className="h-3.5 w-3.5" />
@@ -646,11 +632,12 @@ export function MalshabimBoardPage({
                             </button>
                           ) : null}
                           <Link
-                            href={href}
-                            className="inline-flex items-center gap-1 rounded-lg border border-border-weak bg-surface-1 px-3 py-1.5 text-xs font-bold text-text-primary"
+                            href={fileHref}
+                            className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                            aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
                           >
-                            <FolderOpen className="h-3.5 w-3.5" />
-                            תיק
+                            פתח תיק
+                            <ChevronLeft className="h-3.5 w-3.5" />
                           </Link>
                         </div>
                       </td>
