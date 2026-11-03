@@ -96,7 +96,7 @@ export type MalshabimCandidateFilters = {
   enlistmentMonths?: string[];
 };
 
-const HEBREW_MONTHS = [
+export const HEBREW_MONTHS = [
   "ינו׳",
   "פבר׳",
   "מרץ",
@@ -113,18 +113,51 @@ const HEBREW_MONTHS = [
 
 /** Build month options for enlistment filters (e.g. "מרץ 26"). */
 export function buildEnlistmentMonthOptions(
-  fromYear = 2025,
+  fromYear = 2024,
   toYear = 2028,
 ): Array<{ value: string; label: string }> {
   const options: Array<{ value: string; label: string }> = [];
   for (let year = fromYear; year <= toYear; year += 1) {
     for (let month = 1; month <= 12; month += 1) {
       const value = `${year}-${String(month).padStart(2, "0")}`;
-      const yy = String(year).slice(-2);
-      options.push({ value, label: `${HEBREW_MONTHS[month - 1]} ${yy}` });
+      options.push({ value, label: formatEnlistmentMonthLabel(value) });
     }
   }
   return options;
+}
+
+/** Label for YYYY-MM (e.g. "אפר׳ 24"). */
+export function formatEnlistmentMonthLabel(yyyyMm: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(yyyyMm.trim());
+  if (!match) return yyyyMm;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) return yyyyMm;
+  return `${HEBREW_MONTHS[month - 1]} ${String(year).slice(-2)}`;
+}
+
+/** Inclusive contiguous YYYY-MM values between two bounds (order-insensitive). */
+export function expandEnlistmentMonthRange(fromYYYYMM: string, toYYYYMM: string): string[] {
+  const parse = (value: string) => {
+    const match = /^(\d{4})-(\d{2})$/.exec(value.trim());
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    if (month < 1 || month > 12) return null;
+    return year * 12 + (month - 1);
+  };
+  const a = parse(fromYYYYMM);
+  const b = parse(toYYYYMM);
+  if (a == null || b == null) return [];
+  const start = Math.min(a, b);
+  const end = Math.max(a, b);
+  const out: string[] = [];
+  for (let cursor = start; cursor <= end; cursor += 1) {
+    const year = Math.floor(cursor / 12);
+    const month = (cursor % 12) + 1;
+    out.push(`${year}-${String(month).padStart(2, "0")}`);
+  }
+  return out;
 }
 
 function enlistmentMonthKey(enlistmentDate?: string | null): string | null {

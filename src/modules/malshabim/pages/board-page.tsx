@@ -23,7 +23,6 @@ import {
   FILTER_EMPTY_VALUE,
   STATUS_BADGE_CLASS,
   STATUS_COLORS,
-  buildEnlistmentMonthOptions,
   filterCandidates,
   formatDateTime,
   normalizeCandidateStatus,
@@ -37,6 +36,8 @@ import {
 import { downloadCandidatesCsv } from "@/modules/malshabim/lib/csv";
 import { downloadCandidatesExcel } from "@/modules/malshabim/lib/excel-report";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
+import { SearchableMultiSelect } from "@/modules/malshabim/components/searchable-multi-select";
+import { MonthYearRangeSelect } from "@/modules/malshabim/components/month-year-range-select";
 import {
   emptyStateClass,
   pageShellClass,
@@ -59,64 +60,6 @@ const DEFAULT_FILTERS: MalshabimCandidateFilters = {
   toDate: "",
   enlistmentMonths: [],
 };
-
-type ChipOption = { value: string; label: string };
-
-function FilterChipGroup({
-  label,
-  options,
-  selected,
-  onToggle,
-  onClear,
-}: {
-  label: string;
-  options: ChipOption[];
-  selected: string[];
-  onToggle: (value: string) => void;
-  onClear: () => void;
-}) {
-  return (
-    <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold text-text-muted">
-          {label}
-          {selected.length > 0 ? ` · נבחרו ${selected.length}` : " — בחירה מרובה"}
-        </p>
-        {selected.length > 0 ? (
-          <button
-            type="button"
-            className="text-xs font-bold text-accent-primary hover:underline"
-            onClick={onClear}
-          >
-            נקה
-          </button>
-        ) : null}
-      </div>
-      <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto rounded-2xl bg-surface-1/70 p-2">
-        {options.map((option) => {
-          const active = selected.includes(option.value);
-          return (
-            <button
-              key={option.value}
-              type="button"
-              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                active
-                  ? "bg-accent-primary text-white"
-                  : "bg-surface-2 text-text-secondary hover:bg-surface-2/80 hover:text-text-primary"
-              }`}
-              onClick={() => onToggle(option.value)}
-              aria-pressed={active}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-const ENLISTMENT_MONTH_OPTIONS = buildEnlistmentMonthOptions(2025, 2028);
 
 function asSelectedList(value: string | string[] | undefined): string[] {
   if (!value || value === "all") return [];
@@ -341,6 +284,8 @@ export function MalshabimBoardPage({
 
   const greenBtn =
     "inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700";
+  const purpleBtn =
+    "inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-violet-700";
 
   return (
     <div className={pageShellClass} dir="rtl">
@@ -349,14 +294,14 @@ export function MalshabimBoardPage({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-accent-primary sm:text-3xl">
-              טבלת עבודה מועמדים
+              טבלת עבודה
             </h1>
             <p className="mt-1 text-sm font-medium text-text-secondary">
               ריכוז מועמדים, סינון מסלול ושינוי סטטוס מהיר
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/malshabim/statistics" className={greenBtn}>
+            <Link href="/malshabim/statistics" className={purpleBtn}>
               <BarChart3 className="h-4 w-4" /> ייצוא לסטטיסטיקה
             </Link>
             <button
@@ -464,52 +409,45 @@ export function MalshabimBoardPage({
             </span>
           </div>
 
-          <FilterChipGroup
+          <SearchableMultiSelect
             label="מסלול גיוס"
-            selected={selectedTracks}
-            onToggle={(value) => toggleMulti("track", value)}
-            onClear={() => setFilter("track", [])}
+            value={selectedTracks}
+            onChange={(next) => setFilter("track", next)}
             options={[
               { value: FILTER_EMPTY_VALUE, label: "ללא מסלול" },
               ...RECRUITMENT_TRACKS.map((t) => ({ value: t, label: t })),
             ]}
           />
-          <FilterChipGroup
+          <SearchableMultiSelect
             label="סטטוס (מלש״ב / חייל)"
-            selected={selectedStatusTypes}
-            onToggle={(value) => toggleMulti("statusType", value)}
-            onClear={() => setFilter("statusType", [])}
-            options={[
-              { value: FILTER_EMPTY_VALUE, label: "ללא" },
-              ...STATUS_TYPES.map((type) => ({ value: type, label: type })),
-            ]}
+            value={selectedStatusTypes}
+            onChange={(next) => setFilter("statusType", next)}
+            options={STATUS_TYPES.map((type) => ({ value: type, label: type }))}
           />
-          <FilterChipGroup
+          <SearchableMultiSelect
             label="סטטוס עבודה"
-            selected={selectedStatuses}
-            onToggle={(value) => toggleMulti("candidateStatus", value)}
-            onClear={() => setFilter("candidateStatus", [])}
+            value={selectedStatuses}
+            onChange={(next) => setFilter("candidateStatus", next)}
             options={CANDIDATE_STATUSES.map((status) => ({
               value: status,
               label: status,
             }))}
           />
-          <FilterChipGroup
+          <SearchableMultiSelect
             label="איתור / בקשה"
-            selected={selectedRequestTypes}
-            onToggle={(value) => toggleMulti("requestType", value)}
-            onClear={() => setFilter("requestType", [])}
+            value={selectedRequestTypes}
+            onChange={(next) => setFilter("requestType", next)}
             options={[
               { value: FILTER_EMPTY_VALUE, label: "ללא" },
               ...REQUEST_TYPES.map((type) => ({ value: type, label: type })),
             ]}
           />
-          <FilterChipGroup
+          <MonthYearRangeSelect
             label="חודשי גיוס"
-            selected={selectedEnlistmentMonths}
-            onToggle={(value) => toggleMulti("enlistmentMonths", value)}
-            onClear={() => setFilter("enlistmentMonths", [])}
-            options={ENLISTMENT_MONTH_OPTIONS}
+            value={selectedEnlistmentMonths}
+            onChange={(next) => setFilter("enlistmentMonths", next)}
+            fromYear={2024}
+            toYear={2028}
           />
         </div>
       </section>
