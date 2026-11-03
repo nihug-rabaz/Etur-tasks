@@ -160,6 +160,18 @@ export async function PATCH(
       }
     }
 
+    try {
+      const { notifyNewInstructionAssignees } = await import(
+        "@/modules/malshabim/lib/instruction-notify"
+      );
+      await notifyNewInstructionAssignees({
+        candidate,
+        previousItems: existing.is_draft ? [] : existing.instruction_items,
+      });
+    } catch {
+      // Instruction email/push is best-effort.
+    }
+
     if (update_log_entry) {
       const withLog = await service.appendUpdateLog(id, {
         ...update_log_entry,

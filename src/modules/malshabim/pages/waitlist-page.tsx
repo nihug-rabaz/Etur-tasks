@@ -85,7 +85,8 @@ export function MalshabimWaitlistPage({
       setShowForm(false);
       toast.success("נשמר ברשימת מחכים לראיון");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "שמירה נכשלה");
+      const message = error instanceof Error ? error.message : "שמירה נכשלה";
+      toast.error(message);
     } finally {
       setSaving(false);
     }

@@ -25,6 +25,12 @@ export const malshabimModule: AppModuleDefinition = {
       roles: ["admin", "user", "viewer"],
     },
     {
+      label: "ראיונות שלא הושלמו",
+      href: "/malshabim/drafts",
+      description: "טיוטות ראיון שמורות",
+      roles: ["admin", "user", "viewer"],
+    },
+    {
       label: "לוח עבודה",
       href: "/malshabim/board",
       description: "לוח עבודה לפי סטטוס",
@@ -47,6 +53,7 @@ export const malshabimModule: AppModuleDefinition = {
     malshabim: "מלש״בים",
     interview: "ראיון",
     waitlist: "מחכים לראיון",
+    drafts: "ראיונות שלא הושלמו",
     board: "לוח עבודה",
     candidates: "מועמדים",
     admin: "ניהול",

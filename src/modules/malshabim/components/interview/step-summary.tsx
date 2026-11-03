@@ -1,18 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Plus, Trash2, XCircle, FastForward } from "lucide-react";
 import { BIYENISH_LABEL } from "@/modules/malshabim/lib/question-bank";
-import { CANDIDATE_STATUSES, INSTRUCTION_STATUSES } from "@/modules/malshabim/lib/status";
+import { CANDIDATE_STATUSES } from "@/modules/malshabim/lib/status";
 import { fieldClass, secondaryButtonClass } from "@/modules/malshabim/lib/ui";
 import type {
   InstructionItem,
   InterviewFormData,
 } from "@/modules/malshabim/components/interview/types";
-import type { MalshabimInstructionStatus } from "@/modules/malshabim/types";
 
 const PASS_MIN_CORRECT = 11;
 const SKIP_MIN_CORRECT = 4;
+
+type SystemUser = { id: string; name: string; email: string | null };
 
 export function StepSummary({
   data,
@@ -37,18 +38,72 @@ export function StepSummary({
       ? correct >= SKIP_MIN_CORRECT
       : correct >= PASS_MIN_CORRECT;
 
+  const [users, setUsers] = useState<SystemUser[]>([]);
+
   useEffect(() => {
     if (data.quiz_score === score && data.quiz_passed === passed) return;
     onChange({ ...data, quiz_score: score, quiz_passed: passed });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [score, passed, observanceFailed]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/malshabim/users-picker", { credentials: "include" })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (cancelled) return;
+        const rows = Array.isArray(payload.users) ? payload.users : [];
+        setUsers(
+          rows
+            .map((row: { id?: string; name?: string; email?: string | null }) => ({
+              id: String(row.id ?? ""),
+              name: String(row.name ?? "").trim() || "משתמש",
+              email: row.email?.trim() || null,
+            }))
+            .filter((row: SystemUser) => row.id),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const set = <K extends keyof InterviewFormData>(key: K, value: InterviewFormData[K]) =>
     onChange({ ...data, [key]: value });
 
   const items = (data.instruction_items || []) as InstructionItem[];
   const updateItems = (next: InstructionItem[]) =>
-    onChange({ ...data, instruction_items: next });
+    onChange({
+      ...data,
+      instruction_items: next,
+      instruction_recipients: [
+        ...new Set(
+          next
+            .map((item) => item.assignee_user_id || item.recipients?.[0] || null)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ],
+    });
+
+  const setAssignee = (idx: number, userId: string) => {
+    const selected = users.find((user) => user.id === userId) ?? null;
+    updateItems(
+      items.map((it, i) =>
+        i === idx
+          ? {
+              ...it,
+              assignee_user_id: selected?.id ?? null,
+              assignee_name: selected?.name ?? null,
+              assignee_email: selected?.email ?? null,
+              recipients: selected?.id ? [selected.id] : [],
+            }
+          : it,
+      ),
+    );
+  };
 
   return (
     <div className="space-y-5">
@@ -121,7 +176,15 @@ export function StepSummary({
             onClick={() =>
               updateItems([
                 ...items,
-                { text: "", status: "בטיפול", recipients: [], sent_at: null },
+                {
+                  text: "",
+                  status: "בטיפול",
+                  recipients: [],
+                  assignee_user_id: null,
+                  assignee_name: null,
+                  assignee_email: null,
+                  sent_at: null,
+                },
               ])
             }
           >
@@ -157,27 +220,33 @@ export function StepSummary({
               </button>
             </div>
             <label className="mr-6 block space-y-1 text-xs font-bold text-text-muted">
-              סטטוס הנחיה
+              אחראי לביצוע
               <select
                 className={fieldClass}
-                value={item.status || "בטיפול"}
-                onChange={(e) =>
-                  updateItems(
-                    items.map((it, i) =>
-                      i === idx
-                        ? { ...it, status: e.target.value as MalshabimInstructionStatus }
-                        : it,
-                    ),
-                  )
-                }
+                value={item.assignee_user_id || ""}
+                onChange={(e) => setAssignee(idx, e.target.value)}
               >
-                {INSTRUCTION_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
+                <option value="">ללא אחראי</option>
+                {item.assignee_user_id &&
+                !users.some((user) => user.id === item.assignee_user_id) ? (
+                  <option value={item.assignee_user_id}>
+                    {item.assignee_name || "משתמש משויך"}
+                  </option>
+                ) : null}
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                    {user.email ? ` · ${user.email}` : ""}
                   </option>
                 ))}
               </select>
             </label>
+            {item.assignee_user_id ? (
+              <p className="mr-6 text-[11px] text-text-muted">
+                בשמירת הראיון תישלח ההנחיה במייל{item.assignee_email ? ` אל ${item.assignee_email}` : ""}{" "}
+                ובהתראה במערכת.
+              </p>
+            ) : null}
           </div>
         ))}
       </div>

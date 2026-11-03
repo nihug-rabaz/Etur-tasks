@@ -69,12 +69,19 @@ export async function POST(
   const phone = phoneForStep(concept.approval_status, settings.phones);
   const stepLabel =
     APPROVAL_STATUS_LABELS[concept.approval_status] ?? concept.approval_status;
-  const message = [
+  const blurb = (concept.details ?? "").trim().replace(/\s+/g, " ");
+  const shortBlurb =
+    blurb.length > 120 ? `${blurb.slice(0, 119)}…` : blurb;
+  const interviewees = (concept.interviewees ?? []).filter(Boolean);
+  const messageLines = [
     `*אישור דוברות* — ${concept.name}`,
     stepLabel,
+    shortBlurb || null,
+    interviewees.length > 0 ? `מרואיינים: ${interviewees.join(", ")}` : null,
     "",
     `לאישור: ${url}`,
-  ].join("\n");
+  ].filter((line): line is string => line !== null);
+  const message = messageLines.join("\n");
 
   const waMeUrl = phone.trim()
     ? buildWaMeUrl(phone, message)

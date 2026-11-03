@@ -89,7 +89,52 @@ export type MalshabimCandidateFilters = {
   toDate?: string;
   /** Filter by request_meta.unit */
   unit?: string | string[];
+  /** Selected enlistment months as YYYY-MM values (multi-select). */
+  enlistmentMonths?: string[];
 };
+
+const HEBREW_MONTHS = [
+  "ינו׳",
+  "פבר׳",
+  "מרץ",
+  "אפר׳",
+  "מאי",
+  "יונ׳",
+  "יול׳",
+  "אוג׳",
+  "ספט׳",
+  "אוק׳",
+  "נוב׳",
+  "דצמ׳",
+] as const;
+
+/** Build month options for enlistment filters (e.g. "מרץ 26"). */
+export function buildEnlistmentMonthOptions(
+  fromYear = 2025,
+  toYear = 2028,
+): Array<{ value: string; label: string }> {
+  const options: Array<{ value: string; label: string }> = [];
+  for (let year = fromYear; year <= toYear; year += 1) {
+    for (let month = 1; month <= 12; month += 1) {
+      const value = `${year}-${String(month).padStart(2, "0")}`;
+      const yy = String(year).slice(-2);
+      options.push({ value, label: `${HEBREW_MONTHS[month - 1]} ${yy}` });
+    }
+  }
+  return options;
+}
+
+function enlistmentMonthKey(enlistmentDate?: string | null): string | null {
+  if (!enlistmentDate) return null;
+  const date = new Date(enlistmentDate);
+  if (Number.isNaN(date.getTime())) {
+    const match = /^(\d{4})-(\d{2})/.exec(enlistmentDate.trim());
+    return match ? `${match[1]}-${match[2]}` : null;
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
 
 /** Board sketch buckets — overlay on candidate_status + awaiting_admin_approval. */
 export type MalshabimBoardBucket = "awaiting" | "open" | "done";
@@ -124,11 +169,14 @@ export function filterCandidates<T extends MalshabimCandidate>(
   const from = filters.fromDate ? new Date(`${filters.fromDate}T00:00:00`) : null;
   const to = filters.toDate ? new Date(`${filters.toDate}T23:59:59`) : null;
 
+  const enlistmentMonths = (filters.enlistmentMonths || []).filter(Boolean);
+
   return candidates.filter((candidate) => {
     const lastStatusUpdate = getLastStatusUpdateDate(candidate);
     const updatedAt = lastStatusUpdate ? new Date(lastStatusUpdate) : null;
     const status = normalizeCandidateStatus(candidate.candidate_status);
     const meta = candidate.request_meta || {};
+    const enlistmentMonth = enlistmentMonthKey(candidate.enlistment_date);
     const text = [
       candidate.serial_number,
       candidate.full_name,
@@ -155,6 +203,10 @@ export function filterCandidates<T extends MalshabimCandidate>(
       .join(" ")
       .toLowerCase();
 
+    const matchesEnlistmentMonths =
+      enlistmentMonths.length === 0 ||
+      (Boolean(enlistmentMonth) && enlistmentMonths.includes(enlistmentMonth as string));
+
     return (
       (!query || text.includes(query)) &&
       matchesMulti(filters.track, candidate.recruitment_track) &&
@@ -166,7 +218,8 @@ export function filterCandidates<T extends MalshabimCandidate>(
         typeof meta.unit === "string" ? meta.unit.trim() : meta.unit,
       ) &&
       (!from || (updatedAt && updatedAt >= from)) &&
-      (!to || (updatedAt && updatedAt <= to))
+      (!to || (updatedAt && updatedAt <= to)) &&
+      matchesEnlistmentMonths
     );
   });
 }

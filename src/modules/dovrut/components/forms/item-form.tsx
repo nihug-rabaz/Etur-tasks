@@ -35,7 +35,6 @@ export function ItemCreateForm({
   const [interviewer, setInterviewer] = useState("");
   const [interviewees, setInterviewees] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<DovrutInquirySubject[]>([]);
-  const [needsBriefing, setNeedsBriefing] = useState(true);
   const [requiresChief, setRequiresChief] = useState(DEFAULT_APPROVAL_FLAGS.requires_chief_rabbi);
   const [requiresDeputy, setRequiresDeputy] = useState(
     DEFAULT_APPROVAL_FLAGS.requires_deputy_commander,
@@ -85,7 +84,7 @@ export function ItemCreateForm({
               media_outlet: mediaOutlet.trim() || null,
               interviewer: interviewer.trim() || null,
               interviewees,
-              needs_briefing: needsBriefing,
+              needs_briefing: true,
               requires_chief_rabbi: requiresChief,
               requires_deputy_commander: requiresDeputy,
               requires_branch_head: requiresBranch,
@@ -116,7 +115,6 @@ export function ItemCreateForm({
       setMediaOutlet("");
       setInterviewer("");
       setInterviewees([]);
-      setNeedsBriefing(true);
       setRequiresChief(DEFAULT_APPROVAL_FLAGS.requires_chief_rabbi);
       setRequiresDeputy(DEFAULT_APPROVAL_FLAGS.requires_deputy_commander);
       setRequiresBranch(DEFAULT_APPROVAL_FLAGS.requires_branch_head);
@@ -228,14 +226,6 @@ export function ItemCreateForm({
                 onChange={(event) => setRequiresBranch(event.target.checked)}
               />
               רמ״ח
-            </label>
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={needsBriefing}
-                onChange={(event) => setNeedsBriefing(event.target.checked)}
-              />
-              צריך לתדרך
             </label>
             <p className="text-[11px] text-text-muted">
               התחלת אישור: {getInitialApprovalStatus(previewFlags)}

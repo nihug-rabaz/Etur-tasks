@@ -113,6 +113,30 @@ export class OneSignalService {
     }
   }
 
+  /** Send email via OneSignal (creates email subscription from address if needed). */
+  public async sendEmailToAddress(input: {
+    email: string;
+    subject: string;
+    bodyHtml: string;
+  }): Promise<boolean> {
+    if (!OneSignalServerConfig.isSendReady()) return false;
+    const email = input.email.trim().toLowerCase();
+    if (!email.includes("@")) return false;
+    try {
+      await this.postNotification({
+        app_id: OneSignalServerConfig.appId(),
+        include_email_tokens: [email],
+        email_subject: input.subject,
+        email_body: input.bodyHtml,
+        target_channel: "email",
+      });
+      return true;
+    } catch (error) {
+      console.error("[onesignal-email]", email, error);
+      return false;
+    }
+  }
+
   public async hasPushSubscription(userId: string): Promise<boolean> {
     if (!OneSignalServerConfig.isSendReady() || !userId) return false;
 

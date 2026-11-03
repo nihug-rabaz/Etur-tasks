@@ -88,16 +88,39 @@ function emptyDraft(): InterviewFormData {
 function normalizeInstructionItems(
   items: MalshabimCandidate["instruction_items"] | InterviewFormData["instruction_items"],
 ): InterviewFormData["instruction_items"] {
-  return (items || []).map((item) => ({
-    ...item,
-    text: item.text ?? "",
-    status: item.status === "הושלם" ? "הושלם" : "בטיפול",
-    recipients: item.recipients ?? [],
-    sent_at: item.sent_at ?? null,
-  }));
+  return (items || []).map((item) => {
+    const legacyRecipient =
+      !item.assignee_user_id && Array.isArray(item.recipients) && item.recipients[0]
+        ? String(item.recipients[0])
+        : null;
+    const assigneeUserId = item.assignee_user_id ?? legacyRecipient;
+    return {
+      ...item,
+      text: item.text ?? "",
+      status: item.status === "הושלם" ? "הושלם" : "בטיפול",
+      assignee_user_id: assigneeUserId,
+      assignee_name: item.assignee_name ?? null,
+      assignee_email: item.assignee_email ?? null,
+      recipients: assigneeUserId ? [assigneeUserId] : [],
+      sent_at: item.sent_at ?? null,
+    };
+  });
+}
+
+function recipientsFromInstructionItems(
+  items: InterviewFormData["instruction_items"] | undefined,
+): string[] {
+  return [
+    ...new Set(
+      (items || [])
+        .map((item) => item.assignee_user_id || item.recipients?.[0] || null)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
 }
 
 function candidateToForm(c: MalshabimCandidate): InterviewFormData {
+  const instructionItems = normalizeInstructionItems(c.instruction_items);
   return {
     id: c.id,
     full_name: c.full_name,
@@ -126,8 +149,8 @@ function candidateToForm(c: MalshabimCandidate): InterviewFormData {
     interview_summary: c.interview_summary,
     interviewer_notes: c.interviewer_notes,
     instructions: c.instructions,
-    instruction_items: normalizeInstructionItems(c.instruction_items),
-    instruction_recipients: c.instruction_recipients || [],
+    instruction_items: instructionItems,
+    instruction_recipients: recipientsFromInstructionItems(instructionItems),
     is_draft: c.is_draft,
     draft_step: c.draft_step,
     update_log: c.update_log || [],
@@ -163,7 +186,7 @@ function toPayload(data: InterviewFormData) {
     interviewer_notes: data.interviewer_notes,
     instructions: data.instructions,
     instruction_items: data.instruction_items,
-    instruction_recipients: data.instruction_recipients,
+    instruction_recipients: recipientsFromInstructionItems(data.instruction_items),
     is_draft: data.is_draft,
     draft_step: data.draft_step,
     update_log: data.update_log,

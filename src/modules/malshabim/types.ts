@@ -31,8 +31,12 @@ export interface MalshabimQuizQuestion {
 
 export interface MalshabimInstructionItem {
   text?: string;
+  /** @deprecated kept for stored data; not shown in UI */
   status?: MalshabimInstructionStatus;
   recipients?: string[];
+  assignee_user_id?: string | null;
+  assignee_name?: string | null;
+  assignee_email?: string | null;
   sent_at?: string | null;
   [key: string]: unknown;
 }

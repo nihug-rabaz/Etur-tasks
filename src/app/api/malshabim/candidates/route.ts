@@ -165,6 +165,15 @@ export async function POST(request: Request) {
       }
     }
 
+    try {
+      const { notifyNewInstructionAssignees } = await import(
+        "@/modules/malshabim/lib/instruction-notify"
+      );
+      await notifyNewInstructionAssignees({ candidate, previousItems: [] });
+    } catch {
+      // Instruction email/push is best-effort.
+    }
+
     return NextResponse.json({ candidate }, { status: 201 });
   } catch (error) {
     if (isDuplicateError(error)) {

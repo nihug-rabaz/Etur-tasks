@@ -73,10 +73,12 @@ export function MalshabimWaitlistReminder() {
           >
             יש חיילים שמחכים לראיון
           </h2>
-          <p className="text-sm font-medium text-text-secondary">
+          <p className="text-sm font-medium leading-relaxed text-text-secondary">
             כדי לוודא שלא מפספסים אף אחד — כנסו לרשימה והתחילו ראיונות.
-            <br />
-            סה״כ מחכים לראיון: <strong className="text-text-primary">{count}</strong>
+          </p>
+          <p className="text-sm font-medium text-text-secondary">
+            סה״כ מחכים לראיון:{" "}
+            <strong className="text-text-primary">{count}</strong>
           </p>
           <Link
             href="/malshabim/waitlist"

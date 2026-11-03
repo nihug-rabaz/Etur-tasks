@@ -1,35 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  ChevronDown,
-  ChevronLeft,
-  ClipboardCheck,
-  Filter,
-  Plus,
+  ArrowRight,
+  CheckCircle2,
+  Download,
+  FileText,
+  FolderOpen,
+  LayoutGrid,
+  List,
+  Pencil,
+  RefreshCw,
   Search,
-  UserRoundSearch,
-  X,
+  Users,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  BOARD_BUCKET_LABELS,
   CANDIDATE_STATUSES,
   STATUS_BADGE_CLASS,
+  STATUS_COLORS,
+  buildEnlistmentMonthOptions,
   filterCandidates,
   formatDateTime,
-  getBoardBucket,
-  getLastStatusUpdateDate,
   normalizeCandidateStatus,
-  type MalshabimBoardBucket,
   type MalshabimCandidateFilters,
 } from "@/modules/malshabim/lib/status";
+import {
+  RECRUITMENT_TRACKS,
+  REQUEST_TYPES,
+  STATUS_TYPES,
+} from "@/modules/malshabim/lib/question-bank";
+import { downloadCandidatesCsv } from "@/modules/malshabim/lib/csv";
+import { downloadCandidatesExcel } from "@/modules/malshabim/lib/excel-report";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
   emptyStateClass,
   pageShellClass,
-  primaryButtonClass,
   secondaryButtonClass,
   selectClass,
 } from "@/modules/malshabim/lib/ui";
@@ -39,60 +47,68 @@ import type {
 } from "@/modules/malshabim/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
-type Segment = "all" | MalshabimBoardBucket;
-
-const BUCKET_ACCENT: Record<MalshabimBoardBucket, string> = {
-  awaiting: "border-s-emerald-600 bg-emerald-600/[0.06]",
-  open: "border-s-amber-500 bg-amber-500/[0.06]",
-  done: "border-s-slate-400 bg-slate-500/[0.05]",
+const DEFAULT_FILTERS: MalshabimCandidateFilters = {
+  search: "",
+  track: "all",
+  candidateStatus: [],
+  statusType: "all",
+  requestType: "all",
+  fromDate: "",
+  toDate: "",
+  enlistmentMonths: [],
 };
 
-const BUCKET_BADGE: Record<MalshabimBoardBucket, string> = {
-  awaiting: "bg-emerald-600 text-white",
-  open: "bg-amber-500 text-white",
-  done: "bg-slate-600 text-white",
-};
+const ENLISTMENT_MONTH_OPTIONS = buildEnlistmentMonthOptions(2025, 2028);
 
-function displayName(c: MalshabimCandidate): string {
-  return (
-    c.request_meta?.requester?.trim() ||
-    c.full_name?.trim() ||
-    "ללא שם"
-  );
+function asSelectedList(value: string | string[] | undefined): string[] {
+  if (!value || value === "all") return [];
+  return Array.isArray(value) ? value : [value];
 }
 
-function KpiCard({
+function nextStatus(current: MalshabimCandidateStatus): MalshabimCandidateStatus {
+  const index = CANDIDATE_STATUSES.indexOf(current);
+  if (index < 0) return CANDIDATE_STATUSES[0];
+  return CANDIDATE_STATUSES[(index + 1) % CANDIDATE_STATUSES.length];
+}
+
+function StatCard({
   label,
   value,
   tone,
-  href,
   active,
   onClick,
   icon,
+  href,
 }: {
   label: string;
-  value: number | string;
-  tone: string;
-  href?: string;
+  value: number;
+  tone?: string;
   active?: boolean;
   onClick?: () => void;
-  icon: ReactNode;
+  icon?: ReactNode;
+  href?: string;
 }) {
   const className = [
-    "flex min-h-[96px] flex-col justify-between rounded-2xl border border-border-weak bg-surface-1 p-4 text-right shadow-sm transition",
-    "hover:border-accent-primary/40 hover:shadow-md",
+    "flex min-h-[92px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3 text-right shadow-sm transition sm:p-4",
+    onClick || href ? "hover:border-accent-primary/40 hover:shadow-md" : "",
     active ? "ring-2 ring-accent-primary ring-offset-2 ring-offset-surface-1" : "",
   ].join(" ");
 
   const body = (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <span className={`rounded-xl p-2 ${tone}`}>{icon}</span>
-        <p className="text-3xl font-black tabular-nums tracking-tight text-text-primary">
+      <div
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+          tone || "bg-accent-primary/12 text-accent-primary"
+        }`}
+      >
+        {icon ?? <span className="text-sm font-black">{value}</span>}
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-text-muted">{label}</p>
+        <p className="text-xl font-black tabular-nums text-text-primary sm:text-2xl">
           {value}
         </p>
       </div>
-      <p className="mt-3 text-sm font-bold text-text-secondary">{label}</p>
     </>
   );
 
@@ -103,12 +119,14 @@ function KpiCard({
       </Link>
     );
   }
-
-  return (
-    <button type="button" className={`${className} w-full`} onClick={onClick}>
-      {body}
-    </button>
-  );
+  if (onClick) {
+    return (
+      <button type="button" className={`${className} w-full`} onClick={onClick}>
+        {body}
+      </button>
+    );
+  }
+  return <div className={className}>{body}</div>;
 }
 
 export function MalshabimBoardPage({
@@ -119,400 +137,576 @@ export function MalshabimBoardPage({
   initialRole: ModuleRole;
 }) {
   const canEdit = initialRole === "admin" || initialRole === "user";
-  const isAdmin = initialRole === "admin";
-  const [candidates, setCandidates] = useState(
-    initialCandidates.filter((c) => !c.is_draft),
+  const [allCandidates, setAllCandidates] = useState(initialCandidates);
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("table");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<MalshabimCandidateStatus>("בטיפול");
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [filters, setFilters] = useState<MalshabimCandidateFilters>(DEFAULT_FILTERS);
+
+  const candidates = useMemo(
+    () => allCandidates.filter((c) => !c.is_draft),
+    [allCandidates],
   );
-  const [segment, setSegment] = useState<Segment>("all");
-  const [unitFilter, setUnitFilter] = useState("all");
-  const [openSections, setOpenSections] = useState<Record<MalshabimBoardBucket, boolean>>({
-    awaiting: true,
-    open: true,
-    done: false,
-  });
-  const [waitlistCount, setWaitlistCount] = useState<number | null>(null);
-  const [filters, setFilters] = useState<MalshabimCandidateFilters>({
-    search: "",
-  });
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await malshabimFetch<{ count?: number; entries?: unknown[] }>(
-          "/api/malshabim/waitlist",
-        );
-        setWaitlistCount(
-          typeof res.count === "number" ? res.count : (res.entries?.length ?? 0),
-        );
-      } catch {
-        setWaitlistCount(null);
-      }
-    })();
-  }, []);
-
-  const units = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of candidates) {
-      const unit = c.request_meta?.unit?.trim();
-      if (unit) set.add(unit);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, "he"));
-  }, [candidates]);
+  const drafts = useMemo(
+    () => allCandidates.filter((c) => c.is_draft),
+    [allCandidates],
+  );
 
   const filtered = useMemo(
-    () =>
-      filterCandidates(candidates, {
-        ...filters,
-        unit: unitFilter === "all" ? undefined : unitFilter,
-      }),
-    [candidates, filters, unitFilter],
+    () => filterCandidates(candidates, filters),
+    [candidates, filters],
   );
 
-  const byBucket = useMemo(() => {
-    const map: Record<MalshabimBoardBucket, MalshabimCandidate[]> = {
-      awaiting: [],
-      open: [],
-      done: [],
-    };
-    for (const c of filtered) {
-      map[getBoardBucket(c)].push(c);
+  const statusCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      CANDIDATE_STATUSES.map((status) => [status, 0]),
+    ) as Record<MalshabimCandidateStatus, number>;
+    for (const c of candidates) {
+      counts[normalizeCandidateStatus(c.candidate_status)] += 1;
     }
-    return map;
-  }, [filtered]);
+    return counts;
+  }, [candidates]);
 
-  const awaitingCount = useMemo(
-    () => candidates.filter((c) => c.awaiting_admin_approval).length,
-    [candidates],
-  );
+  const stats = {
+    total: candidates.length,
+    drafts: drafts.length,
+    quizPassed: candidates.filter((c) => c.quiz_passed).length,
+    quizFailed: candidates.filter((c) => !c.quiz_passed).length,
+  };
 
-  const openCount = useMemo(
-    () => candidates.filter((c) => getBoardBucket(c) === "open").length,
-    [candidates],
-  );
+  const selectedStatuses = asSelectedList(filters.candidateStatus);
 
-  const doneCount = useMemo(
-    () => candidates.filter((c) => getBoardBucket(c) === "done").length,
-    [candidates],
-  );
+  const setFilter = <K extends keyof MalshabimCandidateFilters>(
+    key: K,
+    value: MalshabimCandidateFilters[K],
+  ) => setFilters((prev) => ({ ...prev, [key]: value }));
 
-  const visibleBuckets: MalshabimBoardBucket[] =
-    segment === "all" ? ["awaiting", "open", "done"] : [segment];
+  const clearFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setSelectedIds([]);
+  };
 
-  const setSearch = (search: string) => setFilters((prev) => ({ ...prev, search }));
+  const toggleStatusFilter = (status: MalshabimCandidateStatus) => {
+    const list = asSelectedList(filters.candidateStatus);
+    const next = list.includes(status)
+      ? list.filter((item) => item !== status)
+      : [...list, status];
+    setFilter("candidateStatus", next);
+  };
+
+  const selectedEnlistmentMonths = filters.enlistmentMonths || [];
+
+  const toggleEnlistmentMonth = (month: string) => {
+    const list = selectedEnlistmentMonths;
+    const next = list.includes(month)
+      ? list.filter((item) => item !== month)
+      : [...list, month];
+    setFilter("enlistmentMonths", next);
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const ids = filtered.map((c) => c.id);
+    const allSelected = ids.length > 0 && ids.every((id) => selectedIds.includes(id));
+    setSelectedIds(allSelected ? [] : ids);
+  };
+
+  const patchStatus = async (id: string, status: MalshabimCandidateStatus) => {
+    await malshabimFetch(`/api/malshabim/candidates/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        candidate_status: status,
+        update_log_entry: { changes: `סטטוס עודכן ל: ${status}` },
+      }),
+    });
+  };
 
   const moveTo = async (id: string, status: MalshabimCandidateStatus) => {
     if (!canEdit) return;
-    const prev = candidates;
-    setCandidates((list) =>
+    const prev = allCandidates;
+    setAllCandidates((list) =>
       list.map((c) => (c.id === id ? { ...c, candidate_status: status } : c)),
     );
     try {
-      await malshabimFetch(`/api/malshabim/candidates/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          candidate_status: status,
-          update_log_entry: {
-            changes: `סטטוס עודכן ל: ${status}`,
-          },
-        }),
-      });
+      await patchStatus(id, status);
     } catch {
-      setCandidates(prev);
+      setAllCandidates(prev);
       toast.error("עדכון סטטוס נכשל");
     }
   };
 
-  const renderTable = (rows: MalshabimCandidate[]) => {
-    if (rows.length === 0) {
-      return <p className={emptyStateClass}>אין תיקים בקטגוריה זו</p>;
-    }
-    return (
-      <div className="overflow-x-auto rounded-xl border border-border-weak bg-surface-1">
-        <table className="w-full min-w-[860px] text-right text-sm">
-          <thead>
-            <tr className="border-b border-border-weak bg-surface-2/80 text-[11px] font-bold tracking-wide text-text-muted">
-              <th className="px-4 py-3">שם הפונה</th>
-              <th className="px-4 py-3">טלפון</th>
-              <th className="px-4 py-3">יחידה</th>
-              <th className="px-4 py-3">תפקיד</th>
-              <th className="px-4 py-3">סטטוס</th>
-              <th className="px-4 py-3">תאריך</th>
-              <th className="px-4 py-3">פעולה</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((c, index) => {
-              const status = normalizeCandidateStatus(c.candidate_status);
-              const meta = c.request_meta || {};
-              const href = `/malshabim/candidates/${c.id}`;
-              const dateValue =
-                getLastStatusUpdateDate(c) || c.approval_requested_at || c.updated_at;
-              return (
-                <tr
-                  key={c.id}
-                  className={`border-b border-border-weak/80 last:border-0 ${
-                    index % 2 === 0 ? "bg-surface-1" : "bg-surface-2/35"
-                  } hover:bg-accent-primary/5`}
-                >
-                  <td className="px-4 py-3.5">
-                    <Link
-                      href={href}
-                      className="font-bold text-text-primary hover:text-accent-primary"
-                    >
-                      {displayName(c)}
-                    </Link>
-                    {c.full_name &&
-                    meta.requester &&
-                    meta.requester.trim() !== c.full_name.trim() ? (
-                      <p className="text-xs text-text-muted">מועמד: {c.full_name}</p>
-                    ) : null}
-                    {c.awaiting_admin_approval ? (
-                      <span className="mt-1 inline-block rounded-md bg-emerald-600/15 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        ממתין לאישור
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3.5 font-medium tabular-nums text-text-secondary">
-                    {c.phone || "—"}
-                  </td>
-                  <td className="px-4 py-3.5 text-text-secondary">{meta.unit || "—"}</td>
-                  <td className="px-4 py-3.5 text-text-secondary">{meta.role || "—"}</td>
-                  <td className="px-4 py-3.5">
-                    {canEdit && !c.awaiting_admin_approval ? (
-                      <select
-                        className={`${selectClass} !w-auto !rounded-lg !py-1.5 text-xs`}
-                        value={status}
-                        onChange={(e) =>
-                          void moveTo(c.id, e.target.value as MalshabimCandidateStatus)
-                        }
-                      >
-                        {CANDIDATE_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span
-                        className={`inline-block rounded-md px-2.5 py-1 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
-                      >
-                        {status}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3.5 text-xs text-text-muted">
-                    {formatDateTime(dateValue)}
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <Link
-                      href={href}
-                      className="inline-flex items-center gap-1 rounded-lg bg-accent-primary px-3 py-1.5 text-xs font-bold text-white"
-                    >
-                      פתח תיק
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </Link>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
+  const advanceStatus = async (candidate: MalshabimCandidate) => {
+    const current = normalizeCandidateStatus(candidate.candidate_status);
+    await moveTo(candidate.id, nextStatus(current));
   };
+
+  const applyBulkStatus = async () => {
+    if (!canEdit || selectedIds.length === 0) return;
+    setBulkSaving(true);
+    const prev = allCandidates;
+    setAllCandidates((list) =>
+      list.map((c) =>
+        selectedIds.includes(c.id) ? { ...c, candidate_status: bulkStatus } : c,
+      ),
+    );
+    try {
+      await Promise.all(selectedIds.map((id) => patchStatus(id, bulkStatus)));
+      toast.success(`עודכן סטטוס ל־${selectedIds.length} תיקים`);
+      setSelectedIds([]);
+    } catch {
+      setAllCandidates(prev);
+      toast.error("עדכון מרובה נכשל");
+    } finally {
+      setBulkSaving(false);
+    }
+  };
+
+  const greenBtn =
+    "inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700";
 
   return (
     <div className={pageShellClass} dir="rtl">
-      {/* Sketch-style summary strip */}
-      <section className="overflow-hidden rounded-3xl border border-border-weak bg-gradient-to-b from-surface-1 to-surface-2/60 shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-border-weak px-4 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6">
+      {/* Header like reference */}
+      <section className="rounded-3xl border border-border-weak bg-surface-1 p-4 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-bold tracking-wide text-text-muted">
-              מלש״בים · לוח פניות
-            </p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-text-primary">
-              טבלת עבודה
+            <h1 className="text-2xl font-black tracking-tight text-accent-primary sm:text-3xl">
+              טבלת עבודה מועמדים
             </h1>
             <p className="mt-1 text-sm font-medium text-text-secondary">
-              {filtered.length} מוצגים מתוך {candidates.length} תיקים
+              ריכוז מועמדים, סינון מסלול ושינוי סטטוס מהיר
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {canEdit ? (
-              <>
-                <Link href="/malshabim/interview" className={primaryButtonClass}>
-                  <Plus className="h-4 w-4" /> פתח תיק
-                </Link>
-                <Link
-                  href="/malshabim/waitlist?new=1"
-                  className={`${secondaryButtonClass} !border !border-violet-500/30 !bg-violet-600/10 !text-violet-800`}
-                >
-                  <Plus className="h-4 w-4" /> הוספת פנייה
-                </Link>
-              </>
-            ) : null}
+            <button
+              type="button"
+              className={greenBtn}
+              onClick={() => downloadCandidatesExcel(filtered)}
+            >
+              <Download className="h-4 w-4" /> Excel
+            </button>
+            <button
+              type="button"
+              className={greenBtn}
+              onClick={() => downloadCandidatesCsv(filtered)}
+            >
+              <Download className="h-4 w-4" /> CSV
+            </button>
             <Link href="/malshabim" className={secondaryButtonClass}>
-              תיקי מועמדים
+              <ArrowRight className="h-4 w-4" /> חזרה לבית
             </Link>
           </div>
         </div>
-
-        <div
-          className={`grid gap-3 p-4 sm:p-6 ${
-            isAdmin ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
-          }`}
-        >
-          <KpiCard
-            label="ממתינים לראיון"
-            value={waitlistCount ?? "—"}
-            tone="bg-amber-500/15 text-amber-700"
-            href="/malshabim/waitlist"
-            icon={<UserRoundSearch className="h-5 w-5" />}
-          />
-          {isAdmin ? (
-            <KpiCard
-              label="ממתינים לאישור"
-              value={awaitingCount}
-              tone="bg-emerald-600/15 text-emerald-700"
-              href="/malshabim/admin/approvals"
-              icon={<ClipboardCheck className="h-5 w-5" />}
-            />
-          ) : null}
-          <KpiCard
-            label="בטיפול"
-            value={openCount}
-            tone="bg-amber-500/15 text-amber-700"
-            active={segment === "open"}
-            onClick={() => setSegment(segment === "open" ? "all" : "open")}
-            icon={<Filter className="h-5 w-5" />}
-          />
-          <KpiCard
-            label="הושלמו"
-            value={doneCount}
-            tone="bg-slate-500/15 text-slate-700"
-            active={segment === "done"}
-            onClick={() => setSegment(segment === "done" ? "all" : "done")}
-            icon={<ClipboardCheck className="h-5 w-5" />}
-          />
-        </div>
       </section>
 
-      {/* Search + unit filter */}
-      <section className="rounded-3xl border border-border-weak bg-surface-1 p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div className="relative min-w-0 flex-1">
-            <Search
-              className="pointer-events-none absolute start-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
-              aria-hidden
-            />
+      {/* Stats cubes */}
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          icon={<Users className="h-5 w-5" />}
+          label="סה״כ מועמדים"
+          value={stats.total}
+          onClick={clearFilters}
+        />
+        {CANDIDATE_STATUSES.map((status) => (
+          <StatCard
+            key={status}
+            label={status}
+            value={statusCounts[status]}
+            tone={STATUS_COLORS[status]}
+            active={selectedStatuses.includes(status)}
+            onClick={() => toggleStatusFilter(status)}
+          />
+        ))}
+        <StatCard
+          href="/malshabim/drafts"
+          icon={<FileText className="h-5 w-5" />}
+          label="ראיונות שלא הושלמו"
+          value={stats.drafts}
+          tone="bg-violet-600/15 text-violet-700"
+        />
+        <StatCard
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          label="עברו מבחן"
+          value={stats.quizPassed}
+          tone="bg-emerald-600/15 text-emerald-700"
+        />
+        <StatCard
+          icon={<XCircle className="h-5 w-5" />}
+          label="לא עברו מבחן"
+          value={stats.quizFailed}
+          tone="bg-rose-600/15 text-rose-700"
+        />
+      </div>
+
+      {/* Advanced filters — always open like reference */}
+      <section className="rounded-3xl border border-border-weak bg-surface-2/70 p-4 shadow-sm sm:p-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted sm:col-span-2 lg:col-span-1">
+            חיפוש חופשי
+            <div className="relative">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+              <input
+                className="w-full rounded-xl border border-border-weak bg-surface-1 py-2.5 ps-10 pe-3 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
+                placeholder="מס׳ תיק, שם, טלפון, ת.ז…"
+                value={filters.search || ""}
+                onChange={(e) => setFilter("search", e.target.value)}
+              />
+            </div>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
+            מסלול גיוס
+            <select
+              className={selectClass}
+              value={typeof filters.track === "string" ? filters.track : "all"}
+              onChange={(e) => setFilter("track", e.target.value)}
+            >
+              <option value="all">כל המסלולים</option>
+              {RECRUITMENT_TRACKS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
+            סטטוס
+            <select
+              className={selectClass}
+              value={typeof filters.statusType === "string" ? filters.statusType : "all"}
+              onChange={(e) => setFilter("statusType", e.target.value)}
+            >
+              <option value="all">כל הסטטוסים</option>
+              {STATUS_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
+            סטטוס עבודה
+            <select
+              className={selectClass}
+              value={selectedStatuses[0] || "all"}
+              onChange={(e) =>
+                setFilter(
+                  "candidateStatus",
+                  e.target.value === "all" ? [] : [e.target.value],
+                )
+              }
+            >
+              <option value="all">כל הסטטוסים</option>
+              {CANDIDATE_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
+            איתור / בקשה
+            <select
+              className={selectClass}
+              value={typeof filters.requestType === "string" ? filters.requestType : "all"}
+              onChange={(e) => setFilter("requestType", e.target.value)}
+            >
+              <option value="all">הכול</option>
+              {REQUEST_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
+            סטטוס עודכן מ-
             <input
-              className="w-full rounded-2xl border border-border-weak bg-surface-2 py-3.5 ps-11 pe-11 text-sm font-medium text-text-primary outline-none transition focus:border-accent-primary focus:ring-2 focus:ring-accent-primary/25"
-              placeholder="חיפוש מלש״ב — שם, טלפון, יחידה, תפקיד…"
-              value={filters.search || ""}
-              onChange={(e) => setSearch(e.target.value)}
+              type="date"
+              className={selectClass}
+              value={filters.fromDate || ""}
+              onChange={(e) => setFilter("fromDate", e.target.value)}
             />
-            {filters.search ? (
+          </label>
+          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
+            סטטוס עודכן עד
+            <input
+              type="date"
+              className={selectClass}
+              value={filters.toDate || ""}
+              onChange={(e) => setFilter("toDate", e.target.value)}
+            />
+          </label>
+          <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-2">
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              onClick={clearFilters}
+            >
+              <RefreshCw className="h-4 w-4" /> ניקוי
+            </button>
+            <span className="pb-2 text-xs font-bold text-text-muted">
+              {filtered.length} מתוך {stats.total}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2 border-t border-border-weak pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold text-text-muted">
+              חודשי גיוס — בחירה מרובה
+              {selectedEnlistmentMonths.length > 0
+                ? ` · נבחרו ${selectedEnlistmentMonths.length}`
+                : ""}
+            </p>
+            {selectedEnlistmentMonths.length > 0 ? (
               <button
                 type="button"
-                className="absolute end-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-text-muted hover:bg-surface-1"
-                aria-label="נקה חיפוש"
-                onClick={() => setSearch("")}
+                className="text-xs font-bold text-accent-primary hover:underline"
+                onClick={() => setFilter("enlistmentMonths", [])}
               >
-                <X className="h-4 w-4" />
+                נקה חודשים
               </button>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              className={
-                segment === "all"
-                  ? "rounded-xl bg-accent-primary px-3 py-2 text-xs font-bold text-white"
-                  : "rounded-xl bg-surface-2 px-3 py-2 text-xs font-bold text-text-secondary"
-              }
-              onClick={() => setSegment("all")}
-            >
-              הכל
-            </button>
-            {units.length > 0 ? (
-              <label className="flex items-center gap-2 rounded-xl border border-border-weak bg-surface-2 px-3 py-2 text-xs font-bold text-text-muted">
-                סינון יחידה
-                <select
-                  className="bg-transparent text-text-primary outline-none"
-                  value={unitFilter}
-                  onChange={(e) => setUnitFilter(e.target.value)}
+          <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-2xl bg-surface-1/70 p-2">
+            {ENLISTMENT_MONTH_OPTIONS.map((option) => {
+              const active = selectedEnlistmentMonths.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                    active
+                      ? "bg-accent-primary text-white"
+                      : "bg-surface-2 text-text-secondary hover:bg-surface-2/80 hover:text-text-primary"
+                  }`}
+                  onClick={() => toggleEnlistmentMonth(option.value)}
+                  aria-pressed={active}
                 >
-                  <option value="all">הכל</option>
-                  {units.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+                  {option.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Accordion stages — sketch-style full-width rows */}
-      <div className="space-y-3">
-        {visibleBuckets.map((bucket) => {
-          const rows = byBucket[bucket];
-          const collapsible = segment === "all";
-          const open = collapsible ? openSections[bucket] : true;
-          return (
-            <section
-              key={bucket}
-              className={`overflow-hidden rounded-2xl border border-border-weak border-s-4 bg-surface-1 shadow-sm ${BUCKET_ACCENT[bucket]}`}
+      {/* Bulk bar */}
+      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-weak bg-surface-1 px-3 py-3 shadow-sm sm:px-4">
+        <div className="ms-auto flex items-center gap-1 rounded-xl bg-surface-2 p-1">
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold ${
+              viewMode === "table"
+                ? "bg-accent-primary text-white"
+                : "text-text-secondary"
+            }`}
+            onClick={() => setViewMode("table")}
+          >
+            <List className="h-3.5 w-3.5" /> טבלה
+          </button>
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold ${
+              viewMode === "kanban"
+                ? "bg-accent-primary text-white"
+                : "text-text-secondary"
+            }`}
+            onClick={() => setViewMode("kanban")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> קנבן
+          </button>
+        </div>
+
+        {canEdit ? (
+          <>
+            <label className="inline-flex items-center gap-2 text-xs font-bold text-text-secondary">
+              <input
+                type="checkbox"
+                checked={
+                  filtered.length > 0 &&
+                  filtered.every((c) => selectedIds.includes(c.id))
+                }
+                onChange={toggleSelectAllFiltered}
+              />
+              סימון כל המוצגים ({selectedIds.length})
+            </label>
+            <select
+              className={`${selectClass} !w-auto`}
+              value={bulkStatus}
+              onChange={(e) =>
+                setBulkStatus(e.target.value as MalshabimCandidateStatus)
+              }
             >
-              {collapsible ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 px-4 py-4 text-right sm:px-5"
-                  onClick={() =>
-                    setOpenSections((prev) => ({ ...prev, [bucket]: !prev[bucket] }))
-                  }
-                  aria-expanded={open}
-                >
+              {CANDIDATE_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"
+              disabled={bulkSaving || selectedIds.length === 0}
+              onClick={() => void applyBulkStatus()}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {bulkSaving ? "מעדכן…" : "עדכון סטטוס מסומנים"}
+            </button>
+          </>
+        ) : null}
+      </section>
+
+      {filtered.length === 0 ? (
+        <p className={emptyStateClass}>אין מועמדים להצגה</p>
+      ) : viewMode === "kanban" ? (
+        <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+          {CANDIDATE_STATUSES.map((status) => {
+            const rows = filtered.filter(
+              (c) => normalizeCandidateStatus(c.candidate_status) === status,
+            );
+            return (
+              <section
+                key={status}
+                className="rounded-2xl border border-border-weak bg-surface-1 p-3 shadow-sm"
+              >
+                <div className="mb-3 flex items-center justify-between gap-2">
                   <span
-                    className={`inline-flex min-w-10 items-center justify-center rounded-lg px-2.5 py-1 text-sm font-black tabular-nums ${BUCKET_BADGE[bucket]}`}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
                   >
-                    {rows.length}
+                    {status}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-black text-text-primary">
-                      {BOARD_BUCKET_LABELS[bucket]}
-                    </h2>
-                    <p className="text-xs font-medium text-text-muted">
-                      לחצו לפתיחה / סגירה
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={`h-5 w-5 shrink-0 text-text-muted transition ${open ? "rotate-180" : ""}`}
-                  />
-                </button>
-              ) : (
-                <div className="flex items-center gap-3 px-4 py-4 sm:px-5">
-                  <span
-                    className={`inline-flex min-w-10 items-center justify-center rounded-lg px-2.5 py-1 text-sm font-black tabular-nums ${BUCKET_BADGE[bucket]}`}
-                  >
-                    {rows.length}
-                  </span>
-                  <h2 className="text-lg font-black text-text-primary">
-                    {BOARD_BUCKET_LABELS[bucket]}
-                  </h2>
+                  <span className="text-xs font-bold text-text-muted">{rows.length}</span>
                 </div>
-              )}
-              {open ? (
-                <div className="border-t border-border-weak/80 bg-surface-1/80 p-3 sm:p-4">
-                  {renderTable(rows)}
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
-      </div>
+                <ul className="space-y-2">
+                  {rows.map((c) => (
+                    <li
+                      key={c.id}
+                      className="rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2"
+                    >
+                      <p className="font-bold text-text-primary">
+                        {c.full_name || "ללא שם"}
+                      </p>
+                      <p className="text-xs text-text-muted">
+                        #{c.serial_number ?? "—"} · {c.recruitment_track || "—"}
+                      </p>
+                      <Link
+                        href={`/malshabim/candidates/${c.id}`}
+                        className="mt-2 inline-flex text-xs font-bold text-accent-primary"
+                      >
+                        פתח תיק
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-3xl border border-border-weak bg-surface-1 shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-right text-sm">
+              <thead>
+                <tr className="border-b border-border-weak bg-surface-2/80 text-[11px] font-bold tracking-wide text-text-muted">
+                  {canEdit ? <th className="px-3 py-3"> </th> : null}
+                  <th className="px-4 py-3">מס׳ תיק</th>
+                  <th className="px-4 py-3">שם</th>
+                  <th className="px-4 py-3">מסלול</th>
+                  <th className="px-4 py-3">סטטוס עבודה</th>
+                  <th className="px-4 py-3">סטטוס מורחב</th>
+                  <th className="px-4 py-3">ראיון קרוב</th>
+                  <th className="px-4 py-3">פעולות</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c, index) => {
+                  const status = normalizeCandidateStatus(c.candidate_status);
+                  const href = `/malshabim/candidates/${c.id}`;
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`border-b border-border-weak/80 last:border-0 ${
+                        index % 2 === 0 ? "bg-surface-1" : "bg-surface-2/30"
+                      } hover:bg-accent-primary/5`}
+                    >
+                      {canEdit ? (
+                        <td className="px-3 py-3.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(c.id)}
+                            onChange={() => toggleSelected(c.id)}
+                            aria-label={`בחר את ${c.full_name || "מועמד"}`}
+                          />
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-3.5 font-semibold text-text-muted">
+                        <Link href={href} className="hover:text-accent-primary">
+                          #{c.serial_number ?? "—"}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3.5 font-bold text-text-primary">
+                        <Link href={href} className="hover:text-accent-primary">
+                          {c.full_name || "—"}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3.5 text-text-secondary">
+                        {c.recruitment_track || "—"}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${STATUS_BADGE_CLASS[status]}`}
+                        >
+                          {status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {c.advanced_status ? (
+                          <span className="inline-block rounded-full bg-sky-600/15 px-2.5 py-1 text-[11px] font-bold text-sky-800 dark:text-sky-200">
+                            {c.advanced_status}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-text-muted">
+                        {c.interview_at ? formatDateTime(c.interview_at) : "—"}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {canEdit ? (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white dark:bg-slate-100 dark:text-slate-900"
+                              onClick={() => void advanceStatus(c)}
+                            >
+                              <RefreshCw className="h-3.5 w-3.5" />
+                              סטטוס הבא
+                            </button>
+                          ) : null}
+                          <Link
+                            href={href}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border-weak bg-surface-1 px-3 py-1.5 text-xs font-bold text-text-primary"
+                          >
+                            <FolderOpen className="h-3.5 w-3.5" />
+                            תיק
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

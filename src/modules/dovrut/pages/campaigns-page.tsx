@@ -75,8 +75,12 @@ export function DovrutCampaignsPage() {
               <div className="min-w-0 flex-1">
                 <p className="break-words text-sm font-bold">{campaign.name}</p>
                 <p className="mt-0.5 line-clamp-2 break-words text-[11px] text-text-muted">
-                  {STATUS_LABELS[campaign.status] ?? campaign.status}
-                  {campaign.description ? ` · ${campaign.description}` : ""}
+                  {campaign.status !== "active"
+                    ? `${STATUS_LABELS[campaign.status] ?? campaign.status}${
+                        campaign.description ? " · " : ""
+                      }`
+                    : ""}
+                  {campaign.description ?? ""}
                 </p>
                 <Link
                   href={`/dovrut/projects?campaignId=${campaign.id}`}

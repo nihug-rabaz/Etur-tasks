@@ -21,7 +21,6 @@ import { OBSERVANCE_QUESTIONS } from "@/modules/malshabim/lib/question-bank";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
   CANDIDATE_STATUSES,
-  INSTRUCTION_STATUSES,
   STATUS_BADGE_CLASS,
   formatDateTime,
   normalizeCandidateStatus,
@@ -39,11 +38,7 @@ import {
   findWaitlistByPhone,
   type WaitlistEntryLike,
 } from "@/modules/malshabim/lib/waitlist-match";
-import type {
-  MalshabimCandidate,
-  MalshabimInstructionItem,
-  MalshabimInstructionStatus,
-} from "@/modules/malshabim/types";
+import type { MalshabimCandidate, MalshabimInstructionItem } from "@/modules/malshabim/types";
 import type { ModuleRole } from "@/shared/modules/types";
 
 function canEditRole(role: ModuleRole | null): boolean {
@@ -110,7 +105,6 @@ export function MalshabimCandidateFilePage({
   }, [c?.phone, waitlistChecked]);
 
   const canEdit = canEditRole(role);
-  const isAdmin = role === "admin";
 
   const patchCandidate = async (
     fields: Record<string, unknown>,
@@ -160,33 +154,6 @@ export function MalshabimCandidateFilePage({
       toast.success("הסטטוס עודכן");
     } catch {
       toast.error("עדכון סטטוס נכשל");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
-  const updateInstructionStatus = async (
-    index: number,
-    nextStatus: MalshabimInstructionStatus,
-  ) => {
-    if (!canEdit || !c) return;
-    if (nextStatus === "הושלם" && !isAdmin) {
-      toast.error("רק מנהל יכול לסמן הנחיה כהושלם");
-      return;
-    }
-    const items = [...(c.instruction_items || [])] as MalshabimInstructionItem[];
-    const current = items[index];
-    if (!current) return;
-    items[index] = { ...current, status: nextStatus };
-    setUpdatingStatus(true);
-    try {
-      await patchCandidate(
-        { instruction_items: items },
-        `סטטוס הנחיה עודכן ל: ${nextStatus}`,
-      );
-      toast.success("הנחיה עודכנה");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "עדכון הנחיה נכשל");
     } finally {
       setUpdatingStatus(false);
     }
@@ -379,7 +346,9 @@ export function MalshabimCandidateFilePage({
         ) : (
           <ul className="flex flex-col gap-2">
             {instructionItems.map((item, index) => {
-              const itemStatus = (item.status || "בטיפול") as MalshabimInstructionStatus;
+              const assignee =
+                (typeof item.assignee_name === "string" && item.assignee_name.trim()) ||
+                null;
               return (
                 <li
                   key={index}
@@ -389,35 +358,17 @@ export function MalshabimCandidateFilePage({
                     <p className="flex-1 whitespace-pre-wrap text-sm font-medium text-text-primary">
                       {item.text || "—"}
                     </p>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                        itemStatus === "הושלם"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-amber-500 text-white"
-                      }`}
-                    >
-                      {itemStatus}
-                    </span>
+                    {assignee ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent-primary/12 px-2 py-0.5 text-[11px] font-bold text-accent-primary">
+                        <User className="h-3 w-3" />
+                        אחראי: {assignee}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-surface-1 px-2 py-0.5 text-[11px] font-bold text-text-muted">
+                        ללא אחראי לביצוע
+                      </span>
+                    )}
                   </div>
-                  {canEdit ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {INSTRUCTION_STATUSES.filter((s) => s !== itemStatus).map((next) => {
-                        const locked = next === "הושלם" && !isAdmin;
-                        return (
-                          <button
-                            key={next}
-                            type="button"
-                            disabled={updatingStatus || locked}
-                            className={`${secondaryButtonClass} !px-2 !py-1 text-[11px]`}
-                            onClick={() => void updateInstructionStatus(index, next)}
-                            title={locked ? "רק מנהל יכול לסמן הושלם" : undefined}
-                          >
-                            {next}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
                 </li>
               );
             })}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isMalshabimCandidateApprover } from "@/modules/malshabim/lib/approvers";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
 
@@ -8,5 +9,8 @@ export async function GET() {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const candidates = await new MalshabimCandidateService().listAwaitingApproval();
-  return NextResponse.json({ candidates });
+  return NextResponse.json({
+    candidates,
+    canApprove: isMalshabimCandidateApprover(access.profile),
+  });
 }

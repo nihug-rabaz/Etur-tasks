@@ -29,14 +29,17 @@ export function MalshabimAdminApprovalsPage({
   const [candidates, setCandidates] = useState(initialCandidates);
   const [loading, setLoading] = useState(initialCandidates.length === 0);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [canApprove, setCanApprove] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await malshabimFetch<{
         candidates?: MalshabimCandidate[];
+        canApprove?: boolean;
       }>("/api/malshabim/approvals");
       setCandidates(Array.isArray(res.candidates) ? res.candidates : []);
+      setCanApprove(Boolean(res.canApprove));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "טעינת אישורים נכשלה");
     } finally {
@@ -45,11 +48,14 @@ export function MalshabimAdminApprovalsPage({
   }, []);
 
   useEffect(() => {
-    if (initialCandidates.length > 0) return;
     void load();
-  }, [initialCandidates.length, load]);
+  }, [load]);
 
   const act = async (id: string, action: "approve" | "reject") => {
+    if (!canApprove) {
+      toast.error("רק ישראל או הרב קובי יכולים לאשר או לדחות");
+      return;
+    }
     setActingId(id);
     try {
       await malshabimFetch(`/api/malshabim/approvals/${id}`, {
@@ -72,6 +78,11 @@ export function MalshabimAdminApprovalsPage({
         <p className={pageSubtitleClass}>
           תיקים שנשלחו לאישור · {candidates.length} ממתינים
         </p>
+        {!canApprove && !loading ? (
+          <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-200">
+            צפייה בלבד — רק ישראל או הרב קובי יכולים לאשר או לדחות.
+          </p>
+        ) : null}
       </div>
 
       {loading ? (
@@ -114,30 +125,32 @@ export function MalshabimAdminApprovalsPage({
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className={primaryButtonClass}
-                      disabled={busy}
-                      onClick={() => void act(candidate.id, "approve")}
-                    >
-                      {busy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-                      אישור
-                    </button>
-                    <button
-                      type="button"
-                      className={secondaryButtonClass}
-                      disabled={busy}
-                      onClick={() => void act(candidate.id, "reject")}
-                    >
-                      <XCircle className="h-4 w-4" />
-                      דחייה
-                    </button>
-                  </div>
+                  {canApprove ? (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className={primaryButtonClass}
+                        disabled={busy}
+                        onClick={() => void act(candidate.id, "approve")}
+                      >
+                        {busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        אישור
+                      </button>
+                      <button
+                        type="button"
+                        className={secondaryButtonClass}
+                        disabled={busy}
+                        onClick={() => void act(candidate.id, "reject")}
+                      >
+                        <XCircle className="h-4 w-4" />
+                        דחייה
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div>
@@ -154,15 +167,11 @@ export function MalshabimAdminApprovalsPage({
                           <span className="font-medium text-text-primary">
                             {item.text || "—"}
                           </span>
-                          <span
-                            className={`ms-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                              item.status === "הושלם"
-                                ? "bg-emerald-600 text-white"
-                                : "bg-amber-500 text-white"
-                            }`}
-                          >
-                            {item.status || "בטיפול"}
-                          </span>
+                          {item.assignee_name ? (
+                            <span className="ms-2 rounded-full bg-accent-primary/12 px-1.5 py-0.5 text-[10px] font-bold text-accent-primary">
+                              {item.assignee_name}
+                            </span>
+                          ) : null}
                         </li>
                       ))}
                     </ul>

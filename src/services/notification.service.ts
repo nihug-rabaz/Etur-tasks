@@ -247,11 +247,11 @@ export class NotificationService extends BaseService {
     if (recipientIds.length === 0) return 0;
     const url = this.malshabimWaitlistUrl();
     const text =
-      "פנייה חדשה — מחכים לראיון\n" +
-      `שם: ${input.fullName}\n` +
-      `טלפון: ${input.phone}\n` +
+      "פנייה חדשה — מחכים לראיון\n\n" +
+      `שם: ${input.fullName}\n\n` +
+      `טלפון: ${input.phone}\n\n` +
       `נוסף ע״י: ${input.createdByName}` +
-      (url ? `\nלרשימה: ${url}` : "");
+      (url ? `\n\nלרשימה: ${url}` : "");
     return this.sendToUsers(
       recipientIds,
       text,
@@ -269,16 +269,74 @@ export class NotificationService extends BaseService {
     if (!this.push.isReady()) return 0;
     const url = this.malshabimCandidateUrl(input.candidateId);
     const text =
-      "תזכורת: ריאיון מלש״ב בעוד כשעה\n" +
-      `מועמד: ${input.fullName}\n` +
+      "תזכורת: ריאיון מלש״ב בעוד כשעה\n\n" +
+      `מועמד: ${input.fullName}\n\n` +
       `מועד: ${this.formatDate(input.interviewAt)}` +
-      (url ? `\nקישור לתיק: ${url}` : "");
+      (url ? `\n\nקישור לתיק: ${url}` : "");
     return this.sendToUsers(
       [input.interviewerUserId],
       text,
       url || undefined,
       (userId) => `malshabim-interview-reminder:${input.candidateId}:${userId}`,
     );
+  }
+
+  /** Notify instruction assignees (push + email when address known). */
+  public async notifyMalshabimInstructionAssigned(input: {
+    candidateId: string;
+    candidateName: string;
+    instructionText: string;
+    assigneeUserId: string;
+    assigneeEmail?: string | null;
+    assigneeName?: string | null;
+  }): Promise<{ push: boolean; email: boolean }> {
+    const url = this.malshabimCandidateUrl(input.candidateId);
+    const text =
+      "הנחיה לביצוע — מלש״בים\n\n" +
+      `מועמד: ${input.candidateName}\n\n` +
+      `הנחיה:\n${input.instructionText.trim()}` +
+      (url ? `\n\nלתיק: ${url}` : "");
+
+    let push = false;
+    if (this.push.isReady() && input.assigneeUserId) {
+      const fingerprint = input.instructionText.trim().replace(/\s+/g, " ").slice(0, 48);
+      const key = `malshabim-instruction:${input.candidateId}:${input.assigneeUserId}:${fingerprint}`;
+      if (await this.reserveDelivery(key)) {
+        try {
+          push = await this.push.sendTextToUser(input.assigneeUserId, text, url || undefined);
+          if (!push) await this.releaseDelivery(key);
+        } catch (error) {
+          await this.releaseDelivery(key);
+          console.error("[malshabim-instruction-push]", error);
+        }
+      }
+    }
+
+    let email = false;
+    const address = (input.assigneeEmail ?? "").trim();
+    if (address) {
+      const safeName = (input.assigneeName || "שלום").replace(/[<>]/g, "");
+      const safeCandidate = input.candidateName.replace(/[<>]/g, "");
+      const safeBody = input.instructionText
+        .trim()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br/>");
+      email = await this.push.sendEmailToAddress({
+        email: address,
+        subject: `הנחיה לביצוע — ${safeCandidate}`,
+        bodyHtml:
+          `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6">` +
+          `<p>${safeName},</p>` +
+          `<p>שויכת אליך הנחיה לביצוע עבור המועמד <strong>${safeCandidate}</strong>:</p>` +
+          `<p style="margin:16px 0;padding:12px;background:#f4f4f5;border-radius:8px">${safeBody || "—"}</p>` +
+          (url ? `<p><a href="${url}">לפתיחת התיק</a></p>` : "") +
+          `</div>`,
+      });
+    }
+
+    return { push, email };
   }
 
   /** Daily 10:00 Israel digest of מחכים לראיון for malshabim module users. */

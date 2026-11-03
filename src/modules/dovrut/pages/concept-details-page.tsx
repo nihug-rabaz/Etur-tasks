@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   DovrutActivityLog,
-  DovrutApprovalStatus,
   DovrutAudienceMessage,
   DovrutConcept,
   DovrutInquirySubject,
@@ -22,7 +21,6 @@ import {
   APPROVAL_STATUS_LABELS,
   DOMAIN_LABELS,
   WORK_STATUS_LABELS,
-  buildApprovalFlow,
 } from "@/modules/dovrut/lib/approval-flows";
 import { buildInquiryParagraph } from "@/modules/dovrut/lib/inquiry-subjects";
 import {
@@ -84,6 +82,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [openedBy, setOpenedBy] = useState("");
+  const [showActivity, setShowActivity] = useState(false);
 
   useEffect(() => {
     void fetch("/api/auth/session")
@@ -170,15 +169,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     })();
   }, [audiences, domains]);
 
-  const flow = useMemo(() => {
-    if (!concept || concept.type !== "article_interview") return [] as DovrutApprovalStatus[];
-    return buildApprovalFlow({
-      requires_chief_rabbi: concept.requires_chief_rabbi,
-      requires_deputy_commander: concept.requires_deputy_commander,
-      requires_branch_head: concept.requires_branch_head,
-    });
-  }, [concept]);
-
   const traffic = useMemo(
     () => (concept ? getApprovalTrafficLights(concept) : null),
     [concept],
@@ -253,24 +243,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
     } catch {
       setConcept(previous);
       setMessage("עדכון סטטוס נכשל");
-    }
-  };
-
-  const setApproval = async (status: DovrutApprovalStatus) => {
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/dovrut/concepts/${conceptId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approval_status: status }),
-      });
-      if (!response.ok) {
-        setMessage("רק מנהל יכול לשנות סטטוס אישורים ישירות");
-        return;
-      }
-      await load();
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -470,7 +442,7 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
               </button>
             </div>
           </div>
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {APPROVAL_TRAFFIC_STEPS.map((step) => {
               const status = traffic?.[step] ?? "skipped";
               return (
@@ -486,24 +458,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
                 </div>
               );
             })}
-          </div>
-          <div className="space-y-2">
-            {flow.map((step) => (
-              <button
-                key={step}
-                type="button"
-                disabled={saving}
-                onClick={() => void setApproval(step)}
-                className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-start text-sm font-semibold ${
-                  concept.approval_status === step
-                    ? "bg-accent-primary/10 text-accent-primary ring-1 ring-accent-primary/30"
-                    : "bg-surface-2/50 text-text-secondary"
-                }`}
-              >
-                <span>{APPROVAL_STATUS_LABELS[step]}</span>
-                <span className="text-[10px]">{step}</span>
-              </button>
-            ))}
           </div>
         </section>
       ) : null}
@@ -562,30 +516,10 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
           ) : (
             <p className="mt-3 text-xs text-text-muted">אין מסרים תואמים לקהלים/תחומים</p>
           )}
-
-          <div className="mt-5 border-t border-surface-2 pt-4">
-            <p className="mb-2 text-xs font-bold text-text-secondary">פרסום וסגירה</p>
-            <input
-              value={publishLink}
-              onChange={(event) => setPublishLink(event.target.value)}
-              placeholder="קישור לכתבה/ראיון שפורסם"
-              className="mb-2 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
-              dir="ltr"
-            />
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void publishAndArchive()}
-              className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white disabled:opacity-40 dark:bg-slate-200 dark:text-slate-900"
-            >
-              סגור ושגר לארכיון
-            </button>
-          </div>
         </section>
       ) : null}
 
       <section className="dashboard-glass rounded-3xl p-4 print:hidden">
-        <h2 className="mb-3 text-sm font-extrabold">פרטים</h2>
         <div className="grid gap-2">
           <DovrutCheckboxGroup
             label="קהלי יעד"
@@ -650,14 +584,6 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
                   />
                   רמ״ח
                 </label>
-                <label className="flex items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={needsBriefing}
-                    onChange={(e) => setNeedsBriefing(e.target.checked)}
-                  />
-                  צריך לתדרך
-                </label>
               </div>
             </>
           ) : (
@@ -702,32 +628,83 @@ export function DovrutConceptDetailsPage({ conceptId }: { conceptId: string }) {
         </div>
       </section>
 
-      <section className="dashboard-glass rounded-3xl p-4 print:hidden">
-        <h2 className="mb-3 text-sm font-extrabold">טיימליין פעילות</h2>
-        <ul className="space-y-2">
-          {activity.map((row) => (
-            <li
-              key={row.id}
-              className="rounded-xl border-s-2 border-accent-primary/40 bg-surface-2/50 px-3 py-2 text-xs"
-            >
-              <p className="font-bold text-text-primary">
-                {row.details || row.action_type} · {row.user_name}
-              </p>
-              <p className="text-text-muted">
-                {row.field_changed
-                  ? `${row.field_changed}: ${row.old_value ?? "—"} → ${row.new_value ?? "—"}`
-                  : null}
-              </p>
-              <p className="mt-0.5 text-[10px] text-text-muted">
-                {new Date(row.created_at).toLocaleString("he-IL")}
-              </p>
-            </li>
-          ))}
-          {activity.length === 0 ? (
-            <p className="text-sm text-text-muted">אין היסטוריה</p>
-          ) : null}
-        </ul>
-      </section>
+      {isArticle ? (
+        <section className="dashboard-glass rounded-3xl p-4 print:hidden">
+          <h2 className="mb-3 text-sm font-extrabold">פרסום וסגירה</h2>
+          <input
+            value={publishLink}
+            onChange={(event) => setPublishLink(event.target.value)}
+            placeholder="קישור לכתבה/ראיון שפורסם"
+            className="mb-2 w-full rounded-xl bg-surface-2 px-3 py-2 text-sm outline-none"
+            dir="ltr"
+          />
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void publishAndArchive()}
+            className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-bold text-white disabled:opacity-40 dark:bg-slate-200 dark:text-slate-900"
+          >
+            סגור ושגר לארכיון
+          </button>
+        </section>
+      ) : null}
+
+      <div className="print:hidden">
+        <button
+          type="button"
+          onClick={() => setShowActivity(true)}
+          className="rounded-lg px-2 py-1 text-[11px] font-semibold text-text-muted underline-offset-2 hover:text-text-secondary hover:underline"
+        >
+          היסטוריית פעילות
+          {activity.length > 0 ? ` (${activity.length})` : ""}
+        </button>
+      </div>
+
+      {showActivity ? (
+        <div className="fixed inset-0 z-50 print:hidden">
+          <button
+            type="button"
+            aria-label="סגור היסטוריה"
+            className="absolute inset-0 bg-black/30"
+            onClick={() => setShowActivity(false)}
+          />
+          <aside className="absolute inset-y-0 end-0 flex w-full max-w-sm flex-col bg-surface-1 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-surface-2 px-4 py-3">
+              <h2 className="text-sm font-extrabold">טיימליין פעילות</h2>
+              <button
+                type="button"
+                onClick={() => setShowActivity(false)}
+                className="rounded-lg bg-surface-2 px-2.5 py-1 text-[11px] font-bold"
+              >
+                סגור
+              </button>
+            </div>
+            <ul className="flex-1 space-y-2 overflow-y-auto p-4">
+              {activity.map((row) => (
+                <li
+                  key={row.id}
+                  className="rounded-xl border-s-2 border-accent-primary/40 bg-surface-2/50 px-3 py-2 text-xs"
+                >
+                  <p className="font-bold text-text-primary">
+                    {row.details || row.action_type} · {row.user_name}
+                  </p>
+                  <p className="text-text-muted">
+                    {row.field_changed
+                      ? `${row.field_changed}: ${row.old_value ?? "—"} → ${row.new_value ?? "—"}`
+                      : null}
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-text-muted">
+                    {new Date(row.created_at).toLocaleString("he-IL")}
+                  </p>
+                </li>
+              ))}
+              {activity.length === 0 ? (
+                <p className="text-sm text-text-muted">אין היסטוריה</p>
+              ) : null}
+            </ul>
+          </aside>
+        </div>
+      ) : null}
 
       <BriefingPrintSheet
         concept={concept}

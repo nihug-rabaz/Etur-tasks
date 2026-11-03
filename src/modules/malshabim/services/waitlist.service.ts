@@ -1,4 +1,5 @@
 import { BaseService } from "@/services/base.service";
+import { normalizePhoneDigits, phonesMatch } from "@/modules/malshabim/lib/phone";
 
 export interface MalshabimWaitlistEntry {
   id: string;
@@ -9,6 +10,13 @@ export interface MalshabimWaitlistEntry {
 }
 
 export class MalshabimWaitlistService extends BaseService {
+  public async findByPhone(phone: string): Promise<MalshabimWaitlistEntry | null> {
+    const normalized = normalizePhoneDigits(phone);
+    if (!normalized) return null;
+    const entries = await this.list(500);
+    return entries.find((entry) => phonesMatch(entry.phone, normalized)) ?? null;
+  }
+
   public async list(limit = 500): Promise<MalshabimWaitlistEntry[]> {
     const db = this.getDb();
     return db<MalshabimWaitlistEntry[]>`

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isMalshabimCandidateApprover } from "@/modules/malshabim/lib/approvers";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
 
@@ -14,6 +15,12 @@ export async function POST(
   const access = await new MalshabimAccessService().requireMalshabimAccess("admin");
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
+  }
+  if (!isMalshabimCandidateApprover(access.profile)) {
+    return NextResponse.json(
+      { error: "רק ישראל או הרב קובי יכולים לאשר או לדחות מועמד" },
+      { status: 403 },
+    );
   }
 
   const { id } = await context.params;
