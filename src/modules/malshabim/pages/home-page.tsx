@@ -492,32 +492,34 @@ export function MalshabimHomePage({
                 </div>
               </div>
             )}
-            <Link href="/malshabim/admin/approvals" className={actionCardClass}>
-              <div className="flex items-center gap-2.5">
-                <span className="rounded-xl bg-emerald-600/15 p-2.5 text-emerald-700">
-                  <ClipboardCheck className="h-5 w-5" />
-                </span>
-                <p className="text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+            <Link
+              href="/malshabim/admin/approvals"
+              className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/15 text-emerald-700">
+                <ClipboardCheck className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-muted">אישור או דחייה</p>
+                <p className="text-sm font-black text-text-primary sm:text-base">מחכים לאישור מנהל</p>
+                <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
                   {pendingApprovalCount ?? "—"}
                 </p>
               </div>
-              <div>
-                <p className="text-base font-black text-text-primary sm:text-lg">מחכים לאישור מנהל</p>
-                <p className="mt-1 text-xs font-medium text-text-muted">אישור או דחייה</p>
-              </div>
             </Link>
-            <Link href="/malshabim/waitlist" className={actionCardClass}>
-              <div className="flex items-center gap-2.5">
-                <span className="rounded-xl bg-amber-500/15 p-2.5 text-amber-700">
-                  <UserRoundSearch className="h-5 w-5" />
-                </span>
-                <p className="text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+            <Link
+              href="/malshabim/waitlist"
+              className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700">
+                <UserRoundSearch className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-text-muted">רשימת פניות ממתינות</p>
+                <p className="text-sm font-black text-text-primary sm:text-base">מחכים לראיון</p>
+                <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
                   {waitlistCount ?? "—"}
                 </p>
-              </div>
-              <div>
-                <p className="text-base font-black text-text-primary sm:text-lg">מחכים לראיון</p>
-                <p className="mt-1 text-xs font-medium text-text-muted">רשימת פניות ממתינות</p>
               </div>
             </Link>
           </div>
