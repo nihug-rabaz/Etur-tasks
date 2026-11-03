@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Plus, Trash2, XCircle, FastForward } from "lucide-react";
 import { BIYENISH_LABEL } from "@/modules/malshabim/lib/question-bank";
+import { normalizePersonName } from "@/modules/malshabim/lib/person-name";
 import { CANDIDATE_STATUSES } from "@/modules/malshabim/lib/status";
 import { fieldClass, secondaryButtonClass } from "@/modules/malshabim/lib/ui";
 import type {
@@ -57,7 +58,7 @@ export function StepSummary({
           rows
             .map((row: { id?: string; name?: string; email?: string | null }) => ({
               id: String(row.id ?? ""),
-              name: String(row.name ?? "").trim() || "משתמש",
+              name: normalizePersonName(row.name) || "משתמש",
               email: row.email?.trim() || null,
             }))
             .filter((row: SystemUser) => row.id),

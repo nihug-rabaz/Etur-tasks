@@ -29,6 +29,7 @@ import {
   pickRandomQuestions,
 } from "@/modules/malshabim/lib/question-bank";
 import { validateIsraeliId } from "@/modules/malshabim/lib/israeli-id";
+import { normalizePersonName } from "@/modules/malshabim/lib/person-name";
 import { normalizeCandidateStatus } from "@/modules/malshabim/lib/status";
 import {
   formShellClass,
@@ -163,7 +164,7 @@ function candidateToForm(c: MalshabimCandidate): InterviewFormData {
 
 function toPayload(data: InterviewFormData) {
   return {
-    full_name: data.full_name,
+    full_name: normalizePersonName(data.full_name) || data.full_name,
     phone: data.phone,
     id_number: data.id_number,
     personal_number: data.personal_number,
@@ -261,7 +262,7 @@ export function MalshabimInterviewPage({
             })),
           );
           setCanEdit(canEditRole(res.role));
-          setUserName((res.currentUserName || "").trim() || "משתמש");
+          setUserName(normalizePersonName(res.currentUserName) || "משתמש");
           const form = candidateToForm(res.candidate);
           // Keep waitlist link only while still a draft opened from the waitlist.
           setActiveWaitlistId(
@@ -298,7 +299,7 @@ export function MalshabimInterviewPage({
             })),
           );
           setCanEdit(canEditRole(list.role));
-          setUserName((list.currentUserName || "").trim() || "משתמש");
+          setUserName(normalizePersonName(list.currentUserName) || "משתמש");
           const draft = emptyDraft();
           if (waitlistId) {
             try {
@@ -664,7 +665,11 @@ export function MalshabimInterviewPage({
           method: "PATCH",
           body: JSON.stringify(payload),
         });
-        toast.success("התיק נשמר בהצלחה");
+        toast.success(
+          userName
+            ? `התיק נשמר בהצלחה · ${userName}`
+            : "התיק נשמר בהצלחה",
+        );
       } else {
         payload.update_log = [
           {
@@ -678,13 +683,17 @@ export function MalshabimInterviewPage({
           { method: "POST", body: JSON.stringify(payload) },
         );
         savedCandidateId = created.candidate.id;
-        toast.success("התיק נפתח לאישור מנהל");
+        toast.success(
+          userName
+            ? `התיק נפתח לאישור מנהל · ${userName}`
+            : "התיק נפתח לאישור מנהל",
+        );
       }
 
       if (activeWaitlistId && savedCandidateId) {
         setPendingDonePrompt({
           waitlistId: activeWaitlistId,
-          name: data.full_name || "החייל",
+          name: normalizePersonName(data.full_name) || "החייל",
           candidateId: savedCandidateId,
         });
       } else if (savedCandidateId) {
@@ -1066,9 +1075,17 @@ export function MalshabimInterviewPage({
             <h2 className="text-center text-lg font-bold text-text-primary">
               הראיון נשמר בהצלחה
             </h2>
-            <p className="mt-3 text-center text-sm text-text-secondary">
-              <strong className="text-text-primary">{pendingDonePrompt.name}</strong> מופיע גם
-              ברשימת &quot;מחכים לראיון&quot;. לסמן כבוצע ולהוריד מהרשימה?
+            {userName ? (
+              <p className="mt-2 text-center text-sm font-semibold text-text-primary">
+                נשמר על ידי {userName}
+              </p>
+            ) : null}
+            <p className="mt-3 text-center text-sm leading-relaxed text-text-secondary">
+              <strong className="text-text-primary">
+                {normalizePersonName(pendingDonePrompt.name) || pendingDonePrompt.name}
+              </strong>
+              {" "}
+              מופיע גם ברשימת &quot;מחכים לראיון&quot;. לסמן כבוצע ולהוריד מהרשימה?
             </p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button

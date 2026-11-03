@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   Download,
   FileText,
@@ -19,6 +20,7 @@ import {
 import { toast } from "sonner";
 import {
   CANDIDATE_STATUSES,
+  FILTER_EMPTY_VALUE,
   STATUS_BADGE_CLASS,
   STATUS_COLORS,
   buildEnlistmentMonthOptions,
@@ -49,14 +51,70 @@ import type { ModuleRole } from "@/shared/modules/types";
 
 const DEFAULT_FILTERS: MalshabimCandidateFilters = {
   search: "",
-  track: "all",
+  track: [],
   candidateStatus: [],
-  statusType: "all",
-  requestType: "all",
+  statusType: [],
+  requestType: [],
   fromDate: "",
   toDate: "",
   enlistmentMonths: [],
 };
+
+type ChipOption = { value: string; label: string };
+
+function FilterChipGroup({
+  label,
+  options,
+  selected,
+  onToggle,
+  onClear,
+}: {
+  label: string;
+  options: ChipOption[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="space-y-1.5 sm:col-span-2 lg:col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-bold text-text-muted">
+          {label}
+          {selected.length > 0 ? ` · נבחרו ${selected.length}` : " — בחירה מרובה"}
+        </p>
+        {selected.length > 0 ? (
+          <button
+            type="button"
+            className="text-xs font-bold text-accent-primary hover:underline"
+            onClick={onClear}
+          >
+            נקה
+          </button>
+        ) : null}
+      </div>
+      <div className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto rounded-2xl bg-surface-1/70 p-2">
+        {options.map((option) => {
+          const active = selected.includes(option.value);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                active
+                  ? "bg-accent-primary text-white"
+                  : "bg-surface-2 text-text-secondary hover:bg-surface-2/80 hover:text-text-primary"
+              }`}
+              onClick={() => onToggle(option.value)}
+              aria-pressed={active}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const ENLISTMENT_MONTH_OPTIONS = buildEnlistmentMonthOptions(2025, 2028);
 
@@ -158,6 +216,15 @@ export function MalshabimBoardPage({
     [candidates, filters],
   );
 
+  const filteredIdSet = useMemo(
+    () => new Set(filtered.map((c) => c.id)),
+    [filtered],
+  );
+  const visibleSelectedIds = useMemo(
+    () => selectedIds.filter((id) => filteredIdSet.has(id)),
+    [selectedIds, filteredIdSet],
+  );
+
   const statusCounts = useMemo(() => {
     const counts = Object.fromEntries(
       CANDIDATE_STATUSES.map((status) => [status, 0]),
@@ -176,6 +243,10 @@ export function MalshabimBoardPage({
   };
 
   const selectedStatuses = asSelectedList(filters.candidateStatus);
+  const selectedTracks = asSelectedList(filters.track);
+  const selectedStatusTypes = asSelectedList(filters.statusType);
+  const selectedRequestTypes = asSelectedList(filters.requestType);
+  const selectedEnlistmentMonths = filters.enlistmentMonths || [];
 
   const setFilter = <K extends keyof MalshabimCandidateFilters>(
     key: K,
@@ -187,22 +258,22 @@ export function MalshabimBoardPage({
     setSelectedIds([]);
   };
 
-  const toggleStatusFilter = (status: MalshabimCandidateStatus) => {
-    const list = asSelectedList(filters.candidateStatus);
-    const next = list.includes(status)
-      ? list.filter((item) => item !== status)
-      : [...list, status];
-    setFilter("candidateStatus", next);
+  const toggleMulti = (
+    key: "track" | "candidateStatus" | "statusType" | "requestType" | "enlistmentMonths",
+    value: string,
+  ) => {
+    const current =
+      key === "enlistmentMonths"
+        ? filters.enlistmentMonths || []
+        : asSelectedList(filters[key]);
+    const next = current.includes(value)
+      ? current.filter((item) => item !== value)
+      : [...current, value];
+    setFilter(key, next);
   };
 
-  const selectedEnlistmentMonths = filters.enlistmentMonths || [];
-
-  const toggleEnlistmentMonth = (month: string) => {
-    const list = selectedEnlistmentMonths;
-    const next = list.includes(month)
-      ? list.filter((item) => item !== month)
-      : [...list, month];
-    setFilter("enlistmentMonths", next);
+  const toggleStatusFilter = (status: MalshabimCandidateStatus) => {
+    toggleMulti("candidateStatus", status);
   };
 
   const toggleSelected = (id: string) => {
@@ -247,17 +318,18 @@ export function MalshabimBoardPage({
   };
 
   const applyBulkStatus = async () => {
-    if (!canEdit || selectedIds.length === 0) return;
+    if (!canEdit || visibleSelectedIds.length === 0) return;
     setBulkSaving(true);
+    const targetIds = visibleSelectedIds;
     const prev = allCandidates;
     setAllCandidates((list) =>
       list.map((c) =>
-        selectedIds.includes(c.id) ? { ...c, candidate_status: bulkStatus } : c,
+        targetIds.includes(c.id) ? { ...c, candidate_status: bulkStatus } : c,
       ),
     );
     try {
-      await Promise.all(selectedIds.map((id) => patchStatus(id, bulkStatus)));
-      toast.success(`עודכן סטטוס ל־${selectedIds.length} תיקים`);
+      await Promise.all(targetIds.map((id) => patchStatus(id, bulkStatus)));
+      toast.success(`עודכן סטטוס ל־${targetIds.length} תיקים`);
       setSelectedIds([]);
     } catch {
       setAllCandidates(prev);
@@ -284,6 +356,9 @@ export function MalshabimBoardPage({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Link href="/malshabim/statistics" className={greenBtn}>
+              <BarChart3 className="h-4 w-4" /> ייצוא לסטטיסטיקה
+            </Link>
             <button
               type="button"
               className={greenBtn}
@@ -328,7 +403,6 @@ export function MalshabimBoardPage({
           icon={<FileText className="h-5 w-5" />}
           label="ראיונות שלא הושלמו"
           value={stats.drafts}
-          tone="bg-violet-600/15 text-violet-700"
         />
         <StatCard
           icon={<CheckCircle2 className="h-5 w-5" />}
@@ -360,71 +434,6 @@ export function MalshabimBoardPage({
             </div>
           </label>
           <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
-            מסלול גיוס
-            <select
-              className={selectClass}
-              value={typeof filters.track === "string" ? filters.track : "all"}
-              onChange={(e) => setFilter("track", e.target.value)}
-            >
-              <option value="all">כל המסלולים</option>
-              {RECRUITMENT_TRACKS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
-            סטטוס
-            <select
-              className={selectClass}
-              value={typeof filters.statusType === "string" ? filters.statusType : "all"}
-              onChange={(e) => setFilter("statusType", e.target.value)}
-            >
-              <option value="all">כל הסטטוסים</option>
-              {STATUS_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
-            סטטוס עבודה
-            <select
-              className={selectClass}
-              value={selectedStatuses[0] || "all"}
-              onChange={(e) =>
-                setFilter(
-                  "candidateStatus",
-                  e.target.value === "all" ? [] : [e.target.value],
-                )
-              }
-            >
-              <option value="all">כל הסטטוסים</option>
-              {CANDIDATE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
-            איתור / בקשה
-            <select
-              className={selectClass}
-              value={typeof filters.requestType === "string" ? filters.requestType : "all"}
-              onChange={(e) => setFilter("requestType", e.target.value)}
-            >
-              <option value="all">הכול</option>
-              {REQUEST_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
             סטטוס עודכן מ-
             <input
               type="date"
@@ -442,7 +451,7 @@ export function MalshabimBoardPage({
               onChange={(e) => setFilter("toDate", e.target.value)}
             />
           </label>
-          <div className="flex flex-wrap items-end gap-2 sm:col-span-2 lg:col-span-2">
+          <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
             <button
               type="button"
               className={secondaryButtonClass}
@@ -454,46 +463,54 @@ export function MalshabimBoardPage({
               {filtered.length} מתוך {stats.total}
             </span>
           </div>
-        </div>
 
-        <div className="mt-4 space-y-2 border-t border-border-weak pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-bold text-text-muted">
-              חודשי גיוס — בחירה מרובה
-              {selectedEnlistmentMonths.length > 0
-                ? ` · נבחרו ${selectedEnlistmentMonths.length}`
-                : ""}
-            </p>
-            {selectedEnlistmentMonths.length > 0 ? (
-              <button
-                type="button"
-                className="text-xs font-bold text-accent-primary hover:underline"
-                onClick={() => setFilter("enlistmentMonths", [])}
-              >
-                נקה חודשים
-              </button>
-            ) : null}
-          </div>
-          <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-2xl bg-surface-1/70 p-2">
-            {ENLISTMENT_MONTH_OPTIONS.map((option) => {
-              const active = selectedEnlistmentMonths.includes(option.value);
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${
-                    active
-                      ? "bg-accent-primary text-white"
-                      : "bg-surface-2 text-text-secondary hover:bg-surface-2/80 hover:text-text-primary"
-                  }`}
-                  onClick={() => toggleEnlistmentMonth(option.value)}
-                  aria-pressed={active}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
+          <FilterChipGroup
+            label="מסלול גיוס"
+            selected={selectedTracks}
+            onToggle={(value) => toggleMulti("track", value)}
+            onClear={() => setFilter("track", [])}
+            options={[
+              { value: FILTER_EMPTY_VALUE, label: "ללא מסלול" },
+              ...RECRUITMENT_TRACKS.map((t) => ({ value: t, label: t })),
+            ]}
+          />
+          <FilterChipGroup
+            label="סטטוס (מלש״ב / חייל)"
+            selected={selectedStatusTypes}
+            onToggle={(value) => toggleMulti("statusType", value)}
+            onClear={() => setFilter("statusType", [])}
+            options={[
+              { value: FILTER_EMPTY_VALUE, label: "ללא" },
+              ...STATUS_TYPES.map((type) => ({ value: type, label: type })),
+            ]}
+          />
+          <FilterChipGroup
+            label="סטטוס עבודה"
+            selected={selectedStatuses}
+            onToggle={(value) => toggleMulti("candidateStatus", value)}
+            onClear={() => setFilter("candidateStatus", [])}
+            options={CANDIDATE_STATUSES.map((status) => ({
+              value: status,
+              label: status,
+            }))}
+          />
+          <FilterChipGroup
+            label="איתור / בקשה"
+            selected={selectedRequestTypes}
+            onToggle={(value) => toggleMulti("requestType", value)}
+            onClear={() => setFilter("requestType", [])}
+            options={[
+              { value: FILTER_EMPTY_VALUE, label: "ללא" },
+              ...REQUEST_TYPES.map((type) => ({ value: type, label: type })),
+            ]}
+          />
+          <FilterChipGroup
+            label="חודשי גיוס"
+            selected={selectedEnlistmentMonths}
+            onToggle={(value) => toggleMulti("enlistmentMonths", value)}
+            onClear={() => setFilter("enlistmentMonths", [])}
+            options={ENLISTMENT_MONTH_OPTIONS}
+          />
         </div>
       </section>
 
@@ -535,7 +552,7 @@ export function MalshabimBoardPage({
                 }
                 onChange={toggleSelectAllFiltered}
               />
-              סימון כל המוצגים ({selectedIds.length})
+              סימון כל המוצגים ({visibleSelectedIds.length})
             </label>
             <select
               className={`${selectClass} !w-auto`}
@@ -553,7 +570,7 @@ export function MalshabimBoardPage({
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40 dark:bg-slate-100 dark:text-slate-900"
-              disabled={bulkSaving || selectedIds.length === 0}
+              disabled={bulkSaving || visibleSelectedIds.length === 0}
               onClick={() => void applyBulkStatus()}
             >
               <Pencil className="h-3.5 w-3.5" />

@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import {
   CANDIDATE_STATUSES,
+  FILTER_EMPTY_VALUE,
   STATUS_BADGE_CLASS,
   STATUS_COLORS,
   filterCandidates,
@@ -32,7 +33,6 @@ import {
   REQUEST_TYPES,
   STATUS_TYPES,
 } from "@/modules/malshabim/lib/question-bank";
-import { downloadCandidatesExcel } from "@/modules/malshabim/lib/excel-report";
 import {
   exportTemplate,
   parseTemplateFile,
@@ -352,9 +352,11 @@ export function MalshabimHomePage({
   };
 
   const actionCardClass =
-    "flex min-h-[120px] flex-col justify-between rounded-3xl border border-border-weak bg-surface-1 p-4 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-5";
+    "flex min-h-[108px] flex-col justify-between rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4";
   const greenButtonClass =
-    "inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-40";
+    "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-40";
+  const blueButtonClass =
+    "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700";
 
   return (
     <div className={pageShellClass} dir="rtl">
@@ -446,137 +448,132 @@ export function MalshabimHomePage({
           ) : null}
         </div>
 
-        {/* 4 cubes: row1 create · row2 queues */}
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-6">
-          {canEdit ? (
-            <Link href="/malshabim/interview" className={actionCardClass}>
-              <span className="w-fit rounded-xl bg-accent-primary/15 p-2.5 text-accent-primary">
-                <Plus className="h-5 w-5" />
-              </span>
+        {/* Cards (narrower) + side actions in freed space */}
+        <div className="flex flex-col gap-3 p-4 md:flex-row md:items-stretch md:gap-4 md:p-6 sm:p-6">
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+            {canEdit ? (
+              <Link href="/malshabim/interview" className={actionCardClass}>
+                <span className="w-fit rounded-xl bg-accent-primary/15 p-2.5 text-accent-primary">
+                  <Plus className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-base font-black text-text-primary sm:text-lg">ראיון חדש</p>
+                  <p className="mt-1 text-xs font-medium text-text-muted">פתיחת תיק ראיון</p>
+                </div>
+              </Link>
+            ) : (
+              <div className={`${actionCardClass} opacity-50`}>
+                <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
+                  <Plus className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-base font-black text-text-primary sm:text-lg">ראיון חדש</p>
+                  <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
+                </div>
+              </div>
+            )}
+            {canEdit ? (
+              <Link href="/malshabim/waitlist?new=1" className={actionCardClass}>
+                <span className="w-fit rounded-xl bg-violet-600/15 p-2.5 text-violet-700">
+                  <Plus className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-base font-black text-text-primary sm:text-lg">פנייה חדשה</p>
+                  <p className="mt-1 text-xs font-medium text-text-muted">רישום למחכים לראיון</p>
+                </div>
+              </Link>
+            ) : (
+              <div className={`${actionCardClass} opacity-50`}>
+                <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
+                  <Plus className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-base font-black text-text-primary sm:text-lg">פנייה חדשה</p>
+                  <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
+                </div>
+              </div>
+            )}
+            <Link href="/malshabim/admin/approvals" className={actionCardClass}>
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-xl bg-emerald-600/15 p-2.5 text-emerald-700">
+                  <ClipboardCheck className="h-5 w-5" />
+                </span>
+                <p className="text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+                  {pendingApprovalCount ?? "—"}
+                </p>
+              </div>
               <div>
-                <p className="text-lg font-black text-text-primary">ראיון חדש</p>
-                <p className="mt-1 text-xs font-medium text-text-muted">פתיחת תיק ראיון</p>
+                <p className="text-base font-black text-text-primary sm:text-lg">מחכים לאישור מנהל</p>
+                <p className="mt-1 text-xs font-medium text-text-muted">אישור או דחייה</p>
               </div>
             </Link>
-          ) : (
-            <div className={`${actionCardClass} opacity-50`}>
-              <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
-                <Plus className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-lg font-black text-text-primary">ראיון חדש</p>
-                <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
+            <Link href="/malshabim/waitlist" className={actionCardClass}>
+              <div className="flex items-center gap-2.5">
+                <span className="rounded-xl bg-amber-500/15 p-2.5 text-amber-700">
+                  <UserRoundSearch className="h-5 w-5" />
+                </span>
+                <p className="text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+                  {waitlistCount ?? "—"}
+                </p>
               </div>
-            </div>
-          )}
-          {canEdit ? (
-            <Link href="/malshabim/waitlist?new=1" className={actionCardClass}>
-              <span className="w-fit rounded-xl bg-violet-600/15 p-2.5 text-violet-700">
-                <Plus className="h-5 w-5" />
-              </span>
               <div>
-                <p className="text-lg font-black text-text-primary">פנייה חדשה</p>
-                <p className="mt-1 text-xs font-medium text-text-muted">רישום למחכים לראיון</p>
+                <p className="text-base font-black text-text-primary sm:text-lg">מחכים לראיון</p>
+                <p className="mt-1 text-xs font-medium text-text-muted">רשימת פניות ממתינות</p>
               </div>
             </Link>
-          ) : (
-            <div className={`${actionCardClass} opacity-50`}>
-              <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
-                <Plus className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="text-lg font-black text-text-primary">פנייה חדשה</p>
-                <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
-              </div>
-            </div>
-          )}
-          <Link href="/malshabim/admin/approvals" className={actionCardClass}>
-            <div className="flex items-start justify-between gap-2">
-              <span className="rounded-xl bg-emerald-600/15 p-2.5 text-emerald-700">
-                <ClipboardCheck className="h-5 w-5" />
-              </span>
-              <p className="text-3xl font-black tabular-nums text-text-primary">
-                {pendingApprovalCount ?? "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-lg font-black text-text-primary">מחכים לאישור מנהל</p>
-              <p className="mt-1 text-xs font-medium text-text-muted">אישור או דחייה</p>
-            </div>
-          </Link>
-          <Link href="/malshabim/waitlist" className={actionCardClass}>
-            <div className="flex items-start justify-between gap-2">
-              <span className="rounded-xl bg-amber-500/15 p-2.5 text-amber-700">
-                <UserRoundSearch className="h-5 w-5" />
-              </span>
-              <p className="text-3xl font-black tabular-nums text-text-primary">
-                {waitlistCount ?? "—"}
-              </p>
-            </div>
-            <div>
-              <p className="text-lg font-black text-text-primary">מחכים לראיון</p>
-              <p className="mt-1 text-xs font-medium text-text-muted">רשימת פניות ממתינות</p>
-            </div>
-          </Link>
-        </div>
+          </div>
 
-        <div className="flex flex-wrap gap-2 border-t border-border-weak px-4 py-4 sm:px-6">
-          <Link href="/malshabim/board" className={primaryButtonClass}>
-            <KanbanSquare className="h-4 w-4" /> טבלת עבודה
-          </Link>
-          {canEdit ? (
-            <button
-              type="button"
-              className={greenButtonClass}
-              onClick={() => exportTemplate()}
-            >
-              <FileSpreadsheet className="h-4 w-4" /> ייצא תבנית
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={greenButtonClass}
-            onClick={() => downloadCandidatesExcel(filtered)}
-          >
-            <FileSpreadsheet className="h-4 w-4" /> ייצא אקסל
-          </button>
-          {isAdmin ? (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={(e) => void onImportFile(e.target.files?.[0] ?? null)}
-              />
+          <div className="flex w-full shrink-0 flex-col justify-center gap-2 md:w-48 lg:w-52">
+            <Link href="/malshabim/board" className={blueButtonClass}>
+              <KanbanSquare className="h-4 w-4" /> טבלת עבודה
+            </Link>
+            {canEdit ? (
               <button
                 type="button"
-                className={secondaryButtonClass}
-                disabled={importing}
-                onClick={() => fileInputRef.current?.click()}
+                className={greenButtonClass}
+                onClick={() => exportTemplate()}
               >
-                <Upload className="h-4 w-4" />
-                {importing ? "מייבא…" : "ייבא אקסל"}
+                <FileSpreadsheet className="h-4 w-4" /> ייצא תבנית
               </button>
-            </>
-          ) : null}
+            ) : null}
+            {isAdmin ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => void onImportFile(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  className={`${secondaryButtonClass} w-full`}
+                  disabled={importing}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4" />
+                  {importing ? "מייבא…" : "ייבא אקסל"}
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       </section>
 
       {/* Separate tab above candidate files */}
       <Link
         href="/malshabim/drafts"
-        className={`${cardClass} flex items-center justify-between gap-3 border-violet-500/25 bg-violet-500/5 px-4 py-4 transition hover:bg-violet-500/10 sm:px-5`}
+        className={`${cardClass} flex items-center justify-between gap-3 border border-border-weak bg-surface-1 px-4 py-4 transition hover:border-accent-primary/40 hover:shadow-md sm:px-5`}
       >
         <div>
-          <p className="text-base font-black text-violet-800 dark:text-violet-200">
+          <p className="text-base font-black text-text-primary">
             ראיונות שלא הושלמו
           </p>
           <p className="mt-0.5 text-xs font-medium text-text-muted">
             {drafts.length > 0 ? `${drafts.length} טיוטות שמורות` : "אין טיוטות כרגע"}
           </p>
         </div>
-        <ChevronLeft className="h-5 w-5 text-violet-600" />
+        <ChevronLeft className="h-5 w-5 text-text-muted" />
       </Link>
 
       {/* Files area — filters + list */}
@@ -710,6 +707,7 @@ export function MalshabimHomePage({
                 onChange={(e) => setFilter("requestType", e.target.value)}
               >
                 <option value="all">הכול</option>
+                <option value={FILTER_EMPTY_VALUE}>ללא</option>
                 {REQUEST_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {type}
@@ -725,6 +723,7 @@ export function MalshabimHomePage({
                 onChange={(e) => setFilter("track", e.target.value)}
               >
                 <option value="all">כל המסלולים</option>
+                <option value={FILTER_EMPTY_VALUE}>ללא מסלול</option>
                 {RECRUITMENT_TRACKS.map((t) => (
                   <option key={t} value={t}>
                     {t}

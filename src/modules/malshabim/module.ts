@@ -36,6 +36,12 @@ export const malshabimModule: AppModuleDefinition = {
       description: "לוח עבודה לפי סטטוס",
       roles: ["admin", "user", "viewer"],
     },
+    {
+      label: "סטטיסטיקה",
+      href: "/malshabim/statistics",
+      description: "מרכז סטטיסטיקות וייצוא PDF",
+      roles: ["admin", "user", "viewer"],
+    },
   ],
   adminNavItems: [
     {
@@ -55,6 +61,7 @@ export const malshabimModule: AppModuleDefinition = {
     waitlist: "מחכים לראיון",
     drafts: "ראיונות שלא הושלמו",
     board: "לוח עבודה",
+    statistics: "סטטיסטיקה",
     candidates: "מועמדים",
     admin: "ניהול",
     users: "משתמשים",

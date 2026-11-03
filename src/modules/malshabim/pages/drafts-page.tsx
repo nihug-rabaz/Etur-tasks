@@ -6,12 +6,10 @@ import { ArrowRight, FileText, Loader2, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
-  cardClass,
   emptyStateClass,
   pageShellClass,
   pageSubtitleClass,
   pageTitleClass,
-  panelClass,
   primaryButtonClass,
   secondaryButtonClass,
 } from "@/modules/malshabim/lib/ui";
@@ -85,7 +83,7 @@ export function MalshabimDraftsPage({
 
   return (
     <div className={pageShellClass} dir="rtl">
-      <div className={`${panelClass} p-4 sm:p-5`}>
+      <div className="rounded-3xl border border-border-weak bg-surface-1 p-4 shadow-sm sm:p-5">
         <div className="flex flex-wrap items-start gap-3">
           <Link href="/malshabim" className={secondaryButtonClass} aria-label="חזרה">
             <ArrowRight className="h-4 w-4" />
@@ -93,7 +91,7 @@ export function MalshabimDraftsPage({
           </Link>
           <div>
             <h1 className={`${pageTitleClass} inline-flex items-center gap-2`}>
-              <FileText className="h-6 w-6 text-violet-600" />
+              <FileText className="h-6 w-6 text-accent-primary" />
               ראיונות שלא הושלמו
             </h1>
             <p className={pageSubtitleClass}>
@@ -106,7 +104,7 @@ export function MalshabimDraftsPage({
       {drafts.length === 0 ? (
         <p className={emptyStateClass}>אין ראיונות שלא הושלמו</p>
       ) : (
-        <ul className={`${cardClass} divide-y divide-border-weak overflow-hidden`}>
+        <ul className="divide-y divide-border-weak overflow-hidden rounded-3xl border border-border-weak bg-surface-1 shadow-sm">
           {drafts.map((c) => (
             <li
               key={c.id}

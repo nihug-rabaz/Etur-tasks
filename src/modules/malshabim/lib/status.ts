@@ -79,6 +79,9 @@ export function getLastStatusUpdateDate(
   return candidate.updated_date ?? candidate.updated_at ?? null;
 }
 
+/** Sentinel in multi-select filters for empty / missing field values ("ללא"). */
+export const FILTER_EMPTY_VALUE = "__empty__";
+
 export type MalshabimCandidateFilters = {
   search?: string;
   track?: string | string[];
@@ -158,7 +161,11 @@ function matchesMulti(filter: string | string[] | undefined, value: string | nul
   if (!filter || filter === "all") return true;
   const list = Array.isArray(filter) ? filter : [filter];
   if (list.length === 0 || list.includes("all")) return true;
-  return list.includes(value || "");
+  const normalized = (value || "").trim();
+  return list.some((item) => {
+    if (item === FILTER_EMPTY_VALUE) return normalized === "";
+    return item === normalized;
+  });
 }
 
 export function filterCandidates<T extends MalshabimCandidate>(
