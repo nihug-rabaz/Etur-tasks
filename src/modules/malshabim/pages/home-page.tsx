@@ -48,7 +48,6 @@ import {
   panelClass,
   primaryButtonClass,
   searchClass,
-  secondaryButtonClass,
   selectClass,
   tableHeadClass,
   tableRowClass,
@@ -353,10 +352,10 @@ export function MalshabimHomePage({
 
   const actionCardClass =
     "flex min-h-[108px] flex-col justify-between rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4";
-  const greenButtonClass =
-    "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-40";
-  const blueButtonClass =
-    "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700";
+  const sideTileBase =
+    "inline-flex min-h-[72px] w-full flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl px-3 py-3 text-center text-sm font-bold shadow-sm transition disabled:opacity-40";
+  const blueTileClass = `${sideTileBase} bg-blue-600 text-white hover:bg-blue-700`;
+  const greenTileClass = `${sideTileBase} bg-emerald-600 text-white hover:bg-emerald-700`;
 
   return (
     <div className={pageShellClass} dir="rtl">
@@ -448,8 +447,8 @@ export function MalshabimHomePage({
           ) : null}
         </div>
 
-        {/* Cards (narrower) + side actions in freed space */}
-        <div className="flex flex-col gap-3 p-4 md:flex-row md:items-stretch md:gap-4 md:p-6 sm:p-6">
+        {/* Cards (right) + action tiles (left) */}
+        <div className="flex flex-col gap-3 p-4 sm:p-6 md:flex-row md:items-stretch md:gap-3">
           <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
             {canEdit ? (
               <Link href="/malshabim/interview" className={actionCardClass}>
@@ -523,17 +522,19 @@ export function MalshabimHomePage({
             </Link>
           </div>
 
-          <div className="flex w-full shrink-0 flex-col justify-center gap-2 md:w-48 lg:w-52">
-            <Link href="/malshabim/board" className={blueButtonClass}>
-              <KanbanSquare className="h-4 w-4" /> טבלת עבודה
+          <div className="flex w-full shrink-0 flex-col gap-3 md:w-40 lg:w-44">
+            <Link href="/malshabim/board" className={blueTileClass}>
+              <KanbanSquare className="h-5 w-5" />
+              <span>טבלת עבודה</span>
             </Link>
             {canEdit ? (
               <button
                 type="button"
-                className={greenButtonClass}
+                className={greenTileClass}
                 onClick={() => exportTemplate()}
               >
-                <FileSpreadsheet className="h-4 w-4" /> ייצא תבנית
+                <FileSpreadsheet className="h-5 w-5" />
+                <span>ייצא תבנית</span>
               </button>
             ) : null}
             {isAdmin ? (
@@ -547,12 +548,12 @@ export function MalshabimHomePage({
                 />
                 <button
                   type="button"
-                  className={`${secondaryButtonClass} w-full`}
+                  className={greenTileClass}
                   disabled={importing}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="h-4 w-4" />
-                  {importing ? "מייבא…" : "ייבא אקסל"}
+                  <Upload className="h-5 w-5" />
+                  <span>{importing ? "מייבא…" : "ייבא אקסל"}</span>
                 </button>
               </>
             ) : null}
