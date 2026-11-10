@@ -19,9 +19,16 @@ type Props = {
   enabled: boolean;
   canApprove: boolean;
   refreshToken?: number;
+  /** Icon-sized control for the app header. */
+  compact?: boolean;
 };
 
-export function KobiApprovalQueue({ enabled, canApprove, refreshToken = 0 }: Props) {
+export function KobiApprovalQueue({
+  enabled,
+  canApprove,
+  refreshToken = 0,
+  compact = false,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [issues, setIssues] = useState<PendingIssue[]>([]);
@@ -99,17 +106,30 @@ export function KobiApprovalQueue({ enabled, canApprove, refreshToken = 0 }: Pro
     <>
       <button
         type="button"
-        className="relative inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-900 dark:text-amber-100"
+        className={
+          compact
+            ? "relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-900 transition hover:bg-amber-500/25 dark:text-amber-100"
+            : "relative inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-900 dark:text-amber-100"
+        }
         onClick={() => {
           setOpen(true);
           void load();
         }}
         title="משימות ממתינות לאישור פיתוח"
+        aria-label="משימות ממתינות לאישור פיתוח"
       >
         <ShieldCheck className="h-4 w-4" />
-        <span className="hidden sm:inline">אישור פיתוח</span>
+        {!compact ? (
+          <span className="hidden sm:inline">אישור פיתוח</span>
+        ) : null}
         {issues.length > 0 ? (
-          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] text-white">
+          <span
+            className={
+              compact
+                ? "absolute -top-1 -start-1 inline-flex min-w-4 items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] leading-4 text-white"
+                : "inline-flex min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[10px] text-white"
+            }
+          >
             {issues.length}
           </span>
         ) : null}

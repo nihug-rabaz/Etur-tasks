@@ -416,6 +416,7 @@ export function AppShell({
               {showTasksChrome ? (
                 <PushNotificationsPanel isAdmin={isRealAdmin && !isImpersonating} />
               ) : null}
+              <DevFeedbackFab variant="header" />
             </div>
           </div>
         </header>
@@ -436,7 +437,6 @@ export function AppShell({
           <CreateTaskDrawer floating variant="tasks" triggerLabel="משימה חדשה" />
         ) : null}
         <AssistantFloatingPanel />
-        <DevFeedbackFab />
         <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
           <DevelopedByCredit compact />
         </footer>
