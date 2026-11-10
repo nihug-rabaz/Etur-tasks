@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   History,
   Loader2,
+  MessageSquare,
   Pencil,
   Phone,
   RefreshCw,
@@ -45,24 +46,43 @@ function canEditRole(role: ModuleRole | null): boolean {
   return role === "admin" || role === "user";
 }
 
+function instructionAssigneeLabel(item: MalshabimInstructionItem): string | null {
+  if (Array.isArray(item.assignees) && item.assignees.length > 0) {
+    const names = item.assignees
+      .map((a) => (typeof a.name === "string" ? a.name.trim() : ""))
+      .filter(Boolean);
+    if (names.length > 0) return names.join(", ");
+  }
+  if (typeof item.assignee_name === "string" && item.assignee_name.trim()) {
+    return item.assignee_name.trim();
+  }
+  return null;
+}
+
 export function MalshabimCandidateFilePage({
   candidateId,
   initialCandidate = null,
   initialRole = null,
   initialUserName = "",
+  initialCanApprove = false,
 }: {
   candidateId: string;
   initialCandidate?: MalshabimCandidate | null;
   initialRole?: ModuleRole | null;
   initialUserName?: string;
+  initialCanApprove?: boolean;
 }) {
   const [c, setC] = useState<MalshabimCandidate | null>(initialCandidate);
   const [role, setRole] = useState<ModuleRole | null>(initialRole);
   const [userName, setUserName] = useState(initialUserName);
+  const [canApprove, setCanApprove] = useState(initialCanApprove);
   const [notes, setNotes] = useState(initialCandidate?.interviewer_notes || "");
   const [savingNotes, setSavingNotes] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [submittingApproval, setSubmittingApproval] = useState(false);
+  const [approvalActing, setApprovalActing] = useState(false);
+  const [notesModalOpen, setNotesModalOpen] = useState(false);
+  const [managerNotes, setManagerNotes] = useState("");
   const [loaded, setLoaded] = useState(Boolean(initialCandidate));
   const [waitlistWarn, setWaitlistWarn] = useState<WaitlistEntryLike | null>(null);
   const [waitlistChecked, setWaitlistChecked] = useState(false);
@@ -75,10 +95,12 @@ export function MalshabimCandidateFilePage({
           candidate: MalshabimCandidate;
           role: ModuleRole;
           currentUserName: string;
+          canApprove?: boolean;
         }>(`/api/malshabim/candidates/${candidateId}`);
         setC(res.candidate);
         setRole(res.role);
         setUserName(res.currentUserName || "");
+        setCanApprove(Boolean(res.canApprove));
         setNotes(res.candidate.interviewer_notes || "");
       } catch {
         toast.error("טעינת התיק נכשלה");
@@ -175,6 +197,35 @@ export function MalshabimCandidateFilePage({
     }
   };
 
+  const runManagerApproval = async (
+    action: "approve" | "notes",
+    notesText?: string,
+  ) => {
+    if (!canApprove || !c?.awaiting_admin_approval) return;
+    setApprovalActing(true);
+    try {
+      const res = await malshabimFetch<{ candidate: MalshabimCandidate }>(
+        `/api/malshabim/approvals/${candidateId}`,
+        {
+          method: "POST",
+          body: JSON.stringify(
+            action === "notes"
+              ? { action: "notes", notes: notesText }
+              : { action: "approve" },
+          ),
+        },
+      );
+      setC(res.candidate);
+      setNotesModalOpen(false);
+      setManagerNotes("");
+      toast.success(action === "approve" ? "התיק אושר" : "ההערות נשלחו");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "פעולה נכשלה");
+    } finally {
+      setApprovalActing(false);
+    }
+  };
+
   if (!loaded) {
     return (
       <div className="flex items-center justify-center p-10">
@@ -203,7 +254,11 @@ export function MalshabimCandidateFilePage({
     { answer?: string; note?: string }
   >;
   const requestMeta = c.request_meta || {};
-  const instructionItems = (c.instruction_items || []) as MalshabimInstructionItem[];
+  const instructionItems = (
+    Array.isArray(c.instruction_items) ? c.instruction_items : []
+  ) as MalshabimInstructionItem[];
+  const quizQuestions = Array.isArray(c.quiz_questions) ? c.quiz_questions : [];
+  const updateLog = Array.isArray(c.update_log) ? c.update_log : [];
 
   return (
     <div className={formShellClass} dir="rtl">
@@ -317,7 +372,7 @@ export function MalshabimCandidateFilePage({
       <article className={`${cardClass} space-y-3 p-5`}>
         <h2 className="text-lg font-bold text-text-primary">פרטים</h2>
         <dl className="grid gap-3 sm:grid-cols-2">
-          <Field label="תאריך גיוס" value={c.enlistment_date} />
+          <Field label="תאריך גיוס" value={formatDateTime(c.enlistment_date)} />
           <Field label="מועד ראיון" value={formatDateTime(c.interview_at)} />
           <Field label="נוצר ע״י" value={c.created_by_name} />
           <Field
@@ -346,9 +401,7 @@ export function MalshabimCandidateFilePage({
         ) : (
           <ul className="flex flex-col gap-2">
             {instructionItems.map((item, index) => {
-              const assignee =
-                (typeof item.assignee_name === "string" && item.assignee_name.trim()) ||
-                null;
+              const assignee = instructionAssigneeLabel(item);
               return (
                 <li
                   key={index}
@@ -361,7 +414,7 @@ export function MalshabimCandidateFilePage({
                     {assignee ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-accent-primary/12 px-2 py-0.5 text-[11px] font-bold text-accent-primary">
                         <User className="h-3 w-3" />
-                        אחראי: {assignee}
+                        אחראים: {assignee}
                       </span>
                     ) : (
                       <span className="rounded-full bg-surface-1 px-2 py-0.5 text-[11px] font-bold text-text-muted">
@@ -405,36 +458,35 @@ export function MalshabimCandidateFilePage({
         </p>
       </article>
 
-      {(c.quiz_questions || []).length > 0 ? (
+      {quizQuestions.length > 0 ? (
         <article className={`${cardClass} space-y-3 p-5`}>
           <h2 className="text-lg font-bold text-text-primary">
             מבחן ידע
             {c.quiz_skipped ? ' · ביינ"יש' : ""}
           </h2>
           <ul className="space-y-2">
-            {(c.quiz_skipped
-              ? (c.quiz_questions || []).slice(0, 5)
-              : c.quiz_questions || []
-            ).map((q, index) => (
-              <li
-                key={`${q.question}-${index}`}
-                className="rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2"
-              >
-                <p className="text-sm font-medium text-text-primary">
-                  {index + 1}. {q.question || "—"}
-                </p>
-                {q.answer ? (
-                  <p className="mt-1 text-xs text-text-muted">תשובה: {q.answer}</p>
-                ) : null}
-                <p
-                  className={`mt-1 text-xs font-bold ${
-                    q.is_correct ? "text-emerald-600" : "text-rose-600"
-                  }`}
+            {(c.quiz_skipped ? quizQuestions.slice(0, 5) : quizQuestions).map(
+              (q, index) => (
+                <li
+                  key={`${q.question}-${index}`}
+                  className="rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2"
                 >
-                  {q.is_correct ? "נכון" : "לא נכון"}
-                </p>
-              </li>
-            ))}
+                  <p className="text-sm font-medium text-text-primary">
+                    {index + 1}. {q.question || "—"}
+                  </p>
+                  {q.answer ? (
+                    <p className="mt-1 text-xs text-text-muted">תשובה: {q.answer}</p>
+                  ) : null}
+                  <p
+                    className={`mt-1 text-xs font-bold ${
+                      q.is_correct ? "text-emerald-600" : "text-rose-600"
+                    }`}
+                  >
+                    {q.is_correct ? "נכון" : "לא נכון"}
+                  </p>
+                </li>
+              ),
+            )}
           </ul>
         </article>
       ) : (
@@ -483,11 +535,11 @@ export function MalshabimCandidateFilePage({
         <h2 className="flex items-center gap-2 text-lg font-bold text-text-primary">
           <History className="h-4 w-4" /> יומן עדכונים
         </h2>
-        {(c.update_log || []).length === 0 ? (
+        {updateLog.length === 0 ? (
           <p className="text-sm text-text-muted">אין רשומות עדיין</p>
         ) : (
           <ul className="space-y-2">
-            {[...(c.update_log || [])].reverse().map((log, i) => (
+            {[...updateLog].reverse().map((log, i) => (
               <li key={i} className="rounded-xl border border-border-weak bg-surface-2/60 px-3 py-2">
                 <p className="text-sm font-medium text-text-primary">
                   {log.changes || "—"}
@@ -500,6 +552,85 @@ export function MalshabimCandidateFilePage({
           </ul>
         )}
       </article>
+
+      {c.awaiting_admin_approval && canApprove ? (
+        <article className={`${panelClass} space-y-3 p-5`}>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-text-primary">
+            <ShieldCheck className="h-4 w-4" /> אישור מנהל
+          </h2>
+          <p className="text-sm text-text-secondary">
+            התיק ממתין להחלטתכם — אשרו או שלחו הערות בחזרה לטיפול.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={primaryButtonClass}
+              disabled={approvalActing}
+              onClick={() => void runManagerApproval("approve")}
+            >
+              {approvalActing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4" />
+              )}
+              אישור
+            </button>
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              disabled={approvalActing}
+              onClick={() => setNotesModalOpen(true)}
+            >
+              <MessageSquare className="h-4 w-4" />
+              שליחת הערות
+            </button>
+          </div>
+        </article>
+      ) : null}
+
+      {notesModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className={`${panelClass} w-full max-w-md space-y-4 p-6`} dir="rtl">
+            <h2 className="text-lg font-bold text-text-primary">שליחת הערות</h2>
+            <p className="text-sm text-text-secondary">
+              ההערות יישמרו ביומן, התיק יחזור לסטטוס בטיפול, והמבקש יקבל התראה.
+            </p>
+            <textarea
+              className={`${fieldClass} min-h-32`}
+              value={managerNotes}
+              onChange={(e) => setManagerNotes(e.target.value)}
+              placeholder="כתבו הערות למבקש האישור..."
+              autoFocus
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={primaryButtonClass}
+                disabled={approvalActing || !managerNotes.trim()}
+                onClick={() => void runManagerApproval("notes", managerNotes)}
+              >
+                {approvalActing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                שלח הערות
+              </button>
+              <button
+                type="button"
+                className={secondaryButtonClass}
+                disabled={approvalActing}
+                onClick={() => {
+                  setNotesModalOpen(false);
+                  setManagerNotes("");
+                }}
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {waitlistWarn ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
@@ -539,11 +670,25 @@ function Chip({ children }: { children: ReactNode }) {
   );
 }
 
-function Field({ label, value }: { label: string; value?: string | null }) {
+function Field({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | Date | null;
+}) {
+  const display =
+    value == null || value === ""
+      ? "—"
+      : value instanceof Date
+        ? formatDateTime(value)
+        : typeof value === "string" || typeof value === "number"
+          ? String(value)
+          : "—";
   return (
     <div>
       <dt className="text-xs font-semibold text-text-muted">{label}</dt>
-      <dd className="mt-0.5 text-sm font-bold text-text-primary">{value || "—"}</dd>
+      <dd className="mt-0.5 text-sm font-bold text-text-primary">{display}</dd>
     </div>
   );
 }

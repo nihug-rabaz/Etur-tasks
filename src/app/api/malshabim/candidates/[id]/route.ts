@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { isMalshabimCandidateApprover } from "@/modules/malshabim/lib/approvers";
+import { sanitizeInstructionItemsForAllowlist } from "@/modules/malshabim/lib/instruction-assignees";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
 import { NotificationService } from "@/services/notification.service";
@@ -23,6 +25,7 @@ export async function GET(
     role: access.role,
     currentUserId: access.profile.id,
     currentUserName: access.profile.name,
+    canApprove: isMalshabimCandidateApprover(access.profile),
   });
 }
 
@@ -120,6 +123,12 @@ export async function PATCH(
   }
 
   const { update_log_entry, ...fields } = parsed.data;
+
+  if (fields.instruction_items !== undefined) {
+    fields.instruction_items = sanitizeInstructionItemsForAllowlist(
+      fields.instruction_items,
+    );
+  }
 
   if (
     fields.instruction_items !== undefined &&

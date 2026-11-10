@@ -833,26 +833,6 @@ export function MalshabimHomePage({
                 ))}
               </select>
             </label>
-            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[12rem]">
-              סטטוס עבודה
-              <select
-                className={selectClass}
-                value={selectedStatuses[0] || "all"}
-                onChange={(e) =>
-                  setFilter(
-                    "candidateStatus",
-                    e.target.value === "all" ? [] : [e.target.value],
-                  )
-                }
-              >
-                <option value="all">כל הסטטוסים</option>
-                {CANDIDATE_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </label>
             <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-bold text-text-muted">
               סטטוס עודכן מ-
               <input

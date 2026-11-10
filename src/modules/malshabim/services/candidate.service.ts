@@ -21,7 +21,7 @@ function normalizeId(value: string | null | undefined): string | null {
 }
 
 export class MalshabimCandidateService extends BaseService {
-  public async list(limit = 500): Promise<MalshabimCandidate[]> {
+  public async list(limit = 2000): Promise<MalshabimCandidate[]> {
     const db = this.getDb();
     return db<MalshabimCandidate[]>`
       select *
@@ -471,7 +471,8 @@ export class MalshabimCandidateService extends BaseService {
   ): Promise<MalshabimCandidate | null> {
     const existing = await this.getById(id);
     if (!existing) return null;
-    const log = [...(existing.update_log || []), entry];
+    const previous = Array.isArray(existing.update_log) ? existing.update_log : [];
+    const log = [...previous, entry];
     return this.update(id, { update_log: log });
   }
 

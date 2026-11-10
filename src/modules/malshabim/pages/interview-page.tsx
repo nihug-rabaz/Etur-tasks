@@ -90,19 +90,45 @@ function normalizeInstructionItems(
   items: MalshabimCandidate["instruction_items"] | InterviewFormData["instruction_items"],
 ): InterviewFormData["instruction_items"] {
   return (items || []).map((item) => {
+    const fromAssignees =
+      Array.isArray(item.assignees) && item.assignees.length > 0
+        ? item.assignees
+            .filter((a) => a?.user_id)
+            .map((a) => ({
+              user_id: String(a.user_id),
+              name: a.name ?? null,
+              email: a.email ?? null,
+            }))
+        : [];
     const legacyRecipient =
-      !item.assignee_user_id && Array.isArray(item.recipients) && item.recipients[0]
+      !item.assignee_user_id &&
+      fromAssignees.length === 0 &&
+      Array.isArray(item.recipients) &&
+      item.recipients[0]
         ? String(item.recipients[0])
         : null;
-    const assigneeUserId = item.assignee_user_id ?? legacyRecipient;
+    const assignees =
+      fromAssignees.length > 0
+        ? fromAssignees
+        : item.assignee_user_id || legacyRecipient
+          ? [
+              {
+                user_id: String(item.assignee_user_id ?? legacyRecipient),
+                name: item.assignee_name ?? null,
+                email: item.assignee_email ?? null,
+              },
+            ]
+          : [];
+    const primary = assignees[0] ?? null;
     return {
       ...item,
       text: item.text ?? "",
       status: item.status === "הושלם" ? "הושלם" : "בטיפול",
-      assignee_user_id: assigneeUserId,
-      assignee_name: item.assignee_name ?? null,
-      assignee_email: item.assignee_email ?? null,
-      recipients: assigneeUserId ? [assigneeUserId] : [],
+      assignees,
+      assignee_user_id: primary?.user_id ?? null,
+      assignee_name: primary?.name ?? null,
+      assignee_email: primary?.email ?? null,
+      recipients: assignees.map((a) => a.user_id),
       sent_at: item.sent_at ?? null,
     };
   });
@@ -113,9 +139,15 @@ function recipientsFromInstructionItems(
 ): string[] {
   return [
     ...new Set(
-      (items || [])
-        .map((item) => item.assignee_user_id || item.recipients?.[0] || null)
-        .filter((id): id is string => Boolean(id)),
+      (items || []).flatMap((item) => {
+        if (Array.isArray(item.assignees) && item.assignees.length > 0) {
+          return item.assignees
+            .map((a) => (a?.user_id ? String(a.user_id) : null))
+            .filter((id): id is string => Boolean(id));
+        }
+        const single = item.assignee_user_id || item.recipients?.[0] || null;
+        return single ? [String(single)] : [];
+      }),
     ),
   ];
 }
@@ -154,7 +186,7 @@ function candidateToForm(c: MalshabimCandidate): InterviewFormData {
     instruction_recipients: recipientsFromInstructionItems(instructionItems),
     is_draft: c.is_draft,
     draft_step: c.draft_step,
-    update_log: c.update_log || [],
+    update_log: Array.isArray(c.update_log) ? c.update_log : [],
     serial_number: c.serial_number,
     interviewer_user_id: c.interviewer_user_id ?? null,
     awaiting_admin_approval: Boolean(c.awaiting_admin_approval),
@@ -274,7 +306,10 @@ export function MalshabimInterviewPage({
               changes: "פתיחת תיק לעריכה",
               updated_by: res.currentUserName || "",
             };
-            form.update_log = [...(form.update_log || []), openLog];
+            form.update_log = [
+              ...(Array.isArray(form.update_log) ? form.update_log : []),
+              openLog,
+            ];
             await malshabimFetch(`/api/malshabim/candidates/${editId}`, {
               method: "PATCH",
               body: JSON.stringify({ update_log_entry: openLog }),
@@ -428,7 +463,10 @@ export function MalshabimInterviewPage({
       ...toPayload(data),
       is_draft: true,
       draft_step: step,
-      update_log: [...(data.update_log || []), draftLogEntry],
+      update_log: [
+        ...(Array.isArray(data.update_log) ? data.update_log : []),
+        draftLogEntry,
+      ],
     };
     try {
       if (editId) {
@@ -644,7 +682,9 @@ export function MalshabimInterviewPage({
           original as unknown as Parameters<typeof computeChanges>[0],
           data as unknown as Parameters<typeof computeChanges>[1],
         );
-        const logEntries = [...(data.update_log || [])];
+        const logEntries = [
+          ...(Array.isArray(data.update_log) ? data.update_log : []),
+        ];
         if (changes.length > 0) {
           changes.forEach((change) => {
             logEntries.push({

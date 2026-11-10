@@ -1,3 +1,4 @@
+import { normalizePhoneDigits } from "@/modules/malshabim/lib/phone";
 import type {
   MalshabimCandidate,
   MalshabimCandidateStatus,
@@ -58,7 +59,8 @@ export function getLastStatusUpdateDate(
     updated_date?: string | null;
   },
 ): string | null {
-  const statusLogs = (candidate.update_log || [])
+  const logs = Array.isArray(candidate.update_log) ? candidate.update_log : [];
+  const statusLogs = logs
     .filter((log: MalshabimUpdateLogEntry) => {
       const changes = log.changes || "";
       // Ignore instruction-status logs; match work-status updates only.
@@ -201,11 +203,31 @@ function matchesMulti(filter: string | string[] | undefined, value: string | nul
   });
 }
 
+/** Normalize curly/straight gershayim so מלש״ב and מלש"ב match. */
+function normalizeQuotes(value: string): string {
+  return value.replace(/[\u05F4\u201C\u201D\u201E\u201F\u0022]/g, '"');
+}
+
+function matchesStatusType(
+  filter: string | string[] | undefined,
+  value: string | null | undefined,
+) {
+  if (!filter || filter === "all") return true;
+  const list = Array.isArray(filter) ? filter : [filter];
+  if (list.length === 0 || list.includes("all")) return true;
+  const normalized = normalizeQuotes((value || "").trim());
+  return list.some((item) => {
+    if (item === FILTER_EMPTY_VALUE) return normalized === "";
+    return normalizeQuotes(item) === normalized;
+  });
+}
+
 export function filterCandidates<T extends MalshabimCandidate>(
   candidates: T[],
   filters: MalshabimCandidateFilters,
 ): T[] {
   const query = (filters.search || "").trim().toLowerCase();
+  const queryDigits = normalizePhoneDigits(query);
   const from = filters.fromDate ? new Date(`${filters.fromDate}T00:00:00`) : null;
   const to = filters.toDate ? new Date(`${filters.toDate}T23:59:59`) : null;
 
@@ -217,6 +239,14 @@ export function filterCandidates<T extends MalshabimCandidate>(
     const status = normalizeCandidateStatus(candidate.candidate_status);
     const meta = candidate.request_meta || {};
     const enlistmentMonth = enlistmentMonthKey(candidate.enlistment_date);
+    const quizQuestions = Array.isArray(candidate.quiz_questions)
+      ? candidate.quiz_questions
+      : [];
+    const updateLog = Array.isArray(candidate.update_log) ? candidate.update_log : [];
+    const phoneDigits = normalizePhoneDigits(candidate.phone);
+    const matchesPhone =
+      Boolean(queryDigits) &&
+      (phoneDigits.includes(queryDigits) || phoneDigits === queryDigits);
     const text = [
       candidate.serial_number,
       candidate.full_name,
@@ -234,10 +264,8 @@ export function filterCandidates<T extends MalshabimCandidate>(
       candidate.interview_summary,
       candidate.instructions,
       candidate.interviewer_notes,
-      ...(candidate.quiz_questions || []).flatMap((q) => [q.question, q.answer]),
-      ...(candidate.update_log || []).map(
-        (log) => `${log.changes || ""} ${log.updated_by || ""}`,
-      ),
+      ...quizQuestions.flatMap((q) => [q.question, q.answer]),
+      ...updateLog.map((log) => `${log.changes || ""} ${log.updated_by || ""}`),
     ]
       .filter(Boolean)
       .join(" ")
@@ -248,10 +276,10 @@ export function filterCandidates<T extends MalshabimCandidate>(
       (Boolean(enlistmentMonth) && enlistmentMonths.includes(enlistmentMonth as string));
 
     return (
-      (!query || text.includes(query)) &&
+      (!query || text.includes(query) || matchesPhone) &&
       matchesMulti(filters.track, candidate.recruitment_track) &&
       matchesMulti(filters.candidateStatus, status) &&
-      matchesMulti(filters.statusType, candidate.status_type) &&
+      matchesStatusType(filters.statusType, candidate.status_type) &&
       matchesMulti(filters.requestType, candidate.request_type) &&
       matchesMulti(
         filters.unit,
@@ -270,9 +298,11 @@ export function enlistmentYearGroup(enlistmentDate?: string | null): string {
   return Number.isFinite(year) ? String(year) : "ללא שנתון";
 }
 
-export function formatDateTime(value?: string | null): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("he-IL", {
+export function formatDateTime(value?: string | Date | null): string {
+  if (value == null || value === "") return "-";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("he-IL", {
     dateStyle: "short",
     timeStyle: "short",
   });

@@ -29,14 +29,23 @@ export interface MalshabimQuizQuestion {
   [key: string]: unknown;
 }
 
+export interface MalshabimInstructionAssignee {
+  user_id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
 export interface MalshabimInstructionItem {
   text?: string;
   /** @deprecated kept for stored data; not shown in UI */
   status?: MalshabimInstructionStatus;
   recipients?: string[];
+  /** Primary / first assignee (legacy single-select + display). */
   assignee_user_id?: string | null;
   assignee_name?: string | null;
   assignee_email?: string | null;
+  /** All assignees for this instruction (preferred). */
+  assignees?: MalshabimInstructionAssignee[];
   sent_at?: string | null;
   [key: string]: unknown;
 }

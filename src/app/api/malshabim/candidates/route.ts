@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { sanitizeInstructionItemsForAllowlist } from "@/modules/malshabim/lib/instruction-assignees";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
 import { MalshabimCandidateService } from "@/modules/malshabim/services/candidate.service";
 import type {
@@ -100,6 +101,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "נתונים לא תקינים" }, { status: 400 });
   }
   const data = parsed.data;
+  if (data.instruction_items !== undefined) {
+    data.instruction_items = sanitizeInstructionItemsForAllowlist(
+      data.instruction_items as unknown[],
+    );
+  }
   if (
     access.role !== "admin" &&
     hasCompletedInstruction(data.instruction_items as unknown[] | null)

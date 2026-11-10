@@ -230,13 +230,23 @@ export function MalshabimStatisticsPage({
   }).length;
 
   const exportPdf = async () => {
-    if (!reportRef.current) return;
+    if (!reportRef.current) {
+      toast.error("אין תוכן לייצוא");
+      return;
+    }
     setExporting(true);
     try {
       const canvas = await html2canvas(reportRef.current, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: "#f3f6fb",
+        logging: false,
+        onclone: (doc) => {
+          doc.documentElement.setAttribute("dir", "rtl");
+          doc.body.setAttribute("dir", "rtl");
+          doc.body.style.direction = "rtl";
+        },
       });
       const img = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
@@ -255,8 +265,8 @@ export function MalshabimStatisticsPage({
       }
       pdf.save(`מרכז-סטטיסטיקות-${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success("PDF יוצא בהצלחה");
-    } catch {
-      toast.error("ייצוא PDF נכשל");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "ייצוא PDF נכשל");
     } finally {
       setExporting(false);
     }
@@ -335,7 +345,7 @@ export function MalshabimStatisticsPage({
                 }
               >
                 <PieChart className="h-3.5 w-3.5" />
-                {relativeChart === "donut" ? "גרף עמודות" : "גרף עוגה"}
+                {relativeChart === "donut" ? "גרף עמודות" : "תרשים עוגה"}
               </button>
             </div>
             {byTrack.length === 0 ? (
@@ -359,7 +369,7 @@ export function MalshabimStatisticsPage({
                   setTrackBarsChart((prev) => (prev === "bars" ? "donut" : "bars"))
                 }
               >
-                {trackBarsChart === "bars" ? "גרף עוגה" : "גרף עמודות"}
+                {trackBarsChart === "bars" ? "תרשים עוגה" : "גרף עמודות"}
               </button>
             </div>
             {byTrack.length === 0 ? (
@@ -388,7 +398,7 @@ export function MalshabimStatisticsPage({
                   setStatusChart((prev) => (prev === "bars" ? "donut" : "bars"))
                 }
               >
-                {statusChart === "bars" ? "גרף עוגה" : "גרף עמודות"}
+                {statusChart === "bars" ? "תרשים עוגה" : "גרף עמודות"}
               </button>
             </div>
           </div>

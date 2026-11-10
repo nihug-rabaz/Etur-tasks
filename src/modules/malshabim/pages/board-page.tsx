@@ -67,12 +67,6 @@ function asSelectedList(value: string | string[] | undefined): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
-function nextStatus(current: MalshabimCandidateStatus): MalshabimCandidateStatus {
-  const index = CANDIDATE_STATUSES.indexOf(current);
-  if (index < 0) return CANDIDATE_STATUSES[0];
-  return CANDIDATE_STATUSES[(index + 1) % CANDIDATE_STATUSES.length];
-}
-
 function StatCard({
   label,
   value,
@@ -242,25 +236,6 @@ export function MalshabimBoardPage({
     });
   };
 
-  const moveTo = async (id: string, status: MalshabimCandidateStatus) => {
-    if (!canEdit) return;
-    const prev = allCandidates;
-    setAllCandidates((list) =>
-      list.map((c) => (c.id === id ? { ...c, candidate_status: status } : c)),
-    );
-    try {
-      await patchStatus(id, status);
-    } catch {
-      setAllCandidates(prev);
-      toast.error("עדכון סטטוס נכשל");
-    }
-  };
-
-  const advanceStatus = async (candidate: MalshabimCandidate) => {
-    const current = normalizeCandidateStatus(candidate.candidate_status);
-    await moveTo(candidate.id, nextStatus(current));
-  };
-
   const applyBulkStatus = async () => {
     if (!canEdit || visibleSelectedIds.length === 0) return;
     setBulkSaving(true);
@@ -397,19 +372,6 @@ export function MalshabimBoardPage({
               onChange={(e) => setFilter("toDate", e.target.value)}
             />
           </label>
-          <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              onClick={clearFilters}
-            >
-              <RefreshCw className="h-4 w-4" /> ניקוי
-            </button>
-            <span className="pb-2 text-xs font-bold text-text-muted">
-              {filtered.length} מתוך {stats.total}
-            </span>
-          </div>
-
           <SearchableMultiSelect
             label="מסלול גיוס"
             value={selectedTracks}
@@ -450,6 +412,18 @@ export function MalshabimBoardPage({
             fromYear={2024}
             toYear={2028}
           />
+          <div className="ms-auto flex flex-wrap items-end gap-2 sm:col-span-2">
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              onClick={clearFilters}
+            >
+              <RefreshCw className="h-4 w-4" /> ניקוי
+            </button>
+            <span className="pb-2 text-xs font-bold text-text-muted">
+              {filtered.length} מתוך {stats.total}
+            </span>
+          </div>
         </div>
       </section>
 
@@ -620,26 +594,14 @@ export function MalshabimBoardPage({
                         {c.recruitment_track || "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {canEdit ? (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-bold text-text-primary transition hover:bg-surface-2/80"
-                              onClick={() => void advanceStatus(c)}
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" />
-                              סטטוס הבא
-                            </button>
-                          ) : null}
-                          <Link
-                            href={fileHref}
-                            className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
-                            aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
-                          >
-                            פתח תיק
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </Link>
-                        </div>
+                        <Link
+                          href={fileHref}
+                          className="inline-flex items-center gap-1 rounded-full bg-accent-primary px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:opacity-90"
+                          aria-label={`פתח תיק של ${c.full_name || "מועמד"}`}
+                        >
+                          פתח תיק
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Link>
                       </td>
                     </tr>
                   );

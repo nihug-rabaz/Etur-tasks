@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { isMalshabimCandidateApprover } from "@/modules/malshabim/lib/approvers";
 import { redirectMalshabimLogin } from "@/modules/malshabim/lib/auth-redirect";
 import { MalshabimCandidateFilePage } from "@/modules/malshabim/pages/candidate-file-page";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
@@ -21,12 +22,17 @@ export default async function Page({ params }: PageProps) {
     redirect("/malshabim");
   }
 
+  // Neon returns date/timestamptz as Date objects; JSON round-trip matches the
+  // API shape (ISO strings) so client render never receives raw Date children.
+  const initialCandidate = JSON.parse(JSON.stringify(candidate)) as typeof candidate;
+
   return (
     <MalshabimCandidateFilePage
       candidateId={id}
-      initialCandidate={candidate}
+      initialCandidate={initialCandidate}
       initialRole={access.role}
       initialUserName={access.profile.name}
+      initialCanApprove={isMalshabimCandidateApprover(access.profile)}
     />
   );
 }

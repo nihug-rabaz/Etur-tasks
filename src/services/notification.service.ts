@@ -236,6 +236,71 @@ export class NotificationService extends BaseService {
     );
   }
 
+  /** Manager sent notes instead of approving — notify the requester (push + email). */
+  public async notifyMalshabimApprovalNotes(input: {
+    candidateId: string;
+    fullName: string;
+    notes: string;
+    approverName: string;
+    recipientUserId: string;
+    recipientEmail?: string | null;
+    recipientName?: string | null;
+  }): Promise<{ push: boolean; email: boolean }> {
+    const url = this.malshabimCandidateUrl(input.candidateId);
+    const text =
+      "הערות מנהל לתיק מלש״ב\n\n" +
+      `מועמד: ${input.fullName}\n\n` +
+      `מאת: ${input.approverName}\n\n` +
+      `הערות:\n${input.notes.trim()}` +
+      (url ? `\n\nלתיק: ${url}` : "");
+
+    let push = false;
+    if (this.push.isReady() && input.recipientUserId) {
+      const fingerprint = input.notes.trim().replace(/\s+/g, " ").slice(0, 48);
+      const key = `malshabim-approval-notes:${input.candidateId}:${input.recipientUserId}:${fingerprint}`;
+      if (await this.reserveDelivery(key)) {
+        try {
+          push = await this.push.sendTextToUser(
+            input.recipientUserId,
+            text,
+            url || undefined,
+          );
+          if (!push) await this.releaseDelivery(key);
+        } catch (error) {
+          await this.releaseDelivery(key);
+          console.error("[malshabim-approval-notes-push]", error);
+        }
+      }
+    }
+
+    let email = false;
+    const address = (input.recipientEmail ?? "").trim();
+    if (address) {
+      const safeName = (input.recipientName || "שלום").replace(/[<>]/g, "");
+      const safeCandidate = input.fullName.replace(/[<>]/g, "");
+      const safeApprover = input.approverName.replace(/[<>]/g, "");
+      const safeNotes = input.notes
+        .trim()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br/>");
+      email = await this.push.sendEmailToAddress({
+        email: address,
+        subject: `הערות מנהל — ${safeCandidate}`,
+        bodyHtml:
+          `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6">` +
+          `<p>${safeName},</p>` +
+          `<p>התקבלו הערות מנהל לתיק <strong>${safeCandidate}</strong> מאת ${safeApprover}:</p>` +
+          `<p style="margin:16px 0;padding:12px;background:#f4f4f5;border-radius:8px">${safeNotes || "—"}</p>` +
+          (url ? `<p><a href="${url}">לפתיחת התיק</a></p>` : "") +
+          `</div>`,
+      });
+    }
+
+    return { push, email };
+  }
+
   public async notifyMalshabimWaitlistCreated(input: {
     entryId: string;
     fullName: string;

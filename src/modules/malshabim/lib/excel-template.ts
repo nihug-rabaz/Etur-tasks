@@ -69,22 +69,64 @@ function resolveColumnKey(header: string): MalshabimTemplateColumn | null {
   return HEADER_TO_COLUMN.get(trimmed) ?? null;
 }
 
+function excelSerialToIso(serial: number): string | null {
+  const parsed = XLSX.SSF.parse_date_code(serial);
+  if (!parsed) return null;
+  const yyyy = String(parsed.y).padStart(4, "0");
+  const mm = String(parsed.m).padStart(2, "0");
+  const dd = String(parsed.d).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function localDateToIso(date: Date): string {
+  const yyyy = String(date.getFullYear()).padStart(4, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function cellToString(raw: unknown, column: MalshabimTemplateColumn): string {
+  if (raw == null || raw === "") return "";
+  if (column === "enlistment_date") {
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      return excelSerialToIso(raw) ?? "";
+    }
+    if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+      return localDateToIso(raw);
+    }
+    const text = String(raw).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+    if (/^\d+(\.\d+)?$/.test(text)) {
+      const serial = Number(text);
+      if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+        return excelSerialToIso(serial) ?? text;
+      }
+    }
+    return text;
+  }
+  if (raw instanceof Date && !Number.isNaN(raw.getTime())) {
+    return localDateToIso(raw);
+  }
+  return String(raw).trim();
+}
+
 /** Parse an xlsx/xls File into row objects keyed by template columns. */
 export async function parseTemplateFile(file: File): Promise<MalshabimTemplateRow[]> {
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array" });
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) return [];
   const sheet = workbook.Sheets[sheetName];
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
     defval: "",
+    raw: true,
   });
   return rows.map((row) => {
     const mapped: MalshabimTemplateRow = {};
     for (const [header, raw] of Object.entries(row)) {
       const key = resolveColumnKey(header);
       if (!key) continue;
-      mapped[key] = raw == null ? "" : String(raw).trim();
+      mapped[key] = cellToString(raw, key);
     }
     return mapped;
   });
