@@ -12,11 +12,16 @@ import {
   ArrowUpRight,
   Check,
   Circle,
+  Copy,
   Eraser,
+  EyeOff,
   Highlighter,
+  Hash,
   Minus,
   MousePointer2,
+  PaintBucket,
   Pencil,
+  Pipette,
   Redo2,
   Square,
   Trash2,
@@ -34,6 +39,8 @@ type Tool =
   | "line"
   | "arrow"
   | "text"
+  | "marker"
+  | "redact"
   | "eraser";
 
 type Point = { x: number; y: number };
@@ -56,6 +63,7 @@ type ShapeItem = {
   width: number;
   from: Point;
   to: Point;
+  filled?: boolean;
 };
 
 type TextItem = {
@@ -67,7 +75,23 @@ type TextItem = {
   text: string;
 };
 
-type BoardItem = StrokeItem | ShapeItem | TextItem;
+type MarkerItem = {
+  id: string;
+  kind: "marker";
+  color: string;
+  size: number;
+  at: Point;
+  number: number;
+};
+
+type RedactItem = {
+  id: string;
+  kind: "redact";
+  from: Point;
+  to: Point;
+};
+
+type BoardItem = StrokeItem | ShapeItem | TextItem | MarkerItem | RedactItem;
 
 type ResizeHandle = "se" | "nw" | "ne" | "sw";
 
@@ -82,8 +106,25 @@ type DragMode =
     }
   | null;
 
-const COLORS = ["#e11d48", "#2563eb", "#16a34a", "#ca8a04", "#111827", "#ffffff"];
+const COLORS = [
+  "#e11d48",
+  "#ea580c",
+  "#ca8a04",
+  "#16a34a",
+  "#0d9488",
+  "#2563eb",
+  "#7c3aed",
+  "#db2777",
+  "#111827",
+  "#ffffff",
+];
 const HANDLE = 10;
+
+type PaintCtx = {
+  bg: HTMLImageElement | null;
+  viewW: number;
+  viewH: number;
+};
 
 function uid() {
   return `el-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -106,22 +147,45 @@ function pointInRect(p: Point, r: Rect): boolean {
   return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 }
 
+function isLightColor(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 170;
+}
+
+function textBoxPad(size: number) {
+  return Math.max(8, Math.round(size * 0.32));
+}
+
+/** Rectangular text-box bounds (Photoshop-style), including padding. */
 function measureText(ctx: CanvasRenderingContext2D, item: TextItem): Rect {
   const hasHebrew = /[\u0590-\u05FF]/.test(item.text);
   ctx.save();
   ctx.font = `bold ${item.size}px "Segoe UI", Arial, sans-serif`;
   const metrics = ctx.measureText(item.text || " ");
-  const w = Math.max(metrics.width, item.size);
-  const h = item.size * 1.35;
+  const glyphW = Math.max(metrics.width, item.size * 0.6);
+  const glyphH = item.size * 1.25;
   ctx.restore();
-  if (hasHebrew) {
-    return { x: item.at.x - w, y: item.at.y, w, h };
-  }
-  return { x: item.at.x, y: item.at.y, w, h };
+  const pad = textBoxPad(item.size);
+  const glyph: Rect = hasHebrew
+    ? { x: item.at.x - glyphW, y: item.at.y, w: glyphW, h: glyphH }
+    : { x: item.at.x, y: item.at.y, w: glyphW, h: glyphH };
+  return inflate(glyph, pad);
 }
 
 function itemBounds(ctx: CanvasRenderingContext2D, item: BoardItem): Rect {
   if (item.kind === "text") return measureText(ctx, item);
+  if (item.kind === "marker") {
+    const r = item.size;
+    return { x: item.at.x - r, y: item.at.y - r, w: r * 2, h: r * 2 };
+  }
+  if (item.kind === "redact") {
+    return inflate(normalizeRect(item.from, item.to), 2);
+  }
   if (item.kind === "shape") {
     if (item.tool === "line" || item.tool === "arrow") {
       return inflate(normalizeRect(item.from, item.to), Math.max(10, item.width));
@@ -146,10 +210,10 @@ function itemBounds(ctx: CanvasRenderingContext2D, item: BoardItem): Rect {
 }
 
 function moveItem(item: BoardItem, dx: number, dy: number): BoardItem {
-  if (item.kind === "text") {
+  if (item.kind === "text" || item.kind === "marker") {
     return { ...item, at: { x: item.at.x + dx, y: item.at.y + dy } };
   }
-  if (item.kind === "shape") {
+  if (item.kind === "shape" || item.kind === "redact") {
     return {
       ...item,
       from: { x: item.from.x + dx, y: item.from.y + dy },
@@ -160,6 +224,29 @@ function moveItem(item: BoardItem, dx: number, dy: number): BoardItem {
     ...item,
     points: item.points.map((p) => ({ x: p.x + dx, y: p.y + dy })),
   };
+}
+
+function resizeCorners(
+  originFrom: Point,
+  originTo: Point,
+  dx: number,
+  dy: number,
+  handle: ResizeHandle,
+): { from: Point; to: Point } {
+  let from = { ...originFrom };
+  let to = { ...originTo };
+  if (handle === "se") {
+    to = { x: originTo.x + dx, y: originTo.y + dy };
+  } else if (handle === "nw") {
+    from = { x: originFrom.x + dx, y: originFrom.y + dy };
+  } else if (handle === "ne") {
+    to = { x: originTo.x + dx, y: to.y };
+    from = { x: from.x, y: originFrom.y + dy };
+  } else if (handle === "sw") {
+    from = { x: originFrom.x + dx, y: from.y };
+    to = { x: to.x, y: originTo.y + dy };
+  }
+  return { from, to };
 }
 
 function resizeItem(
@@ -176,22 +263,16 @@ function resizeItem(
     const nextSize = Math.max(14, Math.min(96, origin.size + delta * 0.4));
     return { ...item, size: nextSize } as TextItem;
   }
-  if (origin.kind === "shape") {
-    let from = { ...origin.from };
-    let to = { ...origin.to };
-    if (handle === "se") {
-      to = { x: origin.to.x + dx, y: origin.to.y + dy };
-    } else if (handle === "nw") {
-      from = { x: origin.from.x + dx, y: origin.from.y + dy };
-    } else if (handle === "ne") {
-      to = { x: origin.to.x + dx, y: to.y };
-      from = { x: from.x, y: origin.from.y + dy };
-    } else if (handle === "sw") {
-      from = { x: origin.from.x + dx, y: from.y };
-      to = { x: to.x, y: origin.to.y + dy };
-    }
-    return { ...item, from, to } as ShapeItem;
+  if (origin.kind === "marker") {
+    const delta = handle === "nw" || handle === "ne" ? -dy : dy;
+    const nextSize = Math.max(12, Math.min(64, origin.size + delta * 0.35));
+    return { ...item, size: nextSize } as MarkerItem;
   }
+  if (origin.kind === "shape" || origin.kind === "redact") {
+    const { from, to } = resizeCorners(origin.from, origin.to, dx, dy, handle);
+    return { ...item, from, to } as typeof origin;
+  }
+  if (origin.kind !== "stroke") return item;
   const ctx = document.createElement("canvas").getContext("2d");
   if (!ctx) return item;
   const bounds = itemBounds(ctx, origin);
@@ -233,7 +314,46 @@ function drawArrow(ctx: CanvasRenderingContext2D, from: Point, to: Point) {
   ctx.fill();
 }
 
-function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
+function paintRedact(
+  ctx: CanvasRenderingContext2D,
+  item: RedactItem,
+  paint: PaintCtx,
+) {
+  const r = normalizeRect(item.from, item.to);
+  if (r.w < 2 || r.h < 2) return;
+  ctx.save();
+  if (paint.bg && paint.viewW > 0 && paint.viewH > 0) {
+    const sx = (r.x / paint.viewW) * paint.bg.naturalWidth;
+    const sy = (r.y / paint.viewH) * paint.bg.naturalHeight;
+    const sw = (r.w / paint.viewW) * paint.bg.naturalWidth;
+    const sh = (r.h / paint.viewH) * paint.bg.naturalHeight;
+    const tmp = document.createElement("canvas");
+    const pixel = 12;
+    tmp.width = Math.max(1, Math.round(r.w / pixel));
+    tmp.height = Math.max(1, Math.round(r.h / pixel));
+    const tctx = tmp.getContext("2d");
+    if (tctx) {
+      tctx.imageSmoothingEnabled = false;
+      tctx.drawImage(paint.bg, sx, sy, sw, sh, 0, 0, tmp.width, tmp.height);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tmp, r.x, r.y, r.w, r.h);
+      ctx.imageSmoothingEnabled = true;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.35)";
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.restore();
+      return;
+    }
+  }
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.restore();
+}
+
+function paintItem(
+  ctx: CanvasRenderingContext2D,
+  item: BoardItem,
+  paint: PaintCtx,
+) {
   if (item.kind === "stroke") {
     if (item.points.length < 2) return;
     ctx.save();
@@ -265,16 +385,49 @@ function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
   if (item.kind === "text") {
     ctx.save();
     const hasHebrew = /[\u0590-\u05FF]/.test(item.text);
+    const box = measureText(ctx, item);
+    const pad = textBoxPad(item.size);
+    const light = isLightColor(item.color);
+    // Photoshop-like rectangular text plate.
+    ctx.fillStyle = light ? "rgba(15, 23, 42, 0.88)" : "rgba(255, 255, 255, 0.94)";
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = Math.max(2, Math.round(item.size / 14));
+    ctx.beginPath();
+    ctx.rect(box.x, box.y, box.w, box.h);
+    ctx.fill();
+    ctx.stroke();
     ctx.font = `bold ${item.size}px "Segoe UI", Arial, sans-serif`;
     ctx.textBaseline = "top";
     ctx.direction = hasHebrew ? "rtl" : "ltr";
     ctx.textAlign = hasHebrew ? "right" : "left";
-    ctx.lineWidth = Math.max(3, Math.round(item.size / 8));
-    ctx.strokeStyle = item.color === "#ffffff" ? "#111827" : "#ffffff";
-    ctx.strokeText(item.text, item.at.x, item.at.y);
     ctx.fillStyle = item.color;
-    ctx.fillText(item.text, item.at.x, item.at.y);
+    const tx = hasHebrew ? box.x + box.w - pad : box.x + pad;
+    const ty = box.y + pad;
+    ctx.fillText(item.text, tx, ty);
     ctx.restore();
+    return;
+  }
+
+  if (item.kind === "marker") {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(item.at.x, item.at.y, item.size, 0, Math.PI * 2);
+    ctx.fillStyle = item.color;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold ${Math.max(12, Math.round(item.size * 0.9))}px "Segoe UI", Arial, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(item.number), item.at.x, item.at.y + 1);
+    ctx.restore();
+    return;
+  }
+
+  if (item.kind === "redact") {
+    paintRedact(ctx, item, paint);
     return;
   }
 
@@ -285,6 +438,11 @@ function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
   ctx.lineCap = "round";
   const { from, to } = item;
   if (item.tool === "rect") {
+    if (item.filled) {
+      ctx.globalAlpha = 0.28;
+      ctx.fillRect(from.x, from.y, to.x - from.x, to.y - from.y);
+      ctx.globalAlpha = 1;
+    }
     ctx.strokeRect(from.x, from.y, to.x - from.x, to.y - from.y);
   } else if (item.tool === "ellipse") {
     const cx = (from.x + to.x) / 2;
@@ -293,6 +451,13 @@ function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
     const ry = Math.abs(to.y - from.y) / 2;
     ctx.beginPath();
     ctx.ellipse(cx, cy, Math.max(rx, 1), Math.max(ry, 1), 0, 0, Math.PI * 2);
+    if (item.filled) {
+      ctx.globalAlpha = 0.28;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, Math.max(rx, 1), Math.max(ry, 1), 0, 0, Math.PI * 2);
+    }
     ctx.stroke();
   } else if (item.tool === "line") {
     ctx.beginPath();
@@ -307,15 +472,13 @@ function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
 
 function paintSelection(ctx: CanvasRenderingContext2D, bounds: Rect) {
   ctx.save();
-  // Dark underlay so the selection reads on light screenshots.
-  ctx.strokeStyle = "rgba(15, 23, 42, 0.75)";
-  ctx.lineWidth = 4;
+  // Solid rectangular transform box (Photoshop-style), readable on any bg.
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.8)";
+  ctx.lineWidth = 3;
   ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.strokeStyle = "#38bdf8";
-  ctx.setLineDash([5, 4]);
-  ctx.lineWidth = 1.75;
+  ctx.lineWidth = 1.5;
   ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
-  ctx.setLineDash([]);
   const corners: Point[] = [
     { x: bounds.x, y: bounds.y },
     { x: bounds.x + bounds.w, y: bounds.y },
@@ -325,7 +488,7 @@ function paintSelection(ctx: CanvasRenderingContext2D, bounds: Rect) {
   for (const c of corners) {
     ctx.fillStyle = "#f8fafc";
     ctx.strokeStyle = "#0284c7";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.rect(c.x - HANDLE / 2, c.y - HANDLE / 2, HANDLE, HANDLE);
     ctx.fill();
@@ -360,6 +523,8 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   const [tool, setTool] = useState<Tool>("select");
   const [color, setColor] = useState(COLORS[0]);
   const [lineWidth, setLineWidth] = useState(4);
+  const [fillShapes, setFillShapes] = useState(false);
+  const [markerSeq, setMarkerSeq] = useState(1);
   const [items, setItems] = useState<BoardItem[]>([]);
   const [redoStack, setRedoStack] = useState<BoardItem[][]>([]);
   const [undoStack, setUndoStack] = useState<BoardItem[][]>([]);
@@ -444,8 +609,9 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    for (const item of items) paintItem(ctx, item);
-    if (draft) paintItem(ctx, draft);
+    const paint: PaintCtx = { bg: img, viewW: canvas.width, viewH: canvas.height };
+    for (const item of items) paintItem(ctx, item, paint);
+    if (draft) paintItem(ctx, draft, paint);
     if (selected) {
       paintSelection(ctx, itemBounds(ctx, selected));
     }
@@ -502,10 +668,21 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     if (!selected) return;
     if (selected.kind === "text") {
       setColor(selected.color);
-      // Keep slider/lineWidth in the same units used when creating text (size ≈ lineWidth * 6).
       setLineWidth(Math.max(2, Math.min(16, Math.round(selected.size / 6))));
       return;
     }
+    if (selected.kind === "marker") {
+      setColor(selected.color);
+      setLineWidth(Math.max(2, Math.min(16, Math.round(selected.size / 2))));
+      return;
+    }
+    if (selected.kind === "shape") {
+      setColor(selected.color);
+      setLineWidth(selected.width);
+      setFillShapes(Boolean(selected.filled));
+      return;
+    }
+    if (selected.kind === "redact") return;
     if (selected.kind === "stroke" && selected.tool === "eraser") return;
     setColor(selected.color);
     setLineWidth(selected.width);
@@ -549,6 +726,30 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     commitHistory(items.filter((i) => i.id !== selectedId));
     setSelectedId(null);
     setTextDraft(null);
+  };
+
+  const duplicateSelected = () => {
+    if (!selected) return;
+    const clone = moveItem(
+      { ...structuredClone(selected), id: uid() } as BoardItem,
+      24,
+      24,
+    );
+    commitHistory([...items, clone]);
+    setSelectedId(clone.id);
+    setTool("select");
+  };
+
+  const applyColor = (next: string) => {
+    setColor(next);
+    if (!selected) return;
+    if (selected.kind === "redact") return;
+    if (selected.kind === "stroke" && selected.tool === "eraser") return;
+    updateSelected((item) => {
+      if (item.kind === "redact") return item;
+      if (item.kind === "stroke" && item.tool === "eraser") return item;
+      return { ...item, color: next };
+    });
   };
 
   useEffect(() => {
@@ -618,7 +819,6 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
 
     if (tool === "text") {
       event.preventDefault();
-      // Click existing text → edit it
       const hit = hitTest(point);
       if (hit?.kind === "text") {
         setSelectedId(hit.id);
@@ -626,6 +826,21 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
         return;
       }
       setTextDraft({ at: point, value: textDraft?.value ?? "" });
+      return;
+    }
+
+    if (tool === "marker") {
+      event.preventDefault();
+      const number = markerSeq;
+      setMarkerSeq((n) => n + 1);
+      pushItem({
+        id: uid(),
+        kind: "marker",
+        color,
+        size: Math.max(14, lineWidth * 3),
+        at: point,
+        number,
+      });
       return;
     }
 
@@ -649,15 +864,28 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       return;
     }
 
-    setDraft({
-      id: uid(),
-      kind: "shape",
-      tool,
-      color,
-      width: lineWidth,
-      from: point,
-      to: point,
-    });
+    if (tool === "redact") {
+      setDraft({
+        id: uid(),
+        kind: "redact",
+        from: point,
+        to: point,
+      });
+      return;
+    }
+
+    if (tool === "rect" || tool === "ellipse" || tool === "line" || tool === "arrow") {
+      setDraft({
+        id: uid(),
+        kind: "shape",
+        tool,
+        color,
+        width: lineWidth,
+        from: point,
+        to: point,
+        filled: fillShapes && (tool === "rect" || tool === "ellipse"),
+      });
+    }
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -693,7 +921,7 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       setDraft({ ...draft, points: [...draft.points, point] });
       return;
     }
-    if (draft.kind === "shape") {
+    if (draft.kind === "shape" || draft.kind === "redact") {
       setDraft({ ...draft, to: point });
     }
   };
@@ -794,6 +1022,7 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     setDraft(null);
     setSelectedId(null);
     setTextDraft(null);
+    setMarkerSeq(1);
   };
 
   const exportAnnotated = () => {
@@ -810,7 +1039,12 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     ctx.drawImage(img, 0, 0, out.width, out.height);
     ctx.save();
     ctx.scale(sx, sy);
-    for (const item of items) paintItem(ctx, item);
+    const paint: PaintCtx = {
+      bg: img,
+      viewW: view.width,
+      viewH: view.height,
+    };
+    for (const item of items) paintItem(ctx, item, paint);
     ctx.restore();
     onSave(out.toDataURL("image/jpeg", 0.92));
   };
@@ -841,9 +1075,13 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   const toolHint =
     tool === "text" && !textDraft
       ? "לחצו על הצילום להוספת טקסט, או על טקסט קיים לעריכה"
-      : tool === "select"
-        ? "גררו להזזה · ידיות לשינוי גודל · דאבל־קליק לעריכת טקסט"
-        : null;
+      : tool === "marker"
+        ? "לחצו על הצילום להוספת מספר סידורי (1, 2, 3…)"
+        : tool === "redact"
+          ? "גררו מלבן להסתרת / טשטוש אזור רגיש"
+          : tool === "select"
+            ? "גררו להזזה · ידיות לשינוי גודל · דאבל־קליק לעריכת טקסט"
+            : null;
 
   const openSelectedTextEdit = () => {
     if (!selected || selected.kind !== "text") return;
@@ -908,20 +1146,44 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
           {toolBtn("ellipse", "עיגול", <Circle className="h-4 w-4" />)}
           {toolBtn("line", "קו", <Minus className="h-4 w-4" />)}
           {toolBtn("arrow", "חץ", <ArrowUpRight className="h-4 w-4" />)}
+          <button
+            type="button"
+            title="מילוי צורות"
+            aria-label="מילוי צורות"
+            aria-pressed={fillShapes}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
+              fillShapes
+                ? "bg-blue-600 text-white shadow-sm ring-2 ring-sky-300/50"
+                : "bg-white/5 text-white/85 hover:bg-white/12"
+            }`}
+            onClick={() => {
+              const next = !fillShapes;
+              setFillShapes(next);
+              if (selected?.kind === "shape" && (selected.tool === "rect" || selected.tool === "ellipse")) {
+                updateSelected((item) =>
+                  item.kind === "shape" ? { ...item, filled: next } : item,
+                );
+              }
+            }}
+          >
+            <PaintBucket className="h-4 w-4" />
+          </button>
         </div>
 
         {divider}
 
         <div className="inline-flex items-center gap-1 rounded-xl bg-white/[0.04] p-1">
           {toolBtn("text", "טקסט", <Type className="h-4 w-4" />)}
+          {toolBtn("marker", "מספר סידורי", <Hash className="h-4 w-4" />)}
+          {toolBtn("redact", "הסתרה / טשטוש", <EyeOff className="h-4 w-4" />)}
         </div>
 
         {divider}
 
         <div className="inline-flex flex-wrap items-center gap-2 rounded-xl bg-white/[0.04] px-2 py-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {COLORS.map((c) => {
-              const active = color === c;
+              const active = color.toLowerCase() === c.toLowerCase();
               return (
                 <button
                   key={c}
@@ -930,21 +1192,31 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
                     active ? "scale-110 ring-2 ring-sky-300 ring-offset-2 ring-offset-[#0b1220]" : "opacity-80 hover:opacity-100"
                   } ${c === "#ffffff" ? "border border-white/40" : ""} ${c === "#111827" ? "border border-white/25" : ""}`}
                   style={{ backgroundColor: c }}
-                  onClick={() => {
-                    setColor(c);
-                    if (!selected) return;
-                    if (selected.kind === "stroke" && selected.tool === "eraser") return;
-                    updateSelected((item) => ({ ...item, color: c }));
-                  }}
+                  onClick={() => applyColor(c)}
                   aria-label={`צבע ${c}`}
                   aria-pressed={active}
                 />
               );
             })}
+            <label
+              className="relative inline-flex h-7 w-7 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-dashed border-white/35 bg-white/5 hover:bg-white/10"
+              title="בחירת צבע חופשי"
+            >
+              <Pipette className="h-3.5 w-3.5 text-white/80" />
+              <input
+                type="color"
+                className="absolute inset-0 cursor-pointer opacity-0"
+                value={/^#[0-9a-fA-F]{6}$/.test(color) ? color : "#e11d48"}
+                aria-label="בחירת צבע חופשי"
+                onChange={(e) => applyColor(e.target.value)}
+              />
+            </label>
           </div>
           <div className="flex items-center gap-2 border-s border-white/10 ps-2">
             <span className="text-[11px] text-white/55">
-              {selected?.kind === "text" ? "גודל" : "עובי"}
+              {selected?.kind === "text" || selected?.kind === "marker" || tool === "marker"
+                ? "גודל"
+                : "עובי"}
             </span>
             <input
               type="range"
@@ -952,7 +1224,11 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
               min={2}
               max={16}
               value={lineWidth}
-              aria-label={selected?.kind === "text" ? "גודל טקסט" : "עובי קו"}
+              aria-label={
+                selected?.kind === "text" || selected?.kind === "marker"
+                  ? "גודל"
+                  : "עובי קו"
+              }
               onPointerDown={() => {
                 if (selectedId) styleBeforeRef.current = items;
               }}
@@ -962,6 +1238,10 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
                 if (selected?.kind === "text") {
                   previewSelected((item) =>
                     item.kind === "text" ? { ...item, size: Math.max(14, v * 6) } : item,
+                  );
+                } else if (selected?.kind === "marker") {
+                  previewSelected((item) =>
+                    item.kind === "marker" ? { ...item, size: Math.max(12, v * 2) } : item,
                   );
                 } else if (selected?.kind === "shape") {
                   previewSelected((item) =>
@@ -980,8 +1260,8 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
               className="inline-block rounded-full bg-current"
               style={{
                 color,
-                width: Math.max(6, selected?.kind === "text" ? 10 : lineWidth),
-                height: Math.max(6, selected?.kind === "text" ? 10 : lineWidth),
+                width: Math.max(6, selected?.kind === "text" || selected?.kind === "marker" ? 10 : lineWidth),
+                height: Math.max(6, selected?.kind === "text" || selected?.kind === "marker" ? 10 : lineWidth),
               }}
               aria-hidden
             />
@@ -1021,7 +1301,13 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
 
       {selected && !textDraft ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-sky-500/10 px-3 py-1.5 sm:px-4">
-          <span className="text-[11px] font-medium text-sky-100/90">אלמנט נבחר</span>
+          <span className="text-[11px] font-medium text-sky-100/90">
+            {selected.kind === "marker"
+              ? `מספר ${selected.number}`
+              : selected.kind === "redact"
+                ? "אזור מוסתר"
+                : "אלמנט נבחר"}
+          </span>
           {selected.kind === "text" ? (
             <button
               type="button"
@@ -1032,6 +1318,14 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
               ערוך טקסט
             </button>
           ) : null}
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/15"
+            onClick={duplicateSelected}
+          >
+            <Copy className="h-3.5 w-3.5" />
+            שכפל
+          </button>
           <button
             type="button"
             className="inline-flex h-8 items-center gap-1 rounded-lg bg-rose-500/20 px-2.5 text-xs font-medium text-rose-100 hover:bg-rose-500/30"
