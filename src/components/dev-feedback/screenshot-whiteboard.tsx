@@ -108,9 +108,16 @@ function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
 
   if (item.kind === "text") {
     ctx.save();
-    ctx.fillStyle = item.color;
-    ctx.font = `bold ${item.size}px Assistant, Arial, sans-serif`;
+    const hasHebrew = /[\u0590-\u05FF]/.test(item.text);
+    ctx.font = `bold ${item.size}px "Segoe UI", Arial, sans-serif`;
     ctx.textBaseline = "top";
+    ctx.direction = hasHebrew ? "rtl" : "ltr";
+    ctx.textAlign = hasHebrew ? "right" : "left";
+    // Outline so text stays readable on any background.
+    ctx.lineWidth = Math.max(3, Math.round(item.size / 8));
+    ctx.strokeStyle = item.color === "#ffffff" ? "#111827" : "#ffffff";
+    ctx.strokeText(item.text, item.at.x, item.at.y);
+    ctx.fillStyle = item.color;
     ctx.fillText(item.text, item.at.x, item.at.y);
     ctx.restore();
     return;
@@ -163,9 +170,8 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   const [textDraft, setTextDraft] = useState<{
     at: Point;
     value: string;
-    screenX: number;
-    screenY: number;
   } | null>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const naturalSize = useRef({ w: 1280, h: 720 });
 
@@ -209,7 +215,23 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     for (const item of items) paintItem(ctx, item);
     if (draft) paintItem(ctx, draft);
-  }, [items, draft]);
+    if (textDraft) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(textDraft.at.x, textDraft.at.y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(textDraft.at.x - 10, textDraft.at.y);
+      ctx.lineTo(textDraft.at.x + 10, textDraft.at.y);
+      ctx.moveTo(textDraft.at.x, textDraft.at.y - 10);
+      ctx.lineTo(textDraft.at.x, textDraft.at.y + 10);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }, [items, draft, textDraft, color]);
 
   useEffect(() => {
     const img = new Image();
@@ -240,23 +262,23 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     setRedoStack([]);
   };
 
+  useEffect(() => {
+    if (!textDraft) return;
+    const id = window.setTimeout(() => textInputRef.current?.focus(), 30);
+    return () => window.clearTimeout(id);
+  }, [textDraft]);
+
   const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const point = toCanvasPoint(event);
     if (!point) return;
-    canvasRef.current?.setPointerCapture(event.pointerId);
 
     if (tool === "text") {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      setTextDraft({
-        at: point,
-        value: "",
-        screenX: event.clientX,
-        screenY: event.clientY,
-      });
-      void rect;
+      event.preventDefault();
+      setTextDraft({ at: point, value: textDraft?.value ?? "" });
       return;
     }
 
+    canvasRef.current?.setPointerCapture(event.pointerId);
     drawing.current = true;
     if (tool === "pen" || tool === "highlighter" || tool === "eraser") {
       setDraft({
@@ -308,15 +330,17 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   const commitText = () => {
     if (!textDraft) return;
     const text = textDraft.value.trim();
-    if (text) {
-      pushItem({
-        kind: "text",
-        color,
-        size: Math.max(16, lineWidth * 5),
-        at: textDraft.at,
-        text,
-      });
+    if (!text) {
+      setTextDraft(null);
+      return;
     }
+    pushItem({
+      kind: "text",
+      color,
+      size: Math.max(22, lineWidth * 6),
+      at: textDraft.at,
+      text,
+    });
     setTextDraft(null);
   };
 
@@ -478,38 +502,61 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
         </div>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
-        <canvas
-          ref={canvasRef}
-          className="max-h-full max-w-full touch-none rounded-lg bg-black shadow-2xl"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-        />
+      {tool === "text" && !textDraft ? (
+        <div className="border-b border-amber-400/30 bg-amber-500/15 px-3 py-2 text-center text-xs text-amber-100">
+          בחרו כלי טקסט ← לחצו על נקודה בצילום ← הקלידו ← «הוסף טקסט»
+        </div>
+      ) : null}
 
-        {textDraft ? (
+      {textDraft ? (
+        <div className="z-[100] flex flex-wrap items-center gap-2 border-b border-white/15 bg-slate-900 px-3 py-3">
+          <Type className="h-4 w-4 text-white/70" />
           <input
-            autoFocus
-            className="absolute z-10 min-w-40 rounded-lg border border-white/40 bg-black/80 px-2 py-1 text-sm text-white outline-none"
-            style={{
-              left: Math.min(window.innerWidth - 180, Math.max(8, textDraft.screenX)),
-              top: Math.min(window.innerHeight - 48, Math.max(8, textDraft.screenY)),
-              color,
-            }}
+            ref={textInputRef}
+            className="min-w-[12rem] flex-1 rounded-xl border border-white/30 bg-black/50 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
             value={textDraft.value}
-            placeholder="הקלידו טקסט…"
+            placeholder="הקלידו כאן טקסט לסימון…"
+            dir="auto"
             onChange={(e) => setTextDraft({ ...textDraft, value: e.target.value })}
-            onBlur={commitText}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
                 commitText();
               }
-              if (e.key === "Escape") setTextDraft(null);
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setTextDraft(null);
+              }
             }}
           />
-        ) : null}
+          <button
+            type="button"
+            className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold hover:bg-blue-500"
+            onClick={commitText}
+          >
+            הוסף טקסט
+          </button>
+          <button
+            type="button"
+            className="rounded-xl border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
+            onClick={() => setTextDraft(null)}
+          >
+            ביטול
+          </button>
+        </div>
+      ) : null}
+
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
+        <canvas
+          ref={canvasRef}
+          className={`max-h-full max-w-full rounded-lg bg-black shadow-2xl ${
+            tool === "text" ? "cursor-text" : "touch-none cursor-crosshair"
+          }`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        />
       </div>
     </div>
   );
