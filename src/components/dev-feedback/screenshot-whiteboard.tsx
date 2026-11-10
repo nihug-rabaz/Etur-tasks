@@ -83,7 +83,7 @@ type DragMode =
   | null;
 
 const COLORS = ["#e11d48", "#2563eb", "#16a34a", "#ca8a04", "#111827", "#ffffff"];
-const HANDLE = 8;
+const HANDLE = 10;
 
 function uid() {
   return `el-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -307,9 +307,13 @@ function paintItem(ctx: CanvasRenderingContext2D, item: BoardItem) {
 
 function paintSelection(ctx: CanvasRenderingContext2D, bounds: Rect) {
   ctx.save();
+  // Dark underlay so the selection reads on light screenshots.
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.75)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.strokeStyle = "#38bdf8";
-  ctx.setLineDash([6, 4]);
-  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.lineWidth = 1.75;
   ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h);
   ctx.setLineDash([]);
   const corners: Point[] = [
@@ -319,9 +323,9 @@ function paintSelection(ctx: CanvasRenderingContext2D, bounds: Rect) {
     { x: bounds.x + bounds.w, y: bounds.y + bounds.h },
   ];
   for (const c of corners) {
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#f8fafc";
     ctx.strokeStyle = "#0284c7";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.rect(c.x - HANDLE / 2, c.y - HANDLE / 2, HANDLE, HANDLE);
     ctx.fill();
@@ -370,6 +374,8 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     editId?: string;
   } | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const styleBeforeRef = useRef<BoardItem[] | null>(null);
   const naturalSize = useRef({ w: 1280, h: 720 });
 
   const selected = items.find((i) => i.id === selectedId) ?? null;
@@ -384,8 +390,12 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     const canvas = canvasRef.current;
     const img = bgRef.current;
     if (!canvas || !img) return;
+    const chromeH = chromeRef.current?.offsetHeight ?? 140;
     const maxW = Math.min(window.innerWidth - 24, img.naturalWidth || 1600);
-    const maxH = Math.min(window.innerHeight - 160, img.naturalHeight || 900);
+    const maxH = Math.min(
+      Math.max(180, window.innerHeight - chromeH - 16),
+      img.naturalHeight || 900,
+    );
     const scale = Math.min(
       maxW / Math.max(img.naturalWidth, 1),
       maxH / Math.max(img.naturalHeight, 1),
@@ -466,6 +476,14 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   }, [ready, redraw]);
 
   useEffect(() => {
+    if (!ready) return;
+    // Refit when chrome height changes (selection/text strips), not on every stroke.
+    fitCanvas();
+    redraw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: chrome toggles only
+  }, [ready, selectedId, textDraft, tool, fitCanvas]);
+
+  useEffect(() => {
     const onResize = () => {
       fitCanvas();
       redraw();
@@ -484,6 +502,7 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     if (!selected) return;
     if (selected.kind === "text") {
       setColor(selected.color);
+      // Keep slider/lineWidth in the same units used when creating text (size ≈ lineWidth * 6).
       setLineWidth(Math.max(2, Math.min(16, Math.round(selected.size / 6))));
       return;
     }
@@ -494,8 +513,13 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
 
   const pushItem = (item: BoardItem) => {
     commitHistory([...items, item]);
-    setSelectedId(item.id);
-    setTool("select");
+    // Keep draw tools active for continuous annotation; only select new text.
+    if (item.kind === "text") {
+      setSelectedId(item.id);
+      setTool("select");
+    } else {
+      setSelectedId(null);
+    }
   };
 
   const updateSelected = (mutator: (item: BoardItem) => BoardItem) => {
@@ -503,6 +527,21 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     commitHistory(
       items.map((item) => (item.id === selectedId ? mutator(item) : item)),
     );
+  };
+
+  const previewSelected = (mutator: (item: BoardItem) => BoardItem) => {
+    if (!selectedId) return;
+    if (!styleBeforeRef.current) styleBeforeRef.current = items;
+    setItems((prev) =>
+      prev.map((item) => (item.id === selectedId ? mutator(item) : item)),
+    );
+  };
+
+  const commitStylePreview = () => {
+    if (!styleBeforeRef.current) return;
+    setUndoStack((u) => [...u, styleBeforeRef.current!]);
+    setRedoStack([]);
+    styleBeforeRef.current = null;
   };
 
   const deleteSelected = () => {
@@ -668,8 +707,12 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
 
     if (tool === "select" && dragRef.current) {
       if (itemsBeforeDrag.current) {
-        setUndoStack((u) => [...u, itemsBeforeDrag.current!]);
-        setRedoStack([]);
+        const before = itemsBeforeDrag.current;
+        const changed = JSON.stringify(before) !== JSON.stringify(items);
+        if (changed) {
+          setUndoStack((u) => [...u, before]);
+          setRedoStack([]);
+        }
         itemsBeforeDrag.current = null;
       }
       dragRef.current = null;
@@ -719,7 +762,7 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       id: uid(),
       kind: "text",
       color,
-      size: Math.max(22, lineWidth * 6),
+      size: Math.max(14, lineWidth * 6),
       at: textDraft.at,
       text,
     });
@@ -778,10 +821,11 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       type="button"
       title={label}
       aria-label={label}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border ${
+      aria-pressed={tool === id}
+      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition ${
         tool === id
-          ? "border-blue-600 bg-blue-600 text-white"
-          : "border-white/20 bg-white/5 text-white hover:bg-white/10"
+          ? "bg-blue-600 text-white shadow-sm ring-2 ring-sky-300/50"
+          : "bg-white/5 text-white/85 hover:bg-white/12 hover:text-white"
       }`}
       onClick={() => {
         setTool(id);
@@ -792,23 +836,42 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     </button>
   );
 
+  const divider = <div className="hidden h-7 w-px bg-white/15 sm:block" aria-hidden />;
+
+  const toolHint =
+    tool === "text" && !textDraft
+      ? "לחצו על הצילום להוספת טקסט, או על טקסט קיים לעריכה"
+      : tool === "select"
+        ? "גררו להזזה · ידיות לשינוי גודל · דאבל־קליק לעריכת טקסט"
+        : null;
+
+  const openSelectedTextEdit = () => {
+    if (!selected || selected.kind !== "text") return;
+    setTextDraft({ at: selected.at, value: selected.text, editId: selected.id });
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[95] flex flex-col bg-slate-950/95 text-white"
+      className="fixed inset-0 z-[95] flex flex-col bg-[#0b1220]/[0.97] text-white"
       dir="rtl"
       data-dev-feedback-overlay="true"
     >
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
-        <div>
-          <h2 className="text-sm font-bold sm:text-base">לוח סימון על צילום המסך</h2>
-          <p className="text-xs text-white/60">
-            בחירה · הזזה · הגדלה/הקטנה · עריכת טקסט אחרי הוספה
-          </p>
+      <div ref={chromeRef}>
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 sm:px-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-bold tracking-tight sm:text-base">
+            סימון על הצילום
+          </h2>
+          {toolHint ? (
+            <p className="mt-0.5 truncate text-[11px] text-white/45">{toolHint}</p>
+          ) : (
+            <p className="mt-0.5 text-[11px] text-white/45">סמנו ואז שמרו את הסימון לטופס</p>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-xl border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-sm text-white/85 hover:bg-white/10"
             onClick={onCancel}
           >
             <X className="h-4 w-4" />
@@ -816,7 +879,7 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold hover:bg-emerald-500"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-4 text-sm font-semibold shadow-sm hover:bg-emerald-500"
             onClick={exportAnnotated}
           >
             <Check className="h-4 w-4" />
@@ -825,100 +888,130 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
-        {toolBtn("select", "בחירה / הזזה", <MousePointer2 className="h-4 w-4" />)}
-        {toolBtn("pen", "עט", <Pencil className="h-4 w-4" />)}
-        {toolBtn("highlighter", "מרקר", <Highlighter className="h-4 w-4" />)}
-        {toolBtn("rect", "מלבן", <Square className="h-4 w-4" />)}
-        {toolBtn("ellipse", "עיגול", <Circle className="h-4 w-4" />)}
-        {toolBtn("line", "קו", <Minus className="h-4 w-4" />)}
-        {toolBtn("arrow", "חץ", <ArrowUpRight className="h-4 w-4" />)}
-        {toolBtn("text", "טקסט", <Type className="h-4 w-4" />)}
-        {toolBtn("eraser", "מחק", <Eraser className="h-4 w-4" />)}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-white/10 px-3 py-2 sm:px-4">
+        <div className="inline-flex items-center gap-1 rounded-xl bg-white/[0.04] p-1">
+          {toolBtn("select", "בחירה / הזזה", <MousePointer2 className="h-4 w-4" />)}
+        </div>
 
-        <div className="mx-1 h-6 w-px bg-white/15" />
+        {divider}
 
-        {COLORS.map((c) => (
+        <div className="inline-flex items-center gap-1 rounded-xl bg-white/[0.04] p-1">
+          {toolBtn("pen", "עט", <Pencil className="h-4 w-4" />)}
+          {toolBtn("highlighter", "מרקר", <Highlighter className="h-4 w-4" />)}
+          {toolBtn("eraser", "מחק", <Eraser className="h-4 w-4" />)}
+        </div>
+
+        {divider}
+
+        <div className="inline-flex items-center gap-1 rounded-xl bg-white/[0.04] p-1">
+          {toolBtn("rect", "מלבן", <Square className="h-4 w-4" />)}
+          {toolBtn("ellipse", "עיגול", <Circle className="h-4 w-4" />)}
+          {toolBtn("line", "קו", <Minus className="h-4 w-4" />)}
+          {toolBtn("arrow", "חץ", <ArrowUpRight className="h-4 w-4" />)}
+        </div>
+
+        {divider}
+
+        <div className="inline-flex items-center gap-1 rounded-xl bg-white/[0.04] p-1">
+          {toolBtn("text", "טקסט", <Type className="h-4 w-4" />)}
+        </div>
+
+        {divider}
+
+        <div className="inline-flex flex-wrap items-center gap-2 rounded-xl bg-white/[0.04] px-2 py-1">
+          <div className="flex items-center gap-1.5">
+            {COLORS.map((c) => {
+              const active = color === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  className={`relative h-7 w-7 rounded-full transition ${
+                    active ? "scale-110 ring-2 ring-sky-300 ring-offset-2 ring-offset-[#0b1220]" : "opacity-80 hover:opacity-100"
+                  } ${c === "#ffffff" ? "border border-white/40" : ""} ${c === "#111827" ? "border border-white/25" : ""}`}
+                  style={{ backgroundColor: c }}
+                  onClick={() => {
+                    setColor(c);
+                    if (!selected) return;
+                    if (selected.kind === "stroke" && selected.tool === "eraser") return;
+                    updateSelected((item) => ({ ...item, color: c }));
+                  }}
+                  aria-label={`צבע ${c}`}
+                  aria-pressed={active}
+                />
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2 border-s border-white/10 ps-2">
+            <span className="text-[11px] text-white/55">
+              {selected?.kind === "text" ? "גודל" : "עובי"}
+            </span>
+            <input
+              type="range"
+              className="h-1.5 w-24 accent-sky-400"
+              min={2}
+              max={16}
+              value={lineWidth}
+              aria-label={selected?.kind === "text" ? "גודל טקסט" : "עובי קו"}
+              onPointerDown={() => {
+                if (selectedId) styleBeforeRef.current = items;
+              }}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setLineWidth(v);
+                if (selected?.kind === "text") {
+                  previewSelected((item) =>
+                    item.kind === "text" ? { ...item, size: Math.max(14, v * 6) } : item,
+                  );
+                } else if (selected?.kind === "shape") {
+                  previewSelected((item) =>
+                    item.kind === "shape" ? { ...item, width: v } : item,
+                  );
+                } else if (selected?.kind === "stroke" && selected.tool !== "eraser") {
+                  previewSelected((item) =>
+                    item.kind === "stroke" ? { ...item, width: v } : item,
+                  );
+                }
+              }}
+              onPointerUp={commitStylePreview}
+              onPointerCancel={commitStylePreview}
+            />
+            <span
+              className="inline-block rounded-full bg-current"
+              style={{
+                color,
+                width: Math.max(6, selected?.kind === "text" ? 10 : lineWidth),
+                height: Math.max(6, selected?.kind === "text" ? 10 : lineWidth),
+              }}
+              aria-hidden
+            />
+          </div>
+        </div>
+
+        <div className="ms-auto inline-flex items-center gap-1">
           <button
-            key={c}
             type="button"
-            className={`h-7 w-7 rounded-full border-2 ${
-              color === c ? "border-white" : "border-transparent"
-            }`}
-            style={{ backgroundColor: c }}
-            onClick={() => {
-              setColor(c);
-              if (!selected) return;
-              if (selected.kind === "stroke" && selected.tool === "eraser") return;
-              updateSelected((item) => ({ ...item, color: c }));
-            }}
-            aria-label={`צבע ${c}`}
-          />
-        ))}
-
-        <label className="ms-2 flex items-center gap-2 text-xs text-white/80">
-          {selected?.kind === "text" ? "גודל טקסט" : "עובי"}
-          <input
-            type="range"
-            min={2}
-            max={selected?.kind === "text" ? 48 : 16}
-            value={
-              selected?.kind === "text"
-                ? Math.round(selected.size / 2)
-                : lineWidth
-            }
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setLineWidth(v);
-              if (selected?.kind === "text") {
-                updateSelected((item) =>
-                  item.kind === "text" ? { ...item, size: Math.max(14, v * 2) } : item,
-                );
-              } else if (selected && selected.kind !== "stroke") {
-                updateSelected((item) =>
-                  item.kind === "shape" ? { ...item, width: v } : item,
-                );
-              } else if (selected?.kind === "stroke" && selected.tool !== "eraser") {
-                updateSelected((item) =>
-                  item.kind === "stroke" ? { ...item, width: v } : item,
-                );
-              }
-            }}
-          />
-        </label>
-
-        <div className="ms-auto flex items-center gap-1">
-          <button
-            type="button"
-            className="inline-flex h-9 items-center gap-1 rounded-xl border border-white/20 px-2 text-xs hover:bg-white/10 disabled:opacity-40"
-            onClick={deleteSelected}
-            disabled={!selectedId}
-            title="מחק נבחר"
-          >
-            <Trash2 className="h-4 w-4" />
-            מחק
-          </button>
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 hover:bg-white/10 disabled:opacity-40"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/80 hover:bg-white/12 disabled:opacity-35"
             onClick={undo}
             disabled={!undoStack.length}
             title="בטל"
+            aria-label="בטל"
           >
             <Undo2 className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/20 hover:bg-white/10 disabled:opacity-40"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-white/80 hover:bg-white/12 disabled:opacity-35"
             onClick={redo}
             disabled={!redoStack.length}
             title="בצע שוב"
+            aria-label="בצע שוב"
           >
             <Redo2 className="h-4 w-4" />
           </button>
           <button
             type="button"
-            className="rounded-xl border border-white/20 px-3 py-2 text-xs hover:bg-white/10"
+            className="h-9 rounded-lg px-2.5 text-xs text-white/65 hover:bg-white/10 hover:text-white"
             onClick={clearAll}
           >
             נקה הכל
@@ -926,24 +1019,38 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
         </div>
       </div>
 
-      {tool === "select" ? (
-        <div className="border-b border-sky-400/30 bg-sky-500/10 px-3 py-2 text-center text-xs text-sky-100">
-          בחרו אלמנט ← גררו להזזה · ידיות בפינות לשינוי גודל · דאבל־קליק על טקסט לעריכה
-        </div>
-      ) : null}
-
-      {tool === "text" && !textDraft ? (
-        <div className="border-b border-amber-400/30 bg-amber-500/15 px-3 py-2 text-center text-xs text-amber-100">
-          לחצו על הצילום להוספת טקסט · או לחצו על טקסט קיים לעריכה
+      {selected && !textDraft ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/10 bg-sky-500/10 px-3 py-1.5 sm:px-4">
+          <span className="text-[11px] font-medium text-sky-100/90">אלמנט נבחר</span>
+          {selected.kind === "text" ? (
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/15"
+              onClick={openSelectedTextEdit}
+            >
+              <Type className="h-3.5 w-3.5" />
+              ערוך טקסט
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-lg bg-rose-500/20 px-2.5 text-xs font-medium text-rose-100 hover:bg-rose-500/30"
+            onClick={deleteSelected}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            מחק
+          </button>
         </div>
       ) : null}
 
       {textDraft ? (
-        <div className="z-[100] flex flex-wrap items-center gap-2 border-b border-white/15 bg-slate-900 px-3 py-3">
-          <Type className="h-4 w-4 text-white/70" />
+        <div className="z-[100] flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#111827] px-3 py-2.5 sm:px-4">
+          <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600/20 text-sky-200">
+            <Type className="h-4 w-4" />
+          </div>
           <input
             ref={textInputRef}
-            className="min-w-[12rem] flex-1 rounded-xl border border-white/30 bg-black/50 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+            className="min-w-[12rem] flex-1 rounded-xl border border-white/20 bg-black/40 px-3 py-2 text-sm text-white outline-none placeholder:text-white/35 focus:border-sky-400"
             value={textDraft.value}
             placeholder="הקלידו כאן טקסט לסימון…"
             dir="auto"
@@ -961,25 +1068,26 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
           />
           <button
             type="button"
-            className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold hover:bg-blue-500"
+            className="h-9 rounded-xl bg-blue-600 px-3 text-sm font-semibold hover:bg-blue-500"
             onClick={commitText}
           >
             {textDraft.editId ? "עדכן טקסט" : "הוסף טקסט"}
           </button>
           <button
             type="button"
-            className="rounded-xl border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
+            className="h-9 rounded-xl border border-white/15 px-3 text-sm text-white/80 hover:bg-white/10"
             onClick={() => setTextDraft(null)}
           >
             ביטול
           </button>
         </div>
       ) : null}
+      </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto bg-[radial-gradient(ellipse_at_center,rgba(30,41,59,0.55),transparent_65%)] p-3 sm:p-4">
         <canvas
           ref={canvasRef}
-          className={`max-h-full max-w-full rounded-lg bg-black shadow-2xl touch-none ${
+          className={`max-h-full max-w-full rounded-xl bg-black shadow-[0_20px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/10 touch-none ${
             tool === "text"
               ? "cursor-text"
               : tool === "select"
