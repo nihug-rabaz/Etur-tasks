@@ -15,6 +15,7 @@ import {
   Copy,
   Eraser,
   EyeOff,
+  Frame,
   Highlighter,
   Hash,
   Minus,
@@ -73,6 +74,12 @@ type TextItem = {
   size: number;
   at: Point;
   text: string;
+  /** Rectangular plate behind text (default true). */
+  showBg?: boolean;
+  /** Border around the text box (default true). */
+  showBorder?: boolean;
+  /** Border color; defaults to text color when omitted. */
+  borderColor?: string;
 };
 
 type MarkerItem = {
@@ -388,21 +395,33 @@ function paintItem(
     const box = measureText(ctx, item);
     const pad = textBoxPad(item.size);
     const light = isLightColor(item.color);
-    // Photoshop-like rectangular text plate.
-    ctx.fillStyle = light ? "rgba(15, 23, 42, 0.88)" : "rgba(255, 255, 255, 0.94)";
-    ctx.strokeStyle = item.color;
-    ctx.lineWidth = Math.max(2, Math.round(item.size / 14));
+    const showBg = item.showBg !== false;
+    const showBorder = item.showBorder !== false;
+    const borderColor = item.borderColor || item.color;
     ctx.beginPath();
     ctx.rect(box.x, box.y, box.w, box.h);
-    ctx.fill();
-    ctx.stroke();
+    if (showBg) {
+      ctx.fillStyle = light ? "rgba(15, 23, 42, 0.88)" : "rgba(255, 255, 255, 0.94)";
+      ctx.fill();
+    }
+    if (showBorder) {
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = Math.max(2, Math.round(item.size / 14));
+      ctx.stroke();
+    }
     ctx.font = `bold ${item.size}px "Segoe UI", Arial, sans-serif`;
     ctx.textBaseline = "top";
     ctx.direction = hasHebrew ? "rtl" : "ltr";
     ctx.textAlign = hasHebrew ? "right" : "left";
-    ctx.fillStyle = item.color;
     const tx = hasHebrew ? box.x + box.w - pad : box.x + pad;
     const ty = box.y + pad;
+    // Outline when no plate, so text stays readable on busy screenshots.
+    if (!showBg) {
+      ctx.lineWidth = Math.max(3, Math.round(item.size / 8));
+      ctx.strokeStyle = light ? "#111827" : "#ffffff";
+      ctx.strokeText(item.text, tx, ty);
+    }
+    ctx.fillStyle = item.color;
     ctx.fillText(item.text, tx, ty);
     ctx.restore();
     return;
@@ -524,6 +543,9 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   const [color, setColor] = useState(COLORS[0]);
   const [lineWidth, setLineWidth] = useState(4);
   const [fillShapes, setFillShapes] = useState(false);
+  const [textShowBg, setTextShowBg] = useState(true);
+  const [textShowBorder, setTextShowBorder] = useState(true);
+  const [textBorderColor, setTextBorderColor] = useState(COLORS[0]);
   const [markerSeq, setMarkerSeq] = useState(1);
   const [items, setItems] = useState<BoardItem[]>([]);
   const [redoStack, setRedoStack] = useState<BoardItem[][]>([]);
@@ -617,14 +639,44 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     }
     if (textDraft && !textDraft.editId) {
       ctx.save();
-      ctx.strokeStyle = color;
+      const size = Math.max(22, lineWidth * 6);
+      const pad = textBoxPad(size);
+      const previewW = Math.max(120, size * 4);
+      const previewH = size * 1.25 + pad * 2;
+      const hasHebrewHint = /[\u0590-\u05FF]/.test(textDraft.value);
+      const boxX = hasHebrewHint ? textDraft.at.x - previewW : textDraft.at.x;
+      const boxY = textDraft.at.y;
+      const light = isLightColor(color);
+      const border = textBorderColor || color;
+      ctx.setLineDash([6, 4]);
       ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(textDraft.at.x, textDraft.at.y, 6, 0, Math.PI * 2);
-      ctx.stroke();
+      if (textShowBg) {
+        ctx.fillStyle = light ? "rgba(15, 23, 42, 0.55)" : "rgba(255, 255, 255, 0.7)";
+        ctx.fillRect(boxX, boxY, previewW, previewH);
+      }
+      if (textShowBorder) {
+        ctx.strokeStyle = border;
+        ctx.strokeRect(boxX, boxY, previewW, previewH);
+      } else if (!textShowBg) {
+        ctx.strokeStyle = color;
+        ctx.strokeRect(boxX, boxY, previewW, previewH);
+      }
+      ctx.setLineDash([]);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.7;
+      ctx.font = `bold ${Math.round(size * 0.55)}px "Segoe UI", Arial, sans-serif`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = hasHebrewHint ? "right" : "left";
+      ctx.direction = hasHebrewHint ? "rtl" : "ltr";
+      const label = textDraft.value.trim() || "טקסט";
+      ctx.fillText(
+        label,
+        hasHebrewHint ? boxX + previewW - pad : boxX + pad,
+        boxY + previewH / 2,
+      );
       ctx.restore();
     }
-  }, [items, draft, selected, textDraft, color]);
+  }, [items, draft, selected, textDraft, color, lineWidth, textShowBg, textShowBorder, textBorderColor]);
 
   useEffect(() => {
     const img = new Image();
@@ -669,6 +721,9 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     if (selected.kind === "text") {
       setColor(selected.color);
       setLineWidth(Math.max(2, Math.min(16, Math.round(selected.size / 6))));
+      setTextShowBg(selected.showBg !== false);
+      setTextShowBorder(selected.showBorder !== false);
+      setTextBorderColor(selected.borderColor || selected.color);
       return;
     }
     if (selected.kind === "marker") {
@@ -977,7 +1032,15 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       commitHistory(
         items.map((item) =>
           item.id === textDraft.editId && item.kind === "text"
-            ? { ...item, text, color, size: Math.max(14, lineWidth * 6) }
+            ? {
+                ...item,
+                text,
+                color,
+                size: Math.max(14, lineWidth * 6),
+                showBg: textShowBg,
+                showBorder: textShowBorder,
+                borderColor: textBorderColor,
+              }
             : item,
         ),
       );
@@ -993,6 +1056,9 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       size: Math.max(14, lineWidth * 6),
       at: textDraft.at,
       text,
+      showBg: textShowBg,
+      showBorder: textShowBorder,
+      borderColor: textBorderColor,
     });
     setTextDraft(null);
   };
@@ -1309,14 +1375,71 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
                 : "אלמנט נבחר"}
           </span>
           {selected.kind === "text" ? (
-            <button
-              type="button"
-              className="inline-flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/15"
-              onClick={openSelectedTextEdit}
-            >
-              <Type className="h-3.5 w-3.5" />
-              ערוך טקסט
-            </button>
+            <>
+              <button
+                type="button"
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/15"
+                onClick={openSelectedTextEdit}
+              >
+                <Type className="h-3.5 w-3.5" />
+                ערוך טקסט
+              </button>
+              <button
+                type="button"
+                aria-pressed={textShowBg}
+                className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium ${
+                  textShowBg ? "bg-blue-600 text-white" : "bg-white/10 hover:bg-white/15"
+                }`}
+                onClick={() => {
+                  const next = !textShowBg;
+                  setTextShowBg(next);
+                  updateSelected((item) =>
+                    item.kind === "text" ? { ...item, showBg: next } : item,
+                  );
+                }}
+              >
+                <PaintBucket className="h-3.5 w-3.5" />
+                רקע
+              </button>
+              <button
+                type="button"
+                aria-pressed={textShowBorder}
+                className={`inline-flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium ${
+                  textShowBorder ? "bg-blue-600 text-white" : "bg-white/10 hover:bg-white/15"
+                }`}
+                onClick={() => {
+                  const next = !textShowBorder;
+                  setTextShowBorder(next);
+                  updateSelected((item) =>
+                    item.kind === "text" ? { ...item, showBorder: next } : item,
+                  );
+                }}
+              >
+                <Frame className="h-3.5 w-3.5" />
+                מסגרת
+              </button>
+              {textShowBorder ? (
+                <label
+                  className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white/10 px-2 text-xs hover:bg-white/15"
+                  title="צבע מסגרת"
+                >
+                  <span>בורדר</span>
+                  <input
+                    type="color"
+                    className="h-5 w-5 cursor-pointer rounded border-0 bg-transparent p-0"
+                    value={/^#[0-9a-fA-F]{6}$/.test(textBorderColor) ? textBorderColor : color}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setTextBorderColor(next);
+                      updateSelected((item) =>
+                        item.kind === "text" ? { ...item, borderColor: next } : item,
+                      );
+                    }}
+                    aria-label="צבע מסגרת"
+                  />
+                </label>
+              ) : null}
+            </>
           ) : null}
           <button
             type="button"
@@ -1360,6 +1483,43 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
               }
             }}
           />
+          <button
+            type="button"
+            aria-pressed={textShowBg}
+            className={`inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-xs font-medium ${
+              textShowBg ? "bg-blue-600 text-white" : "border border-white/15 text-white/80 hover:bg-white/10"
+            }`}
+            onClick={() => setTextShowBg((v) => !v)}
+          >
+            <PaintBucket className="h-3.5 w-3.5" />
+            רקע
+          </button>
+          <button
+            type="button"
+            aria-pressed={textShowBorder}
+            className={`inline-flex h-9 items-center gap-1 rounded-xl px-2.5 text-xs font-medium ${
+              textShowBorder ? "bg-blue-600 text-white" : "border border-white/15 text-white/80 hover:bg-white/10"
+            }`}
+            onClick={() => setTextShowBorder((v) => !v)}
+          >
+            <Frame className="h-3.5 w-3.5" />
+            מסגרת
+          </button>
+          {textShowBorder ? (
+            <label
+              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-white/15 px-2 text-xs text-white/80 hover:bg-white/10"
+              title="צבע מסגרת"
+            >
+              בורדר
+              <input
+                type="color"
+                className="h-5 w-5 cursor-pointer rounded border-0 bg-transparent p-0"
+                value={/^#[0-9a-fA-F]{6}$/.test(textBorderColor) ? textBorderColor : color}
+                onChange={(e) => setTextBorderColor(e.target.value)}
+                aria-label="צבע מסגרת"
+              />
+            </label>
+          ) : null}
           <button
             type="button"
             className="h-9 rounded-xl bg-blue-600 px-3 text-sm font-semibold hover:bg-blue-500"
