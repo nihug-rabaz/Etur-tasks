@@ -23,6 +23,7 @@ import {
 import { DevelopedByCredit } from "@/components/developed-by-credit";
 import { CreateTaskDrawer } from "@/components/create-task-drawer";
 import { AssistantFloatingPanel } from "@/components/assistant/floating-panel";
+import { DevFeedbackFab } from "@/components/dev-feedback/dev-feedback-fab";
 import { DovrutCreateFabStack } from "@/modules/dovrut/components/dovrut-create-fab-stack";
 import { AgamCreateFabStack } from "@/modules/agam/components/create-fab-stack";
 import { isAgamCandidateSoldier } from "@/modules/agam/lib/candidate-access";
@@ -435,6 +436,7 @@ export function AppShell({
           <CreateTaskDrawer floating variant="tasks" triggerLabel="משימה חדשה" />
         ) : null}
         <AssistantFloatingPanel />
+        <DevFeedbackFab />
         <footer className="shrink-0 border-t border-border-weak/50 bg-surface-1/40 px-4 py-3 sm:px-6">
           <DevelopedByCredit compact />
         </footer>
