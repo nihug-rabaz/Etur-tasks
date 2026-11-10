@@ -20,6 +20,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.8.0",
+    "modern-screenshot": "^4.7.0",
     "next": "16.2.4",
     "next-auth": "4.24.14",
     "qrcode.react": "^4.2.0",

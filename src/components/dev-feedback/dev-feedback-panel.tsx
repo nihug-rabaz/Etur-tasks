@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { usePathname } from "next/navigation";
-import html2canvas from "html2canvas";
+import { domToJpeg } from "modern-screenshot";
 import {
   Bug,
   Camera,
@@ -23,6 +23,17 @@ import {
 import { toast } from "sonner";
 import { moduleLabel } from "@/modules/dev-feedback/constants";
 import { resolveActiveModuleId } from "@/shared/modules/types";
+
+function isMostlyBlankDataUrl(dataUrl: string): boolean {
+  try {
+    // Very small JPEG/PNG payloads are almost always empty/failed captures.
+    const comma = dataUrl.indexOf(",");
+    const b64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+    return b64.length < 800;
+  } catch {
+    return true;
+  }
+}
 
 type Props = {
   open: boolean;
@@ -53,11 +64,15 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
     const img = new Image();
     img.onload = () => {
       const maxW = 720;
-      const scale = Math.min(1, maxW / img.width);
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
+      const scale = Math.min(1, maxW / Math.max(img.width, 1));
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.onerror = () => {
+      toast.error("לא ניתן להציג את הצילום — נסו לצרף תמונה ידנית");
+      setScreenshotDataUrl(null);
     };
     img.src = screenshotDataUrl;
   }, [screenshotDataUrl]);
@@ -67,10 +82,11 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
       throw new Error("Screen capture API unavailable");
     }
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { displaySurface: "browser" } as MediaTrackConstraints,
+      video: true,
       audio: false,
-      // Prefer current tab when browser supports it
+      // Chromium: prefer this tab so the shot matches the app page.
       preferCurrentTab: true,
+      selfBrowserSurface: "include",
     } as DisplayMediaStreamOptions);
     try {
       const track = stream.getVideoTracks()[0];
@@ -80,7 +96,20 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
       video.muted = true;
       video.srcObject = stream;
       await video.play();
-      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      // Wait until frames are available.
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error("video timeout")), 4000);
+        const tick = () => {
+          if (video.videoWidth > 0 && video.videoHeight > 0) {
+            window.clearTimeout(timeout);
+            resolve();
+            return;
+          }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      });
+      await new Promise((r) => setTimeout(r, 120));
       const width = video.videoWidth || window.innerWidth;
       const height = video.videoHeight || window.innerHeight;
       const canvas = document.createElement("canvas");
@@ -89,89 +118,84 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
       const ctx = canvas.getContext("2d");
       if (!ctx) throw new Error("No 2d context");
       ctx.drawImage(video, 0, 0, width, height);
-      track.stop();
-      stream.getTracks().forEach((t) => t.stop());
-      return canvas.toDataURL("image/jpeg", 0.9);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      if (isMostlyBlankDataUrl(dataUrl)) {
+        throw new Error("Blank display capture");
+      }
+      return dataUrl;
     } finally {
       stream.getTracks().forEach((t) => t.stop());
     }
   };
 
-  const captureViaHtml2Canvas = async (): Promise<string> => {
-    // Capture the page shell under the modal (modal is visibility:hidden while capturing).
-    const target =
-      (document.querySelector("[data-app-shell], #__next, body > div") as HTMLElement | null) ??
-      document.body;
+  const captureViaDomScreenshot = async (): Promise<string> => {
+    // Wait for React to hide the modal (capturing=true → visibility:hidden).
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+    await new Promise((r) => setTimeout(r, 50));
 
-    try {
-      // Let React apply capturing={true} hide before paint.
-      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
-      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
-      const canvas = await html2canvas(target, {
-        scale: Math.min(1.25, window.devicePixelRatio || 1),
-        useCORS: true,
-        // Never allowTaint when exporting with toDataURL (cross-origin avatars).
-        allowTaint: false,
-        backgroundColor: "#f4f5f7",
-        logging: false,
-        width: Math.min(target.clientWidth || window.innerWidth, window.innerWidth),
-        height: Math.min(
-          Math.max(target.scrollHeight, target.clientHeight, window.innerHeight),
-          Math.round(window.innerHeight * 2.5),
-        ),
-        windowWidth: window.innerWidth,
-        windowHeight: window.innerHeight,
-        scrollX: 0,
-        scrollY: -window.scrollY,
-        ignoreElements: (el) => {
-          if (!(el instanceof HTMLElement)) return false;
-          if (el.dataset.devFeedbackOverlay === "true") return true;
-          if (el.closest("[data-sonner-toaster]")) return true;
-          if (el.tagName === "IFRAME") return true;
-          return false;
-        },
-        onclone: (doc) => {
-          doc.documentElement.setAttribute("dir", "rtl");
-          doc.body.setAttribute("dir", "rtl");
-          doc.body.style.direction = "rtl";
-          // Neutralize modern color functions that html2canvas 1.4 cannot parse.
-          const style = doc.createElement("style");
-          style.textContent = `
-            *, *::before, *::after {
-              backdrop-filter: none !important;
-              -webkit-backdrop-filter: none !important;
-            }
-          `;
-          doc.head.appendChild(style);
-        },
-      });
-      return canvas.toDataURL("image/jpeg", 0.88);
-    } finally {
-      // Modal visibility restored when setCapturing(false) runs.
+    const target = document.documentElement;
+    const dataUrl = await domToJpeg(target, {
+      quality: 0.9,
+      scale: Math.min(1.5, window.devicePixelRatio || 1),
+      backgroundColor: "#f4f5f7",
+      width: window.innerWidth,
+      height: window.innerHeight,
+      // Capture the current viewport, not the full scrollable document.
+      style: {
+        width: `${window.innerWidth}px`,
+        height: `${window.innerHeight}px`,
+        overflow: "hidden",
+      },
+      filter: (el) => {
+        if (!(el instanceof HTMLElement)) return true;
+        if (el.dataset.devFeedbackOverlay === "true") return false;
+        if (el.closest?.("[data-dev-feedback-overlay='true']")) return false;
+        if (el.closest?.("[data-sonner-toaster]")) return false;
+        return true;
+      },
+    });
+
+    if (!dataUrl || isMostlyBlankDataUrl(dataUrl)) {
+      throw new Error("Blank DOM screenshot");
     }
+    return dataUrl;
   };
 
   const captureScreenshot = useCallback(async () => {
     setCapturing(true);
     try {
       let dataUrl: string | null = null;
+      let lastError: unknown = null;
+
       try {
-        dataUrl = await captureViaHtml2Canvas();
-      } catch (primaryError) {
-        console.warn("[dev-feedback-html2canvas]", primaryError);
+        dataUrl = await captureViaDomScreenshot();
+      } catch (error) {
+        lastError = error;
+        console.warn("[dev-feedback-dom-screenshot]", error);
+      }
+
+      if (!dataUrl) {
         try {
+          // Ask user to share this tab — most reliable when DOM capture fails.
+          toast.message("בחרו את הטאב הנוכחי בחלון השיתוף כדי לצלם את המסך");
           dataUrl = await captureViaDisplayMedia();
-        } catch (fallbackError) {
-          console.error("[dev-feedback-display-media]", fallbackError);
-          throw primaryError;
+        } catch (error) {
+          lastError = error;
+          console.error("[dev-feedback-display-media]", error);
         }
       }
+
+      if (!dataUrl) {
+        throw lastError ?? new Error("capture failed");
+      }
+
       setScreenshotDataUrl(dataUrl);
       toast.success("המסך צולם — אפשר לסמן על התמונה");
     } catch (error) {
       console.error(error);
       toast.error(
-        "צילום המסך נכשל — אפשר לצרף תמונה ידנית למטה, או לאשר שיתוף מסך כשהדפדפן מבקש",
+        "צילום המסך נכשל — לחצו «צרף תמונה» והעלו צילום ידני, או אשרו שיתוף טאב כשהדפדפן מבקש",
       );
     } finally {
       setCapturing(false);
