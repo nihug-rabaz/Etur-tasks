@@ -24,14 +24,6 @@ import { toast } from "sonner";
 import { moduleLabel } from "@/modules/dev-feedback/constants";
 import { resolveActiveModuleId } from "@/shared/modules/types";
 
-type AccessPayload = {
-  canSubmit: boolean;
-  isKobi: boolean;
-  moduleId: string;
-  slaPreviewIso: string;
-  slaPreviewLabel: string;
-};
-
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -47,25 +39,11 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [slaLabel, setSlaLabel] = useState<string>("");
   const [screenshotDataUrl, setScreenshotDataUrl] = useState<string | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [capturing, setCapturing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [drawMode, setDrawMode] = useState(true);
-
-  useEffect(() => {
-    if (!open) return;
-    void fetch(`/api/dev-feedback/access?pathname=${encodeURIComponent(pathname)}`)
-      .then(async (res) => {
-        if (!res.ok) return null;
-        return (await res.json()) as AccessPayload;
-      })
-      .then((data) => {
-        if (data?.slaPreviewLabel) setSlaLabel(data.slaPreviewLabel);
-      })
-      .catch(() => undefined);
-  }, [open, pathname]);
 
   useEffect(() => {
     if (!screenshotDataUrl || !canvasRef.current) return;
@@ -120,20 +98,14 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
   };
 
   const captureViaHtml2Canvas = async (): Promise<string> => {
+    // Capture the page shell under the modal (modal is visibility:hidden while capturing).
     const target =
-      (document.querySelector("main") as HTMLElement | null) ??
-      document.documentElement;
-
-    // Hide our modal during capture so it is not in the shot / clone tree.
-    const overlays = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-dev-feedback-overlay='true']"),
-    );
-    const previous = overlays.map((el) => el.style.visibility);
-    overlays.forEach((el) => {
-      el.style.visibility = "hidden";
-    });
+      (document.querySelector("[data-app-shell], #__next, body > div") as HTMLElement | null) ??
+      document.body;
 
     try {
+      // Let React apply capturing={true} hide before paint.
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
       await new Promise((r) => requestAnimationFrame(() => r(undefined)));
       const canvas = await html2canvas(target, {
         scale: Math.min(1.25, window.devicePixelRatio || 1),
@@ -175,9 +147,7 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
       });
       return canvas.toDataURL("image/jpeg", 0.88);
     } finally {
-      overlays.forEach((el, i) => {
-        el.style.visibility = previous[i] || "";
-      });
+      // Modal visibility restored when setCapturing(false) runs.
     }
   };
 
@@ -302,9 +272,7 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
       }
 
       toast.success(
-        data.issueKey
-          ? `נפתחה משימה ${data.issueKey} — ממתינה לאישור הרב קובי`
-          : "המשימה נשלחה ל־Jira",
+        data.issueKey ? `נפתחה משימה ${data.issueKey} ב־Jira` : "המשימה נשלחה ל־Jira",
       );
       setTitle("");
       setDescription("");
@@ -325,6 +293,7 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 sm:items-center"
       data-dev-feedback-overlay="true"
+      style={capturing ? { visibility: "hidden", pointerEvents: "none" } : undefined}
     >
       <div
         className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border-weak bg-surface-1 shadow-xl"
@@ -338,7 +307,7 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
           <div>
             <h2 className="text-base font-bold text-text-primary">משימה לפיתוח</h2>
             <p className="text-xs text-text-muted">
-              מודול: {moduleLabel(moduleId)} · יישלח ל־Jira ETUR לאישור הרב קובי
+              מודול: {moduleLabel(moduleId)} · יישלח ל־Jira ETUR
             </p>
           </div>
           <button
@@ -371,16 +340,6 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
               placeholder="פרטו מה רוצים, איפה זה קורה, ומה התוצאה הרצויה…"
             />
           </label>
-
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-text-primary">
-            המשימה דורשת אישור של הרב קובי לפני שהיא מגיעה לצוות הפיתוח.
-            {slaLabel ? (
-              <div className="mt-1 text-xs text-text-muted">
-                מחשבון SLA: אם יאושר היום — יעד משוער {slaLabel} (4 ימי עסקים
-                א׳–ה׳).
-              </div>
-            ) : null}
-          </div>
 
           <div className="flex flex-wrap gap-2">
             <button
