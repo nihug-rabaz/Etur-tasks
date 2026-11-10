@@ -84,28 +84,125 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
     img.src = screenshotDataUrl;
   }, [screenshotDataUrl]);
 
+  const captureViaDisplayMedia = async (): Promise<string> => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error("Screen capture API unavailable");
+    }
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: "browser" } as MediaTrackConstraints,
+      audio: false,
+      // Prefer current tab when browser supports it
+      preferCurrentTab: true,
+    } as DisplayMediaStreamOptions);
+    try {
+      const track = stream.getVideoTracks()[0];
+      if (!track) throw new Error("No video track");
+      const video = document.createElement("video");
+      video.playsInline = true;
+      video.muted = true;
+      video.srcObject = stream;
+      await video.play();
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      const width = video.videoWidth || window.innerWidth;
+      const height = video.videoHeight || window.innerHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("No 2d context");
+      ctx.drawImage(video, 0, 0, width, height);
+      track.stop();
+      stream.getTracks().forEach((t) => t.stop());
+      return canvas.toDataURL("image/jpeg", 0.9);
+    } finally {
+      stream.getTracks().forEach((t) => t.stop());
+    }
+  };
+
+  const captureViaHtml2Canvas = async (): Promise<string> => {
+    const target =
+      (document.querySelector("main") as HTMLElement | null) ??
+      document.documentElement;
+
+    // Hide our modal during capture so it is not in the shot / clone tree.
+    const overlays = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-dev-feedback-overlay='true']"),
+    );
+    const previous = overlays.map((el) => el.style.visibility);
+    overlays.forEach((el) => {
+      el.style.visibility = "hidden";
+    });
+
+    try {
+      await new Promise((r) => requestAnimationFrame(() => r(undefined)));
+      const canvas = await html2canvas(target, {
+        scale: Math.min(1.25, window.devicePixelRatio || 1),
+        useCORS: true,
+        // Never allowTaint when exporting with toDataURL (cross-origin avatars).
+        allowTaint: false,
+        backgroundColor: "#f4f5f7",
+        logging: false,
+        width: Math.min(target.clientWidth || window.innerWidth, window.innerWidth),
+        height: Math.min(
+          Math.max(target.scrollHeight, target.clientHeight, window.innerHeight),
+          Math.round(window.innerHeight * 2.5),
+        ),
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        ignoreElements: (el) => {
+          if (!(el instanceof HTMLElement)) return false;
+          if (el.dataset.devFeedbackOverlay === "true") return true;
+          if (el.closest("[data-sonner-toaster]")) return true;
+          if (el.tagName === "IFRAME") return true;
+          return false;
+        },
+        onclone: (doc) => {
+          doc.documentElement.setAttribute("dir", "rtl");
+          doc.body.setAttribute("dir", "rtl");
+          doc.body.style.direction = "rtl";
+          // Neutralize modern color functions that html2canvas 1.4 cannot parse.
+          const style = doc.createElement("style");
+          style.textContent = `
+            *, *::before, *::after {
+              backdrop-filter: none !important;
+              -webkit-backdrop-filter: none !important;
+            }
+          `;
+          doc.head.appendChild(style);
+        },
+      });
+      return canvas.toDataURL("image/jpeg", 0.88);
+    } finally {
+      overlays.forEach((el, i) => {
+        el.style.visibility = previous[i] || "";
+      });
+    }
+  };
+
   const captureScreenshot = useCallback(async () => {
     setCapturing(true);
     try {
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        scale: Math.min(1.5, window.devicePixelRatio || 1),
-        windowWidth: document.documentElement.scrollWidth,
-        windowHeight: Math.min(
-          document.documentElement.scrollHeight,
-          window.innerHeight * 2,
-        ),
-        ignoreElements: (el) =>
-          el instanceof HTMLElement &&
-          el.dataset.devFeedbackOverlay === "true",
-      });
-      setScreenshotDataUrl(canvas.toDataURL("image/png"));
+      let dataUrl: string | null = null;
+      try {
+        dataUrl = await captureViaHtml2Canvas();
+      } catch (primaryError) {
+        console.warn("[dev-feedback-html2canvas]", primaryError);
+        try {
+          dataUrl = await captureViaDisplayMedia();
+        } catch (fallbackError) {
+          console.error("[dev-feedback-display-media]", fallbackError);
+          throw primaryError;
+        }
+      }
+      setScreenshotDataUrl(dataUrl);
       toast.success("המסך צולם — אפשר לסמן על התמונה");
     } catch (error) {
       console.error(error);
-      toast.error("צילום המסך נכשל");
+      toast.error(
+        "צילום המסך נכשל — אפשר לצרף תמונה ידנית למטה, או לאשר שיתוף מסך כשהדפדפן מבקש",
+      );
     } finally {
       setCapturing(false);
     }
@@ -349,7 +446,7 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
           <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-border-weak px-3 py-3 text-sm text-text-muted hover:bg-surface-2">
             <Paperclip className="h-4 w-4" />
             <span>
-              צרף קבצים
+              צרף תמונה / קבצים
               {extraFiles.length ? ` (${extraFiles.length})` : ""}
             </span>
             <input
@@ -359,7 +456,22 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
               accept="image/*,.pdf,.xlsx,.xls,.doc,.docx,.txt"
               onChange={(e) => {
                 const list = Array.from(e.target.files || []);
-                setExtraFiles((prev) => [...prev, ...list].slice(0, 5));
+                const firstImage = list.find((f) => f.type.startsWith("image/"));
+                if (firstImage && !screenshotDataUrl) {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === "string") {
+                      setScreenshotDataUrl(reader.result);
+                      toast.success("התמונה נטענה לסימון");
+                    }
+                  };
+                  reader.readAsDataURL(firstImage);
+                  setExtraFiles((prev) =>
+                    [...prev, ...list.filter((f) => f !== firstImage)].slice(0, 5),
+                  );
+                } else {
+                  setExtraFiles((prev) => [...prev, ...list].slice(0, 5));
+                }
                 e.target.value = "";
               }}
             />
