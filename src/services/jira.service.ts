@@ -110,15 +110,57 @@ export class JiraService {
     const exact = users.find(
       (u) => (u.emailAddress || "").toLowerCase() === query.toLowerCase(),
     );
-    return exact?.accountId ?? users[0]?.accountId ?? null;
+    return exact?.accountId ?? null;
+  }
+
+  /** Match users by display-name tokens (emails are often hidden in Jira Cloud). */
+  public async resolveAccountIdByNameHints(
+    hints: string[],
+  ): Promise<string | null> {
+    for (const hint of hints) {
+      const query = hint.trim();
+      if (!query) continue;
+      const users = await this.request<JiraUser[]>(
+        `/rest/api/3/user/search?query=${encodeURIComponent(query)}&maxResults=20`,
+      );
+      const lowered = query.toLowerCase();
+      const hit = users.find((u) => {
+        const name = (u.displayName || "").toLowerCase();
+        return (
+          name === lowered ||
+          name.includes(lowered) ||
+          lowered.split(/\s+/).every((part) => part && name.includes(part))
+        );
+      });
+      if (hit?.accountId) return hit.accountId;
+    }
+    return null;
+  }
+
+  /** Jira ADMIN connected via API token (admin@rabaz-idf.com). */
+  public async resolveAdminAccountId(): Promise<string> {
+    const fromEnv = Env.get("JIRA_ADMIN_ACCOUNT_ID")?.trim();
+    if (fromEnv) return fromEnv;
+    const me = await this.request<JiraUser>("/rest/api/3/myself");
+    if (me.accountId) return me.accountId;
+    throw new Error("Cannot resolve Jira ADMIN accountId");
   }
 
   public async resolveKobiAccountId(): Promise<string | null> {
     const fromEnv = Env.get("JIRA_KOBI_ACCOUNT_ID")?.trim();
     if (fromEnv) return fromEnv;
     const email = Env.get("JIRA_KOBI_EMAIL")?.trim();
-    if (!email) return null;
-    return this.resolveAccountIdByEmail(email);
+    if (email) {
+      const byEmail = await this.resolveAccountIdByEmail(email);
+      if (byEmail) return byEmail;
+    }
+    return this.resolveAccountIdByNameHints([
+      "koby",
+      "kobi",
+      "klein",
+      "קובי",
+      "קליין",
+    ]);
   }
 
   public async resolveLiadAccountId(): Promise<string> {
@@ -126,10 +168,18 @@ export class JiraService {
     if (fromEnv) return fromEnv;
     const email = Env.get("JIRA_LIAD_EMAIL")?.trim();
     if (email) {
-      const id = await this.resolveAccountIdByEmail(email);
-      if (id) return id;
+      const byEmail = await this.resolveAccountIdByEmail(email);
+      if (byEmail) return byEmail;
     }
-    throw new Error("Missing JIRA_LIAD_ACCOUNT_ID / JIRA_LIAD_EMAIL");
+    const byName = await this.resolveAccountIdByNameHints([
+      "liad kadosh",
+      "liad",
+      "kadosh",
+      "ליעד",
+    ]);
+    if (byName) return byName;
+    // Known ETUR assignable account (liad kadosh)
+    return "712020:423fc856-05e6-48e4-ad63-98f3f49a3b8e";
   }
 
   public async resolveZoharAccountId(): Promise<string> {
@@ -137,22 +187,31 @@ export class JiraService {
     if (fromEnv) return fromEnv;
     const email = Env.get("JIRA_ZOHAR_EMAIL")?.trim();
     if (email) {
-      const id = await this.resolveAccountIdByEmail(email);
-      if (id) return id;
+      const byEmail = await this.resolveAccountIdByEmail(email);
+      if (byEmail) return byEmail;
     }
-    throw new Error("Missing JIRA_ZOHAR_ACCOUNT_ID / JIRA_ZOHAR_EMAIL");
+    const byName = await this.resolveAccountIdByNameHints([
+      "zohar tkacz",
+      "zohar",
+      "tkacz",
+      "זוהר",
+    ]);
+    if (byName) return byName;
+    // Known ETUR assignable account (zohar tkacz)
+    return "712020:558455f2-4d17-4ca1-9451-7b4d0ee26785";
   }
 
   public async createDevFeedbackIssue(input: {
     summary: string;
     descriptionLines: string[];
     moduleId: string;
+    /** Prefer Jira ADMIN so tickets open under the connected admin user. */
     assigneeAccountId?: string | null;
   }): Promise<{
     key: string;
     id: string;
     browseUrl: string;
-    assignedToKobi: boolean;
+    assignedToAdmin: boolean;
   }> {
     const labels = [
       LABEL_DEV_FEEDBACK,
@@ -180,11 +239,11 @@ export class JiraService {
     };
 
     let created: JiraIssueCreateResponse;
-    let assignedToKobi = false;
+    let assignedToAdmin = false;
     if (input.assigneeAccountId) {
       try {
         created = await tryCreate(true);
-        assignedToKobi = true;
+        assignedToAdmin = true;
       } catch (error) {
         console.warn(
           "[jira-create] assignee failed; retrying without assignee",
@@ -200,7 +259,7 @@ export class JiraService {
       key: created.key,
       id: created.id,
       browseUrl: this.browseUrl(created.key),
-      assignedToKobi,
+      assignedToAdmin,
     };
   }
 

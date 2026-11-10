@@ -85,11 +85,12 @@ export async function POST(request: Request) {
   }
 
   const jira = new JiraService();
-  const kobiAccountId = await jira.resolveKobiAccountId().catch(() => null);
+  const adminAccountId = await jira.resolveAdminAccountId().catch(() => null);
   const slaPreview = previewSlaDueDate();
 
   const descriptionLines = [
     "⚠️ המשימה דורשת אישור של הרב קובי לפני שהיא מגיעה לצוות הפיתוח.",
+    "הכרטיס נפתח תחת משתמש ה־ADMIN ב־Jira וממתין לאישור באפליקציה.",
     `מודול: ${moduleLabel(moduleId)} (${moduleId})`,
     pageUrl ? `כתובת מסך: ${pageUrl}` : "",
     `מדווח: ${profile.name || "משתמש"}${profile.email ? ` <${profile.email}>` : ""}`,
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
     description,
     "",
     `מחשבון SLA: לאחר אישור הרב קובי — יעד משוער של ${slaPreview.label} (4 ימי עסקים א׳–ה׳ מרגע האישור).`,
+    "אחרי אישור: מלש״בים/נגדים/דוברות → ליעד קדוש; אחרת → זוהר טקץ׳.",
   ].filter(Boolean);
 
   try {
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
       summary: `[פיתוח] ${title}`,
       descriptionLines,
       moduleId,
-      assigneeAccountId: kobiAccountId,
+      assigneeAccountId: adminAccountId,
     });
 
     const attachErrors: string[] = [];
@@ -136,7 +138,7 @@ export async function POST(request: Request) {
       awaitingKobi: true,
       slaPreviewIso: slaPreview.iso,
       slaPreviewLabel: slaPreview.label,
-      assignedToKobi: issue.assignedToKobi,
+      assignedToAdmin: issue.assignedToAdmin,
       attachWarnings: attachErrors.length ? attachErrors : undefined,
     });
   } catch (error) {
