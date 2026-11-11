@@ -313,3 +313,11 @@ export interface AgamStageSummary {
   text: string;
   detail?: string;
 }
+
+export interface AgamCycleStageBoard {
+  dayEvaluations: AgamDayEvaluation[];
+  interviews: AgamInterview[];
+  prepDays: AgamPrepDayEvaluation[];
+  smach: AgamSmachEvaluation[];
+  documents: Omit<AgamDocument, "file_url">[];
+}

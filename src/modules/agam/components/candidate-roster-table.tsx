@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
 import { candidateGaps } from "@/modules/agam/lib/gaps";
 import { STATUS_LABELS } from "@/modules/agam/lib/stages";
-import type { AgamCandidate, AgamCandidateStatus } from "@/modules/agam/types";
+import type { AgamCandidate, AgamCandidateStatus, AgamStageSummary } from "@/modules/agam/types";
 
 const PODIUM_TONES = [
   "bg-amber-400/20 text-amber-800 ring-amber-500/30 dark:text-amber-200",
@@ -32,13 +32,26 @@ export function sortByCycleRank<T extends Pick<AgamCandidate, "cycle_rank" | "fu
 export function CandidateRosterTable({
   candidates,
   fromCycleId,
+  stageColumnHeader,
+  stageSummaries,
+  stageHrefSuffix,
 }: {
   candidates: AgamCandidate[];
   fromCycleId?: string | null;
+  stageColumnHeader?: string | null;
+  stageSummaries?: Record<string, AgamStageSummary> | null;
+  stageHrefSuffix?: string | null;
 }) {
   const router = useRouter();
-  const hrefFor = (id: string) => `/agam/candidates/${id}${fromCycleId ? `?from=${fromCycleId}` : ""}`;
+  const hrefFor = (id: string) => {
+    const params = new URLSearchParams();
+    if (fromCycleId) params.set("from", fromCycleId);
+    if (stageHrefSuffix) params.set("stage", stageHrefSuffix);
+    const query = params.toString();
+    return `/agam/candidates/${id}${query ? `?${query}` : ""}`;
+  };
   const thClass = "px-3 py-2.5 text-start text-[11px] font-extrabold text-text-muted first:ps-4 last:pe-4";
+  const showStage = Boolean(stageColumnHeader);
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-surface-1 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
@@ -49,7 +62,7 @@ export function CandidateRosterTable({
             <th className={thClass}>מועמד</th>
             <th className={thClass}>יחידה</th>
             <th className={`${thClass} w-24`}>מדד · דפ״ר</th>
-            <th className={thClass}>פערים</th>
+            <th className={thClass}>{showStage ? stageColumnHeader : "פערים"}</th>
             <th className={`${thClass} w-24`}>סטטוס</th>
             <th className={`${thClass} w-10`} aria-label="פתיחה" />
           </tr>
@@ -59,6 +72,7 @@ export function CandidateRosterTable({
             const rank = candidate.cycle_rank;
             const podium = rank != null ? PODIUM_TONES[rank - 1] : undefined;
             const gaps = candidateGaps(candidate);
+            const summary = stageSummaries?.[candidate.id];
             const href = hrefFor(candidate.id);
             return (
               <tr
@@ -102,7 +116,18 @@ export function CandidateRosterTable({
                   {candidate.dapar ?? "—"}
                 </td>
                 <td className="px-3 py-3">
-                  {gaps.length > 0 ? (
+                  {showStage ? (
+                    summary ? (
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-bold text-text-primary">{summary.text}</p>
+                        {summary.detail ? (
+                          <p className="truncate text-[11px] font-semibold text-text-muted">{summary.detail}</p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-text-muted/60">אין נתונים</span>
+                    )
+                  ) : gaps.length > 0 ? (
                     <span
                       className="inline-flex max-w-[12rem] items-center gap-1 rounded-full bg-amber-500/12 px-2 py-0.5 text-[11px] font-bold text-amber-800 dark:text-amber-200"
                       title={gaps.join(" · ")}

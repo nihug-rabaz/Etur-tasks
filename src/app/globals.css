@@ -1775,21 +1775,24 @@ textarea.hud-title {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
+  gap: 0.7rem;
   margin: 0;
   padding: 0;
   list-style: none;
+  /* Keep left/right sides physical; cards keep Hebrew RTL inside. */
+  direction: ltr;
 }
 
-/* Connector from this node to the next one (spans the item + the gap) */
+/* Centered vertical rail connector */
 .agam-timeline__item:not(:last-child)::after {
   content: "";
   position: absolute;
   z-index: -1;
-  top: 1.6rem;
-  height: calc(100% + 0.9rem);
-  inset-inline-start: calc(1.4rem - 1.5px);
+  top: 1.35rem;
+  left: 50%;
+  height: calc(100% + 0.7rem);
   width: 3px;
+  margin-left: -1.5px;
   border-radius: 999px;
   background: var(--tl-rail);
   transition: background 300ms ease;
@@ -1804,13 +1807,14 @@ textarea.hud-title {
 }
 
 .agam-timeline__item {
+  --tl-node-col: 2.2rem;
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 2.8rem minmax(0, 1fr);
-  grid-template-areas: "node card";
+  grid-template-columns: minmax(0, 1fr) var(--tl-node-col) minmax(0, 1fr);
+  grid-template-areas: "left node right";
   align-items: start;
-  column-gap: 0.85rem;
+  column-gap: 0.35rem;
   animation: agam-timeline-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -1819,9 +1823,10 @@ textarea.hud-title {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  margin-top: 0.55rem;
+  justify-self: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  margin-top: calc(1.35rem - 0.925rem);
   border-radius: 999px;
   border: 2px solid transparent;
   background: var(--surface-1);
@@ -1840,69 +1845,91 @@ textarea.hud-title {
   transform: scale(1.06);
 }
 
-/* Node centers sit on the rail at 1.6rem from the item top */
-.agam-timeline__node {
-  justify-self: center;
-}
-
 .agam-timeline__item--sm .agam-timeline__node {
-  width: 1.15rem;
-  height: 1.15rem;
-  margin-top: calc(1.6rem - 0.575rem);
+  width: 0.95rem;
+  height: 0.95rem;
+  margin-top: calc(1.35rem - 0.475rem);
   border-width: 2px;
 }
 
 .agam-timeline__item--xl .agam-timeline__node {
-  width: 2.8rem;
-  height: 2.8rem;
-  margin-top: calc(1.6rem - 1.4rem);
-  padding: 0.2rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin-top: calc(1.35rem - 1.175rem);
+  padding: 0.15rem;
   border-width: 2.5px;
   box-shadow:
-    0 0 0 4px var(--surface-1),
+    0 0 0 3px var(--surface-1),
     0 10px 22px -10px rgba(22, 24, 29, 0.45);
 }
 
-/* סמ״ח opening → closing: one capsule around the linked nodes and the rail between them */
+/* סמ״ח opening → closing: one seamless, borderless violet track.
+   Opaque fill so the per-item segments overlap without visible seams. */
+.agam-timeline {
+  --tl-span-fill: color-mix(in srgb, #8b5cf6 11%, var(--surface-1));
+  --tl-span-rail: color-mix(in srgb, #8b5cf6 55%, var(--surface-1));
+  --tl-span-accent: #6d28d9;
+}
+
+.dark .agam-timeline {
+  --tl-span-fill: color-mix(in srgb, #8b5cf6 20%, var(--surface-1));
+  --tl-span-rail: color-mix(in srgb, #a78bfa 60%, var(--surface-1));
+  --tl-span-accent: #c4b5fd;
+}
+
 .agam-timeline__item.is-span-start::before,
 .agam-timeline__item.is-span-mid::before,
 .agam-timeline__item.is-span-end::before {
   content: "";
   position: absolute;
   z-index: -2;
-  inset-inline-start: 0;
-  width: 2.8rem;
-  border: 1.5px solid color-mix(in srgb, #8b5cf6 38%, transparent);
-  background: color-mix(in srgb, #8b5cf6 7%, transparent);
+  left: 50%;
+  width: 2.6rem;
+  margin-left: -1.3rem;
+  background: var(--tl-span-fill);
   pointer-events: none;
 }
 
 .agam-timeline__item.is-span-start::before {
-  top: 0.2rem;
-  height: calc(100% - 0.2rem + 0.9rem);
-  border-bottom: 0;
-  border-radius: 1.4rem 1.4rem 0 0;
+  top: 0.05rem;
+  height: calc(100% - 0.05rem + 0.7rem + 1px);
+  border-radius: 1.3rem 1.3rem 0 0;
 }
 
 .agam-timeline__item.is-span-mid::before {
-  top: 0;
-  height: calc(100% + 0.9rem);
-  border-top: 0;
-  border-bottom: 0;
+  top: -1px;
+  height: calc(100% + 0.7rem + 2px);
 }
 
 .agam-timeline__item.is-span-end::before {
-  top: 0;
-  height: 3rem;
-  border-top: 0;
-  border-radius: 0 0 1.4rem 1.4rem;
+  top: -1px;
+  height: calc(2.65rem + 1px);
+  border-radius: 0 0 1.3rem 1.3rem;
 }
 
-.dark .agam-timeline__item.is-span-start::before,
-.dark .agam-timeline__item.is-span-mid::before,
-.dark .agam-timeline__item.is-span-end::before {
-  border-color: color-mix(in srgb, #a78bfa 45%, transparent);
-  background: color-mix(in srgb, #a78bfa 10%, transparent);
+.agam-timeline__item.is-span-start:not(:last-child)::after,
+.agam-timeline__item.is-span-mid:not(:last-child)::after {
+  background: var(--tl-span-rail);
+}
+
+.agam-timeline__rail .agam-timeline__item.is-span-start .agam-timeline__node,
+.agam-timeline__rail .agam-timeline__item.is-span-end .agam-timeline__node {
+  color: var(--tl-span-accent);
+  border-color: color-mix(in srgb, #8b5cf6 45%, transparent);
+  box-shadow:
+    0 0 0 3px var(--tl-span-fill),
+    0 6px 14px -8px color-mix(in srgb, #7c3aed 45%, transparent);
+}
+
+.agam-timeline__rail .agam-timeline__item.is-span-mid .agam-timeline__node {
+  background: var(--surface-1);
+  border: 2.5px solid color-mix(in srgb, #8b5cf6 70%, var(--surface-1));
+  box-shadow: 0 0 0 2px var(--tl-span-fill);
+}
+
+.agam-timeline__item.is-span-start .agam-timeline__type,
+.agam-timeline__item.is-span-end .agam-timeline__type {
+  color: var(--tl-span-accent);
 }
 
 .agam-timeline__emblem {
@@ -1916,13 +1943,13 @@ textarea.hud-title {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.4rem;
+  gap: 0.25rem;
   min-width: 0;
-  padding: 0.7rem 0.8rem 0;
+  padding: 0.45rem 0.55rem 0;
 }
 
 .agam-timeline__date {
-  font-size: 0.7rem;
+  font-size: 0.62rem;
   font-weight: 800;
   color: var(--text-secondary);
   transition: color 160ms ease;
@@ -1936,8 +1963,8 @@ textarea.hud-title {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.12rem 0.45rem;
-  font-size: 0.62rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.01em;
 }
@@ -1945,75 +1972,137 @@ textarea.hud-title {
 .agam-timeline__card {
   --tl-card-bg: var(--surface-1);
   --tl-card-edge: color-mix(in srgb, var(--text-muted) 22%, transparent);
-  grid-area: card;
   position: relative;
   min-width: 0;
-  border-radius: 0.95rem;
+  max-width: 100%;
+  border-radius: 0.75rem;
   background: var(--tl-card-bg);
   box-shadow:
     0 0 0 1px var(--tl-card-edge),
-    0 10px 22px -16px rgba(22, 24, 29, 0.35);
+    0 8px 18px -14px rgba(22, 24, 29, 0.32);
   transition:
     transform 200ms ease,
     box-shadow 200ms ease,
     opacity 200ms ease;
 }
 
-/* Speech-bubble pointer aimed at the node (node center = 0.55rem + 1.05rem) */
+.agam-timeline__item--left .agam-timeline__card {
+  grid-area: left;
+  justify-self: stretch;
+  text-align: start;
+}
+
+.agam-timeline__item--left .agam-timeline__meta {
+  justify-content: flex-start;
+  padding: 0.35rem 0.5rem 0;
+}
+
+.agam-timeline__item--left .agam-timeline__card-btn {
+  padding: 0.1rem 0.5rem 0.4rem;
+}
+
+.agam-timeline__item--left .agam-timeline__title {
+  font-size: 0.78rem;
+}
+
+.agam-timeline__item--right .agam-timeline__card {
+  grid-area: right;
+  justify-self: stretch;
+  width: auto;
+  border-radius: 0.45rem;
+  box-shadow:
+    0 0 0 1px var(--tl-card-edge),
+    0 4px 10px -10px rgba(22, 24, 29, 0.25);
+}
+
+.agam-timeline__item--right .agam-timeline__meta {
+  padding: 0.2rem 0.3rem 0;
+}
+
+.agam-timeline__item--right .agam-timeline__date {
+  font-size: 0.45rem;
+}
+
+.agam-timeline__item--right .agam-timeline__card-btn {
+  padding: 0.04rem 0.3rem 0.24rem;
+}
+
+.agam-timeline__item--right .agam-timeline__type {
+  display: none;
+}
+
+.agam-timeline__item--right .agam-timeline__title {
+  font-size: 0.55rem;
+  line-height: 1.1;
+}
+
+.agam-timeline__item--right .agam-timeline__notes {
+  display: none;
+}
+
+.agam-timeline__item--right .agam-timeline__card::before {
+  top: calc(1.35rem - 4px);
+  left: -4px;
+  width: 8px;
+  height: 8px;
+}
+
+/* Bubble pointer toward the centered node */
 .agam-timeline__card::before {
   content: "";
   position: absolute;
-  top: calc(1.6rem - 6px);
-  inset-inline-start: -6px;
-  width: 12px;
-  height: 12px;
+  top: calc(1.35rem - 5px);
+  width: 10px;
+  height: 10px;
   background: var(--tl-card-bg);
   transform: rotate(45deg);
-  border-radius: 2px;
+  border-radius: 1.5px;
 }
 
-[dir="rtl"] .agam-timeline__card::before,
-.agam-timeline__card:dir(rtl)::before {
+.agam-timeline__item--left .agam-timeline__card::before {
+  right: -5px;
+  left: auto;
   box-shadow: 1px -1px 0 0 var(--tl-card-edge);
 }
 
-[dir="ltr"] .agam-timeline__card::before,
-.agam-timeline__card:dir(ltr)::before {
+.agam-timeline__item--right .agam-timeline__card::before {
+  left: -5px;
+  right: auto;
   box-shadow: -1px 1px 0 0 var(--tl-card-edge);
 }
 
 .agam-timeline__card-btn {
   display: block;
   width: 100%;
-  padding: 0.35rem 0.8rem 0.75rem;
+  padding: 0.2rem 0.55rem 0.5rem;
   text-align: start;
 }
 
 .agam-timeline__type {
   display: inline-flex;
-  margin-bottom: 0.25rem;
-  font-size: 0.62rem;
+  margin-bottom: 0.15rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .agam-timeline__title {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 800;
-  line-height: 1.3;
+  line-height: 1.25;
   color: var(--text-primary);
 }
 
 .agam-timeline__notes {
-  margin-top: 0.3rem;
+  margin-top: 0.2rem;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  font-size: 0.7rem;
-  line-height: 1.4;
+  -webkit-line-clamp: 1;
+  font-size: 0.62rem;
+  line-height: 1.35;
   color: var(--text-secondary);
 }
 

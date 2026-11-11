@@ -1,12 +1,23 @@
 import { BaseService } from "@/services/base.service";
 import { generateCycleInviteSlug } from "@/modules/agam/lib/cycle-invite";
 import { normalizeCycleSchedule } from "@/modules/agam/lib/cycle-schedule";
+import {
+  YEARBOOK_MONTHS,
+  cycleMonthNumber,
+  yearbookCycleDate,
+} from "@/modules/agam/lib/yearbook-months";
 import type {
   AgamCandidate,
   AgamCycle,
   AgamCycleSchedule,
   AgamCycleScheduleKey,
+  AgamCycleStageBoard,
+  AgamDayEvaluation,
+  AgamDocument,
+  AgamInterview,
+  AgamPrepDayEvaluation,
   AgamRankingRow,
+  AgamSmachEvaluation,
 } from "@/modules/agam/types";
 
 export class AgamCycleService extends BaseService {
@@ -103,6 +114,50 @@ export class AgamCycleService extends BaseService {
     created_by_id?: string | null;
   }): Promise<AgamCycle> {
     return this.insertWithSlug(input);
+  }
+
+  /**
+   * Ensures the four fixed month cycles (Feb / May / Aug / Nov) exist for a cohort year.
+   * Returns newly created cycles only.
+   */
+  public async ensureYearbookMonths(
+    cohortYear: number,
+    createdById?: string | null,
+  ): Promise<AgamCycle[]> {
+    if (!Number.isInteger(cohortYear) || cohortYear < 2000 || cohortYear > 2100) {
+      return [];
+    }
+    const db = this.getDb();
+    const existing = await db<AgamCycle[]>`
+      select c.*
+      from agam_cycles c
+      where c.archived = false
+        and c.cohort_year = ${cohortYear}
+    `;
+    const covered = new Set(
+      existing
+        .map((cycle) => cycleMonthNumber(cycle.cycle_date))
+        .filter((month): month is number => month != null && YEARBOOK_MONTHS.some((slot) => slot.month === month)),
+    );
+    const created: AgamCycle[] = [];
+    for (const slot of YEARBOOK_MONTHS) {
+      if (covered.has(slot.month)) continue;
+      const named = existing.find((cycle) => cycle.name === slot.name);
+      if (named) {
+        covered.add(slot.month);
+        continue;
+      }
+      created.push(
+        await this.insertWithSlug({
+          name: slot.name,
+          cycle_date: yearbookCycleDate(cohortYear, slot.month),
+          cohort_year: cohortYear,
+          created_by_id: createdById,
+        }),
+      );
+      covered.add(slot.month);
+    }
+    return created;
   }
 
   public async setScheduleDate(id: string, key: AgamCycleScheduleKey, date: string | null): Promise<AgamCycle | null> {
@@ -276,5 +331,41 @@ export class AgamCycleService extends BaseService {
         and cycle_rank is not null
         and not (id = any(${orderedIds}::uuid[]))
     `;
+  }
+
+  /** Every stage's raw evaluations for the cycle's active candidates, for the dashboard stage tabs. */
+  public async stageBoard(cycleId: string): Promise<AgamCycleStageBoard> {
+    const db = this.getDb();
+    const [dayEvaluations, interviews, prepDays, smach, documents] = await Promise.all([
+      db<AgamDayEvaluation[]>`
+        select ev.* from agam_day_evaluations ev
+        join agam_candidates cand on cand.id = ev.candidate_id
+        where cand.cycle_id = ${cycleId} and cand.archived = false
+      `,
+      db<AgamInterview[]>`
+        select iv.* from agam_interviews iv
+        join agam_candidates cand on cand.id = iv.candidate_id
+        where cand.cycle_id = ${cycleId} and cand.archived = false
+      `,
+      db<AgamPrepDayEvaluation[]>`
+        select pd.* from agam_preparation_day_evaluations pd
+        join agam_candidates cand on cand.id = pd.candidate_id
+        where cand.cycle_id = ${cycleId} and cand.archived = false
+      `,
+      db<AgamSmachEvaluation[]>`
+        select sm.* from agam_smach_evaluations sm
+        join agam_candidates cand on cand.id = sm.candidate_id
+        where cand.cycle_id = ${cycleId} and cand.archived = false
+      `,
+      db<Omit<AgamDocument, "file_url">[]>`
+        select doc.id, doc.candidate_id, doc.name, doc.document_type, doc.upload_source, doc.notes,
+          doc.uploaded_by_name, doc.file_size, doc.content_type, doc.approved_at, doc.approved_by_name,
+          doc.created_at, doc.updated_at
+        from agam_candidate_documents doc
+        join agam_candidates cand on cand.id = doc.candidate_id
+        where cand.cycle_id = ${cycleId} and cand.archived = false
+      `,
+    ]);
+    return { dayEvaluations, interviews, prepDays, smach, documents };
   }
 }

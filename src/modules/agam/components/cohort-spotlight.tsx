@@ -2,22 +2,38 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, Link2, Plus, Search, Trophy, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { CandidateRosterTable, sortByCycleRank } from "@/modules/agam/components/candidate-roster-table";
 import { CreateCycleDrawer } from "@/modules/agam/components/create-cycle-drawer";
+import { CycleStagePanel } from "@/modules/agam/components/cycle-stage-panel";
+import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { cycleInviteAbsoluteUrl } from "@/modules/agam/lib/cycle-invite";
 import { formatAgamDate, toDateInputValue } from "@/modules/agam/lib/date-format";
+import { STAGE_VIEWS } from "@/modules/agam/lib/stages";
 import { panelClass } from "@/modules/agam/lib/ui";
-import type { AgamCandidate, AgamCycle } from "@/modules/agam/types";
+import {
+  YEARBOOK_MONTHS,
+  cycleMonthNumber,
+  yearbookTabLabel,
+} from "@/modules/agam/lib/yearbook-months";
+import type { AgamCandidate, AgamCycle, AgamCycleStageBoard, AgamStageKey } from "@/modules/agam/types";
 
 const NO_YEAR = "none";
 
-function shortDate(day: string): string {
-  if (!day) return "ללא תאריך";
-  const [, mm, dd] = day.split("-");
-  return `${dd}.${mm}`;
+function sortYearbookCycles(rows: AgamCycle[]): AgamCycle[] {
+  const monthRank = new Map(YEARBOOK_MONTHS.map((slot, index) => [slot.month, index]));
+  return [...rows].sort((a, b) => {
+    const aMonth = cycleMonthNumber(a.cycle_date);
+    const bMonth = cycleMonthNumber(b.cycle_date);
+    const aRank = aMonth != null ? monthRank.get(aMonth) : undefined;
+    const bRank = bMonth != null ? monthRank.get(bMonth) : undefined;
+    if (aRank != null && bRank != null) return aRank - bRank;
+    if (aRank != null) return -1;
+    if (bRank != null) return 1;
+    return toDateInputValue(a.cycle_date).localeCompare(toDateInputValue(b.cycle_date));
+  });
 }
 
 function cycleWhen(day: string, today: string): { label: string; tone: "past" | "today" | "soon" } {
@@ -46,16 +62,17 @@ export function CohortSpotlight({
   candidates,
   canCreate = false,
   onCycleCreated,
+  onCyclesEnsured,
   onActiveCycleChange,
 }: {
   cycles: AgamCycle[];
   candidates: AgamCandidate[];
   canCreate?: boolean;
   onCycleCreated?: (cycle: AgamCycle) => void;
+  onCyclesEnsured?: (created: AgamCycle[]) => void;
   onActiveCycleChange?: (cycle: AgamCycle | null) => void;
 }) {
   const linkedCycleId = useSearchParams().get("cycle");
-  const linkedCycle = linkedCycleId ? (cycles.find((cycle) => cycle.id === linkedCycleId) ?? null) : null;
   const [createOpen, setCreateOpen] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const today = useMemo(() => toDateInputValue(new Date()), []);
@@ -78,25 +95,32 @@ export function CohortSpotlight({
     return String(numeric.reduce((best, y) => (Math.abs(y - target) < Math.abs(best - target) ? y : best)));
   }, [years, currentYear]);
 
-  const [yearPick, setYearPick] = useState<string | null>(linkedCycle ? yearOf(linkedCycle) : null);
-  const year = yearPick && years.includes(yearPick) ? yearPick : defaultYear;
+  const [yearPick, setYearPick] = useState<string | null>(null);
+  const [cyclePick, setCyclePick] = useState<string | null>(null);
+  const year = yearPick ?? defaultYear;
+  const appliedLinkRef = useRef<string | null>(null);
+  const ensuredYears = useRef(new Set<number>());
 
   const yearCycles = useMemo(
-    () =>
-      cycles
-        .filter((cycle) => yearOf(cycle) === year)
-        .sort((a, b) => toDateInputValue(a.cycle_date).localeCompare(toDateInputValue(b.cycle_date))),
+    () => sortYearbookCycles(cycles.filter((cycle) => yearOf(cycle) === year)),
     [cycles, year],
   );
 
-  const [cyclePick, setCyclePick] = useState<string | null>(linkedCycle?.id ?? null);
-
+  // Apply ?cycle= only once per id — never re-force year when cycles refresh.
   useEffect(() => {
-    if (!linkedCycle) return;
-    setYearPick(yearOf(linkedCycle));
-    setCyclePick(linkedCycle.id);
+    if (!linkedCycleId) {
+      appliedLinkRef.current = null;
+      return;
+    }
+    if (appliedLinkRef.current === linkedCycleId) return;
+    const linked = cycles.find((cycle) => cycle.id === linkedCycleId);
+    if (!linked) return;
+    appliedLinkRef.current = linkedCycleId;
+    setYearPick(yearOf(linked));
+    setCyclePick(linked.id);
     document.getElementById("cohort-spotlight")?.scrollIntoView({ block: "start" });
-  }, [linkedCycle]);
+  }, [linkedCycleId, cycles]);
+
   const cycleId =
     cyclePick && yearCycles.some((cycle) => cycle.id === cyclePick)
       ? cyclePick
@@ -108,7 +132,52 @@ export function CohortSpotlight({
     setInviteCopied(false);
   }, [activeCycle?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- notify parent when the visible cycle changes
 
+  useEffect(() => {
+    if (!canCreate) return;
+    const targetYear = year !== NO_YEAR ? Number(year) : Number(currentYear);
+    if (!Number.isInteger(targetYear) || ensuredYears.current.has(targetYear)) return;
+    ensuredYears.current.add(targetYear);
+    void (async () => {
+      try {
+        const data = await agamFetch<{ created: AgamCycle[] }>(
+          "/api/agam/cycles/ensure-year",
+          { method: "POST", body: JSON.stringify({ cohortYear: targetYear }) },
+        );
+        if (data.created.length > 0) onCyclesEnsured?.(data.created);
+      } catch {
+        ensuredYears.current.delete(targetYear);
+      }
+    })();
+  }, [canCreate, year, currentYear, onCyclesEnsured]);
+
   const [query, setQuery] = useState("");
+  const [stageView, setStageView] = useState<AgamStageKey | "overview">("overview");
+  const [boardCache, setBoardCache] = useState<Record<string, AgamCycleStageBoard>>({});
+  const [loadingBoard, setLoadingBoard] = useState(false);
+  const loadingBoardFor = useRef<string | null>(null);
+
+  const loadBoard = async (cycleId: string) => {
+    if (boardCache[cycleId] || loadingBoardFor.current === cycleId) return;
+    loadingBoardFor.current = cycleId;
+    setLoadingBoard(true);
+    try {
+      const data = await agamFetch<{ board: AgamCycleStageBoard }>(
+        `/api/agam/cycles/${cycleId}/stage-board`,
+      );
+      setBoardCache((prev) => ({ ...prev, [cycleId]: data.board }));
+    } catch {
+      toast.error("טעינת נתוני השלבים נכשלה");
+    } finally {
+      if (loadingBoardFor.current === cycleId) loadingBoardFor.current = null;
+      setLoadingBoard(false);
+    }
+  };
+
+  useEffect(() => {
+    setStageView("overview");
+    setQuery("");
+  }, [activeCycle?.id]);
+
   const cycleCandidates = useMemo(
     () =>
       activeCycle
@@ -121,6 +190,8 @@ export function CohortSpotlight({
     if (!q) return cycleCandidates;
     return cycleCandidates.filter((c) => `${c.full_name} ${c.personal_number}`.toLowerCase().includes(q));
   }, [cycleCandidates, query]);
+  const activeStage = STAGE_VIEWS.find((stage) => stage.key === stageView) ?? null;
+  const stageBoard = activeCycle ? boardCache[activeCycle.id] ?? null : null;
 
   const counts = {
     pending: cycleCandidates.filter((c) => c.status === "pending").length,
@@ -145,21 +216,11 @@ export function CohortSpotlight({
     />
   ) : null;
 
-  if (cycles.length === 0) {
+  if (cycles.length === 0 && !canCreate) {
     return (
       <article className={`${panelClass} px-6 py-10 text-center`}>
         <p className="text-sm font-bold text-text-primary">אין מחזורים עדיין</p>
         <p className="mt-1 text-xs text-text-muted">צרו מחזור ראשון כדי להתחיל לרשום מועמדים.</p>
-        {canCreate ? (
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-text-primary px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 dark:bg-white dark:text-black"
-          >
-            <Plus size={15} />
-            מחזור חדש
-          </button>
-        ) : null}
         {createDrawer}
       </article>
     );
@@ -194,8 +255,9 @@ export function CohortSpotlight({
                 role="tab"
                 aria-selected={key === year}
                 onClick={() => {
+                  const nextCycles = sortYearbookCycles(cycles.filter((cycle) => yearOf(cycle) === key));
                   setYearPick(key);
-                  setCyclePick(null);
+                  setCyclePick(pickDefaultCycle(nextCycles, today));
                   setQuery("");
                 }}
                 className={`rounded-md px-2.5 py-1 text-[11px] font-bold tabular-nums transition ${
@@ -209,14 +271,16 @@ export function CohortSpotlight({
         ) : null}
       </div>
 
-      {/* Cycle tabs */}
+      {/* Cycle tabs — fixed yearbook months + any extras */}
       <div className="mt-4 flex gap-1 overflow-x-auto px-3 ui-divider" role="tablist" aria-label="מחזורים">
         {yearCycles.length === 0 ? (
-          <p className="px-2 pb-3 text-sm text-text-muted">אין מחזורים בשנתון זה.</p>
+          <p className="px-2 pb-3 text-sm text-text-muted">
+            {canCreate ? "פותחים את מחזורים של השנתון…" : "אין מחזורים בשנתון זה."}
+          </p>
         ) : (
           yearCycles.map((cycle) => {
             const active = cycle.id === cycleId;
-            const day = toDateInputValue(cycle.cycle_date);
+            const label = yearbookTabLabel(cycle.name, cycle.cycle_date);
             return (
               <button
                 key={cycle.id}
@@ -227,21 +291,11 @@ export function CohortSpotlight({
                   setCyclePick(cycle.id);
                   setQuery("");
                 }}
-                className={`relative flex shrink-0 items-center gap-2 px-3 pb-3 pt-1 text-sm transition ${
+                className={`relative shrink-0 px-3 pb-3 pt-1 text-sm transition ${
                   active ? "font-extrabold text-text-primary" : "font-semibold text-text-muted hover:text-text-primary"
                 }`}
               >
-                {cycle.name}
-                <span className="text-[11px] font-semibold text-text-muted tabular-nums" dir="ltr">
-                  {shortDate(day)}
-                </span>
-                <span
-                  className={`min-w-[1.25rem] rounded-full px-1.5 text-center text-[10px] font-extrabold tabular-nums ${
-                    active ? "bg-text-primary text-white dark:bg-white dark:text-black" : "bg-surface-2 text-text-muted"
-                  }`}
-                >
-                  {cycle.candidate_count ?? 0}
-                </span>
+                {label}
                 {active ? (
                   <span className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-text-primary" aria-hidden />
                 ) : null}
@@ -329,7 +383,46 @@ export function CohortSpotlight({
             </div>
           </div>
 
-          {cycleCandidates.length > 8 ? (
+          <div
+            className="mt-3 flex gap-0.5 overflow-x-auto rounded-2xl bg-surface-2/70 p-1"
+            role="tablist"
+            aria-label="שלבי המחזור"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={stageView === "overview"}
+              onClick={() => setStageView("overview")}
+              className={`shrink-0 rounded-xl px-3 py-2 text-[12px] font-extrabold transition ${
+                stageView === "overview"
+                  ? "bg-surface-1 text-text-primary shadow-sm"
+                  : "text-text-muted hover:text-text-primary"
+              }`}
+            >
+              סקירה
+            </button>
+            {STAGE_VIEWS.map((stage) => (
+              <button
+                key={stage.key}
+                type="button"
+                role="tab"
+                aria-selected={stageView === stage.key}
+                onClick={() => {
+                  setStageView(stage.key);
+                  void loadBoard(activeCycle.id);
+                }}
+                className={`shrink-0 rounded-xl px-3 py-2 text-[12px] font-extrabold transition ${
+                  stageView === stage.key
+                    ? "bg-surface-1 text-text-primary shadow-sm"
+                    : "text-text-muted hover:text-text-primary"
+                }`}
+              >
+                {stage.label}
+              </button>
+            ))}
+          </div>
+
+          {cycleCandidates.length > 8 || stageView !== "overview" ? (
             <label className="relative mt-3 block">
               <Search size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
@@ -359,11 +452,31 @@ export function CohortSpotlight({
                 ) : null}
               </div>
             </div>
-          ) : (
+          ) : stageView === "overview" ? (
             <div className="mt-3">
               <CandidateRosterTable candidates={roster} fromCycleId={activeCycle.id} />
             </div>
-          )}
+          ) : activeStage ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-baseline justify-between gap-2 px-0.5">
+                <p className="text-sm font-extrabold text-text-primary">{activeStage.label}</p>
+                {loadingBoard && !stageBoard ? (
+                  <span className="text-[11px] font-semibold text-text-muted">טוען…</span>
+                ) : (
+                  <span className="text-[11px] font-semibold text-text-muted">
+                    {roster.length} מועמדים
+                  </span>
+                )}
+              </div>
+              <CycleStagePanel
+                stage={activeStage.key}
+                candidates={roster}
+                cycleId={activeCycle.id}
+                board={stageBoard}
+                loading={loadingBoard}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </article>

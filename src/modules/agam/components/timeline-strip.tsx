@@ -231,6 +231,7 @@ export function AgamTimelineStrip({
                       : "is-link-done";
                 const Icon = TIMELINE_EVENT_ICONS[event.event_type] ?? CalendarDays;
                 const size = timelineNodeSize(event.event_type);
+                const side = size === "sm" ? "right" : "left";
                 const statusClass =
                   status === "עבר"
                     ? "is-past"
@@ -241,7 +242,7 @@ export function AgamTimelineStrip({
                 return (
                   <li
                     key={event.id}
-                    className={`agam-timeline__item agam-timeline__item--${size} ${statusClass} ${linkClass} ${spanClass}`}
+                    className={`agam-timeline__item agam-timeline__item--${size} agam-timeline__item--${side} ${statusClass} ${linkClass} ${spanClass}`}
                     style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
                   >
                     <button
@@ -262,7 +263,7 @@ export function AgamTimelineStrip({
                       )}
                     </button>
 
-                    <article className="agam-timeline__card">
+                    <article className="agam-timeline__card" dir="rtl">
                       <div className="agam-timeline__meta">
                         <button
                           type="button"

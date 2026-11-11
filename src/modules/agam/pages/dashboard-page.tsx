@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
@@ -124,6 +125,13 @@ export function AgamDashboardPage({
               setCycles((current) => [cycle, ...current]);
               void loadTimeline(cycle.id).catch(() => undefined);
             }}
+            onCyclesEnsured={(created) => {
+              setCycles((current) => {
+                const byId = new Map(current.map((cycle) => [cycle.id, cycle]));
+                for (const cycle of created) byId.set(cycle.id, cycle);
+                return [...byId.values()];
+              });
+            }}
             onActiveCycleChange={(cycle) => {
               if (!cycle) return;
               if (timelineCycle?.id === cycle.id) return;
@@ -169,16 +177,26 @@ function GeneralTasksCard({
   canAdmin: boolean;
   onChanged: () => void;
 }) {
-  const open = tasks.filter((task) => task.status !== "completed");
+  const [open, setOpen] = useState(true);
+  const openTasks = tasks.filter((task) => task.status !== "completed");
   const done = tasks.filter((task) => task.status === "completed");
-  const visible = [...open, ...done].slice(0, 6);
+  const visible = [...openTasks, ...done].slice(0, 6);
   return (
-    <article className={`${panelClass} px-5 pb-4 pt-5`}>
+    <article className={`${panelClass} px-5 pb-4 pt-4`}>
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-baseline gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-2 text-start"
+        >
           <h2 className="text-base font-extrabold text-text-primary">משימות</h2>
-          <span className="text-xs font-semibold text-text-muted">{open.length} פתוחות</span>
-        </div>
+          <span className="text-xs font-semibold text-text-muted">{openTasks.length} פתוחות</span>
+          <ChevronDown
+            size={16}
+            className={`ms-auto shrink-0 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </button>
         {canEdit ? (
           <CreateAgamTaskDrawer
             requireCycle
@@ -188,21 +206,23 @@ function GeneralTasksCard({
           />
         ) : null}
       </div>
-      <ul className="mt-3 space-y-1.5">
-        {visible.length === 0 ? (
-          <li className="text-sm text-text-muted">אין משימות עדיין.</li>
-        ) : (
-          visible.map((task) => (
-            <AgamTaskRow
-              key={task.id}
-              task={task}
-              currentUserId={currentUserId}
-              canAdmin={canAdmin}
-              onSaved={onChanged}
-            />
-          ))
-        )}
-      </ul>
+      {open ? (
+        <ul className="mt-3 space-y-1.5">
+          {visible.length === 0 ? (
+            <li className="text-sm text-text-muted">אין משימות עדיין.</li>
+          ) : (
+            visible.map((task) => (
+              <AgamTaskRow
+                key={task.id}
+                task={task}
+                currentUserId={currentUserId}
+                canAdmin={canAdmin}
+                onSaved={onChanged}
+              />
+            ))
+          )}
+        </ul>
+      ) : null}
     </article>
   );
 }
