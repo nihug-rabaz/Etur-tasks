@@ -23,7 +23,7 @@ import type { AgamCandidate, AgamCycle, AgamCycleStageBoard, AgamStageKey } from
 const NO_YEAR = "none";
 
 function sortYearbookCycles(rows: AgamCycle[]): AgamCycle[] {
-  const monthRank = new Map(YEARBOOK_MONTHS.map((slot, index) => [slot.month, index]));
+  const monthRank = new Map<number, number>(YEARBOOK_MONTHS.map((slot, index) => [slot.month, index]));
   return [...rows].sort((a, b) => {
     const aMonth = cycleMonthNumber(a.cycle_date);
     const bMonth = cycleMonthNumber(b.cycle_date);
