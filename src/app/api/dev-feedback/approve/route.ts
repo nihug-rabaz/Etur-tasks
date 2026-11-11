@@ -1,23 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  isDevFeedbackKobiApprover,
-  moduleLabel,
-  parseModuleIdFromLabels,
-  resolveDevAssigneeTarget,
-} from "@/modules/dev-feedback/access";
-import {
-  DEV_FEEDBACK_SLA_BUSINESS_DAYS,
-  previewSlaDueDate,
-} from "@/modules/dev-feedback/business-days";
+import { isDevFeedbackKobiApprover } from "@/modules/dev-feedback/access";
+import { createApprovedDevFeedbackJira } from "@/modules/dev-feedback/create-jira";
+import { DevFeedbackPendingService } from "@/modules/dev-feedback/pending.service";
 import { AuthorizationService } from "@/services/authorization.service";
-import { JiraService } from "@/services/jira.service";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  issueKey: z.string().min(2),
-  action: z.enum(["approve", "reject"]),
+  id: z.string().uuid(),
+  action: z.enum(["approve", "reject", "comment"]),
   notes: z.string().optional().nullable(),
 });
 
@@ -29,7 +21,7 @@ export async function POST(request: Request) {
   }
   if (!isDevFeedbackKobiApprover(profile.email)) {
     return NextResponse.json(
-      { error: "רק הרב קובי יכול לאשר או לדחות משימות פיתוח" },
+      { error: "רק הרב קובי יכול לאשר, לדחות או להוסיף הערות" },
       { status: 403 },
     );
   }
@@ -39,57 +31,75 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
 
-  const { issueKey, action, notes } = parsed.data;
-  const jira = new JiraService();
+  const { id, action, notes } = parsed.data;
+  const reviewerName = profile.name || profile.email || "הרב קובי";
+  const pendingService = new DevFeedbackPendingService();
 
   try {
-    if (action === "reject") {
-      const reason = (notes ?? "").trim() || "ללא פירוט";
-      await jira.rejectDevFeedback({
-        issueKey,
-        comment: `נדחה על ידי הרב קובי (${profile.name || profile.email}): ${reason}`,
-      });
-      return NextResponse.json({ ok: true, action: "reject", issueKey });
+    const pending = await pendingService.getPending(id);
+    if (!pending || pending.status !== "pending") {
+      return NextResponse.json(
+        { error: "המשימה אינה ממתינה לאישור" },
+        { status: 409 },
+      );
     }
 
-    const labels = await jira.assertAwaitingKobi(issueKey);
-    const moduleId = parseModuleIdFromLabels(labels);
+    if (action === "comment") {
+      const text = (notes ?? "").trim();
+      if (!text) {
+        return NextResponse.json({ error: "נא להזין הערה" }, { status: 400 });
+      }
+      await pendingService.appendNotes(id, text, reviewerName);
+      return NextResponse.json({ ok: true, action: "comment", id });
+    }
 
-    const target = resolveDevAssigneeTarget(moduleId);
-    const assigneeAccountId =
-      target === "liad"
-        ? await jira.resolveLiadAccountId()
-        : await jira.resolveZoharAccountId();
+    if (action === "reject") {
+      const reason = (notes ?? "").trim() || "ללא פירוט";
+      await pendingService.markRejected({
+        id,
+        notes: reason,
+        reviewerName,
+      });
+      return NextResponse.json({ ok: true, action: "reject", id });
+    }
 
-    const sla = previewSlaDueDate();
-    const assigneeName = target === "liad" ? "ליעד" : "זוהר";
+    const files = await pendingService.loadAttachmentBlobs(id);
+    const { issue, sla, assignee, attachErrors } =
+      await createApprovedDevFeedbackJira({
+        title: pending.title,
+        description: pending.description,
+        moduleId: pending.module_id,
+        pageUrl: pending.page_url,
+        profileName: pending.submitter_name || "משתמש",
+        profileEmail: pending.submitter_email,
+        files,
+        approvedByKobiName: reviewerName,
+        notes: (notes ?? "").trim() || pending.kobi_notes,
+      });
 
-    await jira.approveForDev({
-      issueKey,
-      targetAssigneeAccountId: assigneeAccountId,
-      dueDateIso: sla.iso,
-      comment:
-        `אושר לפיתוח על ידי הרב קובי (${profile.name || profile.email}).` +
-        ` שובץ ל${assigneeName}.` +
-        ` מודול: ${moduleLabel(moduleId)}.` +
-        ` יעד: ${sla.label} (${DEV_FEEDBACK_SLA_BUSINESS_DAYS} ימי עסקים א׳–ה׳ מרגע האישור).` +
-        ((notes ?? "").trim() ? ` הערות: ${(notes ?? "").trim()}` : ""),
+    await pendingService.markApproved({
+      id,
+      jiraIssueKey: issue.key,
+      notes: (notes ?? "").trim() || null,
+      reviewerName,
     });
 
     return NextResponse.json({
       ok: true,
       action: "approve",
-      issueKey,
-      assignee: target,
+      id,
+      issueKey: issue.key,
+      browseUrl: issue.browseUrl,
+      assignee,
       dueDate: sla.iso,
       dueDateLabel: sla.label,
+      attachWarnings: attachErrors.length ? attachErrors : undefined,
     });
   } catch (error) {
-    console.error("[dev-feedback-approve]", issueKey, error);
+    console.error("[dev-feedback-approve]", id, error);
     const message =
-      error instanceof Error ? error.message : "עדכון Jira נכשל";
-    const conflict =
-      message.includes("אינה ממתינה") || message.includes("אינה בפרויקט");
+      error instanceof Error ? error.message : "עדכון המשימה נכשל";
+    const conflict = message.includes("אינה ממתינה");
     return NextResponse.json(
       { error: message },
       { status: conflict ? 409 : 502 },

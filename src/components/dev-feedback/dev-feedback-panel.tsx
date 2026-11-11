@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { domToJpeg } from "modern-screenshot";
 import {
@@ -13,8 +13,12 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { moduleLabel } from "@/modules/dev-feedback/constants";
-import { resolveActiveModuleId } from "@/shared/modules/types";
+import {
+  DEV_FEEDBACK_MODULE_OPTIONS,
+  moduleLabel,
+  suggestDevFeedbackModuleId,
+  type DevFeedbackModuleId,
+} from "@/modules/dev-feedback/constants";
 import { ScreenshotWhiteboard } from "@/components/dev-feedback/screenshot-whiteboard";
 
 function isMostlyBlankDataUrl(dataUrl: string): boolean {
@@ -35,7 +39,8 @@ type Props = {
 
 export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
   const pathname = usePathname() || "/";
-  const moduleId = resolveActiveModuleId(pathname) || "tasks";
+  const suggestedModuleId = suggestDevFeedbackModuleId(pathname);
+  const [moduleId, setModuleId] = useState<DevFeedbackModuleId>(suggestedModuleId);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -44,6 +49,11 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
   const [capturing, setCapturing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setModuleId(suggestDevFeedbackModuleId(pathname));
+  }, [open, pathname]);
 
   const captureViaDisplayMedia = async (): Promise<string> => {
     if (!navigator.mediaDevices?.getDisplayMedia) {
@@ -201,12 +211,25 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         issueKey?: string;
+        status?: string;
+        message?: string;
+        dueDateLabel?: string;
+        assignee?: string;
       };
       if (!res.ok) throw new Error(data.error || "שליחה נכשלה");
 
-      toast.success(
-        data.issueKey ? `נפתחה משימה ${data.issueKey} ב־Jira` : "המשימה נשלחה ל־Jira",
-      );
+      if (data.status === "pending") {
+        toast.success(
+          data.message || "נשמר וממתין לאישור הרב קובי (עדיין לא ב־Jira)",
+        );
+      } else if (data.issueKey) {
+        toast.success(
+          `נפתחה משימה ${data.issueKey} ב־Jira` +
+            (data.dueDateLabel ? ` · יעד ${data.dueDateLabel}` : ""),
+        );
+      } else {
+        toast.success("המשימה נשלחה");
+      }
       setTitle("");
       setDescription("");
       setScreenshotDataUrl(null);
@@ -246,7 +269,7 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
             <div>
               <h2 className="text-base font-bold text-text-primary">משימה לפיתוח</h2>
               <p className="text-xs text-text-muted">
-                מודול: {moduleLabel(moduleId)} · יישלח ל־Jira ETUR
+                ממתין לאישור הרב קובי לפני פתיחה ב־Jira · SLA מחושב מאישור
               </p>
             </div>
             <button
@@ -260,6 +283,27 @@ export function DevFeedbackPanel({ open, onClose, onSubmitted }: Props) {
           </div>
 
           <div className="space-y-4 p-4">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-text-primary">מודול</span>
+              <select
+                className="w-full rounded-xl border border-border-weak bg-surface-0 px-3 py-2 text-sm"
+                value={moduleId}
+                onChange={(e) =>
+                  setModuleId(e.target.value as DevFeedbackModuleId)
+                }
+              >
+                {DEV_FEEDBACK_MODULE_OPTIONS.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label}
+                    {opt.id === suggestedModuleId ? " (מוצע לפי החלון)" : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[11px] text-text-muted">
+                הצעה אוטומטית לפי החלון הנוכחי: {moduleLabel(suggestedModuleId)} — אפשר לשנות ידנית
+              </span>
+            </label>
+
             <label className="block space-y-1">
               <span className="text-sm font-medium text-text-primary">כותרת</span>
               <input

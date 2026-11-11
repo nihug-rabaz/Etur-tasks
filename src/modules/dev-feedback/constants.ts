@@ -7,9 +7,14 @@ export function canSubmitDevFeedback(
   moduleId: string | null | undefined,
 ): boolean {
   if (access.isPlatformAdmin) return true;
-  if (!moduleId) return false;
-  const role = access.moduleRoles[moduleId];
-  return role != null && EDIT_ROLES.includes(role);
+  if (moduleId) {
+    const role = access.moduleRoles[moduleId];
+    if (role != null && EDIT_ROLES.includes(role)) return true;
+  }
+  // Allow picker override: any module edit role (or tasks) can open feedback.
+  return Object.values(access.moduleRoles).some(
+    (role) => role != null && EDIT_ROLES.includes(role),
+  );
 }
 
 export const LIAD_MODULES = new Set(["malshabim", "nagadim", "dovrut"]);
@@ -21,6 +26,35 @@ export function resolveDevAssigneeTarget(
   return "zohar";
 }
 
+/** Modules shown in the feedback picker (manual override + auto-suggest). */
+export const DEV_FEEDBACK_MODULE_OPTIONS = [
+  { id: "malshabim", label: "מלש״בים" },
+  { id: "dovrut", label: "דוברות" },
+  { id: "agam", label: "קצינים" },
+  { id: "nagadim", label: "נגדים" },
+] as const;
+
+export type DevFeedbackModuleId =
+  (typeof DEV_FEEDBACK_MODULE_OPTIONS)[number]["id"];
+
+export function isDevFeedbackModuleId(id: string): id is DevFeedbackModuleId {
+  return DEV_FEEDBACK_MODULE_OPTIONS.some((m) => m.id === id);
+}
+
+/** Suggest a feedback module from the current window path. */
+export function suggestDevFeedbackModuleId(
+  pathname: string | null | undefined,
+): DevFeedbackModuleId {
+  const raw = pathname || "";
+  if (raw.includes("/malshabim")) return "malshabim";
+  if (raw.includes("/dovrut")) return "dovrut";
+  if (raw.includes("/agam") || raw.includes("/ktizin") || raw.includes("/katzin")) {
+    return "agam";
+  }
+  if (raw.includes("/nagadim")) return "nagadim";
+  return "malshabim";
+}
+
 export function moduleLabel(moduleId: string | null | undefined): string {
   switch (moduleId) {
     case "malshabim":
@@ -30,7 +64,7 @@ export function moduleLabel(moduleId: string | null | undefined): string {
     case "dovrut":
       return "דוברות";
     case "agam":
-      return "אג״ם";
+      return "קצינים";
     case "tasks":
       return "משימות";
     default:

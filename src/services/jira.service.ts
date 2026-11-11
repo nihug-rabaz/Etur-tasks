@@ -207,15 +207,23 @@ export class JiraService {
     moduleId: string;
     /** Prefer Jira ADMIN so tickets open under the connected admin user. */
     assigneeAccountId?: string | null;
+    /**
+     * When false (default true historically): create as already approved for
+     * development — no awaiting-kobi label; optional due date.
+     */
+    awaitingKobi?: boolean;
+    dueDateIso?: string | null;
+    approved?: boolean;
   }): Promise<{
     key: string;
     id: string;
     browseUrl: string;
     assignedToAdmin: boolean;
   }> {
+    const awaiting = input.awaitingKobi === true;
     const labels = [
       LABEL_DEV_FEEDBACK,
-      LABEL_AWAITING_KOBI,
+      ...(awaiting ? [LABEL_AWAITING_KOBI] : [LABEL_APPROVED]),
       `module-${input.moduleId}`,
     ];
 
@@ -226,6 +234,9 @@ export class JiraService {
       labels,
       description: adfDoc(input.descriptionLines),
     };
+    if (input.dueDateIso) {
+      baseFields.duedate = input.dueDateIso;
+    }
 
     const tryCreate = async (withAssignee: boolean) => {
       const fields = { ...baseFields };

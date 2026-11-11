@@ -1,25 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Loader2, ShieldCheck, X } from "lucide-react";
+import { Check, Loader2, MessageSquare, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { moduleLabel } from "@/modules/dev-feedback/constants";
 import { previewSlaDueDate } from "@/modules/dev-feedback/business-days";
 
 type PendingIssue = {
+  id: string;
   key: string;
   summary: string;
+  description?: string;
   moduleId: string | null;
   created: string | null;
   reporterName: string | null;
-  browseUrl: string;
+  pageUrl?: string | null;
+  kobiNotes?: string | null;
+  browseUrl: string | null;
+  attachments?: Array<{
+    id: string;
+    filename: string;
+    contentType: string;
+    previewUrl: string | null;
+  }>;
 };
 
 type Props = {
   enabled: boolean;
   canApprove: boolean;
   refreshToken?: number;
-  /** Icon-sized control for the app header. */
   compact?: boolean;
 };
 
@@ -63,7 +72,10 @@ export function KobiApprovalQueue({
     return () => window.clearInterval(id);
   }, [enabled, load, refreshToken]);
 
-  const act = async (issueKey: string, action: "approve" | "reject") => {
+  const act = async (
+    id: string,
+    action: "approve" | "reject" | "comment",
+  ) => {
     if (!canApprove) {
       toast.error("רק הרב קובי יכול לאשר");
       return;
@@ -71,26 +83,36 @@ export function KobiApprovalQueue({
     let notes: string | undefined;
     if (action === "reject") {
       notes = window.prompt("הערת דחייה (אופציונלי):") ?? undefined;
+    } else if (action === "comment") {
+      notes = window.prompt("הערה לרשומה (תישאר ממתינה):") ?? undefined;
+      if (!notes?.trim()) return;
+    } else if (action === "approve") {
+      notes = window.prompt("הערת אישור (אופציונלי):") ?? undefined;
     }
-    setBusyKey(issueKey);
+    setBusyKey(id);
     try {
       const res = await fetch("/api/dev-feedback/approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issueKey, action, notes }),
+        body: JSON.stringify({ id, action, notes }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         error?: string;
         dueDateLabel?: string;
         assignee?: string;
+        issueKey?: string;
       };
       if (!res.ok) throw new Error(data.error || "הפעולה נכשלה");
       if (action === "approve") {
         toast.success(
-          `אושר · שובץ ל${data.assignee === "liad" ? "ליעד" : "זוהר"} · יעד ${data.dueDateLabel || sla.label}`,
+          `אושר${data.issueKey ? ` · ${data.issueKey}` : ""} · שובץ ל${
+            data.assignee === "liad" ? "ליעד" : "זוהר"
+          } · יעד ${data.dueDateLabel || sla.label}`,
         );
+      } else if (action === "reject") {
+        toast.success("המשימה נדחתה (לא נפתח כרטיס ב־Jira)");
       } else {
-        toast.success("המשימה נדחתה");
+        toast.success("ההערה נשמרה");
       }
       await load();
     } catch (error) {
@@ -145,7 +167,7 @@ export function KobiApprovalQueue({
               <div>
                 <h2 className="text-base font-bold">ממתינים לאישור פיתוח</h2>
                 <p className="text-xs text-text-muted">
-                  אחרי אישור — יעד SLA משוער: {sla.label}
+                  עדיין לא ב־Jira · אחרי אישור יעד SLA משוער: {sla.label}
                 </p>
               </div>
               <button
@@ -171,35 +193,59 @@ export function KobiApprovalQueue({
               ) : null}
               {issues.map((issue) => (
                 <article
-                  key={issue.key}
+                  key={issue.id}
                   className="rounded-xl border border-border-weak bg-surface-0 p-3"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <a
-                        href={issue.browseUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sm font-bold text-blue-700 hover:underline"
-                      >
-                        {issue.key}
-                      </a>
-                      <h3 className="text-sm text-text-primary">{issue.summary}</h3>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-text-primary">
+                        {issue.summary}
+                      </h3>
                       <p className="mt-1 text-xs text-text-muted">
                         {moduleLabel(issue.moduleId)}
                         {issue.reporterName ? ` · ${issue.reporterName}` : ""}
                       </p>
+                      {issue.description ? (
+                        <p className="mt-2 whitespace-pre-wrap text-xs text-text-secondary">
+                          {issue.description}
+                        </p>
+                      ) : null}
+                      {issue.kobiNotes ? (
+                        <p className="mt-2 whitespace-pre-wrap rounded-lg bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-950 dark:text-amber-100">
+                          {issue.kobiNotes}
+                        </p>
+                      ) : null}
+                      {issue.attachments?.length ? (
+                        <ul className="mt-2 space-y-1 text-[11px] text-text-muted">
+                          {issue.attachments.map((a) => (
+                            <li key={a.id}>
+                              {a.previewUrl ? (
+                                <a
+                                  href={a.previewUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-700 hover:underline"
+                                >
+                                  {a.filename}
+                                </a>
+                              ) : (
+                                a.filename
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
                   {canApprove ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         type="button"
-                        disabled={busyKey === issue.key}
+                        disabled={busyKey === issue.id}
                         className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                        onClick={() => void act(issue.key, "approve")}
+                        onClick={() => void act(issue.id, "approve")}
                       >
-                        {busyKey === issue.key ? (
+                        {busyKey === issue.id ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <Check className="h-3.5 w-3.5" />
@@ -208,9 +254,18 @@ export function KobiApprovalQueue({
                       </button>
                       <button
                         type="button"
-                        disabled={busyKey === issue.key}
+                        disabled={busyKey === issue.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border-weak px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+                        onClick={() => void act(issue.id, "comment")}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        הערה
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyKey === issue.id}
                         className="inline-flex items-center gap-1 rounded-lg border border-rose-500/50 px-3 py-1.5 text-xs font-semibold text-rose-700 disabled:opacity-60"
-                        onClick={() => void act(issue.key, "reject")}
+                        onClick={() => void act(issue.id, "reject")}
                       >
                         דחה
                       </button>

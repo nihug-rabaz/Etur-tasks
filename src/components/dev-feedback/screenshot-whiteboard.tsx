@@ -72,8 +72,13 @@ type TextItem = {
   kind: "text";
   color: string;
   size: number;
+  /** Top-left of the rectangular text box. */
   at: Point;
   text: string;
+  /** Explicit box width (Photoshop-style W). */
+  boxW: number;
+  /** Explicit box height (Photoshop-style H). */
+  boxH: number;
   /** Rectangular plate behind text (default true). */
   showBg?: boolean;
   /** Border around the text box (default true). */
@@ -168,20 +173,61 @@ function textBoxPad(size: number) {
   return Math.max(8, Math.round(size * 0.32));
 }
 
-/** Rectangular text-box bounds (Photoshop-style), including padding. */
-function measureText(ctx: CanvasRenderingContext2D, item: TextItem): Rect {
-  const hasHebrew = /[\u0590-\u05FF]/.test(item.text);
-  ctx.save();
-  ctx.font = `bold ${item.size}px "Segoe UI", Arial, sans-serif`;
-  const metrics = ctx.measureText(item.text || " ");
-  const glyphW = Math.max(metrics.width, item.size * 0.6);
-  const glyphH = item.size * 1.25;
-  ctx.restore();
-  const pad = textBoxPad(item.size);
-  const glyph: Rect = hasHebrew
-    ? { x: item.at.x - glyphW, y: item.at.y, w: glyphW, h: glyphH }
-    : { x: item.at.x, y: item.at.y, w: glyphW, h: glyphH };
-  return inflate(glyph, pad);
+function defaultTextBoxSize(size: number, text: string, ctx?: CanvasRenderingContext2D | null): {
+  boxW: number;
+  boxH: number;
+} {
+  const pad = textBoxPad(size);
+  let glyphW = Math.max(size * 4, 120);
+  if (ctx) {
+    ctx.save();
+    ctx.font = `bold ${size}px "Segoe UI", Arial, sans-serif`;
+    glyphW = Math.max(ctx.measureText(text || "טקסט").width, size * 0.6);
+    ctx.restore();
+  }
+  return {
+    boxW: Math.max(80, Math.round(glyphW + pad * 2)),
+    boxH: Math.max(36, Math.round(size * 1.25 + pad * 2)),
+  };
+}
+
+/** Rectangular text-box bounds — uses explicit W/H. */
+function measureText(_ctx: CanvasRenderingContext2D, item: TextItem): Rect {
+  return {
+    x: item.at.x,
+    y: item.at.y,
+    w: Math.max(40, item.boxW || 120),
+    h: Math.max(28, item.boxH || 40),
+  };
+}
+
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+): string[] {
+  const raw = text.trim() || " ";
+  const paragraphs = raw.split(/\n/);
+  const lines: string[] = [];
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      lines.push("");
+      continue;
+    }
+    let current = words[0];
+    for (let i = 1; i < words.length; i += 1) {
+      const trial = `${current} ${words[i]}`;
+      if (ctx.measureText(trial).width <= maxWidth) {
+        current = trial;
+      } else {
+        lines.push(current);
+        current = words[i];
+      }
+    }
+    lines.push(current);
+  }
+  return lines.length ? lines : [raw];
 }
 
 function itemBounds(ctx: CanvasRenderingContext2D, item: BoardItem): Rect {
@@ -266,9 +312,36 @@ function resizeItem(
   const dx = now.x - start.x;
   const dy = now.y - start.y;
   if (origin.kind === "text") {
-    const delta = handle === "nw" || handle === "ne" ? -dy : dy;
-    const nextSize = Math.max(14, Math.min(96, origin.size + delta * 0.4));
-    return { ...item, size: nextSize } as TextItem;
+    const box = {
+      x: origin.at.x,
+      y: origin.at.y,
+      w: Math.max(40, origin.boxW),
+      h: Math.max(28, origin.boxH),
+    };
+    let { x, y, w, h } = box;
+    if (handle === "se") {
+      w = box.w + dx;
+      h = box.h + dy;
+    } else if (handle === "nw") {
+      x = box.x + dx;
+      y = box.y + dy;
+      w = box.w - dx;
+      h = box.h - dy;
+    } else if (handle === "ne") {
+      y = box.y + dy;
+      w = box.w + dx;
+      h = box.h - dy;
+    } else if (handle === "sw") {
+      x = box.x + dx;
+      w = box.w - dx;
+      h = box.h + dy;
+    }
+    return {
+      ...item,
+      at: { x, y },
+      boxW: Math.max(40, w),
+      boxH: Math.max(28, h),
+    } as TextItem;
   }
   if (origin.kind === "marker") {
     const delta = handle === "nw" || handle === "ne" ? -dy : dy;
@@ -413,16 +486,24 @@ function paintItem(
     ctx.textBaseline = "top";
     ctx.direction = hasHebrew ? "rtl" : "ltr";
     ctx.textAlign = hasHebrew ? "right" : "left";
-    const tx = hasHebrew ? box.x + box.w - pad : box.x + pad;
-    const ty = box.y + pad;
-    // Outline when no plate, so text stays readable on busy screenshots.
-    if (!showBg) {
-      ctx.lineWidth = Math.max(3, Math.round(item.size / 8));
-      ctx.strokeStyle = light ? "#111827" : "#ffffff";
-      ctx.strokeText(item.text, tx, ty);
+    const maxTextW = Math.max(10, box.w - pad * 2);
+    const lines = wrapTextLines(ctx, item.text, maxTextW);
+    const lineH = item.size * 1.25;
+    ctx.beginPath();
+    ctx.rect(box.x, box.y, box.w, box.h);
+    ctx.clip();
+    for (let i = 0; i < lines.length; i += 1) {
+      const ty = box.y + pad + i * lineH;
+      if (ty > box.y + box.h) break;
+      const tx = hasHebrew ? box.x + box.w - pad : box.x + pad;
+      if (!showBg) {
+        ctx.lineWidth = Math.max(3, Math.round(item.size / 8));
+        ctx.strokeStyle = light ? "#111827" : "#ffffff";
+        ctx.strokeText(lines[i], tx, ty);
+      }
+      ctx.fillStyle = item.color;
+      ctx.fillText(lines[i], tx, ty);
     }
-    ctx.fillStyle = item.color;
-    ctx.fillText(item.text, tx, ty);
     ctx.restore();
     return;
   }
@@ -546,6 +627,8 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
   const [textShowBg, setTextShowBg] = useState(true);
   const [textShowBorder, setTextShowBorder] = useState(true);
   const [textBorderColor, setTextBorderColor] = useState(COLORS[0]);
+  const [textBoxW, setTextBoxW] = useState(180);
+  const [textBoxH, setTextBoxH] = useState(56);
   const [markerSeq, setMarkerSeq] = useState(1);
   const [items, setItems] = useState<BoardItem[]>([]);
   const [redoStack, setRedoStack] = useState<BoardItem[][]>([]);
@@ -641,11 +724,11 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       ctx.save();
       const size = Math.max(22, lineWidth * 6);
       const pad = textBoxPad(size);
-      const previewW = Math.max(120, size * 4);
-      const previewH = size * 1.25 + pad * 2;
-      const hasHebrewHint = /[\u0590-\u05FF]/.test(textDraft.value);
-      const boxX = hasHebrewHint ? textDraft.at.x - previewW : textDraft.at.x;
+      const previewW = Math.max(40, textBoxW);
+      const previewH = Math.max(28, textBoxH);
+      const boxX = textDraft.at.x;
       const boxY = textDraft.at.y;
+      const hasHebrewHint = /[\u0590-\u05FF]/.test(textDraft.value);
       const light = isLightColor(color);
       const border = textBorderColor || color;
       ctx.setLineDash([6, 4]);
@@ -676,7 +759,19 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       );
       ctx.restore();
     }
-  }, [items, draft, selected, textDraft, color, lineWidth, textShowBg, textShowBorder, textBorderColor]);
+  }, [
+    items,
+    draft,
+    selected,
+    textDraft,
+    color,
+    lineWidth,
+    textShowBg,
+    textShowBorder,
+    textBorderColor,
+    textBoxW,
+    textBoxH,
+  ]);
 
   useEffect(() => {
     const img = new Image();
@@ -715,6 +810,12 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
     const id = window.setTimeout(() => textInputRef.current?.focus(), 30);
     return () => window.clearTimeout(id);
   }, [textDraft]);
+
+  useEffect(() => {
+    if (selected?.kind !== "text") return;
+    setTextBoxW(Math.round(selected.boxW || 180));
+    setTextBoxH(Math.round(selected.boxH || 56));
+  }, [selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -880,6 +981,17 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
         setTextDraft({ at: hit.at, value: hit.text, editId: hit.id });
         return;
       }
+      {
+        const fontSize = Math.max(22, lineWidth * 6);
+        const canvas = canvasRef.current;
+        const auto = defaultTextBoxSize(
+          fontSize,
+          textDraft?.value || "טקסט",
+          canvas?.getContext("2d"),
+        );
+        setTextBoxW(auto.boxW);
+        setTextBoxH(auto.boxH);
+      }
       setTextDraft({ at: point, value: textDraft?.value ?? "" });
       return;
     }
@@ -1028,6 +1140,12 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       setTextDraft(null);
       return;
     }
+    const fontSize = Math.max(14, lineWidth * 6);
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    const auto = defaultTextBoxSize(fontSize, text, ctx);
+    const boxW = Math.max(40, textBoxW || auto.boxW);
+    const boxH = Math.max(28, textBoxH || auto.boxH);
     if (textDraft.editId) {
       commitHistory(
         items.map((item) =>
@@ -1036,7 +1154,9 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
                 ...item,
                 text,
                 color,
-                size: Math.max(14, lineWidth * 6),
+                size: fontSize,
+                boxW,
+                boxH,
                 showBg: textShowBg,
                 showBorder: textShowBorder,
                 borderColor: textBorderColor,
@@ -1053,14 +1173,28 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
       id: uid(),
       kind: "text",
       color,
-      size: Math.max(14, lineWidth * 6),
+      size: fontSize,
       at: textDraft.at,
       text,
+      boxW,
+      boxH,
       showBg: textShowBg,
       showBorder: textShowBorder,
       borderColor: textBorderColor,
     });
     setTextDraft(null);
+  };
+
+  const applyTextBoxSize = (nextW: number, nextH: number) => {
+    const boxW = Math.max(40, Math.round(nextW));
+    const boxH = Math.max(28, Math.round(nextH));
+    setTextBoxW(boxW);
+    setTextBoxH(boxH);
+    if (selected?.kind === "text") {
+      updateSelected((item) =>
+        item.kind === "text" ? { ...item, boxW, boxH } : item,
+      );
+    }
   };
 
   const undo = () => {
@@ -1146,7 +1280,7 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
         : tool === "redact"
           ? "גררו מלבן להסתרת / טשטוש אזור רגיש"
           : tool === "select"
-            ? "גררו להזזה · ידיות לשינוי גודל · דאבל־קליק לעריכת טקסט"
+            ? "גררו להזזה · ידיות לשינוי W/H של התיבה · דאבל־קליק לעריכת טקסט"
             : null;
 
   const openSelectedTextEdit = () => {
@@ -1280,9 +1414,11 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
           </div>
           <div className="flex items-center gap-2 border-s border-white/10 ps-2">
             <span className="text-[11px] text-white/55">
-              {selected?.kind === "text" || selected?.kind === "marker" || tool === "marker"
-                ? "גודל"
-                : "עובי"}
+              {selected?.kind === "text" || tool === "text"
+                ? "גופן"
+                : selected?.kind === "marker" || tool === "marker"
+                  ? "גודל"
+                  : "עובי"}
             </span>
             <input
               type="range"
@@ -1439,6 +1575,30 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
                   />
                 </label>
               ) : null}
+              <label className="inline-flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2 text-xs">
+                W
+                <input
+                  type="number"
+                  min={40}
+                  max={2000}
+                  className="w-14 rounded border border-white/20 bg-black/30 px-1 py-0.5 text-xs text-white"
+                  value={textBoxW}
+                  aria-label="רוחב תיבת טקסט"
+                  onChange={(e) => applyTextBoxSize(Number(e.target.value) || 40, textBoxH)}
+                />
+              </label>
+              <label className="inline-flex h-8 items-center gap-1 rounded-lg bg-white/10 px-2 text-xs">
+                H
+                <input
+                  type="number"
+                  min={28}
+                  max={2000}
+                  className="w-14 rounded border border-white/20 bg-black/30 px-1 py-0.5 text-xs text-white"
+                  value={textBoxH}
+                  aria-label="גובה תיבת טקסט"
+                  onChange={(e) => applyTextBoxSize(textBoxW, Number(e.target.value) || 28)}
+                />
+              </label>
             </>
           ) : null}
           <button
@@ -1520,6 +1680,30 @@ export function ScreenshotWhiteboard({ imageDataUrl, onCancel, onSave }: Props) 
               />
             </label>
           ) : null}
+          <label className="inline-flex h-9 items-center gap-1 rounded-xl border border-white/15 px-2 text-xs text-white/80">
+            W
+            <input
+              type="number"
+              min={40}
+              max={2000}
+              className="w-14 rounded border border-white/20 bg-black/30 px-1 py-0.5 text-xs text-white"
+              value={textBoxW}
+              aria-label="רוחב"
+              onChange={(e) => setTextBoxW(Math.max(40, Number(e.target.value) || 40))}
+            />
+          </label>
+          <label className="inline-flex h-9 items-center gap-1 rounded-xl border border-white/15 px-2 text-xs text-white/80">
+            H
+            <input
+              type="number"
+              min={28}
+              max={2000}
+              className="w-14 rounded border border-white/20 bg-black/30 px-1 py-0.5 text-xs text-white"
+              value={textBoxH}
+              aria-label="גובה"
+              onChange={(e) => setTextBoxH(Math.max(28, Number(e.target.value) || 28))}
+            />
+          </label>
           <button
             type="button"
             className="h-9 rounded-xl bg-blue-600 px-3 text-sm font-semibold hover:bg-blue-500"

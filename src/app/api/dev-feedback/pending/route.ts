@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isDevFeedbackKobiApprover } from "@/modules/dev-feedback/access";
+import { DevFeedbackPendingService } from "@/modules/dev-feedback/pending.service";
 import { AuthorizationService } from "@/services/authorization.service";
-import { JiraService } from "@/services/jira.service";
 
 export const runtime = "nodejs";
 
@@ -19,7 +19,20 @@ export async function GET() {
   }
 
   try {
-    const issues = await new JiraService().listAwaitingKobiApproval();
+    const rows = await new DevFeedbackPendingService().listPending();
+    const issues = rows.map((row) => ({
+      id: row.id,
+      key: row.id,
+      summary: row.title,
+      description: row.description,
+      moduleId: row.module_id,
+      created: row.created_at,
+      reporterName: row.submitter_name,
+      pageUrl: row.page_url,
+      kobiNotes: row.kobi_notes,
+      attachments: row.attachments,
+      browseUrl: null as string | null,
+    }));
     return NextResponse.json({
       issues,
       canApprove: isKobi,

@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import {
   canSubmitDevFeedback,
-  moduleLabel,
+  isDevFeedbackKobiApprover,
+  isDevFeedbackModuleId,
+  suggestDevFeedbackModuleId,
 } from "@/modules/dev-feedback/access";
-import { previewSlaDueDate } from "@/modules/dev-feedback/business-days";
+import { createApprovedDevFeedbackJira } from "@/modules/dev-feedback/create-jira";
+import { DevFeedbackPendingService } from "@/modules/dev-feedback/pending.service";
 import { AuthorizationService } from "@/services/authorization.service";
-import { JiraService } from "@/services/jira.service";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
 import { resolveActiveModuleId } from "@/shared/modules/types";
 
@@ -13,6 +15,28 @@ export const runtime = "nodejs";
 
 const MAX_FILES = 6;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
+function collectFiles(form: FormData) {
+  const files: { blob: Blob; name: string }[] = [];
+  for (const [key, value] of form.entries()) {
+    if (!(value instanceof Blob) || value.size === 0) continue;
+    if (!key.startsWith("file") && key !== "screenshot") continue;
+    if (value.size > MAX_FILE_BYTES) {
+      throw new Error("קובץ גדול מדי (מקסימום 8MB)");
+    }
+    const name =
+      value instanceof File && value.name
+        ? value.name
+        : key === "screenshot"
+          ? "screenshot.jpg"
+          : `attachment-${files.length + 1}`;
+    files.push({ blob: value, name });
+  }
+  if (files.length > MAX_FILES) {
+    throw new Error(`ניתן לצרף עד ${MAX_FILES} קבצים`);
+  }
+  return files;
+}
 
 export async function POST(request: Request) {
   const auth = new AuthorizationService();
@@ -24,6 +48,7 @@ export async function POST(request: Request) {
   const roles = await new ModuleRoleService().getRolesForUser(profile.id);
   const isPlatformAdmin = profile.role === "admin";
   const access = { isPlatformAdmin, moduleRoles: roles };
+  const isKobi = isDevFeedbackKobiApprover(profile.email);
 
   let form: FormData;
   try {
@@ -36,16 +61,23 @@ export async function POST(request: Request) {
   const description = String(form.get("description") || "").trim();
   const pageUrl = String(form.get("pageUrl") || "").trim();
   let moduleId = String(form.get("moduleId") || "").trim();
+
   if (!moduleId && pageUrl) {
     try {
-      moduleId = resolveActiveModuleId(new URL(pageUrl).pathname) || "tasks";
+      const path = new URL(pageUrl).pathname;
+      const resolved = resolveActiveModuleId(path);
+      moduleId = isDevFeedbackModuleId(resolved || "")
+        ? (resolved as string)
+        : suggestDevFeedbackModuleId(path);
     } catch {
-      moduleId = "tasks";
+      moduleId = "malshabim";
     }
   }
-  if (!moduleId) moduleId = "tasks";
+  if (!isDevFeedbackModuleId(moduleId)) {
+    moduleId = suggestDevFeedbackModuleId(pageUrl);
+  }
 
-  if (!canSubmitDevFeedback(access, moduleId)) {
+  if (!isKobi && !canSubmitDevFeedback(access, moduleId)) {
     return NextResponse.json(
       { error: "אין הרשאה לפתוח משימת פיתוח במודול זה" },
       { status: 403 },
@@ -59,96 +91,80 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "נא להזין תיאור" }, { status: 400 });
   }
 
-  const files: { blob: Blob; name: string }[] = [];
-  for (const [key, value] of form.entries()) {
-    if (!(value instanceof Blob) || value.size === 0) continue;
-    if (!key.startsWith("file") && key !== "screenshot") continue;
-    if (value.size > MAX_FILE_BYTES) {
-      return NextResponse.json(
-        { error: "קובץ גדול מדי (מקסימום 8MB)" },
-        { status: 400 },
-      );
-    }
-    const name =
-      value instanceof File && value.name
-        ? value.name
-        : key === "screenshot"
-          ? "screenshot.png"
-          : `attachment-${files.length + 1}`;
-    files.push({ blob: value, name });
-  }
-  if (files.length > MAX_FILES) {
+  let files: { blob: Blob; name: string }[];
+  try {
+    files = collectFiles(form);
+  } catch (error) {
     return NextResponse.json(
-      { error: `ניתן לצרף עד ${MAX_FILES} קבצים` },
+      { error: error instanceof Error ? error.message : "קבצים לא תקינים" },
       { status: 400 },
     );
   }
 
-  const jira = new JiraService();
-  const adminAccountId = await jira.resolveAdminAccountId().catch(() => null);
-  const slaPreview = previewSlaDueDate();
-
-  const descriptionLines = [
-    "⚠️ המשימה דורשת אישור של הרב קובי לפני שהיא מגיעה לצוות הפיתוח.",
-    "הכרטיס נפתח תחת משתמש ה־ADMIN ב־Jira וממתין לאישור באפליקציה.",
-    `מודול: ${moduleLabel(moduleId)} (${moduleId})`,
-    pageUrl ? `כתובת מסך: ${pageUrl}` : "",
-    `מדווח: ${profile.name || "משתמש"}${profile.email ? ` <${profile.email}>` : ""}`,
-    "",
-    "תיאור הבקשה:",
-    description,
-    "",
-    `מחשבון SLA: לאחר אישור הרב קובי — יעד משוער של ${slaPreview.label} (4 ימי עסקים א׳–ה׳ מרגע האישור).`,
-    "אחרי אישור: מלש״בים/נגדים/דוברות → ליעד קדוש; אחרת → זוהר טקץ׳.",
-  ].filter(Boolean);
-
-  try {
-    const issue = await jira.createDevFeedbackIssue({
-      summary: `[פיתוח] ${title}`,
-      descriptionLines,
-      moduleId,
-      assigneeAccountId: adminAccountId,
-    });
-
-    const attachErrors: string[] = [];
-    for (const file of files) {
-      try {
-        await jira.addAttachment(issue.key, file.blob, file.name);
-      } catch (error) {
-        console.error("[dev-feedback-attach]", issue.key, file.name, error);
-        attachErrors.push(file.name);
-      }
-    }
-
-    if (files.length > 0 && attachErrors.length === files.length) {
+  if (isKobi) {
+    try {
+      const { issue, sla, assignee, attachErrors } =
+        await createApprovedDevFeedbackJira({
+          title,
+          description,
+          moduleId,
+          pageUrl,
+          profileName: profile.name || "הרב קובי",
+          profileEmail: profile.email || "",
+          files,
+          openedDirectlyByKobi: true,
+        });
+      return NextResponse.json({
+        ok: true,
+        status: "approved",
+        issueKey: issue.key,
+        browseUrl: issue.browseUrl,
+        awaitingKobi: false,
+        assignee,
+        dueDate: sla.iso,
+        dueDateLabel: sla.label,
+        attachWarnings: attachErrors.length ? attachErrors : undefined,
+      });
+    } catch (error) {
+      console.error("[dev-feedback-kobi-create]", error);
       return NextResponse.json(
         {
-          error: `המשימה ${issue.key} נוצרה אך צירוף הקבצים נכשל`,
-          issueKey: issue.key,
-          browseUrl: issue.browseUrl,
+          error:
+            error instanceof Error
+              ? error.message
+              : "יצירת משימה ב־Jira נכשלה",
         },
         { status: 502 },
       );
     }
+  }
 
+  try {
+    const pending = await new DevFeedbackPendingService().createPending({
+      title,
+      description,
+      moduleId,
+      pageUrl,
+      submitterId: profile.id,
+      submitterName: profile.name || null,
+      submitterEmail: profile.email || null,
+      files,
+    });
     return NextResponse.json({
       ok: true,
-      issueKey: issue.key,
-      browseUrl: issue.browseUrl,
+      status: "pending",
+      pendingId: pending.id,
       awaitingKobi: true,
-      slaPreviewIso: slaPreview.iso,
-      slaPreviewLabel: slaPreview.label,
-      assignedToAdmin: issue.assignedToAdmin,
-      attachWarnings: attachErrors.length ? attachErrors : undefined,
+      message: "נשמר וממתין לאישור הרב קובי — עדיין לא נפתח כרטיס ב־Jira",
     });
   } catch (error) {
-    console.error("[dev-feedback-create]", error);
+    console.error("[dev-feedback-pending-create]", error);
     return NextResponse.json(
       {
         error:
           error instanceof Error
             ? error.message
-            : "יצירת משימה ב־Jira נכשלה",
+            : "שמירת המשימה הממתינה נכשלה",
       },
       { status: 502 },
     );
