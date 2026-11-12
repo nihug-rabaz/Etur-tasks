@@ -339,90 +339,94 @@ export function MalshabimBoardPage({
         />
       </div>
 
-      {/* Advanced filters — always open like reference */}
-      <section className="rounded-3xl border border-border-weak bg-surface-2/70 p-4 shadow-sm sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted sm:col-span-2 lg:col-span-1">
-            חיפוש חופשי
-            <div className="relative">
-              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+      {/* Advanced filters — white fields + black labels like home / candidate filters */}
+      <section className="rounded-3xl border border-border-weak bg-white p-4 shadow-sm sm:p-5 dark:bg-surface-1">
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="flex flex-col gap-1.5 text-xs font-bold text-black sm:col-span-2 lg:col-span-1 dark:text-text-primary">
+              חיפוש חופשי
+              <div className="relative">
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                <input
+                  className="w-full rounded-xl border border-border-weak bg-white py-2.5 ps-10 pe-3 text-sm font-semibold text-black outline-none focus:ring-2 focus:ring-accent-primary/30 dark:bg-surface-2 dark:text-text-primary"
+                  placeholder="מס׳ תיק, שם, טלפון, ת.ז…"
+                  value={filters.search || ""}
+                  onChange={(e) => setFilter("search", e.target.value)}
+                />
+              </div>
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-bold text-black dark:text-text-primary">
+              סטטוס עודכן מ-
               <input
-                className="w-full rounded-xl border border-border-weak bg-surface-1 py-2.5 ps-10 pe-3 text-sm font-semibold text-text-primary outline-none focus:ring-2 focus:ring-accent-primary/30"
-                placeholder="מס׳ תיק, שם, טלפון, ת.ז…"
-                value={filters.search || ""}
-                onChange={(e) => setFilter("search", e.target.value)}
+                type="date"
+                className={`${selectClass} !bg-white !text-black dark:!bg-surface-2 dark:!text-text-primary`}
+                value={filters.fromDate || ""}
+                onChange={(e) => setFilter("fromDate", e.target.value)}
               />
-            </div>
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
-            סטטוס עודכן מ-
-            <input
-              type="date"
-              className={selectClass}
-              value={filters.fromDate || ""}
-              onChange={(e) => setFilter("fromDate", e.target.value)}
+            </label>
+            <label className="flex flex-col gap-1.5 text-xs font-bold text-black dark:text-text-primary">
+              סטטוס עודכן עד
+              <input
+                type="date"
+                className={`${selectClass} !bg-white !text-black dark:!bg-surface-2 dark:!text-text-primary`}
+                value={filters.toDate || ""}
+                onChange={(e) => setFilter("toDate", e.target.value)}
+              />
+            </label>
+            <SearchableMultiSelect
+              label="סטטוס (מלש״ב / חייל)"
+              value={selectedStatusTypes}
+              onChange={(next) => setFilter("statusType", next)}
+              options={STATUS_TYPES.map((type) => ({ value: type, label: type }))}
             />
-          </label>
-          <label className="flex flex-col gap-1.5 text-xs font-bold text-text-muted">
-            סטטוס עודכן עד
-            <input
-              type="date"
-              className={selectClass}
-              value={filters.toDate || ""}
-              onChange={(e) => setFilter("toDate", e.target.value)}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SearchableMultiSelect
+              label="סטטוס עבודה"
+              value={selectedStatuses}
+              onChange={(next) => setFilter("candidateStatus", next)}
+              options={CANDIDATE_STATUSES.map((status) => ({
+                value: status,
+                label: status,
+              }))}
             />
-          </label>
-          <SearchableMultiSelect
-            label="מסלול גיוס"
-            value={selectedTracks}
-            onChange={(next) => setFilter("track", next)}
-            options={[
-              { value: FILTER_EMPTY_VALUE, label: "ללא מסלול" },
-              ...RECRUITMENT_TRACKS.map((t) => ({ value: t, label: t })),
-            ]}
-          />
-          <SearchableMultiSelect
-            label="סטטוס (מלש״ב / חייל)"
-            value={selectedStatusTypes}
-            onChange={(next) => setFilter("statusType", next)}
-            options={STATUS_TYPES.map((type) => ({ value: type, label: type }))}
-          />
-          <SearchableMultiSelect
-            label="סטטוס עבודה"
-            value={selectedStatuses}
-            onChange={(next) => setFilter("candidateStatus", next)}
-            options={CANDIDATE_STATUSES.map((status) => ({
-              value: status,
-              label: status,
-            }))}
-          />
-          <SearchableMultiSelect
-            label="איתור / בקשה"
-            value={selectedRequestTypes}
-            onChange={(next) => setFilter("requestType", next)}
-            options={[
-              { value: FILTER_EMPTY_VALUE, label: "ללא" },
-              ...REQUEST_TYPES.map((type) => ({ value: type, label: type })),
-            ]}
-          />
-          <MonthYearRangeSelect
-            label="חודשי גיוס"
-            value={selectedEnlistmentMonths}
-            onChange={(next) => setFilter("enlistmentMonths", next)}
-            fromYear={2024}
-            toYear={2028}
-          />
-          <div className="ms-auto flex flex-wrap items-end gap-2 sm:col-span-2">
+            <SearchableMultiSelect
+              label="איתור / בקשה"
+              value={selectedRequestTypes}
+              onChange={(next) => setFilter("requestType", next)}
+              options={[
+                { value: FILTER_EMPTY_VALUE, label: "ללא" },
+                ...REQUEST_TYPES.map((type) => ({ value: type, label: type })),
+              ]}
+            />
+            <SearchableMultiSelect
+              label="מסלול גיוס"
+              value={selectedTracks}
+              onChange={(next) => setFilter("track", next)}
+              options={[
+                { value: FILTER_EMPTY_VALUE, label: "ללא מסלול" },
+                ...RECRUITMENT_TRACKS.map((t) => ({ value: t, label: t })),
+              ]}
+            />
+            <MonthYearRangeSelect
+              label="חודשי גיוס"
+              value={selectedEnlistmentMonths}
+              onChange={(next) => setFilter("enlistmentMonths", next)}
+              fromYear={2024}
+              toYear={2028}
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-bold text-black dark:text-text-muted">
+              {filtered.length} מתוך {stats.total}
+            </span>
             <button
               type="button"
-              className={secondaryButtonClass}
+              className={`${secondaryButtonClass} !bg-white !text-black border border-border-weak dark:!bg-surface-2 dark:!text-text-primary`}
               onClick={clearFilters}
             >
               <RefreshCw className="h-4 w-4" /> ניקוי
             </button>
-            <span className="pb-2 text-xs font-bold text-text-muted">
-              {filtered.length} מתוך {stats.total}
-            </span>
           </div>
         </div>
       </section>

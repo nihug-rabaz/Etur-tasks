@@ -236,36 +236,57 @@ export function MalshabimStatisticsPage({
     }
     setExporting(true);
     try {
-      const canvas = await html2canvas(reportRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#f3f6fb",
-        logging: false,
-        onclone: (doc) => {
-          doc.documentElement.setAttribute("dir", "rtl");
-          doc.body.setAttribute("dir", "rtl");
-          doc.body.style.direction = "rtl";
-        },
-      });
-      const img = canvas.toDataURL("image/png");
+      const node = reportRef.current;
+      const capture = (scale: number) =>
+        html2canvas(node, {
+          scale,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: "#f3f6fb",
+          logging: false,
+          foreignObjectRendering: false,
+          imageTimeout: 15000,
+          onclone: (doc, cloned) => {
+            doc.documentElement.setAttribute("dir", "rtl");
+            doc.body.setAttribute("dir", "rtl");
+            doc.body.style.direction = "rtl";
+            cloned.querySelectorAll("svg").forEach((svg) => {
+              svg.setAttribute("width", String(svg.clientWidth || 160));
+              svg.setAttribute("height", String(svg.clientHeight || 160));
+            });
+          },
+        });
+
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await capture(1.5);
+      } catch {
+        canvas = await capture(1);
+      }
+
+      if (!canvas.width || !canvas.height) {
+        throw new Error("צילום המסך לייצוא נכשל");
+      }
+
+      const img = canvas.toDataURL("image/jpeg", 0.92);
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const imgHeight = (canvas.height * pageWidth) / canvas.width;
       let heightLeft = imgHeight;
       let position = 0;
-      pdf.addImage(img, "PNG", 0, position, pageWidth, imgHeight);
+      pdf.addImage(img, "JPEG", 0, position, pageWidth, imgHeight);
       heightLeft -= pageHeight;
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(img, "PNG", 0, position, pageWidth, imgHeight);
+        pdf.addImage(img, "JPEG", 0, position, pageWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-      pdf.save(`מרכז-סטטיסטיקות-${new Date().toISOString().slice(0, 10)}.pdf`);
+      pdf.save(`statistics-${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success("PDF יוצא בהצלחה");
     } catch (error) {
+      console.error("[malshabim-export-pdf]", error);
       toast.error(error instanceof Error ? error.message : "ייצוא PDF נכשל");
     } finally {
       setExporting(false);

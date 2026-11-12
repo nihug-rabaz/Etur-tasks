@@ -1,30 +1,28 @@
 import { NextResponse } from "next/server";
-import { isMalshabimInstructionAssigneeName } from "@/modules/malshabim/lib/instruction-assignees";
 import { MalshabimAccessService } from "@/modules/malshabim/services/access.service";
-import { NeonDatabase } from "@/lib/db/neon";
+import { ModuleRoleService } from "@/shared/services/module-role.service";
 
-/** Approved system users for assigning instruction owners (אחראי לביצוע). */
+/** Approved malshabim module users for assigning instruction owners (אחראי לביצוע). */
 export async function GET(request: Request) {
   const access = await new MalshabimAccessService().requireMalshabimAccess("user");
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const purpose = new URL(request.url).searchParams.get("purpose");
-  const db = NeonDatabase.createClient();
-  const users = await db<Array<{ id: string; name: string; email: string | null }>>`
-    select id, name, email
-    from profiles
-    where is_approved = true
-    order by name
-  `;
-  const mapped = users.map((row) => ({
-    id: row.id,
-    name: (row.name || "").trim() || "משתמש",
-    email: row.email?.trim() || null,
-  }));
-  const filtered =
-    purpose === "instructions"
-      ? mapped.filter((row) => isMalshabimInstructionAssigneeName(row.name))
-      : mapped;
-  return NextResponse.json({ users: filtered });
+  const moduleUsers = await new ModuleRoleService().listModuleUsers("malshabim");
+  const mapped = moduleUsers
+    .filter((user) => user.role === "admin" || user.role === "user")
+    .map((user) => ({
+      id: user.user_id,
+      name: (user.name || "").trim() || "משתמש",
+      email: user.email?.trim() || null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "he"));
+
+  // purpose=instructions historically filtered by name allowlist; now all module editors.
+  if (purpose && purpose !== "instructions") {
+    return NextResponse.json({ users: mapped });
+  }
+
+  return NextResponse.json({ users: mapped });
 }

@@ -125,8 +125,18 @@ export async function PATCH(
   const { update_log_entry, ...fields } = parsed.data;
 
   if (fields.instruction_items !== undefined) {
+    const { ModuleRoleService } = await import(
+      "@/shared/services/module-role.service"
+    );
+    const moduleUsers = await new ModuleRoleService().listModuleUsers("malshabim");
+    const allowedIds = new Set(
+      moduleUsers
+        .filter((user) => user.role === "admin" || user.role === "user")
+        .map((user) => user.user_id),
+    );
     fields.instruction_items = sanitizeInstructionItemsForAllowlist(
       fields.instruction_items,
+      allowedIds,
     );
   }
 
@@ -141,10 +151,31 @@ export async function PATCH(
     );
   }
 
+  const fieldKeys = Object.keys(fields).filter(
+    (key) => key !== "awaiting_admin_approval" && key !== "approval_requested_at",
+  );
+  const isContentEdit = fieldKeys.length > 0 || Boolean(update_log_entry);
+  const wasInApprovalFlow = Boolean(
+    existing.awaiting_admin_approval || existing.approval_requested_at,
+  );
+
+  // Edited files that already went through manager approval return to the queue.
+  if (
+    !existing.is_draft &&
+    wasInApprovalFlow &&
+    isContentEdit &&
+    fields.awaiting_admin_approval !== false
+  ) {
+    fields.awaiting_admin_approval = true;
+    if (!existing.awaiting_admin_approval) {
+      fields.approval_requested_at = new Date().toISOString();
+    }
+  }
+
   const requestingApproval =
     fields.awaiting_admin_approval === true && !existing.awaiting_admin_approval;
 
-  if (requestingApproval) {
+  if (requestingApproval && !fields.approval_requested_at) {
     fields.approval_requested_at = new Date().toISOString();
   }
 
@@ -166,6 +197,24 @@ export async function PATCH(
         });
       } catch {
         // Opening the case must succeed even if push notification fails.
+      }
+    } else if (
+      candidate.awaiting_admin_approval &&
+      isContentEdit &&
+      existing.awaiting_admin_approval
+    ) {
+      try {
+        await new NotificationService().notifyMalshabimCandidateChangedWhileAwaiting(
+          {
+            candidateId: candidate.id,
+            fullName: candidate.full_name ?? "מועמד",
+            editorName: access.profile.name,
+            summary:
+              update_log_entry?.changes?.trim() || "עודכן תיק שממתין לאישור מנהל",
+          },
+        );
+      } catch {
+        // Best-effort notification.
       }
     }
 

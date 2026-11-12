@@ -467,86 +467,85 @@ export function MalshabimHomePage({
           ) : null}
         </div>
 
-        {/* Two workflow columns + side action tiles */}
+        {/* Top create actions, then waiting queues, then side tiles — matches entry-screen mock */}
         <div className="flex flex-col gap-3 p-4 sm:p-5 md:flex-row md:items-stretch md:gap-3">
-          {/* Interview flow (visual right in RTL) */}
           <div className="flex min-w-0 flex-1 flex-col gap-3">
-            {canEdit ? (
-              <Link href="/malshabim/interview" className={actionCardClass}>
-                <span className="w-fit rounded-xl bg-accent-primary/15 p-2.5 text-accent-primary">
-                  <Plus className="h-5 w-5" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {canEdit ? (
+                <Link href="/malshabim/waitlist?new=1" className={actionCardClass}>
+                  <span className="w-fit rounded-xl bg-violet-600/15 p-2.5 text-violet-700">
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-base font-black text-text-primary sm:text-lg">פנייה חדשה</p>
+                    <p className="mt-1 text-xs font-medium text-text-muted">רישום למחכים לראיון</p>
+                  </div>
+                </Link>
+              ) : (
+                <div className={`${actionCardClass} opacity-50`}>
+                  <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-base font-black text-text-primary sm:text-lg">פנייה חדשה</p>
+                    <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
+                  </div>
+                </div>
+              )}
+              {canEdit ? (
+                <Link href="/malshabim/interview" className={actionCardClass}>
+                  <span className="w-fit rounded-xl bg-accent-primary/15 p-2.5 text-accent-primary">
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-base font-black text-text-primary sm:text-lg">ראיון חדש</p>
+                    <p className="mt-1 text-xs font-medium text-text-muted">פתיחת תיק ראיון</p>
+                  </div>
+                </Link>
+              ) : (
+                <div className={`${actionCardClass} opacity-50`}>
+                  <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
+                    <Plus className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-base font-black text-text-primary sm:text-lg">ראיון חדש</p>
+                    <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Link
+                href="/malshabim/admin/approvals"
+                className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/15 text-emerald-700">
+                  <ClipboardCheck className="h-5 w-5" />
                 </span>
-                <div>
-                  <p className="text-base font-black text-text-primary sm:text-lg">ראיון חדש</p>
-                  <p className="mt-1 text-xs font-medium text-text-muted">פתיחת תיק ראיון</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-text-muted">אישור או דחייה</p>
+                  <p className="text-sm font-black text-text-primary sm:text-base">מחכים לאישור מנהל</p>
+                  <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+                    {pendingApprovalCount ?? "—"}
+                  </p>
                 </div>
               </Link>
-            ) : (
-              <div className={`${actionCardClass} opacity-50`}>
-                <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
-                  <Plus className="h-5 w-5" />
+              <Link
+                href="/malshabim/waitlist"
+                className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700">
+                  <UserRoundSearch className="h-5 w-5" />
                 </span>
-                <div>
-                  <p className="text-base font-black text-text-primary sm:text-lg">ראיון חדש</p>
-                  <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
-                </div>
-              </div>
-            )}
-            <Link
-              href="/malshabim/admin/approvals"
-              className="flex min-h-[108px] flex-1 items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600/15 text-emerald-700">
-                <ClipboardCheck className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-text-muted">אישור או דחייה</p>
-                <p className="text-sm font-black text-text-primary sm:text-base">מחכים לאישור מנהל</p>
-                <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
-                  {pendingApprovalCount ?? "—"}
-                </p>
-              </div>
-            </Link>
-          </div>
-
-          {/* Waitlist flow */}
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            {canEdit ? (
-              <Link href="/malshabim/waitlist?new=1" className={actionCardClass}>
-                <span className="w-fit rounded-xl bg-violet-600/15 p-2.5 text-violet-700">
-                  <Plus className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-base font-black text-text-primary sm:text-lg">פנייה חדשה</p>
-                  <p className="mt-1 text-xs font-medium text-text-muted">רישום למחכים לראיון</p>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-text-muted">רשימת פניות ממתינות</p>
+                  <p className="text-sm font-black text-text-primary sm:text-base">מחכים לראיון</p>
+                  <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
+                    {waitlistCount ?? "—"}
+                  </p>
                 </div>
               </Link>
-            ) : (
-              <div className={`${actionCardClass} opacity-50`}>
-                <span className="w-fit rounded-xl bg-surface-2 p-2.5 text-text-muted">
-                  <Plus className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-base font-black text-text-primary sm:text-lg">פנייה חדשה</p>
-                  <p className="mt-1 text-xs font-medium text-text-muted">אין הרשאה</p>
-                </div>
-              </div>
-            )}
-            <Link
-              href="/malshabim/waitlist"
-              className="flex min-h-[108px] flex-1 items-center gap-3 rounded-2xl border border-border-weak bg-surface-1 p-3.5 text-right shadow-sm transition hover:border-accent-primary/35 hover:shadow-md sm:p-4"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700">
-                <UserRoundSearch className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-text-muted">רשימת פניות ממתינות</p>
-                <p className="text-sm font-black text-text-primary sm:text-base">מחכים לראיון</p>
-                <p className="mt-0.5 text-2xl font-black tabular-nums leading-none text-text-primary sm:text-3xl">
-                  {waitlistCount ?? "—"}
-                </p>
-              </div>
-            </Link>
+            </div>
           </div>
 
           {/* Side actions */}

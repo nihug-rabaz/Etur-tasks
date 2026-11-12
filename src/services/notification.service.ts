@@ -236,6 +236,31 @@ export class NotificationService extends BaseService {
     );
   }
 
+  /** Content changed while the file is waiting for manager approval — notify admins. */
+  public async notifyMalshabimCandidateChangedWhileAwaiting(input: {
+    candidateId: string;
+    fullName: string;
+    editorName: string;
+    summary: string;
+  }): Promise<number> {
+    if (!this.push.isReady()) return 0;
+    const adminIds = await this.getMalshabimAdminIds();
+    const url = this.malshabimCandidateUrl(input.candidateId);
+    const text =
+      "עודכן תיק שממתין לאישור מנהל\n" +
+      `מועמד: ${input.fullName}\n` +
+      `ע״י: ${input.editorName}\n` +
+      `שינוי: ${input.summary.trim() || "—"}` +
+      (url ? `\nלתיק: ${url}` : "");
+    return this.sendToUsers(
+      adminIds,
+      text,
+      url || undefined,
+      (userId) =>
+        `malshabim-awaiting-edit:${input.candidateId}:${userId}:${Date.now()}`,
+    );
+  }
+
   /** Manager sent notes instead of approving — notify the requester (push + email). */
   public async notifyMalshabimApprovalNotes(input: {
     candidateId: string;

@@ -57,9 +57,9 @@ export async function POST(
     const previousLog = Array.isArray(existing.update_log)
       ? existing.update_log
       : [];
+    // Keep the file in "מחכים לאישור מנהל" until approve/reject.
     const candidate = await service.update(id, {
-      awaiting_admin_approval: false,
-      candidate_status: "בטיפול",
+      awaiting_admin_approval: true,
       update_log: [...previousLog, logEntry],
     });
 

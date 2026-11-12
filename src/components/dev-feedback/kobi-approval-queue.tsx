@@ -216,23 +216,45 @@ export function KobiApprovalQueue({
                         </p>
                       ) : null}
                       {issue.attachments?.length ? (
-                        <ul className="mt-2 space-y-1 text-[11px] text-text-muted">
-                          {issue.attachments.map((a) => (
-                            <li key={a.id}>
-                              {a.previewUrl ? (
-                                <a
-                                  href={a.previewUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-700 hover:underline"
-                                >
-                                  {a.filename}
-                                </a>
-                              ) : (
-                                a.filename
-                              )}
-                            </li>
-                          ))}
+                        <ul className="mt-2 space-y-2">
+                          {issue.attachments.map((a) => {
+                            const isImage = (a.contentType || "")
+                              .toLowerCase()
+                              .startsWith("image/");
+                            return (
+                              <li key={a.id} className="text-[11px] text-text-muted">
+                                {a.previewUrl && isImage ? (
+                                  <a
+                                    href={a.previewUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block overflow-hidden rounded-lg border border-border-weak"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={a.previewUrl}
+                                      alt={a.filename}
+                                      className="max-h-48 w-full object-contain bg-surface-2"
+                                    />
+                                    <span className="block truncate px-2 py-1 text-blue-700 hover:underline">
+                                      {a.filename}
+                                    </span>
+                                  </a>
+                                ) : a.previewUrl ? (
+                                  <a
+                                    href={a.previewUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-700 hover:underline"
+                                  >
+                                    {a.filename}
+                                  </a>
+                                ) : (
+                                  a.filename
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       ) : null}
                     </div>

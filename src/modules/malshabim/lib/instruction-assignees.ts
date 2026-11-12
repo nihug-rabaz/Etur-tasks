@@ -1,44 +1,3 @@
-/**
- * Profiles allowed as הנחיות לביצוע assignees:
- * ישראל עידאן, קובי קליין, Ari Schwartz / אריאל שווארץ.
- * Prefer compound name matches to avoid unrelated ישראל/קובי/אריאל profiles.
- */
-export function isMalshabimInstructionAssigneeName(
-  name?: string | null,
-): boolean {
-  const trimmed = (name ?? "").trim();
-  if (!trimmed) return false;
-
-  // ישראל עידאן
-  if (
-    (/ישראל/u.test(trimmed) && /עידאן/u.test(trimmed)) ||
-    (/israel/iu.test(trimmed) && /idan/iu.test(trimmed))
-  ) {
-    return true;
-  }
-
-  // קובי קליין
-  if (
-    (/קובי/u.test(trimmed) && /קליין/u.test(trimmed)) ||
-    (/kobi/iu.test(trimmed) && /klein/iu.test(trimmed)) ||
-    (/coby/iu.test(trimmed) && /klein/iu.test(trimmed))
-  ) {
-    return true;
-  }
-
-  // Ari Schwartz / אריאל שווארץ / שוורץ
-  const hasSchwartz =
-    /schwartz/iu.test(trimmed) || /שוו?ארץ/u.test(trimmed);
-  if (
-    (hasSchwartz && (/אריאל/u.test(trimmed) || /\bari\b/iu.test(trimmed))) ||
-    /^ari\s+schwartz$/iu.test(trimmed)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
 type InstructionAssigneeLike = {
   user_id?: string | null;
   name?: string | null;
@@ -54,9 +13,29 @@ type InstructionItemLike = {
   [key: string]: unknown;
 };
 
-/** Drop assignees whose names are outside the allowlist (server-side gate). */
+/** @deprecated Name allowlist replaced by malshabim module roles. */
+export function isMalshabimInstructionAssigneeName(
+  _name?: string | null,
+): boolean {
+  return true;
+}
+
+function isAllowedUserId(
+  userId: string | null | undefined,
+  allowedUserIds?: Set<string> | null,
+): boolean {
+  if (!userId) return false;
+  if (!allowedUserIds) return true;
+  return allowedUserIds.has(userId);
+}
+
+/**
+ * Keep only assignees with malshabim module access (user/admin).
+ * When `allowedUserIds` is omitted, user_id presence is enough (legacy callers).
+ */
 export function sanitizeInstructionItemsForAllowlist(
   items: unknown[] | null | undefined,
+  allowedUserIds?: Set<string> | null,
 ): unknown[] | undefined {
   if (items == null) return undefined;
   if (!Array.isArray(items)) return [];
@@ -66,15 +45,14 @@ export function sanitizeInstructionItemsForAllowlist(
     const item = raw as InstructionItemLike;
     const fromAssignees = Array.isArray(item.assignees)
       ? item.assignees.filter((a) =>
-          isMalshabimInstructionAssigneeName(a?.name ?? null),
+          isAllowedUserId(a?.user_id ?? null, allowedUserIds),
         )
       : [];
 
     let assignees = fromAssignees;
     if (
       assignees.length === 0 &&
-      item.assignee_user_id &&
-      isMalshabimInstructionAssigneeName(item.assignee_name ?? null)
+      isAllowedUserId(item.assignee_user_id ?? null, allowedUserIds)
     ) {
       assignees = [
         {

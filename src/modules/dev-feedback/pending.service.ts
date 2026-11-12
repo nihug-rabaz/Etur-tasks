@@ -264,8 +264,44 @@ export class DevFeedbackPendingService extends BaseService {
       id: row.id,
       filename: row.filename,
       contentType: row.content_type,
-      previewUrl: row.blob_url,
+      // Prefer public blob URL; otherwise authenticated app preview for base64 rows.
+      previewUrl:
+        row.blob_url ||
+        `/api/dev-feedback/attachments/${row.id}`,
     }));
+  }
+
+  public async getAttachmentForPreview(attachmentId: string): Promise<{
+    filename: string;
+    contentType: string;
+    bytes: Buffer;
+  } | null> {
+    await this.ensureSchema();
+    const db = this.getDb();
+    const rows = await db<DevFeedbackAttachmentRow[]>`
+      select * from public.dev_feedback_attachments
+      where id = ${attachmentId}::uuid
+      limit 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.data_base64) {
+      return {
+        filename: row.filename,
+        contentType: row.content_type || "application/octet-stream",
+        bytes: Buffer.from(row.data_base64, "base64"),
+      };
+    }
+    if (row.blob_url) {
+      const res = await fetch(row.blob_url);
+      if (!res.ok) return null;
+      return {
+        filename: row.filename,
+        contentType: row.content_type || res.headers.get("content-type") || "application/octet-stream",
+        bytes: Buffer.from(await res.arrayBuffer()),
+      };
+    }
+    return null;
   }
 
   private async storeAttachment(

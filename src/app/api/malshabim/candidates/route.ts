@@ -102,8 +102,18 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
   if (data.instruction_items !== undefined) {
+    const { ModuleRoleService } = await import(
+      "@/shared/services/module-role.service"
+    );
+    const moduleUsers = await new ModuleRoleService().listModuleUsers("malshabim");
+    const allowedIds = new Set(
+      moduleUsers
+        .filter((user) => user.role === "admin" || user.role === "user")
+        .map((user) => user.user_id),
+    );
     data.instruction_items = sanitizeInstructionItemsForAllowlist(
       data.instruction_items as unknown[],
+      allowedIds,
     );
   }
   if (

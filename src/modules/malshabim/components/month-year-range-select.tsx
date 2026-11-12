@@ -257,10 +257,10 @@ export function MonthYearRangeSelect({
 
   return (
     <div className="flex flex-col gap-1.5" ref={containerRef}>
-      <p className="text-xs font-bold text-text-muted">{label}</p>
+      <p className="text-xs font-bold text-black dark:text-text-primary">{label}</p>
       <div
         ref={triggerRef}
-        className="flex min-h-[46px] w-full items-center gap-2 rounded-2xl border border-border-weak bg-surface-2/50 px-3 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+        className="flex min-h-[46px] w-full items-center gap-2 rounded-xl border border-border-weak bg-white px-3 py-2 text-sm text-black shadow-sm dark:bg-surface-2 dark:text-text-primary"
       >
         <button
           type="button"
