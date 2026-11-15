@@ -2,11 +2,6 @@ name: Debug Vercel Logs
 
 on:
   workflow_dispatch:
-    inputs:
-      query:
-        description: Error id or path hint
-        required: false
-        default: ""
 
 permissions:
   contents: read
@@ -15,51 +10,48 @@ jobs:
   logs:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch recent Vercel runtime logs
+      - name: Inspect Vercel project env and recent deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
           VERCEL_TEAM_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
-          QUERY: ${{ github.event.inputs.query }}
+          DATABASE_URL_SECRET: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
-          if [ -z "${VERCEL_TOKEN:-}" ]; then
-            echo "VERCEL_TOKEN missing"
-            exit 1
-          fi
+          test -n "${VERCEL_TOKEN:-}"
+
           echo "== deployments =="
           curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_TEAM_ID&limit=5" \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin); 
-print("\n".join(f"{x.get(\"uid\")} {x.get(\"state\")} {x.get(\"url\")} {x.get(\"created\")}" for x in d.get("deployments",[])))'
-          DEPLOY=$(curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&teamId=$VERCEL_TEAM_ID&limit=1" \
-            | python3 -c 'import json,sys; print(json.load(sys.stdin)["deployments"][0]["uid"])')
-          echo "deploy=$DEPLOY"
-          echo "== env keys (names only) =="
+            > /tmp/deps.json
+          python3 <<'PY'
+          import json
+          d=json.load(open("/tmp/deps.json"))
+          for x in d.get("deployments", []):
+              print(x.get("uid"), x.get("state"), x.get("readyState"), x.get("url"))
+          PY
+
+          echo "== env keys =="
           curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
             "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID/env?teamId=$VERCEL_TEAM_ID" \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin);
-for e in d.get("envs",[]):
-  print(e.get("key"), e.get("target"), e.get("type"), "empty" if e.get("value")=="" else "set")'
-          echo "== runtime logs =="
-          # Try runtime logs endpoint
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v1/projects/$VERCEL_PROJECT_ID/deployments/$DEPLOY/runtime-logs?teamId=$VERCEL_TEAM_ID&limit=50" \
-            | head -c 20000 || true
-          echo
-          echo "== deployments events =="
-          curl -sS -H "Authorization: Bearer $VERCEL_TOKEN" \
-            "https://api.vercel.com/v2/deployments/$DEPLOY/events?teamId=$VERCEL_TEAM_ID&builds=1&direction=backward&limit=40" \
-            | python3 -c 'import json,sys,re
-raw=sys.stdin.read()
-try:
-  d=json.loads(raw)
-except Exception:
-  print(raw[:5000]); raise SystemExit
-items=d if isinstance(d,list) else d.get("events") or d.get("builds") or []
-for e in items[-40:]:
-  text=json.dumps(e, ensure_ascii=False)
-  if any(k in text.lower() for k in ["error","fail","exception","database","missing","3834153112", (sys.argv[1].lower() if len(sys.argv)>1 else "____")]):
-    print(text[:1000])
-' "$QUERY" || true
+            > /tmp/envs.json
+          python3 <<'PY'
+          import json, os
+          d=json.load(open("/tmp/envs.json"))
+          keys=[]
+          for e in d.get("envs", []):
+              key=e.get("key")
+              keys.append(key)
+              val=e.get("value")
+              typ=e.get("type")
+              targets=",".join(e.get("target") or [])
+              empty = (val in (None, "", "[SENSITIVE]")) and typ != "encrypted"
+              # encrypted secrets usually have no plaintext value in API
+              status = "encrypted/sensitive" if typ in ("encrypted","sensitive") or val in (None,"") else ("EMPTY" if val=="" else "has-value")
+              print(f"{key}\ttargets={targets}\ttype={typ}\t{status}")
+          needed=["DATABASE_URL","NEXTAUTH_URL","NEXTAUTH_SECRET","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET"]
+          print("== missing critical ==")
+          for k in needed:
+              print(k, "OK" if k in keys else "MISSING")
+          print("github_secret_DATABASE_URL", "set" if os.environ.get("DATABASE_URL_SECRET") else "missing")
+          PY
