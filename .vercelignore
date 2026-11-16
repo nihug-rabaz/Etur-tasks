@@ -1,0 +1,3 @@
+.migration-dumps
+.env.migration.local
+*.zip

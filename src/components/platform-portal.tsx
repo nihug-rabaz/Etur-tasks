@@ -181,7 +181,7 @@ export function PlatformPortal({
 
         <div className="platform-portal__center" aria-hidden>
           <Image
-            src="/intro/portal/emblem-stone.png"
+            src="/intro/portal/emblem-gold.png"
             alt=""
             width={840}
             height={830}

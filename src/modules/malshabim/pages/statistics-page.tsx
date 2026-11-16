@@ -11,7 +11,7 @@ import {
   PieChart,
   Users,
 } from "lucide-react";
-import html2canvas from "html2canvas";
+import { domToJpeg } from "modern-screenshot";
 import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import {
@@ -237,42 +237,51 @@ export function MalshabimStatisticsPage({
     setExporting(true);
     try {
       const node = reportRef.current;
+      node.querySelectorAll("svg").forEach((svg) => {
+        const box = svg.getBoundingClientRect();
+        svg.setAttribute("width", String(Math.max(box.width, 160)));
+        svg.setAttribute("height", String(Math.max(box.height, 160)));
+      });
+
       const capture = (scale: number) =>
-        html2canvas(node, {
+        domToJpeg(node, {
+          quality: 0.92,
           scale,
-          useCORS: true,
-          allowTaint: false,
           backgroundColor: "#f3f6fb",
-          logging: false,
-          foreignObjectRendering: false,
-          imageTimeout: 15000,
-          onclone: (doc, cloned) => {
-            doc.documentElement.setAttribute("dir", "rtl");
-            doc.body.setAttribute("dir", "rtl");
-            doc.body.style.direction = "rtl";
-            cloned.querySelectorAll("svg").forEach((svg) => {
-              svg.setAttribute("width", String(svg.clientWidth || 160));
-              svg.setAttribute("height", String(svg.clientHeight || 160));
-            });
+          style: {
+            direction: "rtl",
           },
         });
 
-      let canvas: HTMLCanvasElement;
+      let img: string;
       try {
-        canvas = await capture(1.5);
+        img = await capture(Math.min(1.5, window.devicePixelRatio || 1));
       } catch {
-        canvas = await capture(1);
+        img = await capture(1);
       }
 
-      if (!canvas.width || !canvas.height) {
+      if (!img || !img.startsWith("data:image")) {
         throw new Error("צילום המסך לייצוא נכשל");
       }
 
-      const img = canvas.toDataURL("image/jpeg", 0.92);
+      const dimensions = await new Promise<{ width: number; height: number }>(
+        (resolve, reject) => {
+          const image = new Image();
+          image.onload = () =>
+            resolve({ width: image.naturalWidth, height: image.naturalHeight });
+          image.onerror = () => reject(new Error("צילום המסך לייצוא נכשל"));
+          image.src = img;
+        },
+      );
+
+      if (!dimensions.width || !dimensions.height) {
+        throw new Error("צילום המסך לייצוא נכשל");
+      }
+
       const pdf = new jsPDF("p", "mm", "a4");
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgHeight = (canvas.height * pageWidth) / canvas.width;
+      const imgHeight = (dimensions.height * pageWidth) / dimensions.width;
       let heightLeft = imgHeight;
       let position = 0;
       pdf.addImage(img, "JPEG", 0, position, pageWidth, imgHeight);

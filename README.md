@@ -56,7 +56,7 @@
 | Framework | **Next.js 16** (App Router), React 19, TypeScript |
 | UI | Tailwind CSS 4, Lucide, Sonner |
 | Auth | **NextAuth** + Google OAuth |
-| Database | **Neon** (Postgres) — SQL ב־`supabase/migrations/` |
+| Database | **Postgres** via `DATABASE_URL` (Supabase) — SQL ב־`supabase/migrations/` |
 | קבצים | **Vercel Blob** (כשיש `BLOB_READ_WRITE_TOKEN`) |
 | אינטגרציות | Jira Cloud REST, OneSignal, Telegram, (אופציונלי) Gemini/OpenAI לעוזר |
 | Deploy | GitHub Actions → Vercel production (`nihug-rabaz/platform-workflows`) |

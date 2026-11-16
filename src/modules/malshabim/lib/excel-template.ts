@@ -64,9 +64,25 @@ export function exportTemplate(filename = "תבנית-מלשבים.xlsx"): void 
   URL.revokeObjectURL(url);
 }
 
+function normalizeHeader(header: string): string {
+  return header
+    .replace(/^\uFEFF/, "")
+    .normalize("NFKC")
+    .replace(/["']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function resolveColumnKey(header: string): MalshabimTemplateColumn | null {
-  const trimmed = header.trim();
-  return HEADER_TO_COLUMN.get(trimmed) ?? null;
+  const trimmed = normalizeHeader(header);
+  if (!trimmed) return null;
+  const direct = HEADER_TO_COLUMN.get(trimmed);
+  if (direct) return direct;
+  const lower = trimmed.toLowerCase();
+  for (const [key, column] of HEADER_TO_COLUMN) {
+    if (key.toLowerCase() === lower) return column;
+  }
+  return null;
 }
 
 function excelSerialToIso(serial: number): string | null {
@@ -113,7 +129,16 @@ function cellToString(raw: unknown, column: MalshabimTemplateColumn): string {
 /** Parse an xlsx/xls File into row objects keyed by template columns. */
 export async function parseTemplateFile(file: File): Promise<MalshabimTemplateRow[]> {
   const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+  if (!buffer.byteLength) {
+    throw new Error("קובץ האקסל ריק");
+  }
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+  } catch (error) {
+    console.error("[malshabim-excel-parse]", error);
+    throw new Error("לא ניתן לקרוא את קובץ האקסל — ודאו שזה xlsx/xls תקין");
+  }
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) return [];
   const sheet = workbook.Sheets[sheetName];
@@ -121,7 +146,7 @@ export async function parseTemplateFile(file: File): Promise<MalshabimTemplateRo
     defval: "",
     raw: true,
   });
-  return rows.map((row) => {
+  const mappedRows = rows.map((row) => {
     const mapped: MalshabimTemplateRow = {};
     for (const [header, raw] of Object.entries(row)) {
       const key = resolveColumnKey(header);
@@ -130,6 +155,15 @@ export async function parseTemplateFile(file: File): Promise<MalshabimTemplateRo
     }
     return mapped;
   });
+  const recognized = mappedRows.some((row) =>
+    Object.values(row).some((value) => Boolean(value && String(value).trim())),
+  );
+  if (rows.length > 0 && !recognized) {
+    throw new Error(
+      "לא זוהו עמודות מהתבנית — הורידו «ייצא תבנית» ומלאו לפי הכותרות בעברית",
+    );
+  }
+  return mappedRows;
 }
 
 /** Map template rows to import API candidate payloads. */

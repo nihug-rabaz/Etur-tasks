@@ -63,27 +63,48 @@ export async function POST(
       update_log: [...previousLog, logEntry],
     });
 
-    const recipientUserId =
-      existing.created_by || existing.interviewer_user_id || null;
-    if (recipientUserId && recipientUserId !== access.profile.id) {
+    const recipientIds = [
+      ...new Set(
+        [existing.created_by, existing.interviewer_user_id].filter(
+          (value): value is string => Boolean(value),
+        ),
+      ),
+    ];
+    if (recipientIds.length > 0 || access.profile.id) {
       try {
-        let recipientEmail: string | null = null;
-        let recipientName: string | null = existing.created_by_name ?? null;
         const db = NeonDatabase.createClient();
-        const rows = await db<Array<{ email: string | null; name: string | null }>>`
-          select email, name from profiles where id = ${recipientUserId} limit 1
+        const profileIds = [
+          ...new Set([...recipientIds, access.profile.id].filter(Boolean)),
+        ];
+        const rows = await db<
+          Array<{ id: string; email: string | null; name: string | null }>
+        >`
+          select id, email, name from profiles where id = any(${profileIds}::uuid[])
         `;
-        recipientEmail = rows[0]?.email ?? null;
-        recipientName = recipientName || rows[0]?.name || null;
+        const byId = new Map(rows.map((row) => [row.id, row]));
+        const recipients = recipientIds.map((userId) => {
+          const profile = byId.get(userId);
+          return {
+            userId,
+            email: profile?.email ?? null,
+            name:
+              (userId === existing.created_by
+                ? existing.created_by_name
+                : null) ||
+              profile?.name ||
+              null,
+          };
+        });
+        const approverProfile = byId.get(access.profile.id);
 
         await new NotificationService().notifyMalshabimApprovalNotes({
           candidateId: existing.id,
           fullName: existing.full_name || "מועמד",
           notes,
           approverName,
-          recipientUserId,
-          recipientEmail,
-          recipientName,
+          recipients,
+          approverUserId: access.profile.id,
+          approverEmail: approverProfile?.email ?? null,
         });
       } catch (error) {
         console.error("[malshabim-approval-notes-notify]", id, error);

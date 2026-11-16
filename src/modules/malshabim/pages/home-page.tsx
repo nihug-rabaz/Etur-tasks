@@ -40,6 +40,7 @@ import {
   parseTemplateFile,
   templateRowsToImportPayload,
 } from "@/modules/malshabim/lib/excel-template";
+import { SearchableMultiSelect } from "@/modules/malshabim/components/searchable-multi-select";
 import { malshabimFetch } from "@/modules/malshabim/lib/fetch";
 import {
   cardClass,
@@ -80,20 +81,34 @@ const HOME_VIEW_KEY = "malshabim-home-view-mode";
 
 const DEFAULT_FILTERS: MalshabimCandidateFilters = {
   search: "",
-  track: "all",
+  track: [],
   candidateStatus: [],
-  statusType: "all",
-  requestType: "all",
+  statusType: [],
+  requestType: [],
   fromDate: "",
   toDate: "",
 };
+
+function coerceMulti(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item) => typeof item === "string");
+  if (typeof value === "string" && value && value !== "all") return [value];
+  return [];
+}
 
 function loadStoredFilters(): MalshabimCandidateFilters {
   try {
     const raw = sessionStorage.getItem(HOME_FILTERS_KEY);
     if (!raw) return DEFAULT_FILTERS;
     const parsed = JSON.parse(raw) as MalshabimCandidateFilters;
-    return { ...DEFAULT_FILTERS, ...parsed, search: "" };
+    return {
+      ...DEFAULT_FILTERS,
+      ...parsed,
+      search: "",
+      track: coerceMulti(parsed.track),
+      candidateStatus: coerceMulti(parsed.candidateStatus),
+      statusType: coerceMulti(parsed.statusType),
+      requestType: coerceMulti(parsed.requestType),
+    };
   } catch {
     return DEFAULT_FILTERS;
   }
@@ -257,6 +272,9 @@ export function MalshabimHomePage({
   ) => setFilters((prev) => ({ ...prev, [key]: value }));
 
   const selectedStatuses = asSelectedList(filters.candidateStatus);
+  const selectedTracks = asSelectedList(filters.track);
+  const selectedStatusTypes = asSelectedList(filters.statusType);
+  const selectedRequestTypes = asSelectedList(filters.requestType);
   const showSearchPanel = searchOpen && searchQuery.length >= 1;
 
   const clearFilters = () => {
@@ -785,53 +803,36 @@ export function MalshabimHomePage({
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
-              איתור / בקשה
-              <select
-                className={selectClass}
-                value={typeof filters.requestType === "string" ? filters.requestType : "all"}
-                onChange={(e) => setFilter("requestType", e.target.value)}
-              >
-                <option value="all">הכול</option>
-                <option value={FILTER_EMPTY_VALUE}>ללא</option>
-                {REQUEST_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
-              מסלול גיוס
-              <select
-                className={selectClass}
-                value={typeof filters.track === "string" ? filters.track : "all"}
-                onChange={(e) => setFilter("track", e.target.value)}
-              >
-                <option value="all">כל המסלולים</option>
-                <option value={FILTER_EMPTY_VALUE}>ללא מסלול</option>
-                {RECRUITMENT_TRACKS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-[9rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[11rem]">
-              סטטוס
-              <select
-                className={selectClass}
-                value={typeof filters.statusType === "string" ? filters.statusType : "all"}
-                onChange={(e) => setFilter("statusType", e.target.value)}
-              >
-                <option value="all">כל הסטטוסים</option>
-                {STATUS_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
+              <SearchableMultiSelect
+                label="איתור / בקשה"
+                value={selectedRequestTypes}
+                onChange={(next) => setFilter("requestType", next)}
+                options={[
+                  { value: FILTER_EMPTY_VALUE, label: "ללא" },
+                  ...REQUEST_TYPES.map((type) => ({ value: type, label: type })),
+                ]}
+              />
+            </div>
+            <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
+              <SearchableMultiSelect
+                label="מסלול גיוס"
+                value={selectedTracks}
+                onChange={(next) => setFilter("track", next)}
+                options={[
+                  { value: FILTER_EMPTY_VALUE, label: "ללא מסלול" },
+                  ...RECRUITMENT_TRACKS.map((t) => ({ value: t, label: t })),
+                ]}
+              />
+            </div>
+            <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
+              <SearchableMultiSelect
+                label="סטטוס"
+                value={selectedStatusTypes}
+                onChange={(next) => setFilter("statusType", next)}
+                options={STATUS_TYPES.map((type) => ({ value: type, label: type }))}
+              />
+            </div>
             <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-bold text-text-muted">
               סטטוס עודכן מ-
               <input

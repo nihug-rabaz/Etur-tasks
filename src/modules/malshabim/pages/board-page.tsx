@@ -40,6 +40,8 @@ import { MonthYearRangeSelect } from "@/modules/malshabim/components/month-year-
 import {
   emptyStateClass,
   pageShellClass,
+  panelClass,
+  searchClass,
   secondaryButtonClass,
   selectClass,
   tableHeadClass,
@@ -339,57 +341,22 @@ export function MalshabimBoardPage({
         />
       </div>
 
-      {/* Advanced filters — white fields + black labels like home / candidate filters */}
-      <section className="rounded-3xl border border-border-weak bg-white p-4 shadow-sm sm:p-5 dark:bg-surface-1">
-        <div className="flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <label className="flex flex-col gap-1.5 text-xs font-bold text-black sm:col-span-2 lg:col-span-1 dark:text-text-primary">
-              חיפוש חופשי
-              <div className="relative">
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
-                <input
-                  className="w-full rounded-xl border border-border-weak bg-white py-2.5 ps-10 pe-3 text-sm font-semibold text-black outline-none focus:ring-2 focus:ring-accent-primary/30 dark:bg-surface-2 dark:text-text-primary"
-                  placeholder="מס׳ תיק, שם, טלפון, ת.ז…"
-                  value={filters.search || ""}
-                  onChange={(e) => setFilter("search", e.target.value)}
-                />
-              </div>
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-bold text-black dark:text-text-primary">
-              סטטוס עודכן מ-
+      {/* Filters — same multi-select control + layout language as home «תיקי מועמדים» */}
+      <section className={`${panelClass} space-y-3 p-4 sm:p-5`}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+          <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs font-bold text-text-muted sm:max-w-[18rem]">
+            חיפוש חופשי
+            <div className="relative">
+              <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
               <input
-                type="date"
-                className={`${selectClass} !bg-white !text-black dark:!bg-surface-2 dark:!text-text-primary`}
-                value={filters.fromDate || ""}
-                onChange={(e) => setFilter("fromDate", e.target.value)}
+                className={`${searchClass} ps-10`}
+                placeholder="מס׳ תיק, שם, טלפון, ת.ז…"
+                value={filters.search || ""}
+                onChange={(e) => setFilter("search", e.target.value)}
               />
-            </label>
-            <label className="flex flex-col gap-1.5 text-xs font-bold text-black dark:text-text-primary">
-              סטטוס עודכן עד
-              <input
-                type="date"
-                className={`${selectClass} !bg-white !text-black dark:!bg-surface-2 dark:!text-text-primary`}
-                value={filters.toDate || ""}
-                onChange={(e) => setFilter("toDate", e.target.value)}
-              />
-            </label>
-            <SearchableMultiSelect
-              label="סטטוס (מלש״ב / חייל)"
-              value={selectedStatusTypes}
-              onChange={(next) => setFilter("statusType", next)}
-              options={STATUS_TYPES.map((type) => ({ value: type, label: type }))}
-            />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <SearchableMultiSelect
-              label="סטטוס עבודה"
-              value={selectedStatuses}
-              onChange={(next) => setFilter("candidateStatus", next)}
-              options={CANDIDATE_STATUSES.map((status) => ({
-                value: status,
-                label: status,
-              }))}
-            />
+            </div>
+          </label>
+          <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
             <SearchableMultiSelect
               label="איתור / בקשה"
               value={selectedRequestTypes}
@@ -399,6 +366,8 @@ export function MalshabimBoardPage({
                 ...REQUEST_TYPES.map((type) => ({ value: type, label: type })),
               ]}
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
             <SearchableMultiSelect
               label="מסלול גיוס"
               value={selectedTracks}
@@ -408,6 +377,27 @@ export function MalshabimBoardPage({
                 ...RECRUITMENT_TRACKS.map((t) => ({ value: t, label: t })),
               ]}
             />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
+            <SearchableMultiSelect
+              label="סטטוס"
+              value={selectedStatusTypes}
+              onChange={(next) => setFilter("statusType", next)}
+              options={STATUS_TYPES.map((type) => ({ value: type, label: type }))}
+            />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
+            <SearchableMultiSelect
+              label="סטטוס עבודה"
+              value={selectedStatuses}
+              onChange={(next) => setFilter("candidateStatus", next)}
+              options={CANDIDATE_STATUSES.map((status) => ({
+                value: status,
+                label: status,
+              }))}
+            />
+          </div>
+          <div className="min-w-[9rem] flex-1 sm:max-w-[14rem]">
             <MonthYearRangeSelect
               label="חודשי גיוס"
               value={selectedEnlistmentMonths}
@@ -416,16 +406,34 @@ export function MalshabimBoardPage({
               toYear={2028}
             />
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs font-bold text-black dark:text-text-muted">
+          <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-bold text-text-muted">
+            סטטוס עודכן מ-
+            <input
+              type="date"
+              className={selectClass}
+              value={filters.fromDate || ""}
+              onChange={(e) => setFilter("fromDate", e.target.value)}
+            />
+          </label>
+          <label className="flex min-w-[9rem] flex-col gap-1 text-xs font-bold text-text-muted">
+            סטטוס עודכן עד
+            <input
+              type="date"
+              className={selectClass}
+              value={filters.toDate || ""}
+              onChange={(e) => setFilter("toDate", e.target.value)}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2 sm:ms-auto">
+            <span className="text-xs font-bold text-text-muted">
               {filtered.length} מתוך {stats.total}
             </span>
             <button
               type="button"
-              className={`${secondaryButtonClass} !bg-white !text-black border border-border-weak dark:!bg-surface-2 dark:!text-text-primary`}
+              className="inline-flex items-center gap-1 rounded-full bg-surface-2/80 px-3 py-2 text-xs font-bold text-text-secondary transition hover:bg-surface-2"
               onClick={clearFilters}
             >
-              <RefreshCw className="h-4 w-4" /> ניקוי
+              <RefreshCw className="h-3.5 w-3.5" /> ניקוי
             </button>
           </div>
         </div>

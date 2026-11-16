@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import postgres from "postgres";
 
 export type NeonSql = <T = unknown>(
   strings: TemplateStringsArray,
@@ -16,14 +16,23 @@ function normalizeDatabaseUrl(raw: string): string {
   return url;
 }
 
+let sqlClient: ReturnType<typeof postgres> | null = null;
+
 export class NeonDatabase {
   public static createClient(): NeonSql {
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl) {
       throw new Error("Missing DATABASE_URL");
     }
-    const raw = neon(normalizeDatabaseUrl(databaseUrl));
+    if (!sqlClient) {
+      sqlClient = postgres(normalizeDatabaseUrl(databaseUrl), {
+        ssl: "require",
+        max: 1,
+        prepare: false,
+      });
+    }
+    const sql = sqlClient;
     return ((strings: TemplateStringsArray, ...values: unknown[]) =>
-      raw(strings, ...values)) as NeonSql;
+      sql(strings, ...(values as never[]))) as NeonSql;
   }
 }

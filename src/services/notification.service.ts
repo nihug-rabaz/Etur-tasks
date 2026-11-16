@@ -4,6 +4,7 @@ import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { AppUrls } from "@/lib/urls/app-urls";
 import { formatScheduleTime } from "@/lib/dates/schedule-range";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
+import { isMalshabimCandidateApprover } from "@/modules/malshabim/lib/approvers";
 import type { NotificationImageService } from "@/services/notification-image.service";
 
 interface TaskNotificationInput {
@@ -70,9 +71,67 @@ export class NotificationService extends BaseService {
       `תת-נושא: ${toHebrewSubtopicLabel(input.subtopic)}\n` +
       `תאריך גמר ביצוע: ${this.formatDate(input.dueDate)}` +
       this.taskLinkSuffix(input.taskId);
-    return this.sendToUsers(recipientIds, text, AppUrls.taskDetail(input.taskId), (userId) =>
-      `task-opened:${input.taskId}:${userId}`,
+    const url = AppUrls.taskDetail(input.taskId);
+    const sent = await this.sendToUsers(
+      recipientIds,
+      text,
+      url,
+      (userId) => `task-opened:${input.taskId}:${userId}`,
     );
+    await this.emailUsers(recipientIds, {
+      subject: `משימה חדשה — ${input.title}`,
+      bodyHtml: this.taskEmailHtml({
+        heading: "נפתחה משימה חדשה",
+        title: input.title,
+        subtopic: input.subtopic,
+        dueDate: input.dueDate,
+        url,
+      }),
+    });
+    return sent;
+  }
+
+  public async notifyTaskMessage(input: {
+    taskId: string;
+    title: string;
+    body: string;
+    authorId: string;
+    authorName: string;
+    recipientIds: string[];
+  }): Promise<number> {
+    if (!this.push.isReady()) return 0;
+    const recipients = input.recipientIds.filter((id) => id && id !== input.authorId);
+    if (recipients.length === 0) return 0;
+    const url = AppUrls.taskDetail(input.taskId);
+    const text =
+      "הודעה חדשה במשימה\n" +
+      `משימה: ${input.title}\n` +
+      `מאת: ${input.authorName}\n` +
+      `הודעה: ${input.body.trim()}` +
+      this.taskLinkSuffix(input.taskId);
+    const sent = await this.sendToUsers(
+      recipients,
+      text,
+      url,
+      (userId) =>
+        `task-message:${input.taskId}:${userId}:${Date.now()}`,
+    );
+    const safeBody = input.body
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br/>");
+    await this.emailUsers(recipients, {
+      subject: `הודעה במשימה — ${input.title}`,
+      bodyHtml:
+        `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6">` +
+        `<p>התקבלה הודעה חדשה במשימה <strong>${input.title.replace(/[<>]/g, "")}</strong> מאת ${input.authorName.replace(/[<>]/g, "")}:</p>` +
+        `<p style="margin:16px 0;padding:12px;background:#f4f4f5;border-radius:8px">${safeBody || "—"}</p>` +
+        (url ? `<p><a href="${url}">לפתיחת המשימה</a></p>` : "") +
+        `</div>`,
+    });
+    return sent;
   }
 
   public async notifyTaskDueTomorrow(input: TaskNotificationInput): Promise<number> {
@@ -220,7 +279,8 @@ export class NotificationService extends BaseService {
     requesterName: string;
   }): Promise<number> {
     if (!this.push.isReady()) return 0;
-    const adminIds = await this.getMalshabimAdminIds();
+    const adminIds = await this.getMalshabimApproverIds();
+    if (adminIds.length === 0) return 0;
     const url = this.malshabimApprovalsUrl();
     const text =
       "בקשה לאישור מלש״ב\n" +
@@ -236,7 +296,7 @@ export class NotificationService extends BaseService {
     );
   }
 
-  /** Content changed while the file is waiting for manager approval — notify admins. */
+  /** Content changed while the file is waiting for manager approval — notify designated approvers only. */
   public async notifyMalshabimCandidateChangedWhileAwaiting(input: {
     candidateId: string;
     fullName: string;
@@ -244,7 +304,8 @@ export class NotificationService extends BaseService {
     summary: string;
   }): Promise<number> {
     if (!this.push.isReady()) return 0;
-    const adminIds = await this.getMalshabimAdminIds();
+    const adminIds = await this.getMalshabimApproverIds();
+    if (adminIds.length === 0) return 0;
     const url = this.malshabimCandidateUrl(input.candidateId);
     const text =
       "עודכן תיק שממתין לאישור מנהל\n" +
@@ -261,15 +322,24 @@ export class NotificationService extends BaseService {
     );
   }
 
-  /** Manager sent notes instead of approving — notify the requester (push + email). */
+  /** Manager sent notes — notify creators/interviewers and optionally the manager. */
   public async notifyMalshabimApprovalNotes(input: {
     candidateId: string;
     fullName: string;
     notes: string;
     approverName: string;
-    recipientUserId: string;
+    /** @deprecated prefer `recipients` */
+    recipientUserId?: string;
     recipientEmail?: string | null;
     recipientName?: string | null;
+    recipients?: Array<{
+      userId: string;
+      email?: string | null;
+      name?: string | null;
+    }>;
+    /** When set, also notify the approving manager (push + email). */
+    approverUserId?: string | null;
+    approverEmail?: string | null;
   }): Promise<{ push: boolean; email: boolean }> {
     const url = this.malshabimCandidateUrl(input.candidateId);
     const text =
@@ -279,51 +349,99 @@ export class NotificationService extends BaseService {
       `הערות:\n${input.notes.trim()}` +
       (url ? `\n\nלתיק: ${url}` : "");
 
-    let push = false;
-    if (this.push.isReady() && input.recipientUserId) {
-      const fingerprint = input.notes.trim().replace(/\s+/g, " ").slice(0, 48);
-      const key = `malshabim-approval-notes:${input.candidateId}:${input.recipientUserId}:${fingerprint}`;
-      if (await this.reserveDelivery(key)) {
-        try {
-          push = await this.push.sendTextToUser(
-            input.recipientUserId,
-            text,
-            url || undefined,
-          );
-          if (!push) await this.releaseDelivery(key);
-        } catch (error) {
-          await this.releaseDelivery(key);
-          console.error("[malshabim-approval-notes-push]", error);
+    const safeCandidate = input.fullName.replace(/[<>]/g, "");
+    const safeApprover = input.approverName.replace(/[<>]/g, "");
+    const safeNotes = input.notes
+      .trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br/>");
+    const fingerprint = input.notes.trim().replace(/\s+/g, " ").slice(0, 48);
+
+    const deliverOne = async (opts: {
+      userId: string;
+      email?: string | null;
+      name?: string | null;
+      role: "recipient" | "approver";
+    }): Promise<{ push: boolean; email: boolean }> => {
+      let push = false;
+      let email = false;
+      if (this.push.isReady() && opts.userId) {
+        const key = `malshabim-approval-notes:${input.candidateId}:${opts.role}:${opts.userId}:${fingerprint}`;
+        if (await this.reserveDelivery(key)) {
+          try {
+            push = await this.push.sendTextToUser(
+              opts.userId,
+              text,
+              url || undefined,
+            );
+            if (!push) await this.releaseDelivery(key);
+          } catch (error) {
+            await this.releaseDelivery(key);
+            console.error("[malshabim-approval-notes-push]", error);
+          }
         }
       }
-    }
+      const address = (opts.email ?? "").trim();
+      if (address) {
+        const safeName = (opts.name || "שלום").replace(/[<>]/g, "");
+        email = await this.push.sendEmailToAddress({
+          email: address,
+          subject: `הערות מנהל — ${safeCandidate}`,
+          bodyHtml:
+            `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6">` +
+            `<p>${safeName},</p>` +
+            `<p>התקבלו הערות מנהל לתיק <strong>${safeCandidate}</strong> מאת ${safeApprover}:</p>` +
+            `<p style="margin:16px 0;padding:12px;background:#f4f4f5;border-radius:8px">${safeNotes || "—"}</p>` +
+            (url ? `<p><a href="${url}">לפתיחת התיק</a></p>` : "") +
+            `</div>`,
+        });
+      }
+      return { push, email };
+    };
 
-    let email = false;
-    const address = (input.recipientEmail ?? "").trim();
-    if (address) {
-      const safeName = (input.recipientName || "שלום").replace(/[<>]/g, "");
-      const safeCandidate = input.fullName.replace(/[<>]/g, "");
-      const safeApprover = input.approverName.replace(/[<>]/g, "");
-      const safeNotes = input.notes
-        .trim()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n/g, "<br/>");
-      email = await this.push.sendEmailToAddress({
-        email: address,
-        subject: `הערות מנהל — ${safeCandidate}`,
-        bodyHtml:
-          `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6">` +
-          `<p>${safeName},</p>` +
-          `<p>התקבלו הערות מנהל לתיק <strong>${safeCandidate}</strong> מאת ${safeApprover}:</p>` +
-          `<p style="margin:16px 0;padding:12px;background:#f4f4f5;border-radius:8px">${safeNotes || "—"}</p>` +
-          (url ? `<p><a href="${url}">לפתיחת התיק</a></p>` : "") +
-          `</div>`,
+    const recipients =
+      input.recipients && input.recipients.length > 0
+        ? input.recipients
+        : input.recipientUserId
+          ? [
+              {
+                userId: input.recipientUserId,
+                email: input.recipientEmail,
+                name: input.recipientName,
+              },
+            ]
+          : [];
+
+    const seen = new Set<string>();
+    let anyPush = false;
+    let anyEmail = false;
+    for (const recipient of recipients) {
+      if (!recipient.userId || seen.has(recipient.userId)) continue;
+      seen.add(recipient.userId);
+      const result = await deliverOne({
+        userId: recipient.userId,
+        email: recipient.email,
+        name: recipient.name,
+        role: "recipient",
       });
+      anyPush = anyPush || result.push;
+      anyEmail = anyEmail || result.email;
     }
 
-    return { push, email };
+    if (input.approverUserId && !seen.has(input.approverUserId)) {
+      const toApprover = await deliverOne({
+        userId: input.approverUserId,
+        email: input.approverEmail,
+        name: input.approverName,
+        role: "approver",
+      });
+      anyPush = anyPush || toApprover.push;
+      anyEmail = anyEmail || toApprover.email;
+    }
+
+    return { push: anyPush, email: anyEmail };
   }
 
   public async notifyMalshabimWaitlistCreated(input: {
@@ -467,6 +585,60 @@ export class NotificationService extends BaseService {
   private async getMalshabimAdminIds(): Promise<string[]> {
     const users = await new ModuleRoleService().listModuleUsers("malshabim");
     return users.filter((user) => user.role === "admin").map((user) => user.user_id);
+  }
+
+  /** Only designated candidate approvers (ישראל / קובי), not every malshabim admin. */
+  private async getMalshabimApproverIds(): Promise<string[]> {
+    const users = await new ModuleRoleService().listModuleUsers("malshabim");
+    return users
+      .filter(
+        (user) =>
+          user.role === "admin" &&
+          isMalshabimCandidateApprover({ name: user.name, email: user.email }),
+      )
+      .map((user) => user.user_id);
+  }
+
+  private async emailUsers(
+    userIds: string[],
+    input: { subject: string; bodyHtml: string },
+  ): Promise<number> {
+    const uniqueIds = [...new Set(userIds.filter(Boolean))];
+    if (uniqueIds.length === 0 || !this.push.isReady()) return 0;
+    const db = this.getDb();
+    const rows = await db<Array<{ id: string; email: string | null }>>`
+      select id, email from profiles where id = any(${uniqueIds}::uuid[])
+    `;
+    let sent = 0;
+    for (const row of rows) {
+      const address = (row.email ?? "").trim();
+      if (!address) continue;
+      const ok = await this.push.sendEmailToAddress({
+        email: address,
+        subject: input.subject,
+        bodyHtml: input.bodyHtml,
+      });
+      if (ok) sent += 1;
+    }
+    return sent;
+  }
+
+  private taskEmailHtml(input: {
+    heading: string;
+    title: string;
+    subtopic: string;
+    dueDate: string | null;
+    url?: string;
+  }): string {
+    const safeTitle = input.title.replace(/[<>]/g, "");
+    const safeSub = toHebrewSubtopicLabel(input.subtopic).replace(/[<>]/g, "");
+    return (
+      `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.6">` +
+      `<p><strong>${input.heading.replace(/[<>]/g, "")}</strong></p>` +
+      `<p>משימה: ${safeTitle}<br/>תת-נושא: ${safeSub}<br/>תאריך גמר ביצוע: ${this.formatDate(input.dueDate)}</p>` +
+      (input.url ? `<p><a href="${input.url}">לפתיחת המשימה</a></p>` : "") +
+      `</div>`
+    );
   }
 
   private async getMalshabimRecipientIds(): Promise<string[]> {
