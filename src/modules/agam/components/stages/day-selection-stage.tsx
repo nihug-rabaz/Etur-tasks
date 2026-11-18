@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { interviewMissingItems } from "@/modules/agam/lib/interview-readiness";
 import {
   RECOMMENDATION_TONES,
 } from "@/modules/agam/lib/stages";
@@ -41,8 +40,6 @@ export function DaySelectionStage({
   const interviewLabelByKey = Object.fromEntries(
     interviewQuestions.map((question) => [question.field_key, question.question_text]),
   );
-  const latestInterview = interviews[0] ?? null;
-  const interviewBlockers = interviewMissingItems(latestInterview, interviewQuestions);
   const tabs: Array<{ id: TabId; label: string }> = [
     { id: "questionnaire", label: "שאלון מקדים" },
     { id: "interviews", label: `ראיונות (${interviews.length})` },
@@ -68,22 +65,6 @@ export function DaySelectionStage({
             </div>
           ) : null}
         </div>
-        {interviewBlockers.length > 0 ? (
-          <div className="mt-4 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-text-primary ring-1 ring-amber-500/20">
-            <p className="font-extrabold">המועמד עוד לא השלים את החלק שלו בראיון (אפשר לכתוב ראיון בכל מקרה)</p>
-            <ul className="mt-2 space-y-1 ps-5">
-              {interviewBlockers.map((item) => (
-                <li key={item} className="list-disc font-semibold text-text-secondary">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <p className="mt-4 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-            חלק המועמד בראיון הושלם — אפשר להמשיך לכתיבת הראיון.
-          </p>
-        )}
         <div className={`mt-4 flex gap-1 overflow-x-auto pt-3 ${dividerTopClass}`}>
           {tabs.map((item) => (
             <button

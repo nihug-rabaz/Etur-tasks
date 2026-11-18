@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { AgamQuestionField } from "@/modules/agam/components/question-field";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
-import { interviewMissingItems } from "@/modules/agam/lib/interview-readiness";
 import { groupQuestionsBySection, isQuestionVisible } from "@/modules/agam/lib/questions";
 import { RECOMMENDATIONS } from "@/modules/agam/lib/stages";
 import {
@@ -33,7 +32,6 @@ export function AgamInterviewPage({
 }) {
   const [questions, setQuestions] = useState<AgamQuestion[]>([]);
   const [interview, setInterview] = useState<AgamInterview | null>(null);
-  const [candidatePartComplete, setCandidatePartComplete] = useState(false);
   const [data, setData] = useState<Record<string, string>>({});
   const [assessment, setAssessment] = useState("");
   const [recommendation, setRecommendation] = useState<AgamRecommendation | "">("");
@@ -51,7 +49,6 @@ export function AgamInterviewPage({
       .then((json) => {
         setQuestions(json.questions ?? []);
         setInterview(json.interview);
-        setCandidatePartComplete(Boolean(json.candidatePartComplete));
         const interviewData = (json.interview?.interview_data ?? {}) as Record<string, unknown>;
         const next: Record<string, string> = {};
         for (const [key, value] of Object.entries(interviewData)) next[key] = String(value ?? "");
@@ -66,10 +63,6 @@ export function AgamInterviewPage({
   const sections = useMemo(() => groupQuestionsBySection(questions), [questions]);
   const candidateAnswers = (interview?.candidate_part ?? {}) as Record<string, unknown>;
 
-  const missing = useMemo(
-    () => (candidatePartComplete ? [] : interviewMissingItems(interview, questions)),
-    [candidatePartComplete, interview, questions],
-  );
   const onSave = async () => {
     setSaving(true);
     try {
@@ -114,22 +107,6 @@ export function AgamInterviewPage({
         </header>
       )}
 
-      {missing.length > 0 ? (
-        <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm ring-1 ring-amber-500/20">
-          <p className="flex items-center gap-2 font-extrabold text-text-primary">
-            <AlertTriangle size={15} className="shrink-0 text-amber-600 dark:text-amber-300" />
-            לידיעתך: המועמד עוד לא השלים את החלק שלו בראיון בפורטל המועמד
-          </p>
-          <ul className="mt-2 space-y-1 ps-6">
-            {missing.map((item) => (
-              <li key={item} className="list-disc text-[13px] font-semibold text-text-secondary">
-                {item}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-text-muted">אפשר למלא ולשמור את הראיון כרגיל, והמועמד יוכל להשלים את החלק שלו גם אחר כך.</p>
-        </div>
-      ) : null}
 
       {Object.keys(candidateAnswers).length > 0 ? (
         <section className={`${panelClass} space-y-3 p-5 sm:p-6`}>
