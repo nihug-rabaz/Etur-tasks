@@ -16,6 +16,7 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,10 +42,19 @@ type ExamDetail = {
   questions: CandidateExamQuestion[];
 };
 
+type ReviewKey = Record<string, string[]>;
+
 type ExamDetailResponse = {
   exam: ExamDetail;
   attempt: CandidateExamAttempt | null;
+  review: ReviewKey | null;
 };
+
+function isAnswerCorrect(review: ReviewKey, questionId: string, answers: CandidateExamAnswers) {
+  const expected = review[questionId] ?? [];
+  const given = answers[questionId] ?? [];
+  return given.length === expected.length && expected.every((id) => given.includes(id));
+}
 
 const HEBREW_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י"];
 
@@ -250,6 +260,7 @@ export function CandidateKnowledgeExams({
   const [loadingExam, setLoadingExam] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [review, setReview] = useState<ReviewKey | null>(null);
 
   const loadBoard = useCallback(async () => {
     setLoadingList(true);
@@ -283,6 +294,7 @@ export function CandidateKnowledgeExams({
       const isSubmitted = data.attempt?.status === "submitted";
       setReadOnly(isSubmitted);
       setAnswers({ ...(data.attempt?.answers ?? {}) });
+      setReview(data.review ?? null);
     } catch (error) {
       setActiveId(null);
       setDetail(null);
@@ -298,6 +310,7 @@ export function CandidateKnowledgeExams({
     setAnswers({});
     setConfirmSubmit(false);
     setReadOnly(false);
+    setReview(null);
   };
 
   const currentQuestion = detail?.questions[index] ?? null;
@@ -339,15 +352,18 @@ export function CandidateKnowledgeExams({
       const data = await agamFetch<{
         attempt: CandidateExamAttempt;
         exams: CandidateExamBoardItem[];
+        review: ReviewKey | null;
       }>(`/api/agam/me/exams/${detail.id}`, {
         method: "POST",
         body: JSON.stringify({ answers: payloadAnswers, status, restart }),
       });
       setExams(data.exams);
       setAnswers(data.attempt.answers ?? payloadAnswers);
+      setReview(data.review ?? null);
       if (status === "submitted") {
         setReadOnly(true);
         setConfirmSubmit(false);
+        if (data.review) setIndex(0);
         toast.success("המבחן הוגש בהצלחה");
       } else if (restart) {
         setReadOnly(false);
@@ -373,6 +389,17 @@ export function CandidateKnowledgeExams({
   const practiceExams = exams.filter((exam) => exam.kind === "practice");
   const isPractice = detail?.kind === "practice";
   const activeResult = readOnly ? (exams.find((exam) => exam.id === activeId)?.result ?? null) : null;
+  const isLast = total > 0 && index >= total - 1;
+  const mistakeIndexes = useMemo(
+    () =>
+      review && detail
+        ? detail.questions
+            .map((question, questionIndex) => (isAnswerCorrect(review, question.id, answers) ? -1 : questionIndex))
+            .filter((questionIndex) => questionIndex >= 0)
+        : [],
+    [review, detail, answers],
+  );
+  const nextMistake = mistakeIndexes.find((questionIndex) => questionIndex > index) ?? mistakeIndexes[0];
 
   const subtitle = detail
     ? `${isPractice ? "תרגול" : "מבחן רשמי"} · ${detail.category} · שאלה ${Math.min(index + 1, total)} מתוך ${total}`
@@ -443,6 +470,41 @@ export function CandidateKnowledgeExams({
         size="lg"
         footer={
           detail && !loadingExam ? (
+            confirmSubmit ? (
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" dir="rtl">
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-text-primary">
+                    {isPractice ? "להגיש את התרגול?" : "להגיש את המבחן הרשמי?"}
+                  </p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-text-secondary">
+                    נענו {doneIds.size} מתוך {total} שאלות.
+                    {doneIds.size < total ? " יש שאלות שטרם נענו — אפשר עדיין להגיש." : " כל השאלות נענו."}
+                    {isPractice
+                      ? " אחרי ההגשה תראו את הציון, את הטעויות ואת התשובות הנכונות."
+                      : " לאחר ההגשה לא ניתן לשנות תשובות או להגיש שוב."}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    className={secondaryButtonClass}
+                    disabled={saving}
+                    onClick={() => setConfirmSubmit(false)}
+                  >
+                    ביטול
+                  </button>
+                  <button
+                    type="button"
+                    className={primaryButtonClass}
+                    disabled={saving}
+                    onClick={() => void persist("submitted", {})}
+                  >
+                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    אישור הגשה
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" dir="rtl">
               <div className="flex gap-2">
                 <button
@@ -454,15 +516,30 @@ export function CandidateKnowledgeExams({
                   <ChevronRight size={16} />
                   הקודם
                 </button>
-                <button
-                  type="button"
-                  className={secondaryButtonClass}
-                  disabled={index >= total - 1 || saving}
-                  onClick={() => goToQuestion(Math.min(total - 1, index + 1))}
-                >
-                  הבא
-                  <ChevronLeft size={16} />
-                </button>
+                {isLast && !readOnly ? (
+                  <button
+                    type="button"
+                    className={primaryButtonClass}
+                    disabled={saving}
+                    onClick={() => {
+                      void persist("in_progress", { quiet: true });
+                      setConfirmSubmit(true);
+                    }}
+                  >
+                    <Send size={14} />
+                    סיום והגשה
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={secondaryButtonClass}
+                    disabled={isLast || saving}
+                    onClick={() => goToQuestion(Math.min(total - 1, index + 1))}
+                  >
+                    הבא
+                    <ChevronLeft size={16} />
+                  </button>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {readOnly && !isPractice ? (
@@ -471,20 +548,32 @@ export function CandidateKnowledgeExams({
                     המבחן הוגש
                   </span>
                 ) : readOnly ? (
-                  <button
-                    type="button"
-                    className={secondaryButtonClass}
-                    disabled={saving}
-                    onClick={() => {
-                      setIndex(0);
-                      setConfirmSubmit(false);
-                      void persist("in_progress", { restart: true, overrideAnswers: {} });
-                    }}
-                  >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                    תרגול חוזר
-                  </button>
-                ) : (
+                  <>
+                    {nextMistake !== undefined ? (
+                      <button
+                        type="button"
+                        className={`${secondaryButtonClass} text-rose-700 dark:text-rose-300`}
+                        onClick={() => setIndex(nextMistake)}
+                      >
+                        <X size={14} strokeWidth={2.75} />
+                        לטעות הבאה
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={secondaryButtonClass}
+                      disabled={saving}
+                      onClick={() => {
+                        setIndex(0);
+                        setConfirmSubmit(false);
+                        void persist("in_progress", { restart: true, overrideAnswers: {} });
+                      }}
+                    >
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                      תרגול חוזר
+                    </button>
+                  </>
+                ) : isLast ? null : (
                   <>
                     <button
                       type="button"
@@ -508,6 +597,7 @@ export function CandidateKnowledgeExams({
                 )}
               </div>
             </div>
+            )
           ) : null
         }
       >
@@ -540,7 +630,9 @@ export function CandidateKnowledgeExams({
                   </p>
                   <p className="text-[12px] leading-relaxed text-text-secondary">
                     {isPractice
-                      ? "להכנה עצמית בלבד. אפשר לשמור, להגיש ולתרגל שוב בכל עת."
+                      ? review
+                        ? "השאלות המסומנות באדום הן טעויות — התשובה הנכונה מסומנת בירוק."
+                        : "להכנה עצמית. אחרי ההגשה תראו ציון, טעויות ותשובות נכונות, ואפשר לתרגל שוב."
                       : "התשובות נשמרות אוטומטית במעבר בין שאלות. ניתן להגיש פעם אחת בלבד."}
                   </p>
                 </div>
@@ -563,18 +655,27 @@ export function CandidateKnowledgeExams({
                   {detail.questions.map((question, questionIndex) => {
                     const answered = doneIds.has(question.id);
                     const active = questionIndex === index;
+                    const correct = review ? isAnswerCorrect(review, question.id, answers) : null;
+                    const tone =
+                      correct === null
+                        ? active
+                          ? "bg-emerald-600 text-white"
+                          : answered
+                            ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+                            : "bg-surface-2 text-text-muted hover:bg-surface-2/90"
+                        : correct
+                          ? active
+                            ? "bg-emerald-600 text-white"
+                            : "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
+                          : active
+                            ? "bg-rose-600 text-white"
+                            : "bg-rose-500/15 text-rose-800 dark:text-rose-200";
                     return (
                       <button
                         key={question.id}
                         type="button"
                         onClick={() => goToQuestion(questionIndex)}
-                        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-[11px] font-extrabold tabular-nums transition ${
-                          active
-                            ? "bg-emerald-600 text-white"
-                            : answered
-                              ? "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200"
-                              : "bg-surface-2 text-text-muted hover:bg-surface-2/90"
-                        }`}
+                        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-[11px] font-extrabold tabular-nums transition ${tone}`}
                         aria-label={`שאלה ${questionIndex + 1}`}
                       >
                         {questionIndex + 1}
@@ -598,7 +699,19 @@ export function CandidateKnowledgeExams({
                       בחירה אחת
                     </span>
                   )}
-                  {readOnly ? (
+                  {review ? (
+                    isAnswerCorrect(review, currentQuestion.id, answers) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-200">
+                        <Check size={11} strokeWidth={3} />
+                        ענית נכון
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-1 text-[11px] font-extrabold text-rose-800 dark:text-rose-200">
+                        <X size={11} strokeWidth={3} />
+                        {(answers[currentQuestion.id]?.length ?? 0) > 0 ? "טעות" : "לא נענתה"}
+                      </span>
+                    )
+                  ) : readOnly ? (
                     <span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-200">
                       לתצוגה בלבד
                     </span>
@@ -613,69 +726,66 @@ export function CandidateKnowledgeExams({
                 {currentQuestion.options.map((option, optionIndex) => {
                   const selected = (answers[currentQuestion.id] ?? []).includes(option.id);
                   const letter = HEBREW_LETTERS[optionIndex] ?? String(optionIndex + 1);
+                  const isKey = review ? (review[currentQuestion.id] ?? []).includes(option.id) : false;
+                  const wrongPick = Boolean(review) && selected && !isKey;
+                  const rowTone = review
+                    ? isKey
+                      ? "bg-emerald-500/12 ring-1 ring-emerald-500/40"
+                      : wrongPick
+                        ? "bg-rose-500/10 ring-1 ring-rose-500/40"
+                        : "bg-surface-2/50 opacity-80"
+                    : selected
+                      ? "bg-emerald-500/12 ring-1 ring-emerald-500/35"
+                      : "bg-surface-2/70 hover:bg-surface-2";
+                  const badgeTone = review
+                    ? isKey
+                      ? "bg-emerald-600 text-white"
+                      : wrongPick
+                        ? "bg-rose-600 text-white"
+                        : "bg-surface-1 text-text-muted"
+                    : selected
+                      ? "bg-emerald-600 text-white"
+                      : "bg-surface-1 text-text-muted";
                   return (
                     <li key={option.id}>
                       <button
                         type="button"
                         disabled={readOnly}
                         onClick={() => toggleOption(currentQuestion, option.id)}
-                        className={`flex w-full items-start gap-3 rounded-2xl px-3.5 py-3 text-start transition ${
-                          selected
-                            ? "bg-emerald-500/12 ring-1 ring-emerald-500/35"
-                            : "bg-surface-2/70 hover:bg-surface-2"
-                        } ${readOnly ? "cursor-default opacity-95" : ""}`}
+                        className={`flex w-full items-start gap-3 rounded-2xl px-3.5 py-3 text-start transition ${rowTone} ${
+                          readOnly ? "cursor-default" : ""
+                        }`}
                       >
                         <span
-                          className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold ${
-                            selected
-                              ? "bg-emerald-600 text-white"
-                              : "bg-surface-1 text-text-muted"
-                          }`}
+                          className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold ${badgeTone}`}
                         >
-                          {selected ? <Check size={14} strokeWidth={3} /> : letter}
+                          {wrongPick ? (
+                            <X size={14} strokeWidth={3} />
+                          ) : (review ? isKey : selected) ? (
+                            <Check size={14} strokeWidth={3} />
+                          ) : (
+                            letter
+                          )}
                         </span>
-                        <span className="whitespace-pre-line pt-0.5 text-sm font-bold leading-relaxed text-text-primary">
-                          {option.label}
+                        <span className="min-w-0 flex-1 pt-0.5">
+                          <span className="block whitespace-pre-line text-sm font-bold leading-relaxed text-text-primary">
+                            {option.label}
+                          </span>
+                          {review && (isKey || wrongPick) ? (
+                            <span
+                              className={`mt-1 block text-[11px] font-extrabold ${
+                                isKey ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
+                              }`}
+                            >
+                              {isKey ? (selected ? "התשובה הנכונה · בחרת בה" : "התשובה הנכונה") : "הבחירה שלך"}
+                            </span>
+                          ) : null}
                         </span>
                       </button>
                     </li>
                   );
                 })}
               </ul>
-
-              {confirmSubmit ? (
-                <div className="rounded-2xl bg-amber-500/10 px-4 py-3">
-                  <p className="text-sm font-extrabold text-text-primary">
-                    {isPractice ? "להגיש את התרגול?" : "להגיש את המבחן הרשמי?"}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                    נענו {doneIds.size} מתוך {total} שאלות.
-                    {doneIds.size < total
-                      ? " יש שאלות שטרם נענו — אפשר עדיין להגיש."
-                      : " כל השאלות נענו."}
-                    {isPractice ? "" : " לאחר ההגשה לא ניתן לשנות תשובות או להגיש שוב."}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className={primaryButtonClass}
-                      disabled={saving}
-                      onClick={() => void persist("submitted", {})}
-                    >
-                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                      אישור הגשה
-                    </button>
-                    <button
-                      type="button"
-                      className={secondaryButtonClass}
-                      disabled={saving}
-                      onClick={() => setConfirmSubmit(false)}
-                    >
-                      ביטול
-                    </button>
-                  </div>
-                </div>
-              ) : null}
             </>
           )}
         </div>

@@ -48,6 +48,7 @@ export async function GET(_request: Request, context: RouteContext) {
       questions: exam.questions,
     },
     attempt,
+    review: examService.reviewKey(exam, attempt),
   });
 }
 
@@ -84,7 +85,7 @@ export async function POST(request: Request, context: RouteContext) {
       restart: Boolean(body?.restart),
     });
     const board = await examService.buildBoard(resolved.candidate);
-    return NextResponse.json({ ok: true, attempt, exams: board });
+    return NextResponse.json({ ok: true, attempt, exams: board, review: examService.reviewKey(exam, attempt) });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SAVE_FAILED";
     if (message === "ALREADY_SUBMITTED") {

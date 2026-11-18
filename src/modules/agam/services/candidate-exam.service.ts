@@ -110,6 +110,15 @@ export class AgamCandidateExamService extends BaseService {
     return getCandidateExam(examId);
   }
 
+  /** Correct answers, revealed only for practice exams after submission. */
+  public reviewKey(
+    exam: CandidateExamDefinition,
+    attempt: Pick<CandidateExamAttempt, "status"> | null,
+  ): Record<string, string[]> | null {
+    if (exam.kind !== "practice" || attempt?.status !== "submitted") return null;
+    return CANDIDATE_EXAM_ANSWER_KEY[exam.id] ?? null;
+  }
+
   private async cycleFor(candidate: ExamCandidate): Promise<AgamCycle | null> {
     return candidate.cycle_id ? new AgamCycleService().getById(candidate.cycle_id) : null;
   }
