@@ -51,6 +51,7 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/pending-approval") ||
+    pathname === "/agam/login" ||
     pathname === "/agam/apply" ||
     pathname.startsWith("/agam/apply/") ||
     pathname === "/agam/upload" ||
@@ -60,6 +61,10 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/api/agam/public/") ||
     pathname.startsWith("/dovrut-approve") ||
     pathname.startsWith("/api/dovrut/public/");
+
+  if (!token && (pathname === "/agam/me" || pathname.startsWith("/agam/me/"))) {
+    return NextResponse.redirect(new URL("/agam/login", req.nextUrl.origin));
+  }
 
   if (!token && !isPublicAuthPath) {
     const loginUrl = new URL("/login", req.nextUrl.origin);
@@ -71,6 +76,9 @@ export async function proxy(req: NextRequest) {
   }
 
   if (pathname === "/login" && token) {
+    if (!isApproved && requestCallback.startsWith("/agam/me")) {
+      return NextResponse.redirect(new URL("/agam/login", req.nextUrl.origin));
+    }
     if (!isApproved) {
       const pending = new URL("/pending-approval", req.nextUrl.origin);
       if (requestCallback !== "/") {
@@ -86,6 +94,10 @@ export async function proxy(req: NextRequest) {
   }
 
   if (token && !isApproved && !isPublicAuthPath) {
+    // An unlinked candidate is not a staff user waiting for approval.
+    if (pathname === "/agam/me" || pathname.startsWith("/agam/me/")) {
+      return NextResponse.redirect(new URL("/agam/login", req.nextUrl.origin));
+    }
     const pending = new URL("/pending-approval", req.nextUrl.origin);
     const intended = sanitizeCallbackUrl(`${pathname}${req.nextUrl.search}`, "/");
     if (intended !== "/") {

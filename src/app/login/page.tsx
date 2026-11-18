@@ -116,6 +116,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="mt-6">
           <GoogleSignInForm callbackUrl={pickParam(q, "callbackUrl") ?? "/"} />
         </div>
+        <a
+          href="/agam/login"
+          className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-surface-2/80 px-4 py-3 text-sm transition hover:bg-surface-2"
+        >
+          <span>
+            <span className="block font-bold text-text-primary">מועמד/ת לקורס קציני דת?</span>
+            <span className="block text-xs text-text-muted">כניסה לתיק המועמד האישי</span>
+          </span>
+          <span aria-hidden className="text-lg font-bold text-text-muted">←</span>
+        </a>
         <DevelopedByCredit className="mt-8 border-t border-border-weak/60 pt-5" />
       </div>
     </div>

@@ -175,7 +175,7 @@ export function AgamApplyWizard({ inviteSlug }: { inviteSlug?: string }) {
               ) : null}
               . כך תוכלו לראות פרטים, ציונים ולהעלות מסמכים.
             </p>
-            <a href="/login?callbackUrl=%2Fagam%2Fme" className={`${primaryButtonClass} mt-4 w-full`}>
+            <a href="/agam/login" className={`${primaryButtonClass} mt-4 w-full`}>
               התחברות עם Google
             </a>
           </div>

@@ -215,9 +215,14 @@ export function AgamCandidateMePage() {
         <p className="mt-2 text-sm leading-relaxed text-text-secondary">
           {error || "לא נמצא תיק מועמד לחשבון זה. התחברו עם אותו מייל Google שנרשמתם בשאלון המקדים."}
         </p>
-        <button type="button" className={`${secondaryButtonClass} mt-5`} onClick={() => void load()}>
-          נסו שוב
-        </button>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <a href="/agam/login" className={primaryButtonClass}>
+            כניסה עם חשבון אחר
+          </a>
+          <button type="button" className={secondaryButtonClass} onClick={() => void load()}>
+            נסו שוב
+          </button>
+        </div>
       </div>
     );
   }

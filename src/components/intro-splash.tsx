@@ -30,7 +30,12 @@ export function IntroSplash() {
     // Public approval deep links must skip intro + portal entirely.
     if (typeof window !== "undefined") {
       const path = window.location.pathname;
-      if (path.startsWith("/dovrut-approve")) {
+      if (
+        path.startsWith("/dovrut-approve") ||
+        ["/agam/login", "/agam/apply", "/agam/upload", "/agam/portal"].some(
+          (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+        )
+      ) {
         setVisible(false);
         return;
       }
