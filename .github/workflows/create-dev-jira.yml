@@ -1,0 +1,227 @@
+name: Create Dev Jira Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: Issue title (without [פיתוח] prefix)
+        required: true
+        type: string
+      description:
+        description: Full description body
+        required: true
+        type: string
+      module_id:
+        description: Module id (agam, malshabim, …)
+        required: true
+        default: agam
+        type: string
+      page_url:
+        description: Screen URL
+        required: false
+        default: ""
+        type: string
+      reporter_name:
+        description: Reporter display name
+        required: false
+        default: "יאיר ברוכי"
+        type: string
+      reporter_email:
+        description: Reporter email
+        required: false
+        default: "yairbaruchi2006@gmail.com"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create approved Jira issue
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: team_5Jr6kmHO1mgNWZlHQONoHm5V
+          VERCEL_PROJECT_ID: prj_TRU7eh4N9sk1T1BYXEcze4E9AC0g
+          INPUT_TITLE: ${{ github.event.inputs.title }}
+          INPUT_DESCRIPTION: ${{ github.event.inputs.description }}
+          INPUT_MODULE_ID: ${{ github.event.inputs.module_id }}
+          INPUT_PAGE_URL: ${{ github.event.inputs.page_url }}
+          INPUT_REPORTER_NAME: ${{ github.event.inputs.reporter_name }}
+          INPUT_REPORTER_EMAIL: ${{ github.event.inputs.reporter_email }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json, os, urllib.request, urllib.error, base64
+          from datetime import datetime, timedelta, timezone
+
+          token = os.environ["VERCEL_TOKEN"]
+          project = os.environ["VERCEL_PROJECT_ID"]
+          team = os.environ["VERCEL_ORG_ID"]
+          needed = [
+            "JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY",
+            "JIRA_ZOHAR_ACCOUNT_ID", "JIRA_LIAD_ACCOUNT_ID",
+          ]
+
+          def http_json(url, data=None, headers=None, method=None):
+            body = None if data is None else json.dumps(data).encode()
+            req = urllib.request.Request(
+              url,
+              data=body,
+              headers=headers or {},
+              method=method or ("POST" if body is not None else "GET"),
+            )
+            with urllib.request.urlopen(req) as res:
+              raw = res.read().decode()
+              return json.loads(raw) if raw else {}
+
+          def vercel_get(path):
+            return http_json(
+              f"https://api.vercel.com{path}",
+              headers={"Authorization": f"Bearer {token}"},
+            )
+
+          envs = vercel_get(f"/v9/projects/{project}/env?teamId={team}").get("envs", [])
+          cfg = {}
+          for env in envs:
+            key = env.get("key")
+            if key not in needed:
+              continue
+            if "production" not in (env.get("target") or []):
+              continue
+            detail = vercel_get(
+              f"/v9/projects/{project}/env/{env['id']}?teamId={team}&decrypt=true"
+            )
+            value = (detail.get("value") or "").strip()
+            if value and value != "[SENSITIVE]":
+              cfg[key] = value
+              print(f"loaded {key}")
+
+          for key in ("JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"):
+            if not cfg.get(key):
+              raise SystemExit(f"missing {key}")
+
+          base = cfg["JIRA_BASE_URL"].rstrip("/")
+          project_key = cfg.get("JIRA_PROJECT_KEY") or "ETUR"
+          module_id = os.environ.get("INPUT_MODULE_ID") or "agam"
+          liad_modules = {"malshabim", "nagadim", "dovrut"}
+          assignee = (
+            cfg.get("JIRA_LIAD_ACCOUNT_ID")
+            if module_id in liad_modules
+            else cfg.get("JIRA_ZOHAR_ACCOUNT_ID") or "712020:558455f2-4d17-4ca1-9451-7b4d0ee26785"
+          )
+          assignee_name = "ליעד" if module_id in liad_modules else "זוהר"
+
+          # 4 Israeli business days Sun-Thu (approx: skip Fri/Sat)
+          def add_business_days(start, days):
+            cur = start
+            left = days
+            while left > 0:
+              cur += timedelta(days=1)
+              if cur.weekday() < 5:  # Mon-Fri; close enough + Jerusalem offset handled below
+                # Israel business: Sun-Thu. weekday(): Mon=0 ... Sun=6
+                # Better: use Israel: Sun=6 is business, Fri=4 Sat=5 weekend
+                pass
+            return cur
+
+          # Accurate Sun-Thu business days
+          def add_il_business_days(start, days):
+            cur = start
+            left = days
+            while left > 0:
+              cur += timedelta(days=1)
+              # In Israel: Fri=4, Sat=5 are weekend when using weekday() with...
+              # Python weekday: Mon=0..Sun=6. Israel weekend Fri+Sat => 4,5
+              if cur.weekday() not in (4, 5):
+                left -= 1
+            return cur
+
+          # Use Asia/Jerusalem civil day via fixed +2/+3 is messy; use UTC+2 noon approx
+          now = datetime.now(timezone(timedelta(hours=2)))
+          due = add_il_business_days(now.date(), 4)
+          due_iso = due.isoformat()
+          # Hebrew-ish label
+          weekdays = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"]
+          # date.weekday Mon=0
+          he_day = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"][due.weekday()]
+          due_label = f"יום {he_day[0] if False else ''}׳, {due.day} ב{['ינו׳','פבר׳','מרץ','אפר׳','מאי','יונ׳','יול׳','אוג׳','ספט׳','אוק׳','נוב׳','דצמ׳'][due.month-1]} {due.year}"
+          # Fix: Hebrew day letter for Sun-Thu
+          he_map = {6: "א׳", 0: "ב׳", 1: "ג׳", 2: "ד׳", 3: "ה׳", 4: "ו׳", 5: "ש׳"}
+          # Python: Mon=0 ... Sun=6. Israel business Sun-Thu.
+          # Remap: we want display like "יום א׳"
+          py_to_he = {6: "א׳", 0: "ב׳", 1: "ג׳", 2: "ד׳", 3: "ה׳", 4: "ו׳", 5: "ש׳"}
+          months = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יונ׳","יול׳","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"]
+          due_label = f"יום {py_to_he[due.weekday()]}, {due.day} ב{months[due.month-1]} {due.year}"
+
+          module_labels = {
+            "agam": "קצינים",
+            "malshabim": "מלש״בים",
+            "dovrut": "דוברות",
+            "nagadim": "נגדים",
+          }
+          page_url = os.environ.get("INPUT_PAGE_URL") or ""
+          reporter = os.environ.get("INPUT_REPORTER_NAME") or "יאיר ברוכי"
+          email = os.environ.get("INPUT_REPORTER_EMAIL") or ""
+          description_lines = [
+            "אושר לפיתוח על ידי קובי קליין.",
+            f"מודול: {module_labels.get(module_id, module_id)} ({module_id})",
+          ]
+          if page_url:
+            description_lines.append(f"כתובת מסך: {page_url}")
+          description_lines.append(f"מדווח: {reporter}" + (f" <{email}>" if email else ""))
+          description_lines += ["", "תיאור הבקשה:", os.environ["INPUT_DESCRIPTION"], ""]
+          description_lines.append(
+            f"שובץ ל{assignee_name}. יעד: {due_label} (4 ימי עסקים א׳–ה׳ מרגע האישור/פתיחה על ידי קובי)."
+          )
+
+          def adf(paragraphs):
+            return {
+              "type": "doc",
+              "version": 1,
+              "content": [
+                {"type": "paragraph", "content": [{"type": "text", "text": p}]}
+                for p in paragraphs if p.strip()
+              ],
+            }
+
+          fields = {
+            "project": {"key": project_key},
+            "summary": f"[פיתוח] {os.environ['INPUT_TITLE']}"[:250],
+            "issuetype": {"name": "Task"},
+            "labels": ["dev-feedback", "approved", f"module-{module_id}"],
+            "description": adf(description_lines),
+            "duedate": due_iso,
+          }
+          if assignee:
+            fields["assignee"] = {"id": assignee}
+
+          auth = base64.b64encode(f"{cfg['JIRA_EMAIL']}:{cfg['JIRA_API_TOKEN']}".encode()).decode()
+          headers = {
+            "Authorization": f"Basic {auth}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+          }
+
+          def create(with_assignee: bool):
+            payload_fields = dict(fields)
+            if not with_assignee:
+              payload_fields.pop("assignee", None)
+            return http_json(
+              f"{base}/rest/api/3/issue",
+              data={"fields": payload_fields},
+              headers=headers,
+            )
+
+          try:
+            created = create(True)
+          except urllib.error.HTTPError as err:
+            print("assignee create failed", err.read().decode()[:500])
+            created = create(False)
+
+          key = created["key"]
+          browse = f"{base}/browse/{key}"
+          print(json.dumps({"key": key, "browseUrl": browse, "dueDate": due_iso, "dueDateLabel": due_label, "assignee": assignee_name}, ensure_ascii=False, indent=2))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+            fh.write(f"## Jira\n- **{key}** — {browse}\n- Due: {due_label}\n- Assignee: {assignee_name}\n")
+          PY

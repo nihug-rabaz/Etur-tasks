@@ -5,6 +5,7 @@ import { ChevronLeft, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { AgamQuestionField } from "@/modules/agam/components/question-field";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
+import { interviewMissingItems } from "@/modules/agam/lib/interview-readiness";
 import { groupQuestionsBySection, isQuestionVisible } from "@/modules/agam/lib/questions";
 import { RECOMMENDATIONS } from "@/modules/agam/lib/stages";
 import {
@@ -89,22 +90,32 @@ export function AgamInterviewPage({
   if (!loaded) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
 
   if (!candidatePartComplete) {
+    const missing = interviewMissingItems(interview, questions);
     return (
       <div className={formShellClass}>
         <header className={`${panelClass} p-5 sm:p-6`}>
           <Link
-            href={`/agam/candidates/${candidateId}`}
+            href={`/agam/candidates/${candidateId}?stage=day_selection`}
             className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
           >
             <ChevronLeft size={14} className="rotate-180" />
-            חזרה לתיק
+            חזרה ליום המיונים
           </Link>
           <h1 className="mt-4 text-3xl font-extrabold text-text-primary">ראיון</h1>
-          <div className="mt-6 flex items-start gap-3 rounded-2xl bg-surface-2/80 p-4 text-sm text-text-secondary">
-            <Lock size={18} className="mt-0.5 shrink-0 text-text-primary" />
-            <p>
-              חלק המועמד בראיון עדיין לא הושלם בפורטל. לאחר שהמועמד ישלים את חלקו תוכלו למלא את חלק הממיין.
-            </p>
+          <div className="mt-6 space-y-3 rounded-2xl bg-surface-2/80 p-4 text-sm text-text-secondary">
+            <div className="flex items-start gap-3">
+              <Lock size={18} className="mt-0.5 shrink-0 text-text-primary" />
+              <p className="font-semibold text-text-primary">
+                עדיין אי אפשר להמשיך לכתיבת הראיון — חסרים הדברים הבאים:
+              </p>
+            </div>
+            <ul className="space-y-1.5 ps-8">
+              {(missing.length > 0 ? missing : ["חלק המועמד בראיון עדיין לא הושלם בפורטל"]).map((item) => (
+                <li key={item} className="list-disc font-semibold text-text-secondary">
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </header>
       </div>

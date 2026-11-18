@@ -129,13 +129,23 @@ export function ScreenerChronoMenu({
   interviews: AgamInterview[];
 }) {
   const candidatePartReady = interviews.some((row) => Boolean(row.candidate_part_completed_at));
+  const incompleteHint = (() => {
+    const open = interviews.find((row) => !row.candidate_part_completed_at);
+    if (!open) return "המועמד עדיין לא התחיל את חלק הראיון בפורטל";
+    const answered = Object.values(open.candidate_part ?? {}).filter(
+      (value) => value != null && String(value).trim() !== "",
+    ).length;
+    return answered > 0
+      ? `טיוטת מועמד קיימת (${answered} שדות) — עדיין לא סומן כהושלם`
+      : "המועמד התחיל ראיון אך עדיין לא מילא/סימן השלמה";
+  })();
 
   const items = [
     {
       label: "ראיון",
       href: `/agam/candidates/${candidateId}/interview`,
       locked: !candidatePartReady,
-      hint: candidatePartReady ? "חלק המועמד הושלם" : "ממתין להשלמת חלק המועמד בראיון",
+      hint: candidatePartReady ? "חלק המועמד הושלם" : incompleteHint,
     },
     {
       label: "הערכת יום מיונים",
