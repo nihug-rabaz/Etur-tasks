@@ -15,9 +15,9 @@ export type CandidateExamDefinition = {
 export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
   {
     "id": "mikraot_opening",
-    "title": "מקראות ישראל — פתיחה",
+    "title": "מבחן תרגול מקראות ישראל 1",
     "category": "עיוני",
-    "blurb": "מבחן ידע במקראות ישראל לתחילת המסלול.",
+    "blurb": "תרגול ידע במקראות ישראל לקראת המבחן הרשמי.",
     "questions": [
       {
         "id": "q1",
@@ -730,9 +730,9 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
   },
   {
     "id": "mikraot_prep",
-    "title": "מקראות ישראל — ימי מכין",
+    "title": "מבחן תרגול מקראות ישראל 2",
     "category": "עיוני",
-    "blurb": "מבחן מקראות ישראל לימי ההכנה.",
+    "blurb": "תרגול נוסף במקראות ישראל לקראת המבחן הרשמי.",
     "questions": [
       {
         "id": "q1",
@@ -1425,9 +1425,9 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
   },
   {
     "id": "weapon_prep",
-    "title": "נשק — יומיים הכנה",
+    "title": "מבחן תרגול נשק 1",
     "category": "מקצועי",
-    "blurb": "מבחן נשק, קשר ורפואה ליומי ההכנה.",
+    "blurb": "תרגול נשק, קשר ורפואה לקראת המבחן הרשמי.",
     "questions": [
       {
         "id": "q1",
@@ -2156,9 +2156,9 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
   },
   {
     "id": "weapon_end",
-    "title": "נשק וקליעה — סוף",
+    "title": "מבחן תרגול נשק 2",
     "category": "מקצועי",
-    "blurb": "מבחן נשק וקליעה לסוף המסלול.",
+    "blurb": "תרגול נשק וקליעה לקראת המבחן הרשמי.",
     "questions": [
       {
         "id": "q1",
@@ -2840,7 +2840,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
   },
   {
     "id": "weapon_retake",
-    "title": "נשק — מועד ב'",
+    "title": "נשק",
     "category": "מקצועי",
     "blurb": "מבחן נשק וקליעה רשמי של הקורס.",
     "kind": "scheduled",
@@ -3416,7 +3416,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
   },
   {
     "id": "mikraot_retake",
-    "title": "מקראות ישראל — מועד ב'",
+    "title": "מקראות ישראל",
     "category": "עיוני",
     "blurb": "מבחן מקראות ישראל רשמי של הקורס.",
     "kind": "scheduled",
