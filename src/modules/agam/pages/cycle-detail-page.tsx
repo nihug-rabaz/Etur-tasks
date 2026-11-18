@@ -8,6 +8,10 @@ import { toast } from "sonner";
 import { Drawer } from "@/components/ui/drawer";
 import { CandidateCaseCard, candidateCaseGridClass } from "@/modules/agam/components/candidate-case-card";
 import { CreateCandidateDrawer } from "@/modules/agam/components/create-drawers";
+import {
+  CycleExamOpeningsPanel,
+  type CycleExamOpeningRow,
+} from "@/modules/agam/components/cycle-exam-openings-panel";
 import { AgamTaskRow } from "@/modules/agam/components/task-row";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { cycleInviteAbsoluteUrl } from "@/modules/agam/lib/cycle-invite";
@@ -25,6 +29,7 @@ function formatCycleDate(value: string): string {
 type CyclePayload = {
   cycle: AgamCycle;
   candidates: AgamCandidate[];
+  examOpenings?: CycleExamOpeningRow[];
   role: ModuleRole;
   currentUserId: string;
 };
@@ -326,6 +331,13 @@ export function AgamCycleDetailPage() {
           </ul>
         )}
       </section>
+
+      <CycleExamOpeningsPanel
+        cycleId={id}
+        rows={payload.examOpenings ?? []}
+        canEdit={canEdit}
+        onSaved={() => void load()}
+      />
 
       <details className={`${panelClass} group/tasks`}>
         <summary className={`flex cursor-pointer list-none items-center gap-2 ${panelPadClass} [&::-webkit-details-marker]:hidden`}>

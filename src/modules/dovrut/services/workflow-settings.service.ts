@@ -63,7 +63,7 @@ export class DovrutWorkflowSettingsService extends BaseService {
     const db = this.getDb();
     await db`
       insert into dovrut_workflow_settings (id, phones, news_keywords, updated_at)
-      values (1, ${JSON.stringify(phones)}::jsonb, ${news_keywords}, now())
+      values (1, ${JSON.stringify(phones)}::text::jsonb, ${news_keywords}, now())
       on conflict (id) do update set
         phones = excluded.phones,
         news_keywords = excluded.news_keywords,

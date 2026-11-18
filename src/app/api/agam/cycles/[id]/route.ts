@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { SCHEDULED_CANDIDATE_EXAMS, isScheduledExamId } from "@/modules/agam/lib/candidate-exams-catalog";
+import { isExamOpen, israelTodayIso, resolveExamOpening } from "@/modules/agam/lib/exam-openings";
 import { scheduleSchema } from "@/modules/agam/lib/cycle-schedule-schema";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCycleService } from "@/modules/agam/services/cycle.service";
@@ -17,9 +19,21 @@ export async function GET(
   const cycle = await service.getById(id);
   if (!cycle) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const candidates = await service.listCandidates(id);
+  const today = israelTodayIso();
+  const examOpenings = SCHEDULED_CANDIDATE_EXAMS.map((exam) => {
+    const opening = resolveExamOpening(cycle, exam.id);
+    return {
+      examId: exam.id,
+      title: exam.title,
+      questionCount: exam.questions.length,
+      ...opening,
+      open: isExamOpen(opening.opensOn, today),
+    };
+  });
   return NextResponse.json({
     cycle,
     candidates,
+    examOpenings,
     role: access.role,
     currentUserId: access.profile.id,
   });
@@ -35,6 +49,9 @@ const updateSchema = z.object({
   rotateInviteSlug: z.boolean().optional(),
   assignCandidateIds: z.array(z.string().uuid()).optional(),
   unassignCandidateId: z.string().uuid().optional(),
+  examOpenings: z
+    .record(z.string(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable())
+    .optional(),
 });
 
 export async function PUT(
@@ -69,6 +86,13 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     await service.setArchived(id, parsed.data.archived);
+  }
+  if (parsed.data.examOpenings) {
+    const unknown = Object.keys(parsed.data.examOpenings).filter((examId) => !isScheduledExamId(examId));
+    if (unknown.length > 0) {
+      return NextResponse.json({ error: "מבחן לא מוכר" }, { status: 400 });
+    }
+    await service.setExamOpenings(id, parsed.data.examOpenings);
   }
   if (parsed.data.rotateInviteSlug) {
     if (!accessService.canRamad(access.role)) {

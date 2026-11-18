@@ -32,9 +32,9 @@ export class AssistantAuditService extends BaseService {
           ${entry.label ?? null},
           ${entry.method ?? null},
           ${entry.path ?? null},
-          ${JSON.stringify(entry.args ?? null)}::jsonb,
-          ${JSON.stringify(entry.beforeSnapshot ?? null)}::jsonb,
-          ${JSON.stringify(entry.afterSnapshot ?? null)}::jsonb,
+          ${JSON.stringify(entry.args ?? null)}::text::jsonb,
+          ${JSON.stringify(entry.beforeSnapshot ?? null)}::text::jsonb,
+          ${JSON.stringify(entry.afterSnapshot ?? null)}::text::jsonb,
           ${entry.resultOk ?? null},
           ${entry.summary ?? null}
         )

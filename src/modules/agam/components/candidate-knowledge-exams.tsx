@@ -3,15 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
+  CalendarClock,
   Check,
   ChevronLeft,
   ChevronRight,
   Crosshair,
+  Dumbbell,
   Loader2,
+  Lock,
   PenLine,
   RotateCcw,
   Send,
+  ShieldCheck,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/modal";
@@ -24,13 +29,14 @@ import type {
   CandidateExamAttempt,
   CandidateExamBoardItem,
 } from "@/modules/agam/services/candidate-exam.service";
-import type { CandidateExamQuestion } from "@/modules/agam/lib/candidate-exams-catalog";
+import type { CandidateExamKind, CandidateExamQuestion } from "@/modules/agam/lib/candidate-exams-catalog";
 
 type ExamDetail = {
   id: string;
   title: string;
   category: string;
   blurb: string;
+  kind: CandidateExamKind;
   questions: CandidateExamQuestion[];
 };
 
@@ -41,24 +47,151 @@ type ExamDetailResponse = {
 
 const HEBREW_LETTERS = ["א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י"];
 
-function statusLabel(status: CandidateExamBoardItem["status"]) {
-  if (status === "submitted") return "הוגש";
-  if (status === "in_progress") return "בתהליך";
-  return "טרם התחיל";
+const pillClass = "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold";
+
+function ExamIcon({ examId, size }: { examId: string; size: number }) {
+  return examId.startsWith("weapon") ? <Crosshair size={size} /> : <BookOpen size={size} />;
 }
 
-function statusTone(status: CandidateExamBoardItem["status"]) {
-  if (status === "submitted") {
-    return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-200";
+function StatusPill({ exam }: { exam: CandidateExamBoardItem }) {
+  if (exam.locked) {
+    return (
+      <span className={`${pillClass} bg-surface-1 text-text-muted`}>
+        <Lock size={10} strokeWidth={2.75} />
+        נעול
+      </span>
+    );
   }
-  if (status === "in_progress") {
-    return "bg-amber-500/15 text-amber-800 dark:text-amber-200";
+  if (exam.status === "submitted") {
+    return (
+      <span className={`${pillClass} bg-emerald-500/15 text-emerald-800 dark:text-emerald-200`}>
+        <Check size={10} strokeWidth={3} />
+        הוגש
+      </span>
+    );
   }
-  return "bg-surface-2 text-text-muted";
+  if (exam.status === "in_progress") {
+    return <span className={`${pillClass} bg-amber-500/15 text-amber-800 dark:text-amber-200`}>בתהליך</span>;
+  }
+  if (exam.kind === "scheduled") {
+    return <span className={`${pillClass} bg-violet-500/15 text-violet-800 dark:text-violet-200`}>פתוח עכשיו</span>;
+  }
+  return null;
 }
 
-function examIcon(examId: string) {
-  return examId.startsWith("weapon") ? Crosshair : BookOpen;
+function ExamGroupHeader({
+  icon: Icon,
+  title,
+  description,
+  tone,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  tone: "official" | "practice";
+}) {
+  const iconTone =
+    tone === "official"
+      ? "bg-violet-500/12 text-violet-700 dark:text-violet-300"
+      : "bg-sky-500/12 text-sky-700 dark:text-sky-300";
+  return (
+    <div className="flex items-start gap-2.5">
+      <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${iconTone}`}>
+        <Icon size={16} />
+      </span>
+      <div className="min-w-0">
+        <h4 className="text-sm font-extrabold text-text-primary">{title}</h4>
+        <p className="mt-0.5 text-[12px] leading-relaxed text-text-secondary">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function ExamCard({ exam, onOpen }: { exam: CandidateExamBoardItem; onOpen: () => void }) {
+  const official = exam.kind === "scheduled";
+  const accent = official
+    ? "bg-violet-500/12 text-violet-700 dark:text-violet-300"
+    : "bg-sky-500/12 text-sky-700 dark:text-sky-300";
+
+  const cta = official
+    ? exam.status === "submitted"
+      ? "צפייה בתשובות שהוגשו"
+      : exam.status === "in_progress"
+        ? "המשך מבחן"
+        : "התחלת מבחן"
+    : exam.status === "submitted"
+      ? "צפייה בתשובות / תרגול חוזר"
+      : exam.status === "in_progress"
+        ? "המשך תרגול"
+        : "התחלת תרגול";
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      disabled={exam.locked}
+      className={`group flex h-full flex-col rounded-2xl p-3.5 text-start transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+        exam.locked
+          ? "cursor-not-allowed bg-surface-2/50"
+          : official
+            ? "bg-surface-2/80 hover:bg-violet-500/[0.07] focus-visible:outline-violet-600"
+            : "bg-surface-2/80 hover:bg-sky-500/[0.07] focus-visible:outline-sky-600"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
+            exam.locked ? "bg-surface-1 text-text-muted" : accent
+          }`}
+        >
+          {exam.locked ? <Lock size={16} /> : <ExamIcon examId={exam.id} size={17} />}
+        </span>
+        <span className="flex flex-wrap items-center justify-end gap-1">
+          {official ? null : (
+            <span className={`${pillClass} bg-sky-500/12 text-sky-800 dark:text-sky-200`}>
+              <Dumbbell size={10} strokeWidth={2.5} />
+              תרגול
+            </span>
+          )}
+          <StatusPill exam={exam} />
+        </span>
+      </div>
+
+      <h5 className={`mt-2.5 text-[15px] font-extrabold leading-snug ${exam.locked ? "text-text-secondary" : "text-text-primary"}`}>
+        {exam.title}
+      </h5>
+      <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">{exam.blurb}</p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-text-muted">
+        <span>{exam.questionCount} שאלות</span>
+        <span>{exam.category}</span>
+        {exam.status === "in_progress" && !exam.locked ? (
+          <span className="text-amber-700 dark:text-amber-200">
+            {exam.answeredCount}/{exam.questionCount} נענו
+          </span>
+        ) : null}
+        {exam.status === "submitted" && exam.submittedAt ? <span>הוגש {formatAgamDate(exam.submittedAt)}</span> : null}
+      </div>
+
+      <div className="mt-auto pt-3">
+        {exam.locked ? (
+          <span className="inline-flex items-center gap-1.5 rounded-xl bg-surface-1 px-2.5 py-1.5 text-[12px] font-bold text-text-secondary">
+            <CalendarClock size={13} />
+            {exam.opensOn ? `ייפתח ב־${formatAgamDate(exam.opensOn)}` : "מועד הפתיחה טרם נקבע"}
+          </span>
+        ) : (
+          <span
+            className={`inline-flex items-center gap-1 text-[12px] font-extrabold opacity-90 transition group-hover:opacity-100 ${
+              official ? "text-violet-700 dark:text-violet-300" : "text-sky-700 dark:text-sky-300"
+            }`}
+          >
+            <PenLine size={13} />
+            {cta}
+          </span>
+        )}
+      </div>
+    </button>
+  );
 }
 
 function answeredSet(answers: CandidateExamAnswers, questions: CandidateExamQuestion[]) {
@@ -183,7 +316,7 @@ export function CandidateKnowledgeExams({
         toast.success("המבחן הוגש בהצלחה");
       } else if (restart) {
         setReadOnly(false);
-        toast.success("התחלתם מבחן חדש");
+        toast.success("התחלתם תרגול חדש");
       } else if (!quiet) {
         toast.success("התשובות נשמרו");
       }
@@ -201,8 +334,12 @@ export function CandidateKnowledgeExams({
     setIndex(nextIndex);
   };
 
+  const officialExams = exams.filter((exam) => exam.kind === "scheduled");
+  const practiceExams = exams.filter((exam) => exam.kind === "practice");
+  const isPractice = detail?.kind === "practice";
+
   const subtitle = detail
-    ? `${detail.category} · שאלה ${Math.min(index + 1, total)} מתוך ${total}`
+    ? `${isPractice ? "תרגול" : "מבחן רשמי"} · ${detail.category} · שאלה ${Math.min(index + 1, total)} מתוך ${total}`
     : undefined;
 
   return (
@@ -214,69 +351,50 @@ export function CandidateKnowledgeExams({
           tone="emerald"
           action={
             <span className="rounded-full bg-surface-1/80 px-2 py-0.5 text-[10px] font-bold tabular-nums text-text-muted">
-              {exams.length || 4}
+              {exams.length}
             </span>
           }
         />
-        <div className="space-y-3 px-3.5 py-3.5 sm:px-4">
-          <p className="text-sm leading-relaxed text-text-secondary">
-            ארבעה מבחנים להשלמה מהסביבה האישית שלכם — מקראות ישראל ונשק. אפשר לשמור באמצע ולהגיש בסיום.
-          </p>
-
+        <div className="space-y-5 px-3.5 py-4 sm:px-4">
           {loadingList ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-text-muted">
               <Loader2 size={16} className="animate-spin" />
               טוען מבחנים…
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {exams.map((exam) => {
-                const Icon = examIcon(exam.id);
-                return (
-                  <button
-                    key={exam.id}
-                    type="button"
-                    onClick={() => void openExam(exam.id)}
-                    className="group rounded-2xl bg-surface-2/80 p-3.5 text-start transition hover:bg-emerald-500/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
-                        <Icon size={17} />
-                      </span>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${statusTone(exam.status)}`}
-                      >
-                        {statusLabel(exam.status)}
-                      </span>
-                    </div>
-                    <h4 className="mt-2.5 text-[15px] font-extrabold leading-snug text-text-primary">
-                      {exam.title}
-                    </h4>
-                    <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">{exam.blurb}</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-text-muted">
-                      <span>{exam.questionCount} שאלות</span>
-                      <span>{exam.category}</span>
-                      {exam.status === "in_progress" ? (
-                        <span className="text-amber-700 dark:text-amber-200">
-                          {exam.answeredCount}/{exam.questionCount} נענו
-                        </span>
-                      ) : null}
-                      {exam.status === "submitted" && exam.submittedAt ? (
-                        <span>הוגש {formatAgamDate(exam.submittedAt)}</span>
-                      ) : null}
-                    </div>
-                    <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-extrabold text-emerald-700 opacity-90 transition group-hover:opacity-100 dark:text-emerald-300">
-                      <PenLine size={13} />
-                      {exam.status === "submitted"
-                        ? "צפייה בתשובות"
-                        : exam.status === "in_progress"
-                          ? "המשך מבחן"
-                          : "התחלת מבחן"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <>
+              {officialExams.length > 0 ? (
+                <div>
+                  <ExamGroupHeader
+                    icon={ShieldCheck}
+                    title="מבחנים רשמיים"
+                    description="נפתחים במועד שנקבע למחזור שלכם. ניתן להגיש כל מבחן פעם אחת בלבד."
+                    tone="official"
+                  />
+                  <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {officialExams.map((exam) => (
+                      <ExamCard key={exam.id} exam={exam} onOpen={() => void openExam(exam.id)} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {practiceExams.length > 0 ? (
+                <div>
+                  <ExamGroupHeader
+                    icon={Dumbbell}
+                    title="מבחני תרגול"
+                    description="להכנה עצמית לקראת המבחנים הרשמיים. פתוחים תמיד, ואפשר לחזור עליהם כמה פעמים שתרצו."
+                    tone="practice"
+                  />
+                  <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {practiceExams.map((exam) => (
+                      <ExamCard key={exam.id} exam={exam} onOpen={() => void openExam(exam.id)} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       </section>
@@ -311,7 +429,12 @@ export function CandidateKnowledgeExams({
                 </button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {readOnly ? (
+                {readOnly && !isPractice ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500/12 px-3 py-2 text-xs font-extrabold text-emerald-800 dark:text-emerald-200">
+                    <Check size={14} strokeWidth={3} />
+                    המבחן הוגש
+                  </span>
+                ) : readOnly ? (
                   <button
                     type="button"
                     className={secondaryButtonClass}
@@ -323,7 +446,7 @@ export function CandidateKnowledgeExams({
                     }}
                   >
                     {saving ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-                    התחלה מחדש
+                    תרגול חוזר
                   </button>
                 ) : (
                   <>
@@ -343,7 +466,7 @@ export function CandidateKnowledgeExams({
                       onClick={() => setConfirmSubmit(true)}
                     >
                       <Send size={14} />
-                      הגשת מבחן
+                      {isPractice ? "הגשת תרגול" : "הגשת מבחן"}
                     </button>
                   </>
                 )}
@@ -360,6 +483,32 @@ export function CandidateKnowledgeExams({
             </div>
           ) : (
             <>
+              <div
+                className={`flex items-start gap-2.5 rounded-2xl px-3.5 py-2.5 ${
+                  isPractice ? "bg-sky-500/[0.08]" : "bg-violet-500/[0.08]"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                    isPractice
+                      ? "bg-sky-500/15 text-sky-700 dark:text-sky-300"
+                      : "bg-violet-500/15 text-violet-700 dark:text-violet-300"
+                  }`}
+                >
+                  {isPractice ? <Dumbbell size={14} /> : <ShieldCheck size={14} />}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-extrabold text-text-primary">
+                    {isPractice ? "מבחן תרגול" : "מבחן רשמי"}
+                  </p>
+                  <p className="text-[12px] leading-relaxed text-text-secondary">
+                    {isPractice
+                      ? "להכנה עצמית בלבד. אפשר לשמור, להגיש ולתרגל שוב בכל עת."
+                      : "התשובות נשמרות אוטומטית במעבר בין שאלות. ניתן להגיש פעם אחת בלבד."}
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-bold text-text-muted">
                   <span>
@@ -448,7 +597,7 @@ export function CandidateKnowledgeExams({
                         >
                           {selected ? <Check size={14} strokeWidth={3} /> : letter}
                         </span>
-                        <span className="pt-0.5 text-sm font-bold leading-relaxed text-text-primary">
+                        <span className="whitespace-pre-line pt-0.5 text-sm font-bold leading-relaxed text-text-primary">
                           {option.label}
                         </span>
                       </button>
@@ -459,12 +608,15 @@ export function CandidateKnowledgeExams({
 
               {confirmSubmit ? (
                 <div className="rounded-2xl bg-amber-500/10 px-4 py-3">
-                  <p className="text-sm font-extrabold text-text-primary">להגיש את המבחן?</p>
+                  <p className="text-sm font-extrabold text-text-primary">
+                    {isPractice ? "להגיש את התרגול?" : "להגיש את המבחן הרשמי?"}
+                  </p>
                   <p className="mt-1 text-xs leading-relaxed text-text-secondary">
                     נענו {doneIds.size} מתוך {total} שאלות.
                     {doneIds.size < total
                       ? " יש שאלות שטרם נענו — אפשר עדיין להגיש."
                       : " כל השאלות נענו."}
+                    {isPractice ? "" : " לאחר ההגשה לא ניתן לשנות תשובות או להגיש שוב."}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button

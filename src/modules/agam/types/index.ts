@@ -103,6 +103,8 @@ export interface AgamCycle {
   updated_at: string;
   candidate_count?: number;
   schedule?: AgamCycleSchedule | null;
+  /** Scheduled-exam open dates by exam id (YYYY-MM-DD); missing → cycle prep day. */
+  exam_openings?: Record<string, string | null> | null;
 }
 
 export type AgamCycleScheduleKey =

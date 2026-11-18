@@ -145,7 +145,7 @@ export class AgamCandidateMeService extends BaseService {
         this.prepDays.listByCandidate(candidate.id),
         this.smach.listByCandidate(candidate.id),
         this.documents.listByCandidate(candidate.id),
-        this.exams.buildBoard(candidate.id),
+        this.exams.buildBoard(candidate),
       ]);
 
     const criterionLabel = new Map(criteria.map((row) => [row.key, row.name]));

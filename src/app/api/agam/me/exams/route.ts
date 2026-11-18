@@ -15,6 +15,6 @@ export async function GET() {
     return NextResponse.json({ error: "לא נמצא תיק מועמד" }, { status: 404 });
   }
 
-  const exams = await new AgamCandidateExamService().buildBoard(candidate.id);
+  const exams = await new AgamCandidateExamService().buildBoard(candidate);
   return NextResponse.json({ exams });
 }

@@ -2,10 +2,14 @@ import { BaseService } from "@/services/base.service";
 import {
   CANDIDATE_EXAMS,
   getCandidateExam,
-  isCandidateExamId,
-  listCandidateExamSummaries,
   type CandidateExamDefinition,
+  type CandidateExamKind,
 } from "@/modules/agam/lib/candidate-exams-catalog";
+import { isExamOpen, israelTodayIso, resolveExamOpening } from "@/modules/agam/lib/exam-openings";
+import { AgamCycleService } from "@/modules/agam/services/cycle.service";
+import type { AgamCandidate, AgamCycle } from "@/modules/agam/types";
+
+type ExamCandidate = Pick<AgamCandidate, "id" | "cycle_id">;
 
 export type CandidateExamAnswers = Record<string, string[]>;
 
@@ -28,11 +32,15 @@ export type CandidateExamBoardItem = {
   title: string;
   category: string;
   blurb: string;
+  kind: CandidateExamKind;
   questionCount: number;
   status: "not_started" | "in_progress" | "submitted";
   answeredCount: number;
   submittedAt: string | null;
   attemptId: string | null;
+  /** Scheduled exams only: effective open date (YYYY-MM-DD) or null when not set yet. */
+  opensOn: string | null;
+  locked: boolean;
 };
 
 function asJson(value: unknown): string {
@@ -79,12 +87,26 @@ function parseAttempt(row: CandidateExamAttempt): CandidateExamAttempt {
 }
 
 export class AgamCandidateExamService extends BaseService {
-  public listCatalog() {
-    return listCandidateExamSummaries();
-  }
-
   public getDefinition(examId: string) {
     return getCandidateExam(examId);
+  }
+
+  private async cycleFor(candidate: ExamCandidate): Promise<AgamCycle | null> {
+    return candidate.cycle_id ? new AgamCycleService().getById(candidate.cycle_id) : null;
+  }
+
+  private availability(exam: CandidateExamDefinition, cycle: AgamCycle | null, today: string) {
+    if (exam.kind === "practice") return { opensOn: null, locked: false };
+    const { opensOn } = resolveExamOpening(cycle, exam.id);
+    return { opensOn, locked: !isExamOpen(opensOn, today) };
+  }
+
+  /** Null when the exam is open for this candidate, otherwise a Hebrew reason. */
+  public async lockReason(candidate: ExamCandidate, exam: CandidateExamDefinition): Promise<string | null> {
+    if (exam.kind === "practice") return null;
+    const { opensOn, locked } = this.availability(exam, await this.cycleFor(candidate), israelTodayIso());
+    if (!locked) return null;
+    return opensOn ? "המבחן עדיין לא נפתח" : "מועד המבחן טרם נקבע";
   }
 
   public async listLatestAttempts(candidateId: string): Promise<CandidateExamAttempt[]> {
@@ -105,9 +127,10 @@ export class AgamCandidateExamService extends BaseService {
     }
   }
 
-  public async buildBoard(candidateId: string): Promise<CandidateExamBoardItem[]> {
-    const attempts = await this.listLatestAttempts(candidateId);
+  public async buildBoard(candidate: ExamCandidate): Promise<CandidateExamBoardItem[]> {
+    const [attempts, cycle] = await Promise.all([this.listLatestAttempts(candidate.id), this.cycleFor(candidate)]);
     const byExam = new Map(attempts.map((row) => [row.exam_id, row]));
+    const today = israelTodayIso();
     return CANDIDATE_EXAMS.map((exam) => {
       const attempt = byExam.get(exam.id);
       return {
@@ -115,11 +138,13 @@ export class AgamCandidateExamService extends BaseService {
         title: exam.title,
         category: exam.category,
         blurb: exam.blurb,
+        kind: exam.kind,
         questionCount: exam.questions.length,
         status: attempt?.status ?? "not_started",
         answeredCount: attempt?.answered_count ?? 0,
         submittedAt: attempt?.submitted_at ?? null,
         attemptId: attempt?.id ?? null,
+        ...this.availability(exam, cycle, today),
       };
     });
   }
@@ -128,7 +153,7 @@ export class AgamCandidateExamService extends BaseService {
     candidateId: string,
     examId: string,
   ): Promise<CandidateExamAttempt | null> {
-    if (!isCandidateExamId(examId)) return null;
+    if (!getCandidateExam(examId)) return null;
     const db = this.getDb();
     try {
       const rows = await db<CandidateExamAttempt[]>`
@@ -163,6 +188,9 @@ export class AgamCandidateExamService extends BaseService {
     const db = this.getDb();
 
     const latest = await this.getLatestForExam(input.candidateId, input.examId);
+    if (exam.kind === "scheduled" && latest?.status === "submitted") {
+      throw new Error("ALREADY_SUBMITTED");
+    }
     // Only create a new row when there is no draft. Restart of a submitted exam
     // opens a fresh in_progress attempt; restart of a draft just resets it.
     const shouldCreate =
@@ -177,7 +205,7 @@ export class AgamCandidateExamService extends BaseService {
         values (
           ${input.candidateId},
           ${input.examId},
-          ${asJson(answers)}::jsonb,
+          ${asJson(answers)}::text::jsonb,
           ${answeredCount},
           ${questionCount},
           ${input.status},
@@ -198,7 +226,7 @@ export class AgamCandidateExamService extends BaseService {
     const rows = await db<CandidateExamAttempt[]>`
       update agam_candidate_exam_attempts
       set
-        answers = ${asJson(answers)}::jsonb,
+        answers = ${asJson(answers)}::text::jsonb,
         answered_count = ${answeredCount},
         question_count = ${questionCount},
         status = ${input.status},

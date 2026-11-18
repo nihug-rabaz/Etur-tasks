@@ -32,6 +32,10 @@ export async function GET(_request: Request, context: RouteContext) {
   if (!exam) {
     return NextResponse.json({ error: "מבחן לא נמצא" }, { status: 404 });
   }
+  const lockReason = await examService.lockReason(resolved.candidate, exam);
+  if (lockReason) {
+    return NextResponse.json({ error: lockReason }, { status: 403 });
+  }
 
   const attempt = await examService.getLatestForExam(resolved.candidate.id, examId);
   return NextResponse.json({
@@ -40,6 +44,7 @@ export async function GET(_request: Request, context: RouteContext) {
       title: exam.title,
       category: exam.category,
       blurb: exam.blurb,
+      kind: exam.kind,
       questions: exam.questions,
     },
     attempt,
@@ -54,8 +59,13 @@ export async function POST(request: Request, context: RouteContext) {
 
   const { examId } = await context.params;
   const examService = new AgamCandidateExamService();
-  if (!examService.getDefinition(examId)) {
+  const exam = examService.getDefinition(examId);
+  if (!exam) {
     return NextResponse.json({ error: "מבחן לא נמצא" }, { status: 404 });
+  }
+  const lockReason = await examService.lockReason(resolved.candidate, exam);
+  if (lockReason) {
+    return NextResponse.json({ error: lockReason }, { status: 403 });
   }
 
   const body = (await request.json().catch(() => null)) as {
@@ -73,12 +83,15 @@ export async function POST(request: Request, context: RouteContext) {
       status,
       restart: Boolean(body?.restart),
     });
-    const board = await examService.buildBoard(resolved.candidate.id);
+    const board = await examService.buildBoard(resolved.candidate);
     return NextResponse.json({ ok: true, attempt, exams: board });
   } catch (error) {
     const message = error instanceof Error ? error.message : "SAVE_FAILED";
     if (message === "ALREADY_SUBMITTED") {
-      return NextResponse.json({ error: "המבחן כבר הוגש. ניתן להתחיל מחדש." }, { status: 409 });
+      return NextResponse.json(
+        { error: exam.kind === "scheduled" ? "המבחן כבר הוגש" : "המבחן כבר הוגש. ניתן להתחיל מחדש." },
+        { status: 409 },
+      );
     }
     if (message === "EXAM_NOT_FOUND") {
       return NextResponse.json({ error: "מבחן לא נמצא" }, { status: 404 });

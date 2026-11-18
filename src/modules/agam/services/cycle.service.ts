@@ -1,6 +1,7 @@
 import { BaseService } from "@/services/base.service";
 import { generateCycleInviteSlug } from "@/modules/agam/lib/cycle-invite";
 import { normalizeCycleSchedule } from "@/modules/agam/lib/cycle-schedule";
+import { normalizeExamOpenings } from "@/modules/agam/lib/exam-openings";
 import {
   YEARBOOK_MONTHS,
   cycleMonthNumber,
@@ -90,7 +91,7 @@ export class AgamCycleService extends BaseService {
             ${input.cycle_date},
             ${input.cohort_year ?? null},
             ${input.notes ?? null},
-            ${schedule}::jsonb,
+            ${schedule}::text::jsonb,
             ${input.created_by_id ?? null},
             ${inviteSlug}
           )
@@ -165,7 +166,18 @@ export class AgamCycleService extends BaseService {
     if (!existing) return null;
     const schedule = JSON.stringify(normalizeCycleSchedule({ ...normalizeCycleSchedule(existing.schedule), [key]: date }));
     const db = this.getDb();
-    await db`update agam_cycles set schedule = ${schedule}::jsonb, updated_at = now() where id = ${id}`;
+    await db`update agam_cycles set schedule = ${schedule}::text::jsonb, updated_at = now() where id = ${id}`;
+    return this.getById(id);
+  }
+
+  /** Merge exam open-date overrides; a null value clears the override (back to the prep day). */
+  public async setExamOpenings(id: string, patch: Record<string, string | null>): Promise<AgamCycle | null> {
+    const existing = await this.getById(id);
+    if (!existing) return null;
+    const merged: Record<string, string | null> = { ...normalizeExamOpenings(existing.exam_openings), ...patch };
+    const openings = JSON.stringify(normalizeExamOpenings(merged));
+    const db = this.getDb();
+    await db`update agam_cycles set exam_openings = ${openings}::text::jsonb, updated_at = now() where id = ${id}`;
     return this.getById(id);
   }
 
@@ -214,7 +226,7 @@ export class AgamCycleService extends BaseService {
         cohort_year = ${input.cohort_year !== undefined ? input.cohort_year : existing.cohort_year},
         notes = ${input.notes !== undefined ? input.notes : existing.notes},
         archived = ${input.archived !== undefined ? input.archived : existing.archived},
-        schedule = ${schedule}::jsonb,
+        schedule = ${schedule}::text::jsonb,
         updated_at = now()
       where id = ${id}
       returning *
