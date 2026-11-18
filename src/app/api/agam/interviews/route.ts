@@ -35,6 +35,8 @@ const bodySchema = z.object({
   interviewData: z.record(z.string(), z.unknown()),
   evaluatorAssessment: z.string(),
   recommendation: z.enum(["ממליץ", "ממליץ בהסתייגות", "לא ממליץ"]).nullable(),
+  /** The screener confirmed writing the interview although the candidate's part is not complete. */
+  force: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -51,7 +53,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
   const interviewService = new AgamInterviewService();
-  const allowOverride = accessService.canRamad(access.role);
+  const isRamad = accessService.canRamad(access.role);
+  const allowOverride = isRamad || Boolean(parsed.data.force);
 
   try {
     if (parsed.data.interviewId) {
@@ -92,7 +95,7 @@ export async function POST(request: Request) {
             interview_data: parsed.data.interviewData,
             evaluator_assessment: parsed.data.evaluatorAssessment,
             recommendation: parsed.data.recommendation,
-            candidate_part_completed_at: new Date().toISOString(),
+            candidate_part_completed_at: isRamad && !parsed.data.force ? new Date().toISOString() : null,
           });
         } else {
           return NextResponse.json(

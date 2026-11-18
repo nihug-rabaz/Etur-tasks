@@ -70,7 +70,7 @@ export function DaySelectionStage({
         </div>
         {interviewBlockers.length > 0 ? (
           <div className="mt-4 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm text-text-primary ring-1 ring-amber-500/20">
-            <p className="font-extrabold">מה חסר כדי להמשיך ולכתוב את הראיון</p>
+            <p className="font-extrabold">המועמד עוד לא השלים את החלק שלו בראיון (אפשר לכתוב ראיון בכל מקרה)</p>
             <ul className="mt-2 space-y-1 ps-5">
               {interviewBlockers.map((item) => (
                 <li key={item} className="list-disc font-semibold text-text-secondary">
