@@ -23,6 +23,9 @@ import {
   Trash2,
   Trophy,
   UserRound,
+  Loader2,
+  PenLine,
+  Plus,
 } from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
@@ -60,7 +63,7 @@ import {
   pageShellClass,
 } from "@/modules/agam/lib/ui";
 import { BAHAD1_CHECKLIST } from "@/modules/agam/lib/bahad1-checklist";
-import { candidateGaps } from "@/modules/agam/lib/gaps";
+import { derivedGaps, manualGaps, serializeManualGaps } from "@/modules/agam/lib/gaps";
 import { groupQuestionsBySection, isQuestionVisible, parseQuestionOptions } from "@/modules/agam/lib/questions";
 import {
   AGAM_STAGES,
@@ -159,7 +162,7 @@ export function AgamCandidateFilePage() {
 
   return (
     <div className={pageShellClass}>
-      <CaseHero payload={payload} isScreener={isScreener} canEvaluate={canEvaluate} />
+      <CaseHero payload={payload} isScreener={isScreener} canEvaluate={canEvaluate} onSaved={() => void load()} />
 
       {stage ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -245,27 +248,142 @@ const GAP_HINTS: Record<string, string> = {
   "נדרש באישור ראש עתכא״ס": "מדד תכנוני 2",
 };
 
-function HeroGaps({ gaps }: { gaps: string[] }) {
-  if (gaps.length === 0) {
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-        <Check size={13} />
-        ללא פערים
-      </span>
-    );
-  }
+function HeroGaps({
+  candidate,
+  canEdit,
+  onSaved,
+}: {
+  candidate: AgamCandidate;
+  canEdit: boolean;
+  onSaved: () => void;
+}) {
+  const auto = derivedGaps(candidate);
+  const manual = manualGaps(candidate).filter((gap) => !auto.includes(gap));
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const saveManual = async (next: string[]) => {
+    setSaving(true);
+    try {
+      await agamFetch(`/api/agam/candidates/${candidate.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ gaps: serializeManualGaps(next) }),
+      });
+      onSaved();
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "שמירת הפער נכשלה");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitDraft = async () => {
+    const value = draft.trim();
+    if (!value) {
+      setAdding(false);
+      return;
+    }
+    if (auto.includes(value) || manual.includes(value)) {
+      toast.error("הפער כבר קיים");
+      return;
+    }
+    if (await saveManual([...manual, value])) {
+      setDraft("");
+      setAdding(false);
+    }
+  };
+
+  const chipClass =
+    "inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/12 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200";
+
   return (
     <ul className="flex flex-wrap items-center gap-1.5" aria-label="פערים">
-      {gaps.map((gap) => (
-        <li
-          key={gap}
-          title={GAP_HINTS[gap]}
-          className="inline-flex shrink-0 cursor-help items-center gap-1.5 rounded-full bg-amber-500/12 px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200"
-        >
+      {auto.length === 0 && manual.length === 0 && !adding ? (
+        <li className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+          <Check size={13} />
+          ללא פערים
+        </li>
+      ) : null}
+      {auto.map((gap) => (
+        <li key={gap} title={GAP_HINTS[gap]} className={`${chipClass} cursor-help`}>
           <AlertTriangle size={13} className="shrink-0" />
           {gap}
         </li>
       ))}
+      {manual.map((gap) => (
+        <li key={gap} title="פער שהוזן ידנית" className={chipClass}>
+          <PenLine size={12} className="shrink-0" />
+          {gap}
+          {canEdit ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void saveManual(manual.filter((item) => item !== gap))}
+              aria-label={`הסרת הפער ${gap}`}
+              className="-me-1 rounded-full p-0.5 opacity-60 transition hover:bg-amber-500/20 hover:opacity-100 disabled:opacity-30"
+            >
+              <X size={12} strokeWidth={2.75} />
+            </button>
+          ) : null}
+        </li>
+      ))}
+      {canEdit ? (
+        adding ? (
+          <li className="inline-flex items-center gap-1 rounded-full bg-surface-2 py-1 pe-1 ps-3">
+            <input
+              autoFocus
+              value={draft}
+              disabled={saving}
+              maxLength={80}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void submitDraft();
+                if (event.key === "Escape") {
+                  setDraft("");
+                  setAdding(false);
+                }
+              }}
+              placeholder="תיאור הפער"
+              className="w-36 bg-transparent text-xs font-bold text-text-primary outline-none placeholder:text-text-muted"
+            />
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void submitDraft()}
+              aria-label="שמירת פער"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-primary text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} strokeWidth={3} />}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                setDraft("");
+                setAdding(false);
+              }}
+              aria-label="ביטול"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-1 hover:text-text-primary"
+            >
+              <X size={12} strokeWidth={2.75} />
+            </button>
+          </li>
+        ) : (
+          <li>
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-bold text-text-muted ring-1 ring-dashed ring-border-weak transition hover:bg-surface-2 hover:text-text-primary"
+            >
+              <Plus size={13} />
+              הוספת פער
+            </button>
+          </li>
+        )
+      ) : null}
     </ul>
   );
 }
@@ -274,10 +392,12 @@ function CaseHero({
   payload,
   isScreener,
   canEvaluate,
+  onSaved,
 }: {
   payload: FilePayload;
   isScreener: boolean;
   canEvaluate: boolean;
+  onSaved: () => void;
 }) {
   const { candidate } = payload;
   const searchParams = useSearchParams();
@@ -308,8 +428,6 @@ function CaseHero({
     : isScreener
       ? "מחזורים"
       : "מועמדים";
-
-  const gaps = candidateGaps(candidate);
 
   const copyNumber = async () => {
     try {
@@ -352,7 +470,7 @@ function CaseHero({
               </span>
               {copied ? <Check size={15} /> : <Copy size={15} className="text-text-muted" />}
             </button>
-            <HeroGaps gaps={gaps} />
+            <HeroGaps candidate={candidate} canEdit={canEvaluate} onSaved={onSaved} />
           </div>
 
           <div className="flex shrink-0 items-center gap-4">

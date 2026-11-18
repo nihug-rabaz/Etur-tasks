@@ -30,6 +30,7 @@ export function CandidateCaseCard({
     | "planning_index"
     | "release_date"
     | "cycle_bahad1_date"
+    | "gaps"
   >;
   action?: ReactNode;
   fromCycleId?: string | null;
