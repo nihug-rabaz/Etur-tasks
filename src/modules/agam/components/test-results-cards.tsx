@@ -116,9 +116,9 @@ export function PassMark({ pass }: { pass: boolean | null }) {
 
 export function ExamCellView({ cell }: { cell: ExamCell }) {
   return (
-    <span className="flex items-center justify-center gap-1.5">
+    <span className="flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
       <span
-        className={`text-[15px] font-extrabold tabular-nums ${cell.value == null ? "text-text-muted/35" : "text-text-primary"}`}
+        className={`whitespace-nowrap text-[14px] font-extrabold tabular-nums ${cell.value == null ? "text-text-muted/35" : "text-text-primary"}`}
         dir="ltr"
       >
         {cell.value ?? "—"}
@@ -180,13 +180,13 @@ function ExamGroupPanel({
       </div>
 
       {open ? (
-        <div className="px-2.5 pb-2.5">
+        <div className="px-1.5 pb-1.5">
           <table className="w-full table-fixed overflow-hidden rounded-xl bg-surface-1 text-center">
             <thead>
               <tr className="text-[11px] font-extrabold text-text-muted">
-                <th className="w-[5.5rem] px-2 py-2 text-start font-extrabold">ניסיון</th>
+                <th className="w-[3.25rem] px-1.5 py-2 text-start font-extrabold">ניסיון</th>
                 {group.columns.map((column) => (
-                  <th key={column.label} className="px-2 py-2 font-extrabold">
+                  <th key={column.label} className="px-1 py-2 font-extrabold leading-tight">
                     {column.label}
                   </th>
                 ))}
@@ -195,9 +195,11 @@ function ExamGroupPanel({
             <tbody>
               {ATTEMPTS.map((attempt, index) => (
                 <tr key={attempt} className="border-t border-border-weak/50">
-                  <td className="px-2 py-2 text-start text-[12px] font-bold text-text-secondary">מבחן {attempt}</td>
+                  <td className="whitespace-nowrap px-1.5 py-2 text-start text-[11px] font-bold text-text-secondary">
+                    מבחן {attempt}
+                  </td>
                   {group.columns.map((column) => (
-                    <td key={column.label} className="px-1.5 py-1.5">
+                    <td key={column.label} className="px-1 py-1.5">
                       {column.cells[index] ? renderCell(column.cells[index]) : null}
                     </td>
                   ))}
@@ -237,7 +239,7 @@ export function ExamPanels({
   alwaysOpen?: boolean;
 }) {
   return (
-    <div className="space-y-2.5 p-2.5">
+    <div className="space-y-2 p-2">
       {groups.map((group) => (
         <ExamGroupPanel
           key={group.id}
@@ -473,7 +475,7 @@ export function CandidateExamsCard({
         }
         renderCell={(cell) =>
           editing ? (
-            <span className="flex items-center gap-1">
+            <span className="relative block">
               <input
                 dir="ltr"
                 inputMode={cell.inputType === "time" ? "text" : "numeric"}
@@ -483,9 +485,11 @@ export function CandidateExamsCard({
                 placeholder={cell.inputType === "time" ? "12:30" : "—"}
                 value={drafts[cell.key] ?? ""}
                 onChange={(event) => setDrafts((current) => ({ ...current, [cell.key]: event.target.value }))}
-                className="ui-field h-8 w-full min-w-0 rounded-lg bg-surface-2/70 px-1.5 text-center text-sm font-extrabold tabular-nums text-text-primary outline-none"
+                className="ui-field h-9 w-full min-w-0 rounded-lg bg-surface-2/70 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm font-extrabold tabular-nums text-text-primary outline-none"
               />
-              <PassMark pass={draftPass(cell, drafts[cell.key] ?? "")} />
+              <span className="pointer-events-none absolute -end-1 -top-1.5">
+                <PassMark pass={draftPass(cell, drafts[cell.key] ?? "")} />
+              </span>
             </span>
         ) : (
           <ExamCellView cell={cell} />
