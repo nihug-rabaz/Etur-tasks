@@ -75,9 +75,14 @@ function ScorePicker({
 export function AgamEvaluationPage({
   candidateId,
   evalId,
+  embedded = false,
+  onDone,
 }: {
   candidateId: string;
   evalId?: string;
+  /** Rendered inside the candidate file (modal): compact header, save/cancel call onDone. */
+  embedded?: boolean;
+  onDone?: (saved: boolean) => void;
 }) {
   const [criteria, setCriteria] = useState<AgamCriterion[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -134,7 +139,8 @@ export function AgamEvaluationPage({
         }),
       });
       toast.success("ההערכה נשמרה");
-      window.location.href = `/agam/candidates/${candidateId}?stage=day_selection`;
+      if (onDone) onDone(true);
+      else window.location.href = `/agam/candidates/${candidateId}?stage=day_selection`;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "שמירה נכשלה");
     } finally {
@@ -145,7 +151,7 @@ export function AgamEvaluationPage({
   if (!loaded) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
   if (criteria.length === 0) {
     return (
-      <div className={formShellClass}>
+      <div className={embedded ? "" : formShellClass}>
         <div className={`${panelClass} p-8 text-sm text-text-muted`}>
           לא הוגדרו קריטריונים. הגדירו בפאנל הניהול.
         </div>
@@ -154,24 +160,30 @@ export function AgamEvaluationPage({
   }
 
   return (
-    <div className={formShellClass}>
-      <header className={`${panelClass} p-5 sm:p-6`}>
-        <Link
-          href={`/agam/candidates/${candidateId}?stage=day_selection`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
-        >
-          <ChevronLeft size={14} className="rotate-180" />
-          חזרה ליום המיונים
-        </Link>
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+    <div className={embedded ? "space-y-4" : formShellClass}>
+      <header className={embedded ? "" : `${panelClass} p-5 sm:p-6`}>
+        {embedded ? null : (
+          <Link
+            href={`/agam/candidates/${candidateId}?stage=day_selection`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
+          >
+            <ChevronLeft size={14} className="rotate-180" />
+            חזרה ליום המיונים
+          </Link>
+        )}
+        <div className={`${embedded ? "" : "mt-4 "}flex flex-wrap items-end justify-between gap-4`}>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
-              תיק מועמד
-            </p>
-            <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
-              הערכת יום מיונים
-            </h1>
-            <p className="mt-1.5 text-sm text-text-secondary">
+            {embedded ? null : (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+                  תיק מועמד
+                </p>
+                <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
+                  הערכת יום מיונים
+                </h1>
+              </>
+            )}
+            <p className={`${embedded ? "" : "mt-1.5 "}text-sm text-text-secondary`}>
               לחצו על ציון 1–5 לכל קריטריון. ציון חסר נספר כ־0.
             </p>
           </div>
@@ -287,12 +299,18 @@ export function AgamEvaluationPage({
           >
             {saving ? "שומר…" : "שמירת הערכה"}
           </button>
-          <Link
-            href={`/agam/candidates/${candidateId}?stage=day_selection`}
-            className={secondaryButtonClass}
-          >
-            ביטול
-          </Link>
+          {onDone ? (
+            <button type="button" className={secondaryButtonClass} onClick={() => onDone(false)} disabled={saving}>
+              ביטול
+            </button>
+          ) : (
+            <Link
+              href={`/agam/candidates/${candidateId}?stage=day_selection`}
+              className={secondaryButtonClass}
+            >
+              ביטול
+            </Link>
+          )}
         </div>
       </section>
     </div>

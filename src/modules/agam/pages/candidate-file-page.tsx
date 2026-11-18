@@ -33,6 +33,9 @@ import { toast } from "sonner";
 import { DaySelectionStage } from "@/modules/agam/components/stages/day-selection-stage";
 import { CandidateDocumentsCenter } from "@/modules/agam/components/candidate-documents-center";
 import { PreparationDayStage } from "@/modules/agam/components/stages/preparation-day-stage";
+import { Modal } from "@/components/ui/modal";
+import { AgamEvaluationPage } from "@/modules/agam/pages/evaluation-page";
+import { AgamInterviewPage } from "@/modules/agam/pages/interview-page";
 import { SmachStage, SmachReadOnlyCard } from "@/modules/agam/components/stages/smach-stage";
 import { SummaryDecision } from "@/modules/agam/components/stages/summary-decision";
 import { CreateAgamTaskDrawer } from "@/modules/agam/components/create-task-drawer";
@@ -587,6 +590,7 @@ type StageTab = {
   tone: CaseTone;
   summary?: ReactNode;
   href?: string;
+  actions?: ReactNode;
   content: ReactNode;
 };
 
@@ -650,6 +654,7 @@ function StageTabs({ tabs, defaultId }: { tabs: StageTab[]; defaultId?: string }
               <p className="text-[15px] font-extrabold text-text-primary">{active.title}</p>
               {active.subtitle ? <p className="mt-0.5 text-xs text-text-muted">{active.subtitle}</p> : null}
             </div>
+            {active.actions ? <div className="flex flex-wrap items-center gap-1.5">{active.actions}</div> : null}
             {active.href ? (
               <Link
                 href={active.href}
@@ -666,6 +671,15 @@ function StageTabs({ tabs, defaultId }: { tabs: StageTab[]; defaultId?: string }
     </div>
   );
 }
+
+type EntryForm = "interview" | "evaluation" | "prep" | "smach";
+
+const ENTRY_FORM_TITLES: Record<EntryForm, string> = {
+  interview: "ראיון",
+  evaluation: "הערכת יום מיונים",
+  prep: "הערכת יום מכין",
+  smach: "הערכת סמ״ח",
+};
 
 function Overview({
   payload,
@@ -686,6 +700,24 @@ function Overview({
   const currentUserId = payload.currentUserId;
   const candidateId = payload.candidate.id;
   const [documentsOpen, setDocumentsOpen] = useState(initialDocumentsOpen);
+  const [entryForm, setEntryForm] = useState<EntryForm | null>(null);
+  const myPrep = payload.prepDays.some((row) => row.evaluator_id === currentUserId);
+  const mySmach = payload.smach.some((row) => row.evaluator_id === currentUserId);
+  const closeEntryForm = (saved = false) => {
+    setEntryForm(null);
+    if (saved) onSaved();
+  };
+  const addButton = (form: EntryForm, label: string) =>
+    canEvaluate ? (
+      <button
+        type="button"
+        onClick={() => setEntryForm(form)}
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-text-primary px-3 py-1.5 text-xs font-bold text-white transition hover:opacity-90"
+      >
+        <Plus size={13} />
+        {label}
+      </button>
+    ) : null;
 
   const isExceptional =
     (payload.candidate.planning_index === 1 || payload.candidate.planning_index === 2) &&
@@ -794,6 +826,12 @@ function Overview({
               subtitle: daySubtitle,
               tone: "sky",
               href: `/agam/candidates/${candidateId}?stage=day_selection`,
+              actions: (
+                <>
+                  {addButton("interview", "ראיון")}
+                  {addButton("evaluation", "הערכת מעריך")}
+                </>
+              ),
               summary: (
                 <>
                   <VerdictPill rows={payload.evaluations} />
@@ -865,6 +903,7 @@ function Overview({
               subtitle: prepSubtitle,
               tone: "emerald",
               href: `/agam/candidates/${candidateId}?stage=preparation_day`,
+              actions: addButton("prep", myPrep ? "עריכת ההערכה שלי" : "הערכה"),
               summary: (
                 <>
                   <VerdictPill rows={payload.prepDays} />
@@ -924,6 +963,7 @@ function Overview({
               subtitle: smachSubtitle,
               tone: "violet",
               href: `/agam/candidates/${candidateId}?stage=smach`,
+              actions: addButton("smach", mySmach ? "עריכת ההערכה שלי" : "הערכה"),
               summary: (
                 <>
                   <VerdictPill rows={payload.smach} />
@@ -996,6 +1036,40 @@ function Overview({
           );
         })()}
       </aside>
+
+      <Modal
+        open={entryForm != null}
+        onClose={() => closeEntryForm()}
+        title={entryForm ? ENTRY_FORM_TITLES[entryForm] : ""}
+        subtitle={payload.candidate.full_name}
+        size="lg"
+      >
+        {entryForm === "interview" ? (
+          <AgamInterviewPage candidateId={candidateId} embedded onDone={closeEntryForm} />
+        ) : entryForm === "evaluation" ? (
+          <AgamEvaluationPage candidateId={candidateId} embedded onDone={closeEntryForm} />
+        ) : entryForm === "prep" ? (
+          <PreparationDayStage
+            candidateId={candidateId}
+            evaluations={payload.prepDays}
+            currentUserId={currentUserId}
+            canEvaluate={canEvaluate}
+            onSaved={onSaved}
+            formOnly
+            onClose={() => closeEntryForm()}
+          />
+        ) : entryForm === "smach" ? (
+          <SmachStage
+            candidateId={candidateId}
+            evaluations={payload.smach}
+            currentUserId={currentUserId}
+            canEvaluate={canEvaluate}
+            onSaved={onSaved}
+            formOnly
+            onClose={() => closeEntryForm()}
+          />
+        ) : null}
+      </Modal>
 
       <CandidateDocumentsCenter
         open={documentsOpen}

@@ -92,17 +92,22 @@ export function PreparationDayStage({
   currentUserId,
   canEvaluate,
   onSaved,
+  formOnly = false,
+  onClose,
 }: {
   candidateId: string;
   evaluations: AgamPrepDayEvaluation[];
   currentUserId: string;
   canEvaluate: boolean;
   onSaved: () => void;
+  /** Opens straight into the editor without other evaluators (used in the candidate-file modal). */
+  formOnly?: boolean;
+  onClose?: () => void;
 }) {
   const mine = evaluations.find((row) => row.evaluator_id === currentUserId);
   const others = evaluations.filter((row) => row.evaluator_id !== currentUserId);
   const [draft, setDraft] = useState<PrepDraft>(() => draftFrom(mine));
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(formOnly);
   const [saving, setSaving] = useState(false);
 
   const saved = useMemo(() => draftFrom(mine), [mine]);
@@ -120,6 +125,7 @@ export function PreparationDayStage({
   const cancelEdit = () => {
     setDraft(draftFrom(mine));
     setEditing(false);
+    onClose?.();
   };
 
   const onSave = async () => {
@@ -145,6 +151,7 @@ export function PreparationDayStage({
       toast.success("היום המכין נשמר");
       setEditing(false);
       onSaved();
+      onClose?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "שמירה נכשלה");
     } finally {
@@ -319,7 +326,7 @@ export function PreparationDayStage({
         </>
       )}
 
-      {others.length > 0 ? (
+      {!formOnly && others.length > 0 ? (
         <div className="space-y-3 pt-2">
           <h3 className="text-sm font-bold text-text-secondary">הערכות מעריכים נוספים ({others.length})</h3>
           {others.map((row) => (

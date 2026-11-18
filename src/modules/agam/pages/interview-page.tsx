@@ -22,9 +22,14 @@ import Link from "next/link";
 export function AgamInterviewPage({
   candidateId,
   interviewId,
+  embedded = false,
+  onDone,
 }: {
   candidateId: string;
   interviewId?: string;
+  /** Rendered inside the candidate file (modal): no page header, save/cancel call onDone. */
+  embedded?: boolean;
+  onDone?: (saved: boolean) => void;
 }) {
   const [questions, setQuestions] = useState<AgamQuestion[]>([]);
   const [interview, setInterview] = useState<AgamInterview | null>(null);
@@ -79,7 +84,8 @@ export function AgamInterviewPage({
         }),
       });
       toast.success("הראיון נשמר");
-      window.location.href = `/agam/candidates/${candidateId}?stage=day_selection`;
+      if (onDone) onDone(true);
+      else window.location.href = `/agam/candidates/${candidateId}?stage=day_selection`;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "שמירה נכשלה");
     } finally {
@@ -92,17 +98,21 @@ export function AgamInterviewPage({
   if (!candidatePartComplete) {
     const missing = interviewMissingItems(interview, questions);
     return (
-      <div className={formShellClass}>
-        <header className={`${panelClass} p-5 sm:p-6`}>
-          <Link
-            href={`/agam/candidates/${candidateId}?stage=day_selection`}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
-          >
-            <ChevronLeft size={14} className="rotate-180" />
-            חזרה ליום המיונים
-          </Link>
-          <h1 className="mt-4 text-3xl font-extrabold text-text-primary">ראיון</h1>
-          <div className="mt-6 space-y-3 rounded-2xl bg-surface-2/80 p-4 text-sm text-text-secondary">
+      <div className={embedded ? "" : formShellClass}>
+        <header className={embedded ? "" : `${panelClass} p-5 sm:p-6`}>
+          {embedded ? null : (
+            <>
+              <Link
+                href={`/agam/candidates/${candidateId}?stage=day_selection`}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
+              >
+                <ChevronLeft size={14} className="rotate-180" />
+                חזרה ליום המיונים
+              </Link>
+              <h1 className="mt-4 text-3xl font-extrabold text-text-primary">ראיון</h1>
+            </>
+          )}
+          <div className={`${embedded ? "" : "mt-6 "}space-y-3 rounded-2xl bg-surface-2/80 p-4 text-sm text-text-secondary`}>
             <div className="flex items-start gap-3">
               <Lock size={18} className="mt-0.5 shrink-0 text-text-primary" />
               <p className="font-semibold text-text-primary">
@@ -123,21 +133,23 @@ export function AgamInterviewPage({
   }
 
   return (
-    <div className={formShellClass}>
-      <header className={`${panelClass} p-5 sm:p-6`}>
-        <Link
-          href={`/agam/candidates/${candidateId}?stage=day_selection`}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
-        >
-          <ChevronLeft size={14} className="rotate-180" />
-          חזרה ליום המיונים
-        </Link>
-        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">תיק מועמד</p>
-        <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
-          ראיון
-        </h1>
-        <p className="mt-1.5 text-sm text-text-secondary">חלק הממיין — התרשמות והמלצה</p>
-      </header>
+    <div className={embedded ? "space-y-4" : formShellClass}>
+      {embedded ? null : (
+        <header className={`${panelClass} p-5 sm:p-6`}>
+          <Link
+            href={`/agam/candidates/${candidateId}?stage=day_selection`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted transition hover:text-text-primary"
+          >
+            <ChevronLeft size={14} className="rotate-180" />
+            חזרה ליום המיונים
+          </Link>
+          <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">תיק מועמד</p>
+          <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
+            ראיון
+          </h1>
+          <p className="mt-1.5 text-sm text-text-secondary">חלק הממיין — התרשמות והמלצה</p>
+        </header>
+      )}
 
       {Object.keys(candidateAnswers).length > 0 ? (
         <section className={`${panelClass} space-y-3 p-5 sm:p-6`}>
@@ -205,9 +217,15 @@ export function AgamInterviewPage({
           <button type="button" className={primaryButtonClass} onClick={() => void onSave()} disabled={saving}>
             {saving ? "שומר…" : "שמירת ראיון"}
           </button>
-          <Link href={`/agam/candidates/${candidateId}?stage=day_selection`} className={secondaryButtonClass}>
-            ביטול
-          </Link>
+          {onDone ? (
+            <button type="button" className={secondaryButtonClass} onClick={() => onDone(false)} disabled={saving}>
+              ביטול
+            </button>
+          ) : (
+            <Link href={`/agam/candidates/${candidateId}?stage=day_selection`} className={secondaryButtonClass}>
+              ביטול
+            </Link>
+          )}
         </div>
       </section>
     </div>
