@@ -28,6 +28,7 @@ import type {
   CandidateExamAnswers,
   CandidateExamAttempt,
   CandidateExamBoardItem,
+  CandidateExamResult,
 } from "@/modules/agam/services/candidate-exam.service";
 import type { CandidateExamKind, CandidateExamQuestion } from "@/modules/agam/lib/candidate-exams-catalog";
 
@@ -107,6 +108,29 @@ function ExamGroupHeader({
   );
 }
 
+function scoreTone(score: number) {
+  if (score >= 80) return "bg-emerald-500/12 text-emerald-800 dark:text-emerald-200";
+  if (score >= 60) return "bg-amber-500/12 text-amber-800 dark:text-amber-200";
+  return "bg-rose-500/12 text-rose-800 dark:text-rose-200";
+}
+
+function ScoreBanner({ result }: { result: CandidateExamResult }) {
+  return (
+    <div className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 ${scoreTone(result.score)}`}>
+      <div className="flex shrink-0 flex-col items-center leading-none">
+        <span className="text-[34px] font-black tabular-nums">{result.score}</span>
+        <span className="mt-1 text-[11px] font-extrabold opacity-75">מתוך 100</span>
+      </div>
+      <div className="min-w-0 border-s border-current/20 ps-4">
+        <p className="text-sm font-extrabold">הציון שלכם</p>
+        <p className="mt-0.5 text-[13px] font-bold tabular-nums opacity-90">
+          {result.correct} מתוך {result.total} תשובות נכונות
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function ExamCard({ exam, onOpen }: { exam: CandidateExamBoardItem; onOpen: () => void }) {
   const official = exam.kind === "scheduled";
   const accent = official
@@ -172,6 +196,17 @@ function ExamCard({ exam, onOpen }: { exam: CandidateExamBoardItem; onOpen: () =
         ) : null}
         {exam.status === "submitted" && exam.submittedAt ? <span>הוגש {formatAgamDate(exam.submittedAt)}</span> : null}
       </div>
+
+      {exam.status === "submitted" && exam.result ? (
+        <div
+          className={`mt-2.5 flex items-baseline gap-2 self-start rounded-xl px-2.5 py-1.5 ${scoreTone(exam.result.score)}`}
+        >
+          <span className="text-lg font-black tabular-nums leading-none">{exam.result.score}</span>
+          <span className="text-[11px] font-extrabold tabular-nums">
+            ציון · {exam.result.correct}/{exam.result.total} נכונות
+          </span>
+        </div>
+      ) : null}
 
       <div className="mt-auto pt-3">
         {exam.locked ? (
@@ -337,6 +372,7 @@ export function CandidateKnowledgeExams({
   const officialExams = exams.filter((exam) => exam.kind === "scheduled");
   const practiceExams = exams.filter((exam) => exam.kind === "practice");
   const isPractice = detail?.kind === "practice";
+  const activeResult = readOnly ? (exams.find((exam) => exam.id === activeId)?.result ?? null) : null;
 
   const subtitle = detail
     ? `${isPractice ? "תרגול" : "מבחן רשמי"} · ${detail.category} · שאלה ${Math.min(index + 1, total)} מתוך ${total}`
@@ -483,6 +519,7 @@ export function CandidateKnowledgeExams({
             </div>
           ) : (
             <>
+              {activeResult ? <ScoreBanner result={activeResult} /> : null}
               <div
                 className={`flex items-start gap-2.5 rounded-2xl px-3.5 py-2.5 ${
                   isPractice ? "bg-sky-500/[0.08]" : "bg-violet-500/[0.08]"
@@ -567,7 +604,7 @@ export function CandidateKnowledgeExams({
                     </span>
                   ) : null}
                 </div>
-                <p className="text-[16px] font-extrabold leading-relaxed text-text-primary">
+                <p className="whitespace-pre-line text-[16px] font-extrabold leading-relaxed text-text-primary">
                   {currentQuestion.prompt}
                 </p>
               </div>

@@ -173,6 +173,10 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o3",
             "label": "מחנה ההשמדה בלזץ."
+          },
+          {
+            "id": "o4",
+            "label": "כל התשובות נכונות."
           }
         ]
       },
@@ -587,6 +591,10 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o4",
             "label": "מדבר יהודה וים המלח."
+          },
+          {
+            "id": "o5",
+            "label": "אף תשובה אינה נכונה."
           }
         ]
       },
@@ -633,6 +641,10 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o4",
             "label": "דאלית אל כרמל"
+          },
+          {
+            "id": "o5",
+            "label": "אף תשובה אינה נכונה."
           }
         ]
       },
@@ -1144,6 +1156,14 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o2",
             "label": "ט' באב, ט\"ו בשבט, י' בטבת, צום גדליה"
+          },
+          {
+            "id": "o3",
+            "label": "יום הכיפורים, תשעה באב, י' בטבת , י\"ז בתמוז."
+          },
+          {
+            "id": "o4",
+            "label": "ט' באב, צום גדליה, י' בטבת, י\"ז בתמוז"
           }
         ]
       },
@@ -1172,6 +1192,29 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       },
       {
         "id": "q21",
+        "prompt": "על מה מבוסס פירושו של רש\"י על התורה והתלמוד?",
+        "multi": false,
+        "options": [
+          {
+            "id": "o1",
+            "label": "על הבנת הפשט ועל מדרשי חז\"ל"
+          },
+          {
+            "id": "o2",
+            "label": "על ידי ספרות הרמב\"ן"
+          },
+          {
+            "id": "o3",
+            "label": "על פירושי רמב\"ם וחיבוריו הפילוסופיים"
+          },
+          {
+            "id": "o4",
+            "label": "על מדרשי חז\"ל והיסטוריית העם היהודי"
+          }
+        ]
+      },
+      {
+        "id": "q22",
         "prompt": "מי היה אלכסנדר הגדול?",
         "multi": false,
         "options": [
@@ -1194,7 +1237,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q22",
+        "id": "q23",
         "prompt": "מה אסור לעשות בהנחת ח.ע?",
         "multi": false,
         "options": [
@@ -1217,7 +1260,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q23",
+        "id": "q24",
         "prompt": "מה הייתה בקשתו העיקרית של עזרא הסופר?",
         "multi": false,
         "options": [
@@ -1240,7 +1283,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q24",
+        "id": "q25",
         "prompt": "מי היה הרמטכ\"ל במהלך מלחמת יום הכיפורים?",
         "multi": false,
         "options": [
@@ -1263,7 +1306,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q25",
+        "id": "q26",
         "prompt": "מה קרה בקונגרס השמונה – עשר?",
         "multi": false,
         "options": [
@@ -1286,7 +1329,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q26",
+        "id": "q27",
         "prompt": "באיזה שנה עוגן מעמדו של המנון \"התקווה\" בחוק המדינה?",
         "multi": false,
         "options": [
@@ -1309,23 +1352,8 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q27",
-        "prompt": "מתוך תחקיר אירוע –",
-        "multi": false,
-        "options": [
-          {
-            "id": "o1",
-            "label": "תיאור האירוע: באירוע במהלך תרגיל חדירת מחבלים למוצב ג'בל ג'והר, בוצע ירי חי ע\"י חייל מחוליית ביום האויב בתרגיל לעבר חיילים במוצב."
-          },
-          {
-            "id": "o2",
-            "label": "תוצאות האירוע: כתוצאה מהירי נפצעו שלושה חיילים, אחד באורח אנוש, ושניים באורח קל."
-          }
-        ]
-      },
-      {
         "id": "q28",
-        "prompt": "תחת איזה סוג גורם נכתב המשפט?",
+        "prompt": "מתוך תחקיר אירוע –\nתיאור האירוע: באירוע במהלך תרגיל חדירת מחבלים למוצב ג'בל ג'והר, בוצע ירי חי ע\"י חייל מחוליית ביום האויב בתרגיל לעבר חיילים במוצב.\nתוצאות האירוע: כתוצאה מהירי נפצעו שלושה חיילים, אחד באורח אנוש, ושניים באורח קל.\nתחת כותרת 'גורמים' נכתב בתחקיר:\nנמצא כי חייל בבימוי אויב שהיה עם מחסנית כדורים חיים ביצע יחי 'חי' לעבר חיילים במוצב משום שחשב שמדובר בכדורי ח\"קים.\nתחת איזה סוג גורם נכתב המשפט?",
         "multi": false,
         "options": [
           {
@@ -1656,19 +1684,23 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       },
       {
         "id": "q12",
-        "prompt": "פטיש.",
+        "prompt": "\"סחיטת ההדק מתבצעת עם ה_____ של האצבע הסוחטת\".\nהשלם את המשפט:",
         "multi": false,
         "options": [
           {
             "id": "o1",
-            "label": "רגיש."
+            "label": "פטיש."
           },
           {
             "id": "o2",
-            "label": "אדיש."
+            "label": "רגיש."
           },
           {
             "id": "o3",
+            "label": "אדיש."
+          },
+          {
+            "id": "o4",
             "label": "אף תשובה אינה נכונה."
           }
         ]
@@ -1941,7 +1973,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       {
         "id": "q24",
         "prompt": "מהם הסימנים לחסימת נתיב אויר?",
-        "multi": false,
+        "multi": true,
         "options": [
           {
             "id": "o1",
@@ -1958,12 +1990,20 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o4",
             "label": "הכרה מלאה."
+          },
+          {
+            "id": "o5",
+            "label": "היצרות בית חזה."
+          },
+          {
+            "id": "o6",
+            "label": "כל התשובות נכונות."
           }
         ]
       },
       {
         "id": "q25",
-        "prompt": "סמן",
+        "prompt": "סמן נכון / לא נכון:בעת הגיענו לפצוע מדבר אין חשש לנתיב אוויר אך לא נדלג לשלב B- נכון / לא נכון.",
         "multi": false,
         "options": [
           {
@@ -2004,6 +2044,10 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o6",
             "label": "כאבי ראש."
+          },
+          {
+            "id": "o7",
+            "label": "כל התשובות נכונות."
           }
         ]
       },
@@ -2023,6 +2067,10 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o3",
             "label": "שבועיים ומחצה בערך אחרי האירוע, שזהו זמן סביר להתארגנות ללא לחץ שיכול לגרום לטעויות."
+          },
+          {
+            "id": "o4",
+            "label": "מתי שנח לחוקר, ובתנאי שהזמן לא יעלה על שלושה חודשים, על מנת לתת נוחות ושיקול דעת לחוקר."
           }
         ]
       },
@@ -2051,15 +2099,31 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       },
       {
         "id": "q29",
-        "prompt": "על מנת שכל אדם יוכל לכתוב תחקיר, בלי קשר להכשרתו הפורמלית.",
-        "multi": false,
+        "prompt": "מה מטרת יצירת הפורמט האחיד לתחקירים? סמן את כל התשובות הנכונות.",
+        "multi": true,
         "options": [
           {
             "id": "o1",
-            "label": "אין חובה לפורמט אחיד, על מנת שיתאימו כל אירוע לתחקיר מיוחד לו."
+            "label": "אין חובה לפורמט אחיד, החובה היחידה היא ליצור בסוף רשימת מסקנות מסודרת."
           },
           {
             "id": "o2",
+            "label": "על מנת לאפשר העברת תחקירים בין יחידות."
+          },
+          {
+            "id": "o3",
+            "label": "על מנת שכל אחד יוכל ללמוד מכל תחקיר, גם בלי היכרות עם היחידה הספציפית."
+          },
+          {
+            "id": "o4",
+            "label": "על מנת שכל אדם יוכל לכתוב תחקיר, בלי קשר להכשרתו הפורמלית."
+          },
+          {
+            "id": "o5",
+            "label": "אין חובה לפורמט אחיד, על מנת שיתאימו כל אירוע לתחקיר מיוחד לו."
+          },
+          {
+            "id": "o6",
             "label": "אין חובה לפורמט אחד, אלא ישנם סוגי פורמטים שונים לאירועים מסוגים שונים."
           }
         ]
@@ -2067,7 +2131,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       {
         "id": "q30",
         "prompt": "סמן את רשימת הגורמים שמופיעים בתחקיר:",
-        "multi": true,
+        "multi": false,
         "options": [
           {
             "id": "o1",
@@ -2177,6 +2241,14 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o2",
             "label": "דריכת הנשק פעמיים וחצי"
+          },
+          {
+            "id": "o3",
+            "label": "כל התשובות נכונות"
+          },
+          {
+            "id": "o4",
+            "label": "הוצאת המחסנית בהטיה."
           }
         ]
       },
@@ -2307,6 +2379,14 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o2",
             "label": "סחיטה מקבילה לציר קנה"
+          },
+          {
+            "id": "o3",
+            "label": "כל התשובות נכונות"
+          },
+          {
+            "id": "o4",
+            "label": "חידוש קשר"
           }
         ]
       },
@@ -2449,6 +2529,10 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
           {
             "id": "o3",
             "label": "לא נכון, מצב גוף רובה מתחלק למצב גוף קרקע ומצב גוף נשק"
+          },
+          {
+            "id": "o4",
+            "label": "מצב גוף קרקע ומצב גוף נשק הם מצבים כשלעצמם בעקרונות הקליעה"
           }
         ]
       },
@@ -2569,16 +2653,24 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       },
       {
         "id": "q22",
-        "prompt": "כאשר אין כדור בבית הבליעה או לחילופין הנוקר שחוק / כדור עקר.",
+        "prompt": "מה הגורם למעצור ראשון?",
         "multi": false,
         "options": [
           {
             "id": "o1",
-            "label": "גמר תחמושת"
+            "label": "כאשר אין כדור בבית הבליעה או לחילופין הנוקר שחוק / כדור עקר."
           },
           {
             "id": "o2",
+            "label": "גמר תחמושת"
+          },
+          {
+            "id": "o3",
             "label": "תקלה בשן הפולטת"
+          },
+          {
+            "id": "o4",
+            "label": "כל התשובות נכונות"
           }
         ]
       },
@@ -2676,6 +2768,29 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
       },
       {
         "id": "q27",
+        "prompt": "באילו תנאים נשתמש במצב כריעה \"רד חפה\"?",
+        "multi": false,
+        "options": [
+          {
+            "id": "o1",
+            "label": "כאשר תנאי השטח אינם מאפשרים ירי בשכיבה (שיחים, סלעים, קפלי קרקע וכו')"
+          },
+          {
+            "id": "o2",
+            "label": "כאשר הירי מבוצע מעל מחסה בינוני או גבוה"
+          },
+          {
+            "id": "o3",
+            "label": "כאשר הירי מבוצע ממארב הממוקם במדרון"
+          },
+          {
+            "id": "o4",
+            "label": "כאשר החייל נדרש לזמן תגובה מהיר"
+          }
+        ]
+      },
+      {
+        "id": "q28",
         "prompt": "איזה משפט מהבאים הינו נכון בנושא העלרוד?",
         "multi": false,
         "options": [
@@ -2698,7 +2813,7 @@ export const CANDIDATE_EXAMS: CandidateExamDefinition[] = [
         ]
       },
       {
-        "id": "q28",
+        "id": "q29",
         "prompt": "מה מהבאים אינו חלק מהחלקים הפנימיים של ה-M-16?",
         "multi": false,
         "options": [

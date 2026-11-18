@@ -5,6 +5,7 @@ import {
   type CandidateExamDefinition,
   type CandidateExamKind,
 } from "@/modules/agam/lib/candidate-exams-catalog";
+import { CANDIDATE_EXAM_ANSWER_KEY } from "@/modules/agam/lib/candidate-exams-answer-key";
 import { isExamOpen, israelTodayIso, resolveExamOpening } from "@/modules/agam/lib/exam-openings";
 import { AgamCycleService } from "@/modules/agam/services/cycle.service";
 import type { AgamCandidate, AgamCycle } from "@/modules/agam/types";
@@ -41,6 +42,8 @@ export type CandidateExamBoardItem = {
   /** Scheduled exams only: effective open date (YYYY-MM-DD) or null when not set yet. */
   opensOn: string | null;
   locked: boolean;
+  /** Submitted attempts only. */
+  result: CandidateExamResult | null;
 };
 
 function asJson(value: unknown): string {
@@ -72,6 +75,22 @@ function normalizeAnswers(
     }
   }
   return next;
+}
+
+export type CandidateExamResult = { correct: number; total: number; score: number };
+
+/** Every question weighs the same; the score out of 100 is rounded up. Multi-answer questions need the exact set. */
+export function gradeCandidateExam(examId: string, answers: CandidateExamAnswers): CandidateExamResult | null {
+  const exam = getCandidateExam(examId);
+  const key = CANDIDATE_EXAM_ANSWER_KEY[examId];
+  if (!exam || !key) return null;
+  const total = exam.questions.length;
+  const correct = exam.questions.filter((question) => {
+    const expected = key[question.id] ?? [];
+    const given = answers[question.id] ?? [];
+    return given.length === expected.length && expected.every((id) => given.includes(id));
+  }).length;
+  return { correct, total, score: Math.ceil((correct * 100) / total) };
 }
 
 function countAnswered(answers: CandidateExamAnswers): number {
@@ -144,6 +163,7 @@ export class AgamCandidateExamService extends BaseService {
         answeredCount: attempt?.answered_count ?? 0,
         submittedAt: attempt?.submitted_at ?? null,
         attemptId: attempt?.id ?? null,
+        result: attempt?.status === "submitted" ? gradeCandidateExam(exam.id, attempt.answers) : null,
         ...this.availability(exam, cycle, today),
       };
     });
