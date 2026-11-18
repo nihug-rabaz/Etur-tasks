@@ -23,6 +23,10 @@ import { AgamInterviewService } from "@/modules/agam/services/interview.service"
 import { AgamPrepDayService } from "@/modules/agam/services/prep-day.service";
 import { AgamQuestionService } from "@/modules/agam/services/question.service";
 import { AgamSmachService } from "@/modules/agam/services/smach.service";
+import {
+  AgamCandidateExamService,
+  type CandidateExamBoardItem,
+} from "@/modules/agam/services/candidate-exam.service";
 import type { AgamCandidate, AgamDocument, AgamQuestion } from "@/modules/agam/types";
 
 export type CandidateMePayload = {
@@ -102,6 +106,7 @@ export type CandidateMePayload = {
     }>;
     docTypes: string[];
   };
+  knowledgeExams: CandidateExamBoardItem[];
 };
 
 export class AgamCandidateMeService extends BaseService {
@@ -113,6 +118,7 @@ export class AgamCandidateMeService extends BaseService {
   private readonly prepDays = new AgamPrepDayService();
   private readonly smach = new AgamSmachService();
   private readonly documents = new AgamDocumentService();
+  private readonly exams = new AgamCandidateExamService();
 
   public async resolveForUser(userId: string, email: string | null | undefined): Promise<AgamCandidate | null> {
     let candidate = await this.candidates.findByLinkedUser(userId);
@@ -129,7 +135,7 @@ export class AgamCandidateMeService extends BaseService {
   }
 
   public async buildPayload(candidate: AgamCandidate): Promise<CandidateMePayload> {
-    const [stages, questions, dayEvaluations, criteria, interviews, prepDays, smach, documents] =
+    const [stages, questions, dayEvaluations, criteria, interviews, prepDays, smach, documents, knowledgeExams] =
       await Promise.all([
         this.candidates.getTrackProgress(candidate.id),
         this.questions.listActive("pre_screening", { includeStaffOnly: false }),
@@ -139,6 +145,7 @@ export class AgamCandidateMeService extends BaseService {
         this.prepDays.listByCandidate(candidate.id),
         this.smach.listByCandidate(candidate.id),
         this.documents.listByCandidate(candidate.id),
+        this.exams.buildBoard(candidate.id),
       ]);
 
     const criterionLabel = new Map(criteria.map((row) => [row.key, row.name]));
@@ -234,6 +241,7 @@ export class AgamCandidateMeService extends BaseService {
         created_at: document.created_at,
       })),
       documents: this.documentsPayload(candidate, documents),
+      knowledgeExams,
     };
   }
 

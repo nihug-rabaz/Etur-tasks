@@ -22,6 +22,7 @@ import {
 } from "@/modules/agam/components/case-file-kit";
 import { Modal } from "@/components/ui/modal";
 import { EXAM_GROUPS, ExamsBoard, type ExamGroup } from "@/modules/agam/components/test-results-cards";
+import { CandidateKnowledgeExams } from "@/modules/agam/components/candidate-knowledge-exams";
 import { THRESHOLD_TESTS } from "@/modules/agam/lib/stages";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import {
@@ -354,6 +355,8 @@ export function AgamCandidateMePage() {
           </div>
         )}
       </FileAccordion>
+
+      <CandidateKnowledgeExams initialExams={payload.knowledgeExams} />
 
       <ExamsBoard groups={examGroups} />
 
