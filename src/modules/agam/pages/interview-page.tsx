@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ChevronLeft } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { AgamQuestionField } from "@/modules/agam/components/question-field";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
@@ -40,7 +39,6 @@ export function AgamInterviewPage({
   const [recommendation, setRecommendation] = useState<AgamRecommendation | "">("");
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const [acknowledged, setAcknowledged] = useState(false);
 
   useEffect(() => {
     void agamFetch<{
@@ -72,13 +70,6 @@ export function AgamInterviewPage({
     () => (candidatePartComplete ? [] : interviewMissingItems(interview, questions)),
     [candidatePartComplete, interview, questions],
   );
-  const showWarning = loaded && missing.length > 0 && !acknowledged;
-
-  const leave = () => {
-    if (onDone) onDone(false);
-    else window.location.href = `/agam/candidates/${candidateId}?stage=day_selection`;
-  };
-
   const onSave = async () => {
     setSaving(true);
     try {
@@ -90,7 +81,6 @@ export function AgamInterviewPage({
           interviewData: data,
           evaluatorAssessment: assessment,
           recommendation: recommendation || null,
-          force: !candidatePartComplete,
         }),
       });
       toast.success("הראיון נשמר");
@@ -104,11 +94,6 @@ export function AgamInterviewPage({
   };
 
   if (!loaded) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
-
-  const warning = (
-    <MissingCandidatePartWarning items={missing} onProceed={() => setAcknowledged(true)} onBack={leave} />
-  );
-  if (embedded && showWarning) return warning;
 
   return (
     <div className={embedded ? "space-y-4" : formShellClass}>
@@ -129,19 +114,20 @@ export function AgamInterviewPage({
         </header>
       )}
 
-      {!embedded ? (
-        <Modal open={showWarning} onClose={leave} title="חלק המועמד בראיון לא הושלם" size="md">
-          {warning}
-        </Modal>
-      ) : null}
-
-      {missing.length > 0 && acknowledged ? (
-        <div className="flex items-start gap-2.5 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm ring-1 ring-amber-500/20">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-300" />
-          <p className="font-semibold text-text-primary">
-            ממלאים ראיון לפני שהמועמד השלים את החלק שלו בפורטל. הראיון יישמר כרגיל, והמועמד עדיין יוכל להשלים את החלק
-            שלו.
+      {missing.length > 0 ? (
+        <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-sm ring-1 ring-amber-500/20">
+          <p className="flex items-center gap-2 font-extrabold text-text-primary">
+            <AlertTriangle size={15} className="shrink-0 text-amber-600 dark:text-amber-300" />
+            לידיעתך: המועמד עוד לא השלים את החלק שלו בראיון בפורטל המועמד
           </p>
+          <ul className="mt-2 space-y-1 ps-6">
+            {missing.map((item) => (
+              <li key={item} className="list-disc text-[13px] font-semibold text-text-secondary">
+                {item}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-text-muted">אפשר למלא ולשמור את הראיון כרגיל, והמועמד יוכל להשלים את החלק שלו גם אחר כך.</p>
         </div>
       ) : null}
 
@@ -226,50 +212,3 @@ export function AgamInterviewPage({
   );
 }
 
-function MissingCandidatePartWarning({
-  items,
-  onProceed,
-  onBack,
-}: {
-  items: string[];
-  onProceed: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <div className="space-y-4" dir="rtl">
-      <div className="flex items-start gap-3 rounded-2xl bg-amber-500/10 px-4 py-3.5 ring-1 ring-amber-500/25">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300">
-          <AlertTriangle size={18} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-extrabold text-text-primary">המועמד עוד לא השלים את החלק שלו בראיון</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
-            לפני הראיון המועמד עונה בפורטל המועמד על שאלות הרקע שלו, ואז לוחץ ״סיום והגשה״. התשובות שלו מופיעות לך
-            בטופס הראיון.
-          </p>
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-2 text-xs font-extrabold text-text-muted">מה חסר כרגע</p>
-        <ul className="space-y-1.5">
-          {items.map((item) => (
-            <li key={item} className="flex items-start gap-2 rounded-xl bg-surface-2/70 px-3 py-2 text-sm font-semibold text-text-primary">
-              <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className={`flex flex-wrap gap-2 pt-3 ${dividerTopClass}`}>
-        <button type="button" className={primaryButtonClass} onClick={onProceed}>
-          הזן ראיון בכל מקרה
-        </button>
-        <button type="button" className={secondaryButtonClass} onClick={onBack}>
-          חזרה
-        </button>
-      </div>
-    </div>
-  );
-}

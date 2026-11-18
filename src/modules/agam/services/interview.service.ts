@@ -122,9 +122,6 @@ export class AgamInterviewService extends BaseService {
     const existing = await this.getById(id);
     if (!existing || existing.candidate_id !== candidateId) return null;
     if (!allowOverride && existing.evaluator_id && existing.evaluator_id !== evaluatorId) return null;
-    if (!existing.candidate_part_completed_at && !allowOverride) {
-      throw new Error("CANDIDATE_PART_INCOMPLETE");
-    }
     return this.update(id, {
       ...input,
       evaluator_id: existing.evaluator_id ?? evaluatorId,

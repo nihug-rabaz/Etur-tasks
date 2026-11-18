@@ -35,8 +35,6 @@ const bodySchema = z.object({
   interviewData: z.record(z.string(), z.unknown()),
   evaluatorAssessment: z.string(),
   recommendation: z.enum(["ממליץ", "ממליץ בהסתייגות", "לא ממליץ"]).nullable(),
-  /** The screener confirmed writing the interview although the candidate's part is not complete. */
-  force: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {
@@ -54,70 +52,32 @@ export async function POST(request: Request) {
   }
   const interviewService = new AgamInterviewService();
   const isRamad = accessService.canRamad(access.role);
-  const allowOverride = isRamad || Boolean(parsed.data.force);
+  const input = {
+    interview_data: parsed.data.interviewData,
+    evaluator_assessment: parsed.data.evaluatorAssessment,
+    recommendation: parsed.data.recommendation,
+  };
 
-  try {
-    if (parsed.data.interviewId) {
-      const updated = await interviewService.updateOwned(
-        parsed.data.interviewId,
-        parsed.data.candidateId,
-        access.profile.id,
-        allowOverride,
-        {
-          interview_data: parsed.data.interviewData,
-          evaluator_assessment: parsed.data.evaluatorAssessment,
-          recommendation: parsed.data.recommendation,
-        },
-      );
-      if (!updated) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    } else {
-      const latest = await interviewService.getLatestForCandidate(parsed.data.candidateId);
-      if (latest?.candidate_part_completed_at || allowOverride) {
-        if (latest) {
-          await interviewService.updateOwned(
-            latest.id,
-            parsed.data.candidateId,
-            access.profile.id,
-            allowOverride,
-            {
-              interview_data: parsed.data.interviewData,
-              evaluator_assessment: parsed.data.evaluatorAssessment,
-              recommendation: parsed.data.recommendation,
-            },
-          );
-        } else if (allowOverride) {
-          await interviewService.create({
-            candidate_id: parsed.data.candidateId,
-            evaluator_id: access.profile.id,
-            evaluator_name: access.profile.name,
-            interview_data: parsed.data.interviewData,
-            evaluator_assessment: parsed.data.evaluatorAssessment,
-            recommendation: parsed.data.recommendation,
-            candidate_part_completed_at: isRamad && !parsed.data.force ? new Date().toISOString() : null,
-          });
-        } else {
-          return NextResponse.json(
-            { error: "לא ניתן לפתוח ראיון לפני שחלק המועמד הושלם" },
-            { status: 409 },
-          );
-        }
-      } else {
-        return NextResponse.json(
-          { error: "לא ניתן לפתוח ראיון לפני שחלק המועמד הושלם" },
-          { status: 409 },
-        );
-      }
+  const targetId =
+    parsed.data.interviewId ?? (await interviewService.getLatestForCandidate(parsed.data.candidateId))?.id;
+  if (targetId) {
+    const updated = await interviewService.updateOwned(
+      targetId,
+      parsed.data.candidateId,
+      access.profile.id,
+      isRamad,
+      input,
+    );
+    if (!updated) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-  } catch (error) {
-    if (error instanceof Error && error.message === "CANDIDATE_PART_INCOMPLETE") {
-      return NextResponse.json(
-        { error: "לא ניתן לפתוח ראיון לפני שחלק המועמד הושלם" },
-        { status: 409 },
-      );
-    }
-    throw error;
+  } else {
+    await interviewService.create({
+      candidate_id: parsed.data.candidateId,
+      evaluator_id: access.profile.id,
+      evaluator_name: access.profile.name,
+      ...input,
+    });
   }
 
   await new AgamCandidateService().addTimeline({
