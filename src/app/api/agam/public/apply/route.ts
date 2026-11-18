@@ -1,5 +1,9 @@
+import type { Session } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { authOptions } from "@/lib/auth-options";
+import { AgamCandidateLinkService } from "@/modules/agam/services/candidate-link.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
 import { AgamCycleService } from "@/modules/agam/services/cycle.service";
 import { normalizeEmail } from "@/modules/agam/lib/email";
@@ -85,6 +89,14 @@ export async function POST(request: Request) {
       });
     } catch (timelineError) {
       console.error("[agam] apply timeline note failed", timelineError);
+    }
+    const session = (await getServerSession(authOptions as never)) as Session | null;
+    if (session?.user?.id) {
+      try {
+        await new AgamCandidateLinkService().linkSignedInApplicant(candidate.id, session.user.id);
+      } catch (linkError) {
+        console.error("[agam] apply link to signed-in user failed", linkError);
+      }
     }
     return NextResponse.json({ ok: true, id: candidate.id, cycleId });
   } catch (error) {

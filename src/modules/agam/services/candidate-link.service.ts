@@ -16,7 +16,24 @@ export class AgamCandidateLinkService extends BaseService {
     if (!email || !userId) return false;
 
     const candidate = await this.candidates.findByEmail(email);
-    if (!candidate || candidate.archived) return false;
+    if (!candidate) return false;
+    return this.linkCandidate(candidate, userId);
+  }
+
+  /** Links the Google account that was signed in while the questionnaire was submitted. */
+  public async linkSignedInApplicant(candidateId: string, userId: string): Promise<boolean> {
+    const roles = await this.moduleRoles.getRolesForUser(userId);
+    if (roles.agam && roles.agam !== "candidate") return false;
+    const candidate = await this.candidates.getById(candidateId);
+    if (!candidate) return false;
+    return this.linkCandidate(candidate, userId);
+  }
+
+  private async linkCandidate(
+    candidate: { id: string; archived: boolean; linked_user_id: string | null },
+    userId: string,
+  ): Promise<boolean> {
+    if (candidate.archived) return false;
 
     // Already linked to someone else — do not steal the file.
     if (candidate.linked_user_id && candidate.linked_user_id !== userId) {
