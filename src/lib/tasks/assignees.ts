@@ -1,12 +1,12 @@
-import { TaskWithRelations } from "@/types/models";
+export type TaskAssigneeFields = {
+  assignee_ids?: string[] | null;
+  assigned_to?: string | null;
+};
 
-export function getTaskAssigneeIds(task: Pick<TaskWithRelations, "assignee_ids" | "assigned_to">): string[] {
+export function getTaskAssigneeIds(task: TaskAssigneeFields): string[] {
   return task.assignee_ids ?? (task.assigned_to ? [task.assigned_to] : []);
 }
 
-export function isTaskAssignedToUser(
-  task: Pick<TaskWithRelations, "assignee_ids" | "assigned_to">,
-  userId: string,
-): boolean {
+export function isTaskAssignedToUser(task: TaskAssigneeFields, userId: string): boolean {
   return getTaskAssigneeIds(task).includes(userId);
 }
