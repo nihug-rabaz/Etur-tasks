@@ -13,11 +13,13 @@ import type { TaskCloseRequestWithRelations } from "@/types/models";
 
 interface CloseRequestsContextValue {
   ready: boolean;
+  /** True for platform admins — can close any task and review close requests. */
   canClose: boolean;
+  userId: string | null;
   requests: TaskCloseRequestWithRelations[];
   getPendingForTask: (taskId: string) => TaskCloseRequestWithRelations | null;
   refresh: () => Promise<void>;
-  requestClose: (taskId: string, note?: string) => Promise<{ ok: boolean; error?: string }>;
+  requestClose: (taskId: string, note?: string) => Promise<{ ok: boolean; error?: string; closeDirectly?: boolean }>;
   cancelRequest: (requestId: string) => Promise<boolean>;
   approveRequest: (requestId: string) => Promise<boolean>;
   rejectRequest: (requestId: string, reviewNote?: string) => Promise<boolean>;
@@ -28,12 +30,18 @@ const CloseRequestsContext = createContext<CloseRequestsContextValue | null>(nul
 export function CloseRequestsProvider({
   children,
   enabled = true,
+  /** Session fallback so admins are not stuck as non-closers if capability GET fails. */
+  fallbackCanClose = false,
+  fallbackUserId = null,
 }: {
   children: ReactNode;
   enabled?: boolean;
+  fallbackCanClose?: boolean;
+  fallbackUserId?: string | null;
 }) {
   const [ready, setReady] = useState(!enabled);
-  const [canClose, setCanClose] = useState(false);
+  const [canClose, setCanClose] = useState(fallbackCanClose);
+  const [userId, setUserId] = useState<string | null>(fallbackUserId);
   const [requests, setRequests] = useState<TaskCloseRequestWithRelations[]>([]);
 
   const refresh = useCallback(async () => {
@@ -43,17 +51,22 @@ export function CloseRequestsProvider({
     }
     const response = await fetch("/api/tasks/close-requests");
     if (!response.ok) {
+      // Do not strand admins as non-closers if the capability GET fails.
+      setCanClose(fallbackCanClose);
+      setUserId(fallbackUserId);
       setReady(true);
       return;
     }
     const data = (await response.json()) as {
       canClose?: boolean;
+      userId?: string;
       requests?: TaskCloseRequestWithRelations[];
     };
     setCanClose(Boolean(data.canClose));
+    setUserId(typeof data.userId === "string" ? data.userId : fallbackUserId);
     setRequests(data.requests ?? []);
     setReady(true);
-  }, [enabled]);
+  }, [enabled, fallbackCanClose, fallbackUserId]);
 
   useEffect(() => {
     void refresh();
@@ -76,6 +89,10 @@ export function CloseRequestsProvider({
         if (data.error === "Request already pending") {
           await refresh();
           return { ok: true };
+        }
+        if (data.code === "CLOSE_DIRECTLY" || data.error === "Admins can close tasks directly") {
+          await refresh();
+          return { ok: false, closeDirectly: true, error: "ניתן לסגור ישירות" };
         }
         return { ok: false, error: "שליחת הבקשה נכשלה" };
       }
@@ -131,6 +148,7 @@ export function CloseRequestsProvider({
     () => ({
       ready,
       canClose,
+      userId,
       requests,
       getPendingForTask,
       refresh,
@@ -142,6 +160,7 @@ export function CloseRequestsProvider({
     [
       ready,
       canClose,
+      userId,
       requests,
       getPendingForTask,
       refresh,
@@ -161,6 +180,7 @@ export function useCloseRequests(): CloseRequestsContextValue {
     return {
       ready: false,
       canClose: false,
+      userId: null,
       requests: [],
       getPendingForTask: () => null,
       refresh: async () => undefined,

@@ -125,8 +125,33 @@ export class AuthorizationService extends BaseService {
     };
   }
 
+  /** Platform admins may close / reopen any task and review close requests. */
   public canCloseTask(profile: Profile): boolean {
     return profile.role === "admin";
+  }
+
+  public async isTaskAssignee(userId: string, taskId: string): Promise<boolean> {
+    const db = this.getDb();
+    const multi = await db<Array<{ user_id: string }>>`
+      select user_id
+      from task_assignees
+      where task_id = ${taskId} and user_id = ${userId}
+      limit 1
+    `;
+    if (multi.length > 0) return true;
+    const legacy = await db<Array<{ assigned_to: string | null }>>`
+      select assigned_to
+      from tasks
+      where id = ${taskId}
+      limit 1
+    `;
+    return legacy[0]?.assigned_to === userId;
+  }
+
+  /** Admin, or a user assigned to this task, may close it directly. */
+  public async canCloseTaskDirectly(profile: Profile, taskId: string): Promise<boolean> {
+    if (this.canCloseTask(profile)) return true;
+    return this.isTaskAssignee(profile.id, taskId);
   }
 
   public async canAccessTask(profile: Profile, taskId: string): Promise<boolean> {

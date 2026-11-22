@@ -25,6 +25,7 @@ import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 import { useTasksLiveSync } from "@/components/tasks/tasks-live-sync";
 import { domainKeyFromName, domainMeta } from "@/lib/ui/domains";
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
+import { getTaskAssigneeIds } from "@/lib/tasks/assignees";
 
 type TaskPriority = "low" | "medium" | "high";
 type TaskStatus = "in_progress" | "completed";
@@ -48,6 +49,7 @@ interface TaskDetails {
   domain_name: string | null;
   project_id: string | null;
   project_name: string | null;
+  assigned_to: string | null;
   assignee_name: string | null;
   assignee_ids: string[] | null;
   assignees?: TaskAssignee[];
@@ -212,9 +214,11 @@ export function TaskDetailsModal({
 }) {
   const router = useRouter();
   const { publishLocal } = useTasksLiveSync();
-  const { canClose, refresh: refreshCloseRequests } = useCloseRequests();
+  const { canClose, userId, refresh: refreshCloseRequests } = useCloseRequests();
   const [loading, setLoading] = useState(false);
   const [task, setTask] = useState<TaskDetails | null>(null);
+  const taskAssigneeIds = task ? getTaskAssigneeIds(task) : [];
+  const canCloseThis = canClose || Boolean(userId && taskAssigneeIds.includes(userId));
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -341,8 +345,14 @@ export function TaskDetailsModal({
       setError("נדרשת כותרת למשימה.");
       return;
     }
-    if (!canClose && draft.status === "completed" && task.status !== "completed") {
-      setError("רק מנהל יכול לסגור משימה. אפשר לבקש סגירה מהסטטוס.");
+    const draftCanClose =
+      canClose ||
+      Boolean(
+        userId &&
+          (draft.assignedToIds.length ? draft.assignedToIds : taskAssigneeIds).includes(userId),
+      );
+    if (!draftCanClose && draft.status === "completed" && task.status !== "completed") {
+      setError("רק אחראי המשימה או מנהל יכולים לסגור. אפשר לבקש סגירה מהסטטוס.");
       return;
     }
     if (!canClose && draft.status === "in_progress" && task.status === "completed") {
@@ -361,7 +371,7 @@ export function TaskDetailsModal({
         assignedToIds: draft.assignedToIds,
         projectId: draft.projectId ? draft.projectId : null,
       };
-      if (canClose || draft.status === task.status) {
+      if (draftCanClose || draft.status === task.status) {
         payload.status = draft.status;
       }
       const response = await fetch(`/api/tasks`, {
@@ -561,7 +571,7 @@ export function TaskDetailsModal({
                 <div className="mt-5 flex flex-wrap items-center gap-2">
                   {editing && draft ? (
                     <>
-                      {canClose ? (
+                      {canCloseThis ? (
                         <button
                           ref={statusBadgeRef}
                           type="button"
@@ -592,7 +602,7 @@ export function TaskDetailsModal({
                         יעד · {formatDate(headerDue)}
                       </button>
 
-                      {canClose ? (
+                      {canCloseThis ? (
                         <BadgePopover
                           open={badgeMenu === "status"}
                           onClose={() => setBadgeMenu(null)}
@@ -601,7 +611,9 @@ export function TaskDetailsModal({
                           <p className="px-2 pb-1.5 pt-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-slate-400">
                             סטטוס
                           </p>
-                          {statusOptions.map((option) => {
+                          {statusOptions
+                            .filter((option) => canClose || option !== "in_progress" || draft.status === "in_progress")
+                            .map((option) => {
                             const active = draft.status === option;
                             return (
                               <button
@@ -696,6 +708,7 @@ export function TaskDetailsModal({
                       <TaskStatusControls
                         taskId={taskId}
                         status={headerStatus}
+                        assigneeIds={taskAssigneeIds}
                         onUpdated={() => {
                           void refreshCloseRequests();
                           onUpdated?.();

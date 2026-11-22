@@ -26,6 +26,7 @@ export async function GET() {
 
   return NextResponse.json({
     canClose: authorizationService.canCloseTask(profile),
+    userId: profile.id,
     requests,
   });
 }
@@ -39,9 +40,6 @@ export async function POST(request: Request) {
   if (!profile.is_approved) {
     return NextResponse.json({ error: "Awaiting admin approval" }, { status: 403 });
   }
-  if (authorizationService.canCloseTask(profile)) {
-    return NextResponse.json({ error: "Admins can close tasks directly" }, { status: 400 });
-  }
 
   const json = await request.json();
   const parsed = createSchema.safeParse(json);
@@ -52,6 +50,14 @@ export async function POST(request: Request) {
   const allowed = await authorizationService.canAccessTask(profile, parsed.data.taskId);
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Admins / assignees close directly — do not create an approval request.
+  if (await authorizationService.canCloseTaskDirectly(profile, parsed.data.taskId)) {
+    return NextResponse.json(
+      { error: "Close this task directly", code: "CLOSE_DIRECTLY" },
+      { status: 400 },
+    );
   }
 
   const service = new TaskCloseRequestService();

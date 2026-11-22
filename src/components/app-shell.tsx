@@ -284,6 +284,8 @@ export function AppShell({
     pathname.startsWith("/malshabim") ||
     pathname.startsWith("/nagadim");
   const showTasksChrome = activeModuleId === "tasks";
+  const closeRequestsEnabled =
+    showTasksChrome || pathname === "/dashboard" || pathname.startsWith("/dovrut/tasks");
   const hideCreateFab =
     isHome ||
     pathname === "/admin/users" ||
@@ -333,9 +335,15 @@ export function AppShell({
   }
 
   return (
-    <CloseRequestsProvider enabled={showTasksChrome}>
+    <CloseRequestsProvider
+      enabled={closeRequestsEnabled}
+      fallbackCanClose={isRealAdmin && !isImpersonating}
+      fallbackUserId={
+        typeof session?.user?.id === "string" ? session.user.id : null
+      }
+    >
       <TasksLiveSyncProvider
-        enabled={showTasksChrome || pathname === "/dashboard" || pathname.startsWith("/dovrut/tasks")}
+        enabled={closeRequestsEnabled}
       >
       <div className="relative flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-text-primary transition-colors">
         <ImpersonationBanner state={impersonation} onStopped={loadProfile} />
@@ -408,7 +416,9 @@ export function AppShell({
               </ol>
             </nav>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              {showTasksChrome ? <AdminCloseRequestsInbox /> : null}
+              {closeRequestsEnabled && isRealAdmin && !isImpersonating ? (
+                <AdminCloseRequestsInbox />
+              ) : null}
               <ThemeToggle />
               {showTasksChrome && isRealAdmin && !isImpersonating ? (
                 <AdminMessageComposer iconOnly />
@@ -448,6 +458,7 @@ export function AppShell({
 
 type SessionSnapshot = {
   user?: {
+    id?: string;
     name?: string | null;
     email?: string | null;
     isApproved?: boolean;

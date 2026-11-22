@@ -165,11 +165,14 @@ export async function PATCH(request: Request) {
   const db = NeonDatabase.createClient();
 
   if (payload.status !== undefined) {
-    if (payload.status === "completed" && !authorizationService.canCloseTask(profile)) {
-      return NextResponse.json(
-        { error: "Only admins can close tasks", code: "CLOSE_REQUIRES_ADMIN" },
-        { status: 403 },
-      );
+    if (payload.status === "completed") {
+      const canClose = await authorizationService.canCloseTaskDirectly(profile, payload.id);
+      if (!canClose) {
+        return NextResponse.json(
+          { error: "Only admins or assignees can close tasks", code: "CLOSE_REQUIRES_ADMIN" },
+          { status: 403 },
+        );
+      }
     }
     if (payload.status === "in_progress" && !authorizationService.canCloseTask(profile)) {
       const current = await db<Array<{ status: string }>>`
@@ -220,6 +223,21 @@ export async function PATCH(request: Request) {
     `;
   }
   if (payload.assignedToIds !== undefined) {
+    // Prevent privilege escalation: non-admins with only subtopic access must not
+    // self-assign and then close. Only admins, creators, or current assignees may reassign.
+    if (!authorizationService.canCloseTask(profile)) {
+      const existing = await db<Array<{ created_by: string }>>`
+        select created_by from tasks where id = ${payload.id} limit 1
+      `;
+      const isCreator = existing[0]?.created_by === profile.id;
+      const isAssignee = await authorizationService.isTaskAssignee(profile.id, payload.id);
+      if (!isCreator && !isAssignee) {
+        return NextResponse.json(
+          { error: "Forbidden", code: "ASSIGN_REQUIRES_ROLE" },
+          { status: 403 },
+        );
+      }
+    }
     const ids = payload.assignedToIds;
     const primaryAssignee = ids[0] ?? null;
     await db`

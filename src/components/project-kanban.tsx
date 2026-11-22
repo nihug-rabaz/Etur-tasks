@@ -6,6 +6,7 @@ import { Check, GripVertical, Plus } from "lucide-react";
 import { TaskWithRelations } from "@/types/models";
 import { useCloseRequests } from "@/components/tasks/close-requests-context";
 import { TaskStatusControls } from "@/components/tasks/task-status-controls";
+import { getTaskAssigneeIds } from "@/lib/tasks/assignees";
 
 interface ProjectKanbanProps {
   tasks: TaskWithRelations[];
@@ -13,7 +14,7 @@ interface ProjectKanbanProps {
 
 export function ProjectKanban({ tasks }: ProjectKanbanProps) {
   const router = useRouter();
-  const { canClose, ready } = useCloseRequests();
+  const { canClose, userId, ready } = useCloseRequests();
   const [dragTaskId, setDragTaskId] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
@@ -22,8 +23,15 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
     [tasks],
   );
 
+  const canCloseTaskId = (taskId: string) => {
+    if (canClose) return true;
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task || !userId) return false;
+    return getTaskAssigneeIds(task).includes(userId);
+  };
+
   const updateTask = (payload: { id: string; status?: "completed"; title?: string }) => {
-    if (payload.status === "completed" && !canClose) return;
+    if (payload.status === "completed" && !canCloseTaskId(payload.id)) return;
     startTransition(async () => {
       await fetch("/api/tasks", {
         method: "PATCH",
@@ -46,12 +54,15 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
         className={`space-y-2 ${isPending ? "opacity-80" : ""}`}
         onDragOver={(event) => event.preventDefault()}
       >
-        {activeTasks.map((task) => (
+        {activeTasks.map((task) => {
+          const taskCanClose = canCloseTaskId(task.id);
+          const assigneeIds = getTaskAssigneeIds(task);
+          return (
           <article
             key={task.id}
-            draggable={canClose}
+            draggable={taskCanClose}
             onDragStart={() => {
-              if (!canClose) return;
+              if (!taskCanClose) return;
               setDragTaskId(task.id);
             }}
             onDragEnd={() => setDragTaskId("")}
@@ -67,15 +78,20 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
                 }}
                 className="w-full rounded-lg border border-transparent bg-transparent px-1 text-sm font-semibold text-text-primary outline-none transition focus:border-border-strong"
               />
-              {canClose ? <GripVertical size={14} className="text-text-muted" /> : null}
+              {taskCanClose ? <GripVertical size={14} className="text-text-muted" /> : null}
             </div>
             <div className="flex items-center justify-between gap-2 text-xs text-text-muted">
               <span>{task.assignee_name ?? "לא משויך"}</span>
               <span>{task.due_date ? new Date(task.due_date).toLocaleDateString("he-IL") : "ללא יעד"}</span>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <TaskStatusControls taskId={task.id} status={task.status} size="sm" />
-              {canClose ? (
+              <TaskStatusControls
+                taskId={task.id}
+                status={task.status}
+                assigneeIds={assigneeIds}
+                size="sm"
+              />
+              {taskCanClose ? (
                 <button
                   type="button"
                   onClick={() => updateTask({ id: task.id, status: "completed" })}
@@ -88,9 +104,10 @@ export function ProjectKanban({ tasks }: ProjectKanbanProps) {
               ) : null}
             </div>
           </article>
-        ))}
+          );
+        })}
       </div>
-      {dragTaskId && canClose ? (
+      {dragTaskId && canCloseTaskId(dragTaskId) ? (
         <div
           onDragOver={(event) => event.preventDefault()}
           onDrop={() => {

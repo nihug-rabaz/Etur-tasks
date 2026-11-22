@@ -4,6 +4,7 @@ import { domainCardStyle, domainKeyFromName, type DomainKey } from "@/lib/ui/dom
 import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 import { TaskPlanDragHandle } from "@/components/tasks/task-plan-drag-handle";
+import { getTaskAssigneeIds } from "@/lib/tasks/assignees";
 
 interface TaskCardProps {
   task: TaskWithRelations;
@@ -64,6 +65,7 @@ export function TaskCard({ task, enablePlanDrag = false }: TaskCardProps) {
           <TaskStatusControls
             taskId={task.id}
             status={task.status}
+            assigneeIds={getTaskAssigneeIds(task)}
             size="sm"
             domainSlug={domainKey ?? undefined}
           />

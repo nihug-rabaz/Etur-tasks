@@ -21,6 +21,8 @@ type TaskStatus = "in_progress" | "completed";
 interface TaskQuickStatusProps {
   taskId: string;
   status: TaskStatus;
+  /** Assignee user ids — assignees may close this task without admin approval. */
+  assigneeIds?: string[];
   size?: "sm" | "md";
   onUpdated?: () => void;
   className?: string;
@@ -61,6 +63,7 @@ const REQUEST_WIDTH = 248;
 export function TaskQuickStatus({
   taskId,
   status,
+  assigneeIds = [],
   size = "md",
   onUpdated,
   className = "",
@@ -68,7 +71,8 @@ export function TaskQuickStatus({
 }: TaskQuickStatusProps) {
   const router = useRouter();
   const { publishLocal } = useTasksLiveSync();
-  const { ready, canClose, getPendingForTask, requestClose, approveRequest } = useCloseRequests();
+  const { ready, canClose, userId, getPendingForTask, requestClose, approveRequest } =
+    useCloseRequests();
   const anchorRef = useRef<HTMLDivElement>(null);
   const confirmId = useId();
   const [current, setCurrent] = useState(status);
@@ -81,6 +85,9 @@ export function TaskQuickStatus({
   const [isPending, startTransition] = useTransition();
   const pendingRequest = getPendingForTask(taskId);
   const compact = size === "sm";
+  const isAssignee = Boolean(userId && assigneeIds.includes(userId));
+  const canCloseThis = canClose || isAssignee;
+  const canReopen = canClose;
 
   useEffect(() => {
     setMounted(true);
@@ -165,7 +172,8 @@ export function TaskQuickStatus({
   };
 
   const handleOptionClick = (next: TaskStatus) => {
-    if (next === current || isPending || !canClose) return;
+    if (next === current || isPending || !canCloseThis) return;
+    if (next === "in_progress" && !canReopen) return;
     if (next === "completed") {
       setConfirmArchive(true);
       setRequestOpen(false);
@@ -180,6 +188,12 @@ export function TaskQuickStatus({
     setRequestError("");
     startTransition(async () => {
       const result = await requestClose(taskId, requestNote);
+      if (result.closeDirectly) {
+        setRequestOpen(false);
+        setRequestNote("");
+        setConfirmArchive(true);
+        return;
+      }
       if (!result.ok) {
         setRequestError(result.error ?? "שליחת הבקשה נכשלה");
         return;
@@ -209,7 +223,7 @@ export function TaskQuickStatus({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <p className="text-xs font-semibold leading-relaxed text-text-primary">
-          {pendingRequest
+          {pendingRequest && canClose
             ? `לאשר את בקשת הסגירה של ${pendingRequest.requester_name}?`
             : "המשימה תועבר לארכיון"}
         </p>
@@ -230,7 +244,9 @@ export function TaskQuickStatus({
             type="button"
             onClick={() => {
               setConfirmArchive(false);
-              if (pendingRequest) {
+              // Only admins can approve a pending request; assignees close via PATCH
+              // (which also cancels pending requests server-side).
+              if (pendingRequest && canClose) {
                 startTransition(async () => {
                   const ok = await approveRequest(pendingRequest.id);
                   if (ok) {
@@ -245,7 +261,7 @@ export function TaskQuickStatus({
             }}
             className="rounded-lg bg-emerald-500 px-2.5 py-1.5 text-[0.6875rem] font-bold text-white shadow-[0_4px_12px_-4px_rgba(16,185,129,0.65)] transition hover:bg-emerald-600"
           >
-            {pendingRequest ? "אשר סגירה" : "אישור"}
+            {pendingRequest && canClose ? "אשר סגירה" : "אישור"}
           </button>
         </div>
       </div>
@@ -276,7 +292,7 @@ export function TaskQuickStatus({
           <div>
             <p className="text-xs font-bold text-text-primary">בקשה ממנהל לסגור</p>
             <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-text-secondary">
-              רק מנהלים יכולים להעביר משימה לארכיון.
+              אחראי המשימה או מנהל יכולים לסגור ישירות; אחרת נשלחת בקשה למנהל.
             </p>
           </div>
         </div>
@@ -328,7 +344,7 @@ export function TaskQuickStatus({
     );
   }
 
-  if (!canClose && current === "in_progress") {
+  if (!canCloseThis && current === "in_progress") {
     return (
       <>
         <div
@@ -374,7 +390,8 @@ export function TaskQuickStatus({
     );
   }
 
-  if (!canClose && current === "completed") {
+  // Assignees may close but only admins may reopen — keep completed read-only for them.
+  if ((!canCloseThis || (!canReopen && current === "completed")) && current === "completed") {
     return (
       <StatusColumn
         below={belowStatus}

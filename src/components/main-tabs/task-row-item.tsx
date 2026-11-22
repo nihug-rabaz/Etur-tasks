@@ -173,6 +173,7 @@ export function TaskRowItem({ task, projectId, domainSlug, onClick }: TaskRowIte
           <TaskStatusControls
             taskId={task.id}
             status={task.status}
+            assigneeIds={task.assignees.map((person) => person.id)}
             size="sm"
             domainSlug={domainSlug}
           />

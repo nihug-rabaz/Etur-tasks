@@ -8,6 +8,7 @@ import { toHebrewSubtopicLabel } from "@/lib/ui/labels";
 import { TaskQuickPriority } from "@/components/tasks/task-quick-priority";
 import { TaskStatusControls } from "@/components/tasks/task-status-controls";
 import { TaskPlanDragHandle } from "@/components/tasks/task-plan-drag-handle";
+import { getTaskAssigneeIds } from "@/lib/tasks/assignees";
 
 interface TasksTableProps {
   tasks: TaskWithRelations[];
@@ -193,6 +194,7 @@ function TaskTableRow({
         <TaskStatusControls
           taskId={task.id}
           status={task.status}
+          assigneeIds={getTaskAssigneeIds(task)}
           size="sm"
           domainSlug={domainKeyFromName(task.domain_name) ?? undefined}
         />

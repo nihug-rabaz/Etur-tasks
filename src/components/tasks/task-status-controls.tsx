@@ -8,6 +8,7 @@ type TaskStatus = "in_progress" | "completed";
 interface TaskStatusControlsProps {
   taskId: string;
   status: TaskStatus;
+  assigneeIds?: string[];
   size?: "sm" | "md";
   onUpdated?: () => void;
   className?: string;
@@ -17,6 +18,7 @@ interface TaskStatusControlsProps {
 export function TaskStatusControls({
   taskId,
   status,
+  assigneeIds,
   size = "md",
   onUpdated,
   className = "",
@@ -25,6 +27,7 @@ export function TaskStatusControls({
     <TaskQuickStatus
       taskId={taskId}
       status={status}
+      assigneeIds={assigneeIds}
       size={size}
       onUpdated={onUpdated}
       className={className}
