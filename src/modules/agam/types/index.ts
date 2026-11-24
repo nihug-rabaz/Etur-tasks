@@ -183,6 +183,7 @@ export interface AgamOrgSettings {
   id: string;
   logo_url: string | null;
   unit_name: string | null;
+  active_cycle_id?: string | null;
   created_at: string;
   updated_at: string;
 }

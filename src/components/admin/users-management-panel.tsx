@@ -53,7 +53,7 @@ const APP_DEFS: Array<{
     id: "agam",
     label: "קצינים",
     roles: [
-      { value: "user", label: "ממיין", hint: "מילוי ראיונות, הערכות, סמ״ח ומסמכים" },
+      { value: "user", label: "ממיין (מעריך)", hint: "פורטל מעריכים: מועמדי המחזור הפעיל בלבד — ראיון, יום מיונים, יום מכין וסמ״ח" },
       { value: "ramad", label: "רמ״ד", hint: "ארכיון, ייצוא PDF והחלטה סופית" },
       { value: "viewer", label: "צופה", hint: "צפייה בתיקים בלבד" },
       { value: "admin", label: "מנהל", hint: "ניהול מלא כולל שאלון, קריטריונים והגדרות" },

@@ -6,7 +6,8 @@ import { AgamInterviewService } from "@/modules/agam/services/interview.service"
 import { AgamQuestionService } from "@/modules/agam/services/question.service";
 
 export async function GET(request: Request) {
-  const access = await new AgamAccessService().requireAgamAccess();
+  const accessService = new AgamAccessService();
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
@@ -15,6 +16,9 @@ export async function GET(request: Request) {
   const interviewId = searchParams.get("interviewId");
   if (!candidateId) {
     return NextResponse.json({ error: "missing" }, { status: 400 });
+  }
+  if (!(await accessService.canAccessCandidate(access.role, candidateId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const questions = await new AgamQuestionService().listActive("interview");
   const interviewService = new AgamInterviewService();
@@ -49,6 +53,9 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+  }
+  if (!(await accessService.canAccessCandidate(access.role, parsed.data.candidateId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const interviewService = new AgamInterviewService();
   const isRamad = accessService.canRamad(access.role);

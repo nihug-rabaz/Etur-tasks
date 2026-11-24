@@ -16,19 +16,25 @@ export const agamModule: AppModuleDefinition = {
       label: "ראשי",
       href: "/agam",
       description: "סקירת קצינים",
-      roles: ["admin", "user", "ramad", "viewer"],
+      roles: ["admin", "ramad", "viewer"],
     },
     {
       label: "שנתונים",
       href: "/agam/cycles",
       description: "שנתונים ומחזורי מועמדים",
-      roles: ["admin", "user", "ramad", "viewer"],
+      roles: ["admin", "ramad", "viewer"],
     },
     {
       label: "מועמדים",
       href: "/agam/candidates",
       description: "תיקי מועמדים ושלבי מיון",
-      roles: ["admin", "user", "ramad", "viewer"],
+      roles: ["admin", "ramad", "viewer"],
+    },
+    {
+      label: "פורטל מעריכים",
+      href: "/agam/evaluate",
+      description: "מועמדי המחזור הפעיל — ראיונות והערכות",
+      roles: ["admin", "ramad", "user"],
     },
     {
       label: "ארכיון",
@@ -61,5 +67,6 @@ export const agamModule: AppModuleDefinition = {
     users: "משתמשים",
     portal: "פורטל מועמד",
     bahad1: "הכנות לבה״ד 1",
+    evaluate: "פורטל מעריכים",
   },
 };

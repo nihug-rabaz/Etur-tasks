@@ -3,6 +3,8 @@ import { z } from "zod";
 import { normalizePhone } from "@/modules/agam/lib/phone";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
+import { AgamCycleService } from "@/modules/agam/services/cycle.service";
+import { AgamEvaluatorPortalService } from "@/modules/agam/services/evaluator-portal.service";
 
 export async function GET(request: Request) {
   const access = await new AgamAccessService().requireAgamAccess();
@@ -14,6 +16,26 @@ export async function GET(request: Request) {
   const unassigned = url.searchParams.get("unassigned") === "1";
   if (archived && !new AgamAccessService().canRamad(access.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const accessService = new AgamAccessService();
+  if (accessService.canScreen(access.role)) {
+    const activeCycle = await new AgamEvaluatorPortalService().getActiveCycle();
+    const candidates =
+      archived || unassigned || !activeCycle
+        ? []
+        : (await new AgamCycleService().listCandidates(activeCycle.id))
+            .filter((row) => !row.archived)
+            .map(({ id, full_name, personal_number, command, cycle_id, cycle_name, status, archived }) => ({
+              id,
+              full_name,
+              personal_number,
+              command,
+              cycle_id,
+              cycle_name,
+              status,
+              archived,
+            }));
+    return NextResponse.json({ candidates, role: access.role, currentUserId: access.profile.id });
   }
   const service = new AgamCandidateService();
   const candidates = unassigned ? await service.listUnassigned() : await service.list(archived);

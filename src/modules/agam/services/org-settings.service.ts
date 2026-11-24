@@ -10,6 +10,19 @@ export class AgamOrgSettingsService extends BaseService {
     return rows[0] ?? null;
   }
 
+  public async setActiveCycle(cycleId: string | null): Promise<void> {
+    const existing = await this.getSingleton();
+    const db = this.getDb();
+    if (existing) {
+      await db`
+        update agam_org_settings set active_cycle_id = ${cycleId}, updated_at = now()
+        where id = ${existing.id}
+      `;
+      return;
+    }
+    await db`insert into agam_org_settings (active_cycle_id) values (${cycleId})`;
+  }
+
   public async upsert(unitName: string, logoUrl?: string | null): Promise<AgamOrgSettings> {
     const existing = await this.getSingleton();
     const db = this.getDb();

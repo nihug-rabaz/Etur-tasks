@@ -29,6 +29,9 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
   }
+  if (!(await accessService.canAccessCandidate(access.role, parsed.data.candidateId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   await new AgamSmachService().upsertMine({
     candidate_id: parsed.data.candidateId,
     evaluator_id: access.profile.id,

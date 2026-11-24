@@ -26,7 +26,8 @@ import { AssistantFloatingPanel } from "@/components/assistant/floating-panel";
 import { DevFeedbackFab } from "@/components/dev-feedback/dev-feedback-fab";
 import { DovrutCreateFabStack } from "@/modules/dovrut/components/dovrut-create-fab-stack";
 import { AgamCreateFabStack } from "@/modules/agam/components/create-fab-stack";
-import { isAgamCandidateSoldier } from "@/modules/agam/lib/candidate-access";
+import { isAgamCandidateSoldier, isAgamEvaluatorOnly } from "@/modules/agam/lib/candidate-access";
+import { EvaluatorShell } from "@/modules/agam/components/evaluator-shell";
 import { previewKeyForHref } from "@/modules/dovrut/lib/nav-preview";
 import { TasksLiveSyncProvider } from "@/components/tasks/tasks-live-sync";
 import { writeLastModuleId } from "@/shared/modules/last-module";
@@ -165,9 +166,11 @@ function CandidateShell({
 export function AppShell({
   children,
   candidateShell = false,
+  evaluatorShell = false,
 }: {
   children: ReactNode;
   candidateShell?: boolean;
+  evaluatorShell?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -240,6 +243,15 @@ export function AppShell({
         platformRole: session?.user?.role,
         moduleRoles,
       }));
+  const evaluatorMode =
+    !candidateMode &&
+    (evaluatorShell ||
+      (moduleRolesLoaded &&
+        isAgamEvaluatorOnly({
+          isPlatformAdmin: isRealAdmin,
+          platformRole: session?.user?.role,
+          moduleRoles,
+        })));
 
   const { module: activeModule, items: moduleNavItems } = useMemo(
     () => getNavForPathname(pathname, access, { isImpersonating }),
@@ -324,14 +336,33 @@ export function AppShell({
   }, [candidateMode, pathname, router]);
 
   useEffect(() => {
-    if (!moduleRolesLoaded || !session?.user || isHome || candidateMode) return;
+    if (!evaluatorMode) return;
+    const allowed = pathname.startsWith("/agam/evaluate") || pathname.startsWith("/settings/profile");
+    if (!allowed) {
+      router.replace("/agam/evaluate");
+    }
+  }, [evaluatorMode, pathname, router]);
+
+  useEffect(() => {
+    if (!moduleRolesLoaded || !session?.user || isHome || candidateMode || evaluatorMode) return;
     if (activeModuleId === "tasks" && !canAccessModule("tasks", access)) {
       router.replace("/");
     }
-  }, [moduleRolesLoaded, session?.user, isHome, activeModuleId, access, router, candidateMode]);
+  }, [moduleRolesLoaded, session?.user, isHome, activeModuleId, access, router, candidateMode, evaluatorMode]);
 
   if (candidateMode) {
     return <CandidateShell userLabel={userLabel}>{children}</CandidateShell>;
+  }
+
+  if (evaluatorMode) {
+    return (
+      <EvaluatorShell
+        userLabel={userLabel}
+        banner={<ImpersonationBanner state={impersonation} onStopped={loadProfile} />}
+      >
+        {children}
+      </EvaluatorShell>
+    );
   }
 
   return (

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Archive,
+  ClipboardCheck,
   LayoutDashboard,
   Layers,
   Settings2,
@@ -18,9 +19,10 @@ const ITEMS: Array<{
   roles: ModuleRole[];
   icon: LucideIcon;
 }> = [
-  { href: "/agam", label: "ראשי", roles: ["admin", "user", "ramad", "viewer"], icon: LayoutDashboard },
-  { href: "/agam/cycles", label: "שנתונים", roles: ["admin", "user", "ramad", "viewer"], icon: Layers },
-  { href: "/agam/candidates", label: "מועמדים", roles: ["admin", "user", "ramad", "viewer"], icon: Users },
+  { href: "/agam", label: "ראשי", roles: ["admin", "ramad", "viewer"], icon: LayoutDashboard },
+  { href: "/agam/cycles", label: "שנתונים", roles: ["admin", "ramad", "viewer"], icon: Layers },
+  { href: "/agam/candidates", label: "מועמדים", roles: ["admin", "ramad", "viewer"], icon: Users },
+  { href: "/agam/evaluate", label: "מעריכים", roles: ["admin", "ramad"], icon: ClipboardCheck },
   { href: "/agam/candidates/archive", label: "ארכיון", roles: ["admin", "ramad"], icon: Archive },
   { href: "/agam/admin", label: "ניהול", roles: ["admin"], icon: Settings2 },
 ];

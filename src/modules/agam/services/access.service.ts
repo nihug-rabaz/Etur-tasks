@@ -3,6 +3,7 @@ import { ModuleRoleService } from "@/shared/services/module-role.service";
 import type { ModuleRole } from "@/shared/modules/types";
 import type { AgamUploadSource } from "@/modules/agam/types";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
+import { AgamEvaluatorPortalService } from "@/modules/agam/services/evaluator-portal.service";
 
 const STAFF_ROLES: ModuleRole[] = ["admin", "user", "ramad", "viewer"];
 
@@ -132,5 +133,11 @@ export class AgamAccessService {
   /** Screener = evaluator user role */
   public canScreen(role: ModuleRole): boolean {
     return role === "user";
+  }
+
+  /** Evaluators (ממיינים) only work on candidates of the active cycle; other staff see everything. */
+  public async canAccessCandidate(role: ModuleRole, candidateId: string): Promise<boolean> {
+    if (!this.canScreen(role)) return true;
+    return new AgamEvaluatorPortalService().isCandidateInActiveCycle(candidateId);
   }
 }

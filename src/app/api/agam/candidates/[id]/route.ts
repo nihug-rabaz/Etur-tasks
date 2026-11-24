@@ -17,11 +17,15 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const access = await new AgamAccessService().requireAgamAccess();
+  const accessService = new AgamAccessService();
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const { id } = await context.params;
+  if (!(await accessService.canAccessCandidate(access.role, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const candidateService = new AgamCandidateService();
   const candidate = await candidateService.getById(id);
   if (!candidate) {
@@ -97,6 +101,9 @@ export async function PATCH(
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const { id } = await context.params;
+  if (!(await accessService.canAccessCandidate(access.role, id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });

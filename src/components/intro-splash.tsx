@@ -32,7 +32,7 @@ export function IntroSplash() {
       const path = window.location.pathname;
       if (
         path.startsWith("/dovrut-approve") ||
-        ["/agam/login", "/agam/apply", "/agam/upload", "/agam/portal"].some(
+        ["/agam/login", "/agam/evaluator", "/agam/evaluate", "/agam/apply", "/agam/upload", "/agam/portal"].some(
           (prefix) => path === prefix || path.startsWith(`${prefix}/`),
         )
       ) {

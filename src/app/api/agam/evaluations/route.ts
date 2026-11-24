@@ -5,13 +5,17 @@ import { AgamCandidateService } from "@/modules/agam/services/candidate.service"
 import { AgamCriterionService, AgamDayEvaluationService } from "@/modules/agam/services/evaluation.service";
 
 export async function GET(request: Request) {
-  const access = await new AgamAccessService().requireAgamAccess();
+  const accessService = new AgamAccessService();
+  const access = await accessService.requireAgamAccess();
   if ("error" in access) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
   const evalId = new URL(request.url).searchParams.get("evalId");
   const criteria = await new AgamCriterionService().listActive();
   const evaluation = evalId ? await new AgamDayEvaluationService().getById(evalId) : null;
+  if (evaluation && !(await accessService.canAccessCandidate(access.role, evaluation.candidate_id))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   return NextResponse.json({ criteria, evaluation });
 }
 
@@ -37,6 +41,9 @@ export async function POST(request: Request) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed" }, { status: 400 });
+  }
+  if (!(await accessService.canAccessCandidate(access.role, parsed.data.candidateId))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const criteria = await new AgamCriterionService().listActive();
   try {

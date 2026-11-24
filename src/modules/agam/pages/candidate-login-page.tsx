@@ -36,7 +36,15 @@ function GoogleMark() {
   );
 }
 
-function GoogleButton({ label, variant = "primary" }: { label: string; variant?: "primary" | "secondary" }) {
+export function GoogleButton({
+  label,
+  variant = "primary",
+  callbackUrl = CALLBACK,
+}: {
+  label: string;
+  variant?: "primary" | "secondary";
+  callbackUrl?: string;
+}) {
   const [loading, setLoading] = useState(false);
   return (
     <button
@@ -44,7 +52,7 @@ function GoogleButton({ label, variant = "primary" }: { label: string; variant?:
       disabled={loading}
       onClick={() => {
         setLoading(true);
-        void signIn("google", { callbackUrl: CALLBACK }, { prompt: "select_account" }).catch(() => setLoading(false));
+        void signIn("google", { callbackUrl }, { prompt: "select_account" }).catch(() => setLoading(false));
       }}
       className={`flex h-12 w-full items-center justify-center gap-2.5 rounded-2xl text-[15px] font-extrabold transition disabled:cursor-wait disabled:opacity-70 ${
         variant === "primary"

@@ -23,6 +23,14 @@ export default async function AgamLayout({ children }: { children: ReactNode }) 
     return <div className="agam-scope relative min-h-[70vh]">{children}</div>;
   }
 
+  if (accessService.canScreen(access.role)) {
+    if (!pathname.startsWith("/agam/evaluate")) {
+      const fileId = pathname.match(/^\/agam\/candidates\/([0-9a-f-]{36})/i)?.[1];
+      redirect(fileId ? `/agam/evaluate/${fileId}` : "/agam/evaluate");
+    }
+    return <div className="agam-scope relative min-h-[70vh]">{children}</div>;
+  }
+
   return (
     <div className="agam-scope relative min-h-[70vh] pb-24 md:pb-6 md:ps-[4.75rem] lg:ps-[5.25rem]">
       <AgamSectionNav role={access.role} />
