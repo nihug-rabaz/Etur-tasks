@@ -83,6 +83,7 @@ import type {
   AgamPrepDayEvaluation,
   AgamQuestion,
   AgamSmachEvaluation,
+  AgamExamResult,
   AgamStageKey,
   AgamTimelineItem,
 } from "@/modules/agam/types";
@@ -94,6 +95,7 @@ type FilePayload = {
   evaluations: AgamDayEvaluation[];
   prepDays: AgamPrepDayEvaluation[];
   smach: AgamSmachEvaluation[];
+  examResults: AgamExamResult[];
   documents: AgamDocument[];
   timeline: AgamTimelineItem[];
   tasks: AgamLinkedTask[];
@@ -1001,9 +1003,8 @@ function Overview({
         <CandidateExamsCard
           candidateId={candidateId}
           prepDays={payload.prepDays}
-          smach={payload.smach}
+          examResults={payload.examResults ?? []}
           documents={payload.documents}
-          currentUserId={currentUserId}
           canEdit={canEvaluate}
           canApprove={canRamad}
           onSaved={onSaved}

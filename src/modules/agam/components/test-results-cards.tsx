@@ -1,7 +1,7 @@
 "use client";
 
 import { Activity, Check, ChevronDown, ClipboardCheck, GraduationCap, Info, Pencil, X } from "lucide-react";
-import { useState, type ComponentType, type ReactNode } from "react";
+import { Fragment, useState, type ComponentType, type ReactNode } from "react";
 import { toast } from "sonner";
 import { CaseSectionHead, caseCardClass } from "@/modules/agam/components/case-file-kit";
 import {
@@ -10,25 +10,18 @@ import {
 } from "@/modules/agam/components/sports-results-gallery";
 import { Modal } from "@/components/ui/modal";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
+import { examResultValue } from "@/modules/agam/lib/exam-results";
+import { primaryButtonClass, secondaryButtonClass } from "@/modules/agam/lib/ui";
 import {
+  THRESHOLD_PASS,
   THRESHOLD_TESTS,
   computeThresholdPass,
-  normalizeThresholdTests,
-  withAutoThresholdPass,
   type AgamThresholdFamily,
   type AgamThresholdInputType,
 } from "@/modules/agam/lib/stages";
-import type { AgamDocument, AgamPrepDayEvaluation, AgamSmachEvaluation } from "@/modules/agam/types";
+import type { AgamDocument, AgamExamResult, AgamPrepDayEvaluation } from "@/modules/agam/types";
 
 type IconType = ComponentType<{ size?: number; className?: string }>;
-
-type ThresholdEntry = {
-  pass?: boolean | null;
-  score?: number | null;
-  time?: string | null;
-  count?: number | null;
-  datum?: string | null;
-};
 
 export type ExamCell = {
   key: string;
@@ -289,31 +282,6 @@ function byRecency<T extends { created_at: string; updated_at?: string }>(rows: 
   );
 }
 
-function entryValue(entry: ThresholdEntry | null | undefined): string | null {
-  if (!entry) return null;
-  const value = entry.score ?? entry.count ?? entry.time ?? entry.datum ?? null;
-  return value == null || value === "" ? null : String(value);
-}
-
-function latestThreshold(smach: AgamSmachEvaluation[], key: string): ThresholdEntry | null {
-  for (const row of byRecency(smach)) {
-    const tests = normalizeThresholdTests((row.threshold_tests as Record<string, ThresholdEntry> | null) ?? {});
-    const entry = tests[key];
-    if (entry && (entryValue(entry) != null || entry.pass != null)) return entry;
-  }
-  return null;
-}
-
-function passFromEntry(key: string, entry: ThresholdEntry | null, inputType: AgamThresholdInputType): boolean | null {
-  if (!entry) return null;
-  const computed = computeThresholdPass(key, {
-    score: inputType === "score" ? entry.score ?? (entry.datum != null ? Number(entry.datum) : null) : entry.score,
-    time: inputType === "time" ? entry.time ?? entry.datum : entry.time,
-    count: inputType === "count" ? entry.count ?? (entry.datum != null ? Number(entry.datum) : null) : entry.count,
-  });
-  return computed ?? entry.pass ?? null;
-}
-
 export function draftPass(cell: ExamCell, raw: string): boolean | null {
   return computeThresholdPass(
     cell.key,
@@ -325,25 +293,130 @@ export function draftPass(cell: ExamCell, raw: string): boolean | null {
   );
 }
 
+const TEST_LABEL = new Map(THRESHOLD_TESTS.map((test) => [test.key, test.label]));
+
+const FAMILY_HINT: Record<AgamThresholdFamily, string> = {
+  fitness_strength: `עובר מ־${THRESHOLD_PASS.fitness_strength.countMin}`,
+  fitness_run: `דק׳:שנ׳ · עובר עד ${THRESHOLD_PASS.fitness_run.timeMax}`,
+  mikraot_israel: `עובר מ־${THRESHOLD_PASS.mikraot_israel.scoreMin}`,
+  weapon_test: `עובר מ־${THRESHOLD_PASS.weapon_test.scoreMin}`,
+};
+
+function draftError(cell: ExamCell, raw: string): string | null {
+  if (!raw) return null;
+  if (cell.inputType === "time") return /^\d{1,2}:[0-5]\d$/.test(raw) ? null : "זמן בפורמט דקות:שניות (12:30)";
+  if (cell.inputType === "count") return /^\d{1,3}$/.test(raw) ? null : "מספר שלם";
+  return Number(raw) >= 1 && Number(raw) <= 100 ? null : "ציון בין 1 ל־100";
+}
+
 const iconButtonClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full text-text-muted transition hover:bg-surface-1 hover:text-text-primary disabled:opacity-50";
 
-/** Staff view of the candidate's exams, with inline editing of the current evaluator's results. */
+function ExamInput({
+  cell,
+  value,
+  onChange,
+}: {
+  cell: ExamCell;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const error = draftError(cell, value.trim());
+  const pass = error ? null : draftPass(cell, value.trim());
+  return (
+    <div className="relative">
+      <input
+        dir="ltr"
+        inputMode={cell.inputType === "time" ? "numeric" : "decimal"}
+        placeholder="—"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={TEST_LABEL.get(cell.key)}
+        aria-invalid={error ? true : undefined}
+        title={error ?? undefined}
+        className={`ui-field h-11 w-full rounded-xl bg-surface-1 ps-3 pe-9 text-center text-base font-extrabold tabular-nums text-text-primary outline-none transition placeholder:font-semibold placeholder:text-text-muted/50 ${
+          error ? "!shadow-[inset_0_0_0_1.5px_rgb(244_63_94)]" : ""
+        }`}
+      />
+      <span className="pointer-events-none absolute inset-y-0 end-3 flex items-center">
+        <PassMark pass={pass} />
+      </span>
+    </div>
+  );
+}
+
+/** Roomy editor for all exam attempts, grouped like the card. */
+function ExamsEditor({
+  groups,
+  drafts,
+  setDraft,
+}: {
+  groups: ExamGroup[];
+  drafts: Record<string, string>;
+  setDraft: (key: string, value: string) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => {
+        const tone = GROUP_TONE[group.id];
+        const Icon = group.icon;
+        const families = EXAM_GROUPS.find((entry) => entry.id === group.id)!.columns;
+        return (
+          <section key={group.id} className={`rounded-2xl ${tone.soft} p-3 ring-1 ring-black/[0.04] dark:ring-white/[0.06] sm:p-4`}>
+            <div className="mb-3 flex items-center gap-2">
+              <Icon size={17} className={tone.icon} />
+              <h3 className="text-[15px] font-extrabold text-text-primary">{group.title}</h3>
+            </div>
+            <div className="grid grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3 gap-y-2 sm:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,1fr)]">
+              <span />
+              {group.columns.map((column, index) => (
+                <div key={column.label} className="text-center">
+                  <p className="text-[13px] font-extrabold text-text-primary">{column.label}</p>
+                  <p className="text-[11px] font-semibold text-text-muted" dir="rtl">
+                    {FAMILY_HINT[families[index].family]}
+                  </p>
+                </div>
+              ))}
+              {ATTEMPTS.map((attempt, index) => (
+                <Fragment key={attempt}>
+                  <span className="text-[13px] font-bold text-text-secondary">מבחן {attempt}</span>
+                  {group.columns.map((column) => {
+                    const cell = column.cells[index];
+                    return cell ? (
+                      <ExamInput
+                        key={cell.key}
+                        cell={cell}
+                        value={drafts[cell.key] ?? ""}
+                        onChange={(value) => setDraft(cell.key, value)}
+                      />
+                    ) : (
+                      <span key={column.label} />
+                    );
+                  })}
+                </Fragment>
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Staff view of the candidate's exams (shared across stages), editable in a modal. */
 export function CandidateExamsCard({
   candidateId,
   prepDays,
-  smach,
+  examResults,
   documents = [],
-  currentUserId,
   canEdit = false,
   canApprove = false,
   onSaved,
 }: {
   candidateId: string;
   prepDays: AgamPrepDayEvaluation[];
-  smach: AgamSmachEvaluation[];
+  examResults: AgamExamResult[];
   documents?: AgamDocument[];
-  currentUserId?: string;
   canEdit?: boolean;
   canApprove?: boolean;
   onSaved?: () => void;
@@ -353,63 +426,43 @@ export function CandidateExamsCard({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [sportsOpen, setSportsOpen] = useState(false);
   const pendingSports = pendingSportsResultPhotos(documents);
-  const mine = smach.find((row) => row.evaluator_id === currentUserId);
+  const resultByKey = new Map(examResults.map((result) => [result.test_key, result]));
   const prepMikra = byRecency(prepDays).find((row) => row.mikra_score != null)?.mikra_score ?? null;
 
-  const cellFor = (key: string, inputType: AgamThresholdInputType): ExamCell => {
-    const entry = latestThreshold(smach, key);
-    const value = entryValue(entry);
-    if (key === "mikraot_israel_1" && value == null && prepMikra != null) {
-      return { key, inputType, value: String(prepMikra), pass: computeThresholdPass(key, { score: prepMikra }) };
+  const groups = buildExamGroups((test): ExamCell => {
+    const result = resultByKey.get(test.key);
+    const value = examResultValue(result);
+    if (test.key === "mikraot_israel_1" && value == null && prepMikra != null) {
+      return { key: test.key, inputType: test.inputType, value: String(prepMikra), pass: computeThresholdPass(test.key, { score: prepMikra }) };
     }
-    return { key, inputType, value, pass: passFromEntry(key, entry, inputType) };
-  };
-
-  const groups = buildExamGroups((test) => cellFor(test.key, test.inputType));
+    return { key: test.key, inputType: test.inputType, value, pass: result?.pass ?? null };
+  });
   const cells = groups.flatMap((group) => group.columns.flatMap((column) => column.cells));
+  const lastUpdate = [...examResults].sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
 
   const startEdit = () => {
-    setDrafts(Object.fromEntries(cells.map((cell) => [cell.key, cell.value ?? ""])));
+    setDrafts(Object.fromEntries(cells.map((cell) => [cell.key, examResultValue(resultByKey.get(cell.key)) ?? ""])));
     setEditing(true);
   };
 
   const save = async () => {
-    const invalid = cells.find((cell) => {
-      if (cell.inputType !== "score") return false;
-      const raw = drafts[cell.key]?.trim();
-      return raw ? !(Number(raw) >= 1 && Number(raw) <= 100) : false;
-    });
+    const invalid = cells.find((cell) => draftError(cell, (drafts[cell.key] ?? "").trim()));
     if (invalid) {
-      toast.error("ציון צריך להיות בין 1 ל־100");
+      toast.error(draftError(invalid, (drafts[invalid.key] ?? "").trim()));
       return;
     }
-    const thresholdTests: Record<string, unknown> = normalizeThresholdTests(
-      (mine?.threshold_tests as Record<string, unknown> | null) ?? {},
-    );
-    for (const cell of cells) {
-      const raw = (drafts[cell.key] ?? "").trim();
-      const entry: ThresholdEntry = { ...((thresholdTests[cell.key] as ThresholdEntry) ?? {}) };
-      delete entry.datum;
-      if (cell.inputType === "time") entry.time = raw || null;
-      else if (cell.inputType === "count") entry.count = raw === "" ? null : Number(raw);
-      else entry.score = raw === "" ? null : Number(raw);
-      thresholdTests[cell.key] = withAutoThresholdPass(cell.key, entry);
+    const changed = cells
+      .map((cell) => ({ testKey: cell.key, value: (drafts[cell.key] ?? "").trim() || null }))
+      .filter((row) => row.value !== examResultValue(resultByKey.get(row.testKey)));
+    if (changed.length === 0) {
+      setEditing(false);
+      return;
     }
     setSaving(true);
     try {
-      await agamFetch("/api/agam/smach", {
-        method: "POST",
-        body: JSON.stringify({
-          candidateId,
-          thresholdTests,
-          professionalScores: mine?.professional_scores ?? {},
-          professionalFeedback: mine?.professional_feedback ?? {},
-          weightedScore: mine?.weighted_score ?? null,
-          keyPoints: mine?.key_points ?? "",
-          decision: mine?.decision ?? null,
-          decisionReasoning: mine?.decision_reasoning ?? "",
-          passed: mine?.passed ?? null,
-        }),
+      await agamFetch(`/api/agam/candidates/${candidateId}/exam-results`, {
+        method: "PUT",
+        body: JSON.stringify({ results: changed }),
       });
       toast.success("תוצאות המבחנים נשמרו");
       setEditing(false);
@@ -421,40 +474,17 @@ export function CandidateExamsCard({
     }
   };
 
-  const action = editing ? (
-    <>
-      <button
-        type="button"
-        className={`${iconButtonClass} !text-emerald-600`}
-        onClick={() => void save()}
-        disabled={saving}
-        aria-label="שמירה"
-        title="שמירה"
-      >
-        <Check size={14} strokeWidth={3} />
-      </button>
-      <button
-        type="button"
-        className={iconButtonClass}
-        onClick={() => setEditing(false)}
-        disabled={saving}
-        aria-label="ביטול"
-        title="ביטול"
-      >
-        <X size={14} strokeWidth={3} />
-      </button>
-    </>
-  ) : canEdit ? (
-    <button type="button" className={iconButtonClass} onClick={startEdit} aria-label="עריכת מבחנים" title="עריכה">
-      <Pencil size={13} />
-    </button>
-  ) : null;
-
   return (
     <>
       <ExamsBoard
         groups={groups}
-        action={action}
+        action={
+          canEdit ? (
+            <button type="button" className={iconButtonClass} onClick={startEdit} aria-label="עדכון מבחנים" title="עדכון">
+              <Pencil size={13} />
+            </button>
+          ) : null
+        }
         groupHeaderAction={(group) =>
           group.id === "fitness" ? (
             <button
@@ -473,29 +503,35 @@ export function CandidateExamsCard({
             </button>
           ) : null
         }
-        renderCell={(cell) =>
-          editing ? (
-            <span className="relative block">
-              <input
-                dir="ltr"
-                inputMode={cell.inputType === "time" ? "text" : "numeric"}
-                type={cell.inputType === "time" ? "text" : "number"}
-                min={cell.inputType === "score" ? 1 : 0}
-                max={cell.inputType === "score" ? 100 : undefined}
-                placeholder={cell.inputType === "time" ? "12:30" : "—"}
-                value={drafts[cell.key] ?? ""}
-                onChange={(event) => setDrafts((current) => ({ ...current, [cell.key]: event.target.value }))}
-                className="ui-field h-9 w-full min-w-0 rounded-lg bg-surface-2/70 px-1 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-sm font-extrabold tabular-nums text-text-primary outline-none"
-              />
-              <span className="pointer-events-none absolute -end-1 -top-1.5">
-                <PassMark pass={draftPass(cell, drafts[cell.key] ?? "")} />
-              </span>
-            </span>
-        ) : (
-          <ExamCellView cell={cell} />
-        )
-        }
       />
+      <Modal
+        open={editing}
+        onClose={() => (saving ? undefined : setEditing(false))}
+        title="עדכון תוצאות מבחנים"
+        subtitle={
+          lastUpdate?.updated_by_name
+            ? `תוצאות משותפות לכל שלבי המיון · עודכן לאחרונה ע״י ${lastUpdate.updated_by_name}`
+            : "תוצאות משותפות לכל שלבי המיון"
+        }
+        icon={<ClipboardCheck size={18} />}
+        size="md"
+        footer={
+          <>
+            <button type="button" className={secondaryButtonClass} onClick={() => setEditing(false)} disabled={saving}>
+              ביטול
+            </button>
+            <button type="button" className={primaryButtonClass} onClick={() => void save()} disabled={saving}>
+              {saving ? "שומר…" : "שמירה"}
+            </button>
+          </>
+        }
+      >
+        <ExamsEditor
+          groups={groups}
+          drafts={drafts}
+          setDraft={(key, value) => setDrafts((current) => ({ ...current, [key]: value }))}
+        />
+      </Modal>
       <Modal open={sportsOpen} onClose={() => setSportsOpen(false)} title="תוצאות ספורט" size="lg">
         <SportsResultsPhotos documents={documents} canApprove={canApprove} onSaved={onSaved} />
       </Modal>

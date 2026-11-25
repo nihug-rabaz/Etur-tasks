@@ -15,7 +15,6 @@ export class AgamSmachService extends BaseService {
     candidate_id: string;
     evaluator_id: string;
     evaluator_name: string | null;
-    threshold_tests: Record<string, unknown> | null;
     professional_scores: Record<string, number> | null;
     professional_feedback: Record<string, string> | null;
     weighted_score: number | null;
@@ -32,7 +31,6 @@ export class AgamSmachService extends BaseService {
       const rows = await db<AgamSmachEvaluation[]>`
         update agam_smach_evaluations set
           evaluator_name = ${input.evaluator_name},
-          threshold_tests = ${input.threshold_tests},
           professional_scores = ${input.professional_scores},
           professional_feedback = ${input.professional_feedback},
           weighted_score = ${input.weighted_score},
@@ -48,14 +46,13 @@ export class AgamSmachService extends BaseService {
     }
     const rows = await db<AgamSmachEvaluation[]>`
       insert into agam_smach_evaluations (
-        candidate_id, evaluator_id, evaluator_name, threshold_tests, professional_scores,
+        candidate_id, evaluator_id, evaluator_name, professional_scores,
         professional_feedback, weighted_score, key_points, decision, decision_reasoning, passed
       )
       values (
         ${input.candidate_id},
         ${input.evaluator_id},
         ${input.evaluator_name},
-        ${input.threshold_tests},
         ${input.professional_scores},
         ${input.professional_feedback},
         ${input.weighted_score},

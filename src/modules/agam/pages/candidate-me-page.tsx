@@ -456,19 +456,6 @@ export function AgamCandidateMePage() {
                     <FieldChip label="ציון משוקלל" value={<ScoreValue value={row.weighted_score} />} />
                     <FieldChip label="המלצה" value={row.decision ?? "—"} />
                   </div>
-                  <ul className="space-y-1.5">
-                    {row.thresholds
-                      .filter((test) => test.value != null || test.pass != null)
-                      .map((test) => (
-                        <li key={test.key} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="font-semibold text-text-muted">{test.label}</span>
-                          <span className="flex items-center gap-2">
-                            <ScoreValue value={test.value} />
-                            <PassPill value={test.pass} />
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
                   {row.professional.some((item) => item.value != null) ? (
                     <ul className="space-y-1.5 border-t border-border-weak/40 pt-2">
                       {row.professional

@@ -6,7 +6,6 @@ import { AgamSmachService } from "@/modules/agam/services/smach.service";
 
 const bodySchema = z.object({
   candidateId: z.string().uuid(),
-  thresholdTests: z.record(z.string(), z.unknown()),
   professionalScores: z.record(z.string(), z.number()),
   professionalFeedback: z.record(z.string(), z.string()),
   weightedScore: z.number().nullable(),
@@ -36,7 +35,6 @@ export async function POST(request: Request) {
     candidate_id: parsed.data.candidateId,
     evaluator_id: access.profile.id,
     evaluator_name: access.profile.name,
-    threshold_tests: parsed.data.thresholdTests,
     professional_scores: parsed.data.professionalScores,
     professional_feedback: parsed.data.professionalFeedback,
     weighted_score: parsed.data.weightedScore,

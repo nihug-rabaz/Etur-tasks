@@ -248,6 +248,18 @@ export interface AgamSmachEvaluation {
   updated_at: string;
 }
 
+/** One exam attempt result (כושר / עיוני), shared across stages. */
+export interface AgamExamResult {
+  candidate_id: string;
+  test_key: string;
+  score: number | null;
+  run_time: string | null;
+  count: number | null;
+  pass: boolean | null;
+  updated_by_name: string | null;
+  updated_at: string;
+}
+
 export interface AgamInterview {
   id: string;
   candidate_id: string;

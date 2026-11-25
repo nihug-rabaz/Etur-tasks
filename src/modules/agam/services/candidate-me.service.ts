@@ -9,12 +9,10 @@ import {
 import { documentDownloadHref } from "@/modules/agam/lib/document-download";
 import { groupQuestionsBySection } from "@/modules/agam/lib/questions";
 import {
-  LEGACY_THRESHOLD_KEYS,
   PROFESSIONAL_CRITERIA,
   STATUS_LABELS,
   THRESHOLD_TESTS,
   computeThresholdPass,
-  normalizeThresholdTests,
 } from "@/modules/agam/lib/stages";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
 import { AgamDayEvaluationService, AgamCriterionService } from "@/modules/agam/services/evaluation.service";
@@ -23,11 +21,13 @@ import { AgamInterviewService } from "@/modules/agam/services/interview.service"
 import { AgamPrepDayService } from "@/modules/agam/services/prep-day.service";
 import { AgamQuestionService } from "@/modules/agam/services/question.service";
 import { AgamSmachService } from "@/modules/agam/services/smach.service";
+import { AgamExamResultService } from "@/modules/agam/services/exam-result.service";
+import { examResultValue } from "@/modules/agam/lib/exam-results";
 import {
   AgamCandidateExamService,
   type CandidateExamBoardItem,
 } from "@/modules/agam/services/candidate-exam.service";
-import type { AgamCandidate, AgamDocument, AgamQuestion } from "@/modules/agam/types";
+import type { AgamCandidate, AgamDocument, AgamExamResult, AgamQuestion } from "@/modules/agam/types";
 
 export type CandidateMePayload = {
   candidate: {
@@ -71,12 +71,6 @@ export type CandidateMePayload = {
       weighted_score: number | null;
       passed: boolean | null;
       decision: string | null;
-      thresholds: Array<{
-        key: string;
-        label: string;
-        value: string | null;
-        pass: boolean | null;
-      }>;
       professional: Array<{ key: string; label: string; value: number | null }>;
     }>;
     tests: Array<{ key: string; label: string; value: string | null; pass: boolean | null; group: "tests" | "fitness" }>;
@@ -117,6 +111,7 @@ export class AgamCandidateMeService extends BaseService {
   private readonly interviews = new AgamInterviewService();
   private readonly prepDays = new AgamPrepDayService();
   private readonly smach = new AgamSmachService();
+  private readonly examResults = new AgamExamResultService();
   private readonly documents = new AgamDocumentService();
   private readonly exams = new AgamCandidateExamService();
 
@@ -135,7 +130,7 @@ export class AgamCandidateMeService extends BaseService {
   }
 
   public async buildPayload(candidate: AgamCandidate): Promise<CandidateMePayload> {
-    const [stages, questions, dayEvaluations, criteria, interviews, prepDays, smach, documents, knowledgeExams] =
+    const [stages, questions, dayEvaluations, criteria, interviews, prepDays, smach, documents, knowledgeExams, examResults] =
       await Promise.all([
         this.candidates.getTrackProgress(candidate.id),
         this.questions.listActive("pre_screening", { includeStaffOnly: false }),
@@ -146,6 +141,7 @@ export class AgamCandidateMeService extends BaseService {
         this.smach.listByCandidate(candidate.id),
         this.documents.listByCandidate(candidate.id),
         this.exams.buildBoard(candidate),
+        this.examResults.listByCandidate(candidate.id),
       ]);
 
     const criterionLabel = new Map(criteria.map((row) => [row.key, row.name]));
@@ -191,48 +187,18 @@ export class AgamCandidateMeService extends BaseService {
           social_dynamics_score: row.social_dynamics_score,
           passed: row.passed,
         })),
-        smach: smach.map((row) => {
-          const thresholds = normalizeThresholdTests(
-            (row.threshold_tests ?? {}) as Record<
-              string,
-              { score?: number | null; time?: string | null; count?: number | null; pass?: boolean | null; datum?: string | null }
-            >,
-          );
-          return {
-            evaluator_name: row.evaluator_name,
-            weighted_score: row.weighted_score,
-            passed: row.passed,
-            decision: row.decision,
-            thresholds: THRESHOLD_TESTS.map((test) => {
-              const entry = thresholds[test.key];
-              const value =
-                entry == null
-                  ? null
-                  : test.inputType === "time"
-                    ? entry.time ?? entry.datum ?? null
-                    : test.inputType === "count"
-                      ? entry.count != null
-                        ? String(entry.count)
-                        : entry.datum ?? null
-                      : entry.score != null
-                        ? String(entry.score)
-                        : entry.datum ?? null;
-              const pass =
-                computeThresholdPass(test.key, {
-                  score: entry?.score ?? (entry?.datum != null && test.inputType === "score" ? Number(entry.datum) : null),
-                  time: entry?.time ?? (test.inputType === "time" ? entry?.datum : null),
-                  count: entry?.count ?? (entry?.datum != null && test.inputType === "count" ? Number(entry.datum) : null),
-                }) ?? entry?.pass ?? null;
-              return { key: test.key, label: test.label, value, pass };
-            }),
+        smach: smach.map((row) => ({
+          evaluator_name: row.evaluator_name,
+          weighted_score: row.weighted_score,
+          passed: row.passed,
+          decision: row.decision,
             professional: PROFESSIONAL_CRITERIA.map((criterion) => ({
               key: criterion.key,
               label: criterion.label,
               value: row.professional_scores?.[criterion.key] ?? null,
             })),
-          };
-        }),
-        tests: this.aggregateTests(smach, prepDays),
+          })),
+        tests: this.aggregateTests(examResults, prepDays),
       },
       sportsResults: documents.filter(isSportsResultsDocument).map((document) => ({
         id: document.id,
@@ -276,58 +242,25 @@ export class AgamCandidateMeService extends BaseService {
   }
 
   private aggregateTests(
-    smach: Awaited<ReturnType<AgamSmachService["listByCandidate"]>>,
+    examResults: AgamExamResult[],
     prepDays: Awaited<ReturnType<AgamPrepDayService["listByCandidate"]>>,
   ): CandidateMePayload["scores"]["tests"] {
-    const byRecency = <T extends { created_at: string; updated_at?: string }>(rows: T[]) =>
-      [...rows].sort(
-        (a, b) => new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime(),
-      );
-
-    const latestEntry = (key: string) => {
-      const legacyKey = Object.entries(LEGACY_THRESHOLD_KEYS).find(([, modern]) => modern === key)?.[0];
-      for (const row of byRecency(smach)) {
-        const tests = normalizeThresholdTests(
-          (row.threshold_tests ?? {}) as Record<
-            string,
-            {
-              score?: number | null;
-              time?: string | null;
-              count?: number | null;
-              pass?: boolean | null;
-              datum?: string | null;
-            }
-          >,
-        );
-        const entry = tests[key] ?? (legacyKey ? tests[legacyKey] : null);
-        if (!entry) continue;
-        const hasValue =
-          entry.score != null || entry.count != null || entry.time != null || entry.datum != null || entry.pass != null;
-        if (hasValue) return entry;
-      }
-      return null;
-    };
+    const resultByKey = new Map(examResults.map((result) => [result.test_key, result]));
+    const prepMikra =
+      [...prepDays]
+        .sort((a, b) => new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime())
+        .find((row) => row.mikra_score != null)?.mikra_score ?? null;
 
     return THRESHOLD_TESTS.map((test) => {
-      const entry = latestEntry(test.key);
-      let value: string | null = null;
-      if (entry) {
-        if (test.inputType === "time") value = entry.time ?? entry.datum ?? null;
-        else if (test.inputType === "count") value = entry.count != null ? String(entry.count) : entry.datum ?? null;
-        else value = entry.score != null ? String(entry.score) : entry.datum ?? null;
-      }
-      if (test.key === "mikraot_israel_1" && value == null) {
-        const prep = byRecency(prepDays).find((row) => row.mikra_score != null);
-        if (prep?.mikra_score != null) value = String(prep.mikra_score);
+      const result = resultByKey.get(test.key);
+      let value = examResultValue(result);
+      let pass = result?.pass ?? null;
+      if (test.key === "mikraot_israel_1" && value == null && prepMikra != null) {
+        value = String(prepMikra);
+        pass = computeThresholdPass(test.key, { score: prepMikra });
       }
       const group: "tests" | "fitness" =
         test.family === "fitness_run" || test.family === "fitness_strength" ? "fitness" : "tests";
-      const pass =
-        computeThresholdPass(test.key, {
-          score: test.inputType === "score" && value != null ? Number(value) : entry?.score ?? null,
-          time: test.inputType === "time" ? value : entry?.time ?? null,
-          count: test.inputType === "count" && value != null ? Number(value) : entry?.count ?? null,
-        }) ?? entry?.pass ?? null;
       return { key: test.key, label: test.label, value, pass, group };
     });
   }
