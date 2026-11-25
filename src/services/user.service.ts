@@ -14,15 +14,16 @@ export class UserService extends BaseService {
 
   /**
    * Deletes a profile in one statement. Content whose FK forbids orphaning (tasks, task messages,
-   * close requests, calendar events) moves to `transferToId`; officer evaluations keep their
-   * evaluator_name and lose the link via ON DELETE SET NULL.
+   * close requests, calendar events) moves to `transferToId`; officer evaluations they wrote keep
+   * their evaluator_name and lose the link via ON DELETE SET NULL. Their own officer candidate file
+   * is deleted too, otherwise its email blocks them from applying again.
    */
   public async deleteUser(
     userId: string,
     transferToId: string,
-  ): Promise<{ ok: true } | { ok: false; error: string }> {
+  ): Promise<{ ok: true; candidateFiles: number } | { ok: false; error: string }> {
     const db = this.getDb();
-    const deleted = await db<Array<{ id: string }>>`
+    const deleted = await db<Array<{ id: string; candidate_files: number }>>`
       with target as (
         select id, name from profiles where id = ${userId} and role <> 'admin'
       ),
@@ -53,11 +54,14 @@ export class UserService extends BaseService {
       named_interviews as (
         update agam_interviews e set evaluator_name = t.name
         from target t where e.evaluator_id = t.id and coalesce(e.evaluator_name, '') = ''
+      ),
+      candidate_files as (
+        delete from agam_candidates where linked_user_id in (select id from target) returning id
       )
       delete from profiles where id in (select id from target)
-      returning id
+      returning id, (select count(*)::int from candidate_files) as candidate_files
     `;
-    if (deleted.length > 0) return { ok: true };
+    if (deleted.length > 0) return { ok: true, candidateFiles: deleted[0].candidate_files };
 
     const [row] = await db<Array<{ role: string }>>`select role from profiles where id = ${userId}`;
     if (!row) return { ok: false, error: "המשתמש כבר לא קיים" };

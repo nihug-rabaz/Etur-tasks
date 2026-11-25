@@ -104,7 +104,7 @@ export async function setUserPendingAction(formData: FormData) {
   revalidateUsersPaths();
 }
 
-export async function deleteUserAction(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function deleteUserAction(userId: string): Promise<{ ok: true; candidateFiles: number } | { ok: false; error: string }> {
   const authorizationService = new AuthorizationService();
   const admin = await authorizationService.ensureAdmin();
   if (userId === admin.id) return { ok: false, error: "אי אפשר למחוק את המשתמש שלך" };

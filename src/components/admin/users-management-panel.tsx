@@ -203,7 +203,7 @@ interface UsersManagementPanelProps {
   approveUserAction: (formData: FormData) => Promise<void>;
   setPendingAction: (formData: FormData) => Promise<void>;
   rejectUserAction: (formData: FormData) => Promise<void>;
-  deleteUserAction: (userId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  deleteUserAction: (userId: string) => Promise<{ ok: true; candidateFiles: number } | { ok: false; error: string }>;
 }
 
 type DeleteTarget = { id: string; name: string; email: string | null };
@@ -688,7 +688,11 @@ function DeleteUserModal({
         setError(result.error);
         return;
       }
-      toast.success(`${target.name || "המשתמש"} נמחק`);
+      toast.success(
+        result.candidateFiles > 0
+          ? `${target.name || "המשתמש"} נמחק, יחד עם תיק המועמד שלו בקצינים`
+          : `${target.name || "המשתמש"} נמחק`,
+      );
       onClose();
       router.refresh();
     });
@@ -745,6 +749,7 @@ function DeleteUserModal({
             <li>המשתמש וההרשאות שלו לאפליקציות יוסרו מהמערכת.</li>
             <li>משימות, הודעות ואירועי יומן שיצר יועברו אליך — שום משימה לא תימחק.</li>
             <li>הערכות וראיונות שכתב בקצינים יישארו, עם השם שלו ככותב.</li>
+            <li>אם הוא מועמד בקצינים — תיק המועמד שלו יימחק, כדי שיוכל להירשם מחדש.</li>
             <li>אם יתחבר שוב, ייפתח לו משתמש חדש שימתין לאישור.</li>
           </ul>
           <p className="font-semibold text-rose-700 dark:text-rose-300">אי אפשר לבטל את הפעולה.</p>
