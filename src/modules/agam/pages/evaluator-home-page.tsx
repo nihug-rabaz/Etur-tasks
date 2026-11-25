@@ -367,12 +367,15 @@ function CandidateStageCard({
   const tone = entryTone(entry);
   const href = `/agam/evaluate/${candidate.id}?form=${meta.kind}`;
   const lockedByOther = meta.shared && tone === "others";
+  const Icon = meta.icon;
 
   const statusLabel =
     tone === "mine"
-      ? "מילאתי"
+      ? entry.score != null
+        ? `מילאתי · ${entry.score}`
+        : "מילאתי"
       : meta.shared && tone === "others"
-        ? `בוצע ע״י ${entry.by ?? "מעריך אחר"}`
+        ? `ע״י ${entry.by ?? "מעריך אחר"}`
         : tone === "others"
           ? entry.count === 1
             ? "מעריך אחד מילא"
@@ -381,20 +384,57 @@ function CandidateStageCard({
             ? "טרם בוצע ראיון"
             : "טרם הוספת הערכה";
 
-  const actionLabel = tone === "mine" ? "עריכה" : meta.shared ? "מילוי ראיון" : "הוספת הערכה";
+  const actionHref = canEvaluate && !lockedByOther ? href : `/agam/evaluate/${candidate.id}`;
 
   return (
-    <article className="flex flex-col gap-3 rounded-2xl bg-surface-1 p-4 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] sm:flex-row sm:items-center sm:gap-4 sm:px-5">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-base font-extrabold text-text-primary">{candidate.full_name}</p>
-        <p className="mt-0.5 truncate text-[12px] font-semibold text-text-muted">
+    <article className="flex h-full flex-col rounded-2xl bg-surface-1 p-4 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            tone === "mine"
+              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+              : lockedByOther
+                ? "bg-surface-2 text-text-muted"
+                : "bg-accent-primary/10 text-accent-primary"
+          }`}
+        >
+          {tone === "mine" ? <Check size={16} strokeWidth={2.6} /> : lockedByOther ? <Lock size={15} /> : <Icon size={16} />}
+        </span>
+        {canEvaluate && !lockedByOther ? (
+          <Link
+            href={href}
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition ${
+              tone === "mine"
+                ? "bg-emerald-500/15 text-emerald-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.18)] hover:bg-emerald-500 hover:text-white dark:text-emerald-300"
+                : "bg-accent-primary/12 text-accent-primary shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)] hover:bg-accent-primary hover:text-white hover:shadow-[0_8px_18px_-10px_color-mix(in_srgb,var(--accent-primary)_70%,transparent)]"
+            }`}
+            title={tone === "mine" ? "עריכה" : meta.shared ? "מילוי ראיון" : "הוספת הערכה"}
+            aria-label={tone === "mine" ? "עריכה" : meta.shared ? "מילוי ראיון" : "הוספת הערכה"}
+          >
+            {tone === "mine" ? <Pencil size={15} strokeWidth={2.4} /> : <Plus size={17} strokeWidth={2.6} />}
+          </Link>
+        ) : lockedByOther ? (
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-text-muted">
+            <Lock size={14} />
+          </span>
+        ) : null}
+      </div>
+
+      <div className="mt-3 min-w-0 flex-1">
+        <Link
+          href={actionHref}
+          className="block truncate text-[15px] font-extrabold text-text-primary transition hover:text-accent-primary"
+        >
+          {candidate.full_name}
+        </Link>
+        <p className="mt-0.5 truncate text-[11px] font-semibold text-text-muted">
           <span dir="ltr" className="tabular-nums">
             {candidate.personal_number}
           </span>
           {candidate.command ? ` · ${candidate.command}` : ""}
         </p>
         <p
-          className={`mt-2 inline-flex items-center gap-1.5 text-xs font-bold ${
+          className={`mt-2.5 line-clamp-2 text-[11px] font-bold leading-snug ${
             tone === "mine"
               ? "text-emerald-700 dark:text-emerald-300"
               : tone === "others"
@@ -402,35 +442,8 @@ function CandidateStageCard({
                 : "text-text-muted"
           }`}
         >
-          {tone === "mine" ? (
-            <Check size={13} strokeWidth={2.75} />
-          ) : lockedByOther ? (
-            <Lock size={12} />
-          ) : (
-            <span className={`h-1.5 w-1.5 rounded-full ${tone === "others" ? "bg-text-secondary" : "bg-text-muted/35"}`} />
-          )}
           {statusLabel}
-          {tone === "mine" && entry.score != null ? (
-            <span className="font-extrabold tabular-nums text-text-secondary"> · {entry.score}</span>
-          ) : null}
         </p>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2">
-        {canEvaluate && !lockedByOther ? (
-          <Link
-            href={href}
-            className={`${tone === "mine" ? secondaryButtonClass : primaryButtonClass} sm:min-w-[8.5rem]`}
-          >
-            {tone === "mine" ? <Pencil size={14} /> : <Plus size={15} />}
-            {actionLabel}
-          </Link>
-        ) : (
-          <Link href={`/agam/evaluate/${candidate.id}`} className={`${secondaryButtonClass} sm:min-w-[8.5rem]`}>
-            {lockedByOther ? "פרטי מועמד" : "פתיחה"}
-            <ChevronLeft size={14} />
-          </Link>
-        )}
       </div>
     </article>
   );
@@ -609,19 +622,23 @@ export function AgamEvaluatorHomePage() {
             <p className={`${panelClass} ${panelPadClass} text-center text-sm text-text-muted`}>
               לא נמצאו מועמדים לפי הסינון.
             </p>
-          ) : (
+          ) : isAllTab || !activeMeta ? (
             <ul className="space-y-2.5">
               {visible.map((candidate) => (
                 <li key={candidate.id}>
-                  {isAllTab || !activeMeta ? (
-                    <CandidateOverviewCard candidate={candidate} canEvaluate={Boolean(payload?.canEvaluate)} />
-                  ) : (
-                    <CandidateStageCard
-                      candidate={candidate}
-                      meta={activeMeta}
-                      canEvaluate={Boolean(payload?.canEvaluate)}
-                    />
-                  )}
+                  <CandidateOverviewCard candidate={candidate} canEvaluate={Boolean(payload?.canEvaluate)} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+              {visible.map((candidate) => (
+                <li key={candidate.id} className="min-w-0">
+                  <CandidateStageCard
+                    candidate={candidate}
+                    meta={activeMeta}
+                    canEvaluate={Boolean(payload?.canEvaluate)}
+                  />
                 </li>
               ))}
             </ul>
