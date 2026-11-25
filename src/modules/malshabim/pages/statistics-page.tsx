@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -11,8 +11,6 @@ import {
   PieChart,
   Users,
 } from "lucide-react";
-import { domToJpeg } from "modern-screenshot";
-import { jsPDF } from "jspdf";
 import { toast } from "sonner";
 import {
   CANDIDATE_STATUSES,
@@ -24,6 +22,11 @@ import {
   secondaryButtonClass,
 } from "@/modules/malshabim/lib/ui";
 import type { MalshabimCandidate } from "@/modules/malshabim/types";
+import {
+  StatisticsPdfReport,
+  saveStatisticsPdf,
+  type StatisticsReportData,
+} from "@/modules/malshabim/components/statistics-pdf-report";
 
 const TRACK_COLORS = [
   "#1e3a5f",
@@ -188,7 +191,8 @@ export function MalshabimStatisticsPage({
   initialCandidates: MalshabimCandidate[];
 }) {
   const reportRef = useRef<HTMLDivElement>(null);
-  const [exporting, setExporting] = useState(false);
+  const [exportedAt, setExportedAt] = useState<Date | null>(null);
+  const exporting = exportedAt !== null;
   const [relativeChart, setRelativeChart] = useState<ChartKind>("donut");
   const [trackBarsChart, setTrackBarsChart] = useState<ChartKind>("bars");
   const [statusChart, setStatusChart] = useState<ChartKind>("bars");
@@ -229,78 +233,62 @@ export function MalshabimStatisticsPage({
     return status === "אושר ושובץ" || status === "אושר ולא שובץ";
   }).length;
 
-  const exportPdf = async () => {
-    if (!reportRef.current) {
-      toast.error("אין תוכן לייצוא");
-      return;
-    }
-    setExporting(true);
-    try {
-      const node = reportRef.current;
-      node.querySelectorAll("svg").forEach((svg) => {
-        const box = svg.getBoundingClientRect();
-        svg.setAttribute("width", String(Math.max(box.width, 160)));
-        svg.setAttribute("height", String(Math.max(box.height, 160)));
-      });
-
-      const capture = (scale: number) =>
-        domToJpeg(node, {
-          quality: 0.92,
-          scale,
-          backgroundColor: "#f3f6fb",
-          style: {
-            direction: "rtl",
-          },
-        });
-
-      let img: string;
-      try {
-        img = await capture(Math.min(1.5, window.devicePixelRatio || 1));
-      } catch {
-        img = await capture(1);
-      }
-
-      if (!img || !img.startsWith("data:image")) {
-        throw new Error("צילום המסך לייצוא נכשל");
-      }
-
-      const dimensions = await new Promise<{ width: number; height: number }>(
-        (resolve, reject) => {
-          const image = new Image();
-          image.onload = () =>
-            resolve({ width: image.naturalWidth, height: image.naturalHeight });
-          image.onerror = () => reject(new Error("צילום המסך לייצוא נכשל"));
-          image.src = img;
-        },
+  const reportData = useMemo<StatisticsReportData | null>(() => {
+    if (!exportedAt) return null;
+    const trackRows = byTrack.map((track) => {
+      const rows = active.filter(
+        (c) => ((c.recruitment_track || "").trim() || "ללא מסלול") === track.label,
       );
+      const byStatusCount = Object.fromEntries(
+        CANDIDATE_STATUSES.map((status) => [
+          status,
+          rows.filter((c) => normalizeCandidateStatus(c.candidate_status) === status).length,
+        ]),
+      ) as StatisticsReportData["trackRows"][number]["byStatus"];
+      return {
+        label: track.label,
+        total: rows.length,
+        quizPassed: rows.filter((c) => c.quiz_passed).length,
+        byStatus: byStatusCount,
+      };
+    });
+    return {
+      generatedAt: exportedAt,
+      total: active.length,
+      kpis: [
+        { label: "סך מועמדים", value: active.length, color: "#1e3a5f" },
+        { label: "עברו מבחן ידע", value: quizPassed, color: "#059669" },
+        { label: "בטיפול פעיל", value: inTreatment, color: "#f59e0b" },
+        { label: "הושלמו", value: completed, color: "#7c3aed" },
+      ],
+      tracks: byTrack,
+      statuses: byStatus,
+      trackRows,
+    };
+  }, [exportedAt, active, byTrack, byStatus, quizPassed, inTreatment, completed]);
 
-      if (!dimensions.width || !dimensions.height) {
-        throw new Error("צילום המסך לייצוא נכשל");
+  useEffect(() => {
+    if (!exporting) return;
+    let cancelled = false;
+    const run = async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      try {
+        if (!reportRef.current) throw new Error("אין תוכן לייצוא");
+        const date = new Date().toISOString().slice(0, 10);
+        await saveStatisticsPdf(reportRef.current, `דוח-סטטיסטיקות-מלשבים-${date}.pdf`);
+        if (!cancelled) toast.success("הדוח יוצא בהצלחה");
+      } catch (error) {
+        console.error("[malshabim-export-pdf]", error);
+        if (!cancelled) toast.error(error instanceof Error ? error.message : "ייצוא PDF נכשל");
+      } finally {
+        if (!cancelled) setExportedAt(null);
       }
-
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imgHeight = (dimensions.height * pageWidth) / dimensions.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-      pdf.addImage(img, "JPEG", 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(img, "JPEG", 0, position, pageWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-      pdf.save(`statistics-${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success("PDF יוצא בהצלחה");
-    } catch (error) {
-      console.error("[malshabim-export-pdf]", error);
-      toast.error(error instanceof Error ? error.message : "ייצוא PDF נכשל");
-    } finally {
-      setExporting(false);
-    }
-  };
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [exporting]);
 
   return (
     <div className={pageShellClass} dir="rtl">
@@ -318,10 +306,10 @@ export function MalshabimStatisticsPage({
             type="button"
             className={primaryButtonClass}
             disabled={exporting}
-            onClick={() => void exportPdf()}
+            onClick={() => setExportedAt(new Date())}
           >
             <Download className="h-4 w-4" />
-            {exporting ? "מייצא…" : "ייצוא PDF"}
+            {exporting ? "מכין דוח…" : "ייצוא PDF"}
           </button>
           <Link href="/malshabim/board" className={secondaryButtonClass}>
             <ArrowRight className="h-4 w-4" /> חזרה לטבלה
@@ -333,7 +321,6 @@ export function MalshabimStatisticsPage({
       </div>
 
       <div
-        ref={reportRef}
         className="space-y-4 rounded-[2rem] bg-[#f3f6fb] p-3 sm:space-y-5 sm:p-5"
       >
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -444,6 +431,11 @@ export function MalshabimStatisticsPage({
           )}
         </section>
       </div>
+      {reportData ? (
+        <div ref={reportRef}>
+          <StatisticsPdfReport data={reportData} />
+        </div>
+      ) : null}
     </div>
   );
 }
