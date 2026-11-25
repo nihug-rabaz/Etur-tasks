@@ -316,6 +316,11 @@ function SmachEvaluationView({ evaluation, compact = false }: { evaluation: Agam
   );
 }
 
+function splitCriterionLabel(label: string): { title: string; hint: string | null } {
+  const match = label.match(/^(.*?)\s*\((.*)\)\s*$/);
+  return match ? { title: match[1], hint: match[2] } : { title: label, hint: null };
+}
+
 function SmachEditor({
   draft,
   update,
@@ -325,42 +330,64 @@ function SmachEditor({
   update: <K extends keyof SmachDraft>(key: K, value: SmachDraft[K]) => void;
   professionalAverage: number | null;
 }) {
+  const score = professionalScoreOf(draft.professionalScores);
+  const scored = PROFESSIONAL_CRITERIA.filter((criterion) => draft.professionalScores[criterion.key] != null).length;
+
   return (
     <div className="space-y-4">
       <section className={caseCardClass}>
-        <CaseSectionHead icon={Award} title="הערכה מקצועית" tone="emerald" />
-        <ul className="grid gap-x-6 px-4 py-1 md:grid-cols-2">
-          {PROFESSIONAL_CRITERIA.map((criterion) => (
-            <li key={criterion.key} className="space-y-2 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm font-bold text-text-primary">{criterion.label}</span>
-                <Segmented
-                  value={draft.professionalScores[criterion.key]?.toString() ?? null}
-                  options={[1, 2, 3, 4, 5].map((score) => ({ value: String(score), label: String(score) }))}
-                  onChange={(value) =>
-                    update("professionalScores", { ...draft.professionalScores, [criterion.key]: Number(value) })
+        <CaseSectionHead
+          icon={Award}
+          title="הערכה מקצועית"
+          tone="emerald"
+          action={
+            <span className="rounded-full bg-surface-1/80 px-2 py-0.5 text-[10px] font-bold tabular-nums text-text-muted">
+              {scored}/{PROFESSIONAL_CRITERIA.length}
+            </span>
+          }
+        />
+        <ul className="grid gap-2.5 p-3 sm:p-4 md:grid-cols-2">
+          {PROFESSIONAL_CRITERIA.map((criterion, index) => {
+            const { title, hint } = splitCriterionLabel(criterion.label);
+            const spansRow = index === PROFESSIONAL_CRITERIA.length - 1 && PROFESSIONAL_CRITERIA.length % 2 === 1;
+            return (
+              <li
+                key={criterion.key}
+                className={`space-y-2 rounded-2xl bg-surface-2/50 p-3 ${spansRow ? "md:col-span-2" : ""}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold leading-snug text-text-primary">{title}</p>
+                    {hint ? <p className="text-[11px] leading-snug text-text-muted">{hint}</p> : null}
+                  </div>
+                  <Segmented
+                    value={draft.professionalScores[criterion.key]?.toString() ?? null}
+                    options={[1, 2, 3, 4, 5].map((value) => ({ value: String(value), label: String(value) }))}
+                    onChange={(value) =>
+                      update("professionalScores", { ...draft.professionalScores, [criterion.key]: Number(value) })
+                    }
+                    square
+                  />
+                </div>
+                <textarea
+                  className={`${fieldClass} min-h-[2.5rem] resize-y py-2 text-[13px]`}
+                  rows={1}
+                  placeholder="התרשמות מילולית (לא חובה)"
+                  value={draft.professionalFeedback[criterion.key] ?? ""}
+                  onChange={(event) =>
+                    update("professionalFeedback", { ...draft.professionalFeedback, [criterion.key]: event.target.value })
                   }
-                  square
                 />
-              </div>
-              <textarea
-                className={`${fieldClass} min-h-[2.75rem] resize-y text-[13px]`}
-                rows={1}
-                placeholder="התרשמות מילולית (לא חובה)"
-                value={draft.professionalFeedback[criterion.key] ?? ""}
-                onChange={(event) =>
-                  update("professionalFeedback", { ...draft.professionalFeedback, [criterion.key]: event.target.value })
-                }
-              />
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </section>
 
       <section className={caseCardClass}>
         <CaseSectionHead icon={Scale} title="סיכום והחלטה" tone="violet" />
-        <div className="grid gap-5 p-4 md:grid-cols-2">
-          <div className="space-y-4">
+        <div className="space-y-4 p-3 sm:p-4">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] md:items-end">
             <PassFailPicker value={draft.passed} onChange={(value) => update("passed", value)} label="עבר / לא עבר" />
             <EditorField label="המלצה">
               <div className="flex flex-wrap gap-1.5">
@@ -368,7 +395,7 @@ function SmachEditor({
                   <button
                     key={item}
                     type="button"
-                    className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
+                    className={`h-12 flex-1 whitespace-nowrap rounded-2xl px-3 text-xs font-bold transition ${
                       draft.decision === item
                         ? "bg-accent-primary text-white"
                         : "bg-surface-2 text-text-secondary hover:text-text-primary"
@@ -380,12 +407,23 @@ function SmachEditor({
                 ))}
               </div>
             </EditorField>
+            <div className="flex h-12 items-center gap-3 rounded-2xl bg-accent-primary/10 px-4 md:min-w-[9.5rem]">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold text-text-muted">ציון ממוצע</p>
+                <p className="truncate text-[10px] text-text-muted">
+                  {professionalAverage != null ? `ממוצע ${professionalAverage}/5` : "מחושב אוטומטית"}
+                </p>
+              </div>
+              <p className="text-2xl font-extrabold tabular-nums text-accent-primary" dir="ltr">
+                {score ?? "—"}
+              </p>
+            </div>
           </div>
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <EditorField label="נימוק להחלטה">
               <textarea
                 className={fieldClass}
-                rows={4}
+                rows={3}
                 placeholder="נימוק מפורט להחלטה…"
                 value={draft.decisionReasoning}
                 onChange={(event) => update("decisionReasoning", event.target.value)}
@@ -394,7 +432,7 @@ function SmachEditor({
             <EditorField label="נקודות משמעותיות מתוך התהליך">
               <textarea
                 className={fieldClass}
-                rows={4}
+                rows={3}
                 placeholder="ריכוז הנקודות המרכזיות שעלו במהלך הסמ״ח…"
                 value={draft.keyPoints}
                 onChange={(event) => update("keyPoints", event.target.value)}
@@ -403,16 +441,6 @@ function SmachEditor({
           </div>
         </div>
       </section>
-
-      <AverageTile
-        label="ציון ממוצע"
-        hint={
-          professionalAverage != null
-            ? `מחושב אוטומטית מההערכה המקצועית · ממוצע ${professionalAverage} מתוך 5`
-            : "מחושב אוטומטית מההערכה המקצועית"
-        }
-        value={professionalScoreOf(draft.professionalScores)}
-      />
     </div>
   );
 }
@@ -422,20 +450,6 @@ function EditorField({ label, children }: { label: string; children: ReactNode }
     <div className="space-y-1.5">
       <p className="text-[11px] font-semibold text-text-muted">{label}</p>
       {children}
-    </div>
-  );
-}
-
-function AverageTile({ label, hint, value }: { label: string; hint: string; value: number | null }) {
-  return (
-    <div className={`${caseCardClass} flex items-center justify-between gap-3 px-5 py-4`}>
-      <div>
-        <p className="text-sm font-bold text-text-primary">{label}</p>
-        <p className="text-xs text-text-muted">{hint}</p>
-      </div>
-      <p className="text-3xl font-extrabold tabular-nums text-accent-primary" dir="ltr">
-        {value ?? "—"}
-      </p>
     </div>
   );
 }
