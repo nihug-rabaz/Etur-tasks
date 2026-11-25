@@ -7,6 +7,7 @@ import { ModuleRoleService } from "@/shared/services/module-role.service";
 import type { ModuleRole } from "@/shared/modules/types";
 import {
   approveUserAction,
+  deleteUserAction,
   rejectUserAction,
   setUserModuleRoleAction,
   setUserPendingAction,
@@ -103,6 +104,7 @@ export async function UsersAdminScreen() {
         approveUserAction={approveUserAction}
         setPendingAction={setUserPendingAction}
         rejectUserAction={rejectUserAction}
+        deleteUserAction={deleteUserAction}
       />
     </section>
   );

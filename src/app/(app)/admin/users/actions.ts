@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { AuthorizationService } from "@/services/authorization.service";
 import { NeonDatabase } from "@/lib/db/neon";
 import { ModuleRoleService } from "@/shared/services/module-role.service";
+import { UserService } from "@/services/user.service";
 import type { ModuleRole } from "@/shared/modules/types";
 
 const MODULE_ROLES: ModuleRole[] = ["admin", "user", "viewer", "approver", "ramad", "candidate"];
@@ -101,6 +102,15 @@ export async function setUserPendingAction(formData: FormData) {
     where id = ${userId}
   `;
   revalidateUsersPaths();
+}
+
+export async function deleteUserAction(userId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const authorizationService = new AuthorizationService();
+  const admin = await authorizationService.ensureAdmin();
+  if (userId === admin.id) return { ok: false, error: "אי אפשר למחוק את המשתמש שלך" };
+  const result = await new UserService().deleteUser(userId, admin.id);
+  if (result.ok) revalidateUsersPaths();
+  return result;
 }
 
 export async function rejectUserAction(formData: FormData) {

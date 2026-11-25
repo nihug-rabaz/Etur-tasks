@@ -203,7 +203,7 @@ export interface AgamCriterion {
 export interface AgamDayEvaluation {
   id: string;
   candidate_id: string;
-  evaluator_id: string;
+  evaluator_id: string | null;
   evaluator_name: string | null;
   scores_data: Record<string, number> | null;
   feedback_data: Record<string, string> | null;
@@ -218,7 +218,7 @@ export interface AgamDayEvaluation {
 export interface AgamPrepDayEvaluation {
   id: string;
   candidate_id: string;
-  evaluator_id: string;
+  evaluator_id: string | null;
   evaluator_name: string | null;
   mikra_score: number | null;
   conversation_score: number | null;
@@ -234,7 +234,7 @@ export interface AgamPrepDayEvaluation {
 export interface AgamSmachEvaluation {
   id: string;
   candidate_id: string;
-  evaluator_id: string;
+  evaluator_id: string | null;
   evaluator_name: string | null;
   threshold_tests: Record<string, unknown> | null;
   professional_scores: Record<string, number> | null;

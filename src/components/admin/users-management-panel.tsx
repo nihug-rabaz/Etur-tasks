@@ -3,7 +3,8 @@
 import { Fragment, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { BookOpen, ChevronDown, Filter, RefreshCw, Search, UsersRound } from "lucide-react";
+import { BookOpen, ChevronDown, Filter, RefreshCw, Search, Trash2, UsersRound } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
 import type { Profile, UserAccessStatus } from "@/types/models";
 import type { ModuleRole } from "@/shared/modules/types";
 import { ImpersonateUserButton } from "@/components/admin/impersonation-banner";
@@ -202,7 +203,10 @@ interface UsersManagementPanelProps {
   approveUserAction: (formData: FormData) => Promise<void>;
   setPendingAction: (formData: FormData) => Promise<void>;
   rejectUserAction: (formData: FormData) => Promise<void>;
+  deleteUserAction: (userId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }
+
+type DeleteTarget = { id: string; name: string; email: string | null };
 
 export function UsersManagementPanel({
   users,
@@ -216,12 +220,14 @@ export function UsersManagementPanel({
   approveUserAction,
   setPendingAction,
   rejectUserAction,
+  deleteUserAction,
 }: UsersManagementPanelProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [systemFilter, setSystemFilter] = useState<SystemFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [profileOverrides, setProfileOverrides] = useState<Record<string, { name: string; avatar: string | null }>>({});
 
   const filtered = useMemo(() => {
@@ -570,6 +576,17 @@ export function UsersManagementPanel({
                             </button>
                           </form>
                         ) : null}
+                        {user.id !== currentAdminId && user.role !== "admin" ? (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ id: user.id, name: displayName, email: user.email ?? null })}
+                            title="מחיקת משתמש"
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-[#676879] transition hover:bg-rose-50 hover:text-rose-700 dark:text-slate-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-200"
+                          >
+                            <Trash2 size={14} />
+                            מחיקה
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -637,6 +654,107 @@ export function UsersManagementPanel({
           לא נמצאו משתמשים לפי הסינון.
         </div>
       ) : null}
+
+      <DeleteUserModal target={deleteTarget} onClose={() => setDeleteTarget(null)} deleteAction={deleteUserAction} />
     </div>
+  );
+}
+
+function DeleteUserModal({
+  target,
+  onClose,
+  deleteAction,
+}: {
+  target: DeleteTarget | null;
+  onClose: () => void;
+  deleteAction: UsersManagementPanelProps["deleteUserAction"];
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const close = () => {
+    if (isPending) return;
+    setError(null);
+    onClose();
+  };
+
+  const confirm = () => {
+    if (!target) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await deleteAction(target.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      toast.success(`${target.name || "המשתמש"} נמחק`);
+      onClose();
+      router.refresh();
+    });
+  };
+
+  return (
+    <Modal
+      open={target !== null}
+      onClose={close}
+      size="md"
+      title="מחיקת משתמש"
+      icon={
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300">
+          <Trash2 size={18} />
+        </span>
+      }
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={close}
+            disabled={isPending}
+            className="rounded-md border border-[#c5c7d0] bg-white px-4 py-2 text-sm font-semibold text-[#323338] transition hover:bg-[#f6f7fb] disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          >
+            ביטול
+          </button>
+          <button
+            type="button"
+            onClick={confirm}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-60"
+          >
+            <Trash2 size={15} />
+            {isPending ? "מוחק…" : "מחיקה לצמיתות"}
+          </button>
+        </>
+      }
+    >
+      {target ? (
+        <div className="space-y-4 text-sm text-[#323338] dark:text-slate-200">
+          <div className="flex items-center gap-3 rounded-xl border border-[#e6e9ef] bg-[#fafbfc] px-4 py-3 dark:border-slate-700 dark:bg-slate-800/60">
+            <span
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+              style={{ backgroundColor: pickAvatarBg(target.name || "?") }}
+            >
+              {initialsFrom(target.name || "?")}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{target.name || "ללא שם"}</p>
+              <p className="truncate text-xs text-[#676879] dark:text-slate-400">{target.email ?? "—"}</p>
+            </div>
+          </div>
+          <ul className="list-disc space-y-1.5 ps-5 leading-relaxed">
+            <li>המשתמש וההרשאות שלו לאפליקציות יוסרו מהמערכת.</li>
+            <li>משימות, הודעות ואירועי יומן שיצר יועברו אליך — שום משימה לא תימחק.</li>
+            <li>הערכות וראיונות שכתב בקצינים יישארו, עם השם שלו ככותב.</li>
+            <li>אם יתחבר שוב, ייפתח לו משתמש חדש שימתין לאישור.</li>
+          </ul>
+          <p className="font-semibold text-rose-700 dark:text-rose-300">אי אפשר לבטל את הפעולה.</p>
+          {error ? (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-[0.8125rem] font-medium text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/40 dark:text-rose-200">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </Modal>
   );
 }
