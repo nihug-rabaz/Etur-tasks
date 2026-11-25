@@ -48,6 +48,7 @@ import {
   canScreen as roleCanScreen,
 } from "@/modules/agam/lib/permissions";
 import { CandidateExamsCard } from "@/modules/agam/components/test-results-cards";
+import { InterviewSummaryCard } from "@/modules/agam/components/interview-summary-card";
 import { isSportsResultsDocument } from "@/modules/agam/lib/document-types";
 import {
   CaseRow,
@@ -847,23 +848,13 @@ function Overview({
                       <EvalEmpty label="אין ראיונות" />
                     ) : (
                       payload.interviews.map((interview) => (
-                        <div key={interview.id} className="rounded-xl bg-surface-2/70 px-3.5 py-2.5">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="text-sm font-bold text-text-primary">
-                              {interview.evaluator_name ?? "מעריך"}
-                            </p>
-                            {interview.recommendation ? (
-                              <span className="rounded-full bg-surface-1 px-2 py-0.5 text-[11px] font-bold text-text-secondary">
-                                {interview.recommendation}
-                              </span>
-                            ) : null}
-                          </div>
-                          {interview.evaluator_assessment ? (
-                            <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-text-muted">
-                              {interview.evaluator_assessment}
-                            </p>
-                          ) : null}
-                        </div>
+                        <InterviewSummaryCard
+                          key={interview.id}
+                          interview={interview}
+                          questions={payload.interviewQuestions ?? []}
+                          candidateId={candidateId}
+                          canEdit={canEvaluate}
+                        />
                       ))
                     )}
                     {notesList(interviewNotes)}
