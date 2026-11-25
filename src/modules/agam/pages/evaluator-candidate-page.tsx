@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Check, Lock, Pencil, Phone, Plus } from "lucide-react";
-import { Modal } from "@/components/ui/modal";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { EVALUATOR_ENTRIES, entryTone, type EvaluatorEntryMeta } from "@/modules/agam/lib/evaluator-entries";
@@ -165,11 +164,73 @@ function BackLink() {
   );
 }
 
+function FormBody({
+  form,
+  candidateId,
+  payload,
+  onDone,
+}: {
+  form: EvaluatorEntryKind;
+  candidateId: string;
+  payload: ViewPayload;
+  onDone: (saved: boolean) => void;
+}) {
+  const { entries, me } = payload;
+  if (form === "interview") {
+    return (
+      <AgamInterviewPage
+        candidateId={candidateId}
+        interviewId={entries.interview.mineId ?? undefined}
+        embedded
+        onDone={onDone}
+      />
+    );
+  }
+  if (form === "evaluation") {
+    return (
+      <AgamEvaluationPage
+        candidateId={candidateId}
+        evalId={entries.evaluation.mineId ?? undefined}
+        embedded
+        onDone={onDone}
+      />
+    );
+  }
+  if (form === "prep") {
+    return (
+      <PreparationDayStage
+        candidateId={candidateId}
+        evaluations={payload.myPrep ? [payload.myPrep] : []}
+        currentUserId={me.id}
+        canEvaluate={payload.canEvaluate}
+        onSaved={() => onDone(true)}
+        formOnly
+        onClose={() => onDone(true)}
+      />
+    );
+  }
+  return (
+    <SmachStage
+      candidateId={candidateId}
+      evaluations={payload.mySmach ? [payload.mySmach] : []}
+      currentUserId={me.id}
+      canEvaluate={payload.canEvaluate}
+      onSaved={() => onDone(true)}
+      formOnly
+      onClose={() => onDone(true)}
+    />
+  );
+}
+
 export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [payload, setPayload] = useState<ViewPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<EvaluatorEntryKind | null>(null);
+
+  const requested = searchParams.get("form");
+  const form =
+    requested && FORM_KINDS.has(requested as EvaluatorEntryKind) ? (requested as EvaluatorEntryKind) : null;
 
   const load = useCallback(async () => {
     try {
@@ -184,23 +245,13 @@ export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: strin
     void load();
   }, [load]);
 
-  useEffect(() => {
-    const requested = searchParams.get("form");
-    if (requested && FORM_KINDS.has(requested as EvaluatorEntryKind)) {
-      setForm(requested as EvaluatorEntryKind);
-    }
-  }, [searchParams]);
+  const openForm = (kind: EvaluatorEntryKind) => {
+    router.push(`/agam/evaluate/${candidateId}?form=${kind}`);
+  };
 
   const closeForm = (saved = false) => {
-    setForm(null);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (url.searchParams.has("form")) {
-        url.searchParams.delete("form");
-        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
-      }
-    }
     if (saved) void load();
+    router.replace(`/agam/evaluate/${candidateId}`);
   };
 
   if (error) {
@@ -217,11 +268,45 @@ export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: strin
 
   if (!payload) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
 
-  const { candidate, cycle, entries, me } = payload;
+  const { candidate, cycle, entries } = payload;
   const doneCount = EVALUATOR_ENTRIES.filter((meta) => entries[meta.kind].mineId).length;
   const commander = [candidate.direct_commander_role, candidate.direct_commander_name].filter(Boolean).join(" ");
   const formMeta = form ? EVALUATOR_ENTRIES.find((meta) => meta.kind === form) ?? null : null;
   const cycleName = cycle.cohort_year ? `${cycle.name} ${cycle.cohort_year}` : cycle.name;
+
+  if (form && formMeta) {
+    return (
+      <div className={pageShellClass} dir="rtl">
+        <button
+          type="button"
+          onClick={() => closeForm(false)}
+          className="inline-flex w-fit items-center gap-1.5 px-1 text-xs font-bold text-text-muted transition hover:text-text-primary"
+        >
+          <ArrowRight size={14} />
+          חזרה לתיק {candidate.full_name}
+        </button>
+
+        <header className={`${panelClass} ${panelPadClass}`}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+            {formMeta.title} · מחזור {cycleName}
+          </p>
+          <h1 className="mt-1 truncate text-2xl font-extrabold tracking-tight text-text-primary">
+            {candidate.full_name}
+          </h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            <span dir="ltr" className="tabular-nums">
+              {candidate.personal_number}
+            </span>
+            {candidate.command ? ` · ${candidate.command}` : ""}
+          </p>
+        </header>
+
+        <section className={`${panelClass} ${panelPadClass}`}>
+          <FormBody form={form} candidateId={candidateId} payload={payload} onDone={closeForm} />
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className={pageShellClass} dir="rtl">
@@ -271,55 +356,11 @@ export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: strin
               date={meta.date(cycle)}
               recommendation={payload.interviewRecommendation}
               canEvaluate={payload.canEvaluate}
-              onOpen={() => setForm(meta.kind)}
+              onOpen={() => openForm(meta.kind)}
             />
           ))}
         </ul>
       </section>
-
-      <Modal
-        open={form != null}
-        onClose={() => closeForm()}
-        title={formMeta?.title ?? ""}
-        subtitle={candidate.full_name}
-        size="lg"
-      >
-        {form === "interview" ? (
-          <AgamInterviewPage
-            candidateId={candidateId}
-            interviewId={entries.interview.mineId ?? undefined}
-            embedded
-            onDone={closeForm}
-          />
-        ) : form === "evaluation" ? (
-          <AgamEvaluationPage
-            candidateId={candidateId}
-            evalId={entries.evaluation.mineId ?? undefined}
-            embedded
-            onDone={closeForm}
-          />
-        ) : form === "prep" ? (
-          <PreparationDayStage
-            candidateId={candidateId}
-            evaluations={payload.myPrep ? [payload.myPrep] : []}
-            currentUserId={me.id}
-            canEvaluate={payload.canEvaluate}
-            onSaved={() => void load()}
-            formOnly
-            onClose={() => closeForm()}
-          />
-        ) : form === "smach" ? (
-          <SmachStage
-            candidateId={candidateId}
-            evaluations={payload.mySmach ? [payload.mySmach] : []}
-            currentUserId={me.id}
-            canEvaluate={payload.canEvaluate}
-            onSaved={() => void load()}
-            formOnly
-            onClose={() => closeForm()}
-          />
-        ) : null}
-      </Modal>
     </div>
   );
 }
