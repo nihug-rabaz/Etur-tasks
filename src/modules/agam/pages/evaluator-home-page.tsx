@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, ChevronLeft, Loader2, Search } from "lucide-react";
+import { Check, ChevronLeft, Lock, Loader2, Pencil, Plus, Search } from "lucide-react";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
 import { EVALUATOR_ENTRIES, entryTone, type EvaluatorEntryMeta } from "@/modules/agam/lib/evaluator-entries";
@@ -14,11 +14,12 @@ import {
   pageShellClass,
   panelClass,
   panelPadClass,
-  quietTabActiveClass,
-  quietTabIdleClass,
+  primaryButtonClass,
+  secondaryButtonClass,
 } from "@/modules/agam/lib/ui";
 import type {
   EvaluatorCycleSummary,
+  EvaluatorEntryKind,
   EvaluatorEntryState,
   EvaluatorRosterItem,
 } from "@/modules/agam/services/evaluator-portal.service";
@@ -34,21 +35,25 @@ interface RosterPayload {
   cycles: EvaluatorCycleSummary[];
 }
 
-type Filter = "all" | "todo" | "mine" | "no_interview";
+type StatusFilter = "all" | "todo" | "done";
 
-const FILTERS: Array<{ key: Filter; label: string }> = [
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
   { key: "all", label: "הכל" },
-  { key: "todo", label: "טרם הערכתי" },
-  { key: "mine", label: "הערכתי" },
-  { key: "no_interview", label: "ללא ראיון" },
+  { key: "todo", label: "למילוי" },
+  { key: "done", label: "מילאתי" },
 ];
-
-function hasMine(candidate: EvaluatorRosterItem): boolean {
-  return EVALUATOR_ENTRIES.some((meta) => Boolean(candidate.entries[meta.kind].mineId));
-}
 
 function cycleLabel(cycle: EvaluatorCycleSummary): string {
   return cycle.cohort_year ? `${cycle.name} ${cycle.cohort_year}` : cycle.name;
+}
+
+function isMine(entry: EvaluatorEntryState): boolean {
+  return Boolean(entry.mineId);
+}
+
+function isTodoForMe(meta: EvaluatorEntryMeta, entry: EvaluatorEntryState): boolean {
+  if (meta.shared) return !entry.done;
+  return !entry.mineId;
 }
 
 function ActiveCyclePicker({ payload, onChanged }: { payload: RosterPayload; onChanged: () => void }) {
@@ -103,133 +108,146 @@ function ActiveCyclePicker({ payload, onChanged }: { payload: RosterPayload; onC
   );
 }
 
-function EntryCell({ meta, entry }: { meta: EvaluatorEntryMeta; entry: EvaluatorEntryState }) {
-  const tone = entryTone(entry);
-  if (tone === "mine") {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-        <Check size={13} strokeWidth={2.75} />
-        מילאתי
-      </span>
-    );
-  }
-  if (tone === "others") {
-    return (
-      <span className="text-xs font-semibold text-text-secondary" title={entry.by ?? undefined}>
-        {meta.shared ? "בוצע" : `${entry.count} מעריכים`}
-      </span>
-    );
-  }
-  return <span className="text-xs text-text-muted/60">—</span>;
+function StageTabs({
+  active,
+  onChange,
+  candidates,
+}: {
+  active: EvaluatorEntryKind;
+  onChange: (kind: EvaluatorEntryKind) => void;
+  candidates: EvaluatorRosterItem[];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" role="tablist" aria-label="סוגי מילוי">
+      {EVALUATOR_ENTRIES.map((meta) => {
+        const Icon = meta.icon;
+        const selected = active === meta.kind;
+        const todo = candidates.filter((row) => isTodoForMe(meta, row.entries[meta.kind])).length;
+        const mine = candidates.filter((row) => isMine(row.entries[meta.kind])).length;
+        return (
+          <button
+            key={meta.kind}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(meta.kind)}
+            className={`rounded-2xl px-3.5 py-3.5 text-start transition ${
+              selected
+                ? "bg-accent-primary text-white shadow-[0_12px_28px_-14px_color-mix(in_srgb,var(--accent-primary)_80%,transparent)]"
+                : "bg-surface-2/80 text-text-primary hover:bg-surface-2"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
+                  selected ? "bg-white/15 text-white" : "bg-surface-1 text-accent-primary"
+                }`}
+              >
+                <Icon size={16} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-extrabold">{meta.title}</span>
+                <span className={`mt-0.5 block text-[11px] font-bold ${selected ? "text-white/75" : "text-text-muted"}`}>
+                  {todo > 0 ? `${todo} למילוי` : mine > 0 ? `${mine} מולאו` : "אין מועמדים"}
+                </span>
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
-function RosterTable({ candidates }: { candidates: EvaluatorRosterItem[] }) {
+function CandidateStageCard({
+  candidate,
+  meta,
+  canEvaluate,
+}: {
+  candidate: EvaluatorRosterItem;
+  meta: EvaluatorEntryMeta;
+  canEvaluate: boolean;
+}) {
   const router = useRouter();
-  const thClass = "px-3 py-2.5 text-start text-[11px] font-extrabold text-text-muted first:ps-4 last:pe-4";
-  const rowClass =
-    "[&:not(:first-child)]:shadow-[inset_0_1px_0_rgba(20,33,43,0.06)] dark:[&:not(:first-child)]:shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]";
+  const entry = candidate.entries[meta.kind];
+  const tone = entryTone(entry);
+  const href = `/agam/evaluate/${candidate.id}?form=${meta.kind}`;
+  const lockedByOther = meta.shared && tone === "others";
+
+  const statusLabel =
+    tone === "mine"
+      ? "מילאתי"
+      : meta.shared && tone === "others"
+        ? `בוצע ע״י ${entry.by ?? "מעריך אחר"}`
+        : tone === "others"
+          ? entry.count === 1
+            ? "מעריך אחד מילא"
+            : `${entry.count} מעריכים מילאו`
+          : meta.shared
+            ? "טרם בוצע ראיון"
+            : "טרם הוספת הערכה";
+
+  const actionLabel =
+    tone === "mine" ? "עריכה" : meta.shared ? "מילוי ראיון" : "הוספת הערכה";
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface-1 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
-      <table className="hidden w-full border-collapse text-sm md:table">
-        <thead className="bg-surface-2/60">
-          <tr>
-            <th className={thClass}>מועמד</th>
-            <th className={thClass}>פיקוד</th>
-            {EVALUATOR_ENTRIES.map((meta) => (
-              <th key={meta.kind} className={`${thClass} w-28`}>
-                {meta.title}
-              </th>
-            ))}
-            <th className={`${thClass} w-10`} aria-label="פתיחה" />
-          </tr>
-        </thead>
-        <tbody>
-          {candidates.map((candidate) => {
-            const href = `/agam/evaluate/${candidate.id}`;
-            return (
-              <tr
-                key={candidate.id}
-                onClick={() => router.push(href)}
-                className={`group cursor-pointer transition-colors hover:bg-accent-primary/[0.04] ${rowClass}`}
-              >
-                <td className="py-3 pe-3 ps-4">
-                  <Link
-                    href={href}
-                    onClick={(event) => event.stopPropagation()}
-                    className="block truncate font-extrabold text-text-primary transition group-hover:text-accent-primary"
-                  >
-                    {candidate.full_name}
-                  </Link>
-                  <span className="text-[11px] font-semibold tabular-nums text-text-muted" dir="ltr">
-                    {candidate.personal_number}
-                  </span>
-                </td>
-                <td className="max-w-[10rem] truncate px-3 py-3 text-xs font-semibold text-text-secondary">
-                  {candidate.command || "—"}
-                </td>
-                {EVALUATOR_ENTRIES.map((meta) => (
-                  <td key={meta.kind} className="px-3 py-3">
-                    <EntryCell meta={meta} entry={candidate.entries[meta.kind]} />
-                  </td>
-                ))}
-                <td className="py-3 pe-4 ps-1 text-text-muted transition group-hover:text-accent-primary">
-                  <ChevronLeft size={16} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <article className="flex flex-col gap-3 rounded-2xl bg-surface-1 p-4 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] transition hover:shadow-[0_0_0_1px_rgba(20,33,43,0.1),0_12px_28px_rgba(20,33,43,0.06)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+      <Link href={`/agam/evaluate/${candidate.id}`} className="min-w-0 flex-1">
+        <p className="truncate text-base font-extrabold text-text-primary transition hover:text-accent-primary">
+          {candidate.full_name}
+        </p>
+        <p className="mt-0.5 truncate text-[12px] font-semibold text-text-muted">
+          <span dir="ltr" className="tabular-nums">
+            {candidate.personal_number}
+          </span>
+          {candidate.command ? ` · ${candidate.command}` : ""}
+        </p>
+        <p
+          className={`mt-2 inline-flex items-center gap-1.5 text-xs font-bold ${
+            tone === "mine"
+              ? "text-emerald-700 dark:text-emerald-300"
+              : tone === "others"
+                ? "text-text-secondary"
+                : "text-text-muted"
+          }`}
+        >
+          {tone === "mine" ? (
+            <Check size={13} strokeWidth={2.75} />
+          ) : lockedByOther ? (
+            <Lock size={12} />
+          ) : (
+            <span className={`h-1.5 w-1.5 rounded-full ${tone === "others" ? "bg-text-secondary" : "bg-text-muted/35"}`} />
+          )}
+          {statusLabel}
+          {tone === "mine" && entry.score != null ? (
+            <span className="font-extrabold tabular-nums text-text-secondary"> · {entry.score}</span>
+          ) : null}
+        </p>
+      </Link>
 
-      <ul className="md:hidden">
-        {candidates.map((candidate) => (
-          <li key={candidate.id} className={rowClass}>
-            <Link
-              href={`/agam/evaluate/${candidate.id}`}
-              className="flex items-center gap-3 px-4 py-3 transition-colors active:bg-accent-primary/[0.05]"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-extrabold text-text-primary">{candidate.full_name}</p>
-                <p className="truncate text-[11px] font-semibold text-text-muted">
-                  <span dir="ltr" className="tabular-nums">
-                    {candidate.personal_number}
-                  </span>
-                  {candidate.command ? ` · ${candidate.command}` : ""}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
-                  {EVALUATOR_ENTRIES.map((meta) => {
-                    const tone = entryTone(candidate.entries[meta.kind]);
-                    return (
-                      <span
-                        key={meta.kind}
-                        className={`inline-flex items-center gap-1 text-[11px] font-bold ${
-                          tone === "mine"
-                            ? "text-emerald-700 dark:text-emerald-300"
-                            : tone === "others"
-                              ? "text-text-secondary"
-                              : "text-text-muted/70"
-                        }`}
-                      >
-                        {tone === "mine" ? (
-                          <Check size={11} strokeWidth={3} />
-                        ) : (
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${tone === "others" ? "bg-text-secondary" : "bg-text-muted/30"}`}
-                          />
-                        )}
-                        {meta.short}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-              <ChevronLeft size={16} className="shrink-0 text-text-muted" />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {canEvaluate && !lockedByOther ? (
+          <button
+            type="button"
+            onClick={() => router.push(href)}
+            className={`${tone === "mine" ? secondaryButtonClass : primaryButtonClass} sm:min-w-[8.5rem]`}
+          >
+            {tone === "mine" ? <Pencil size={14} /> : <Plus size={15} />}
+            {actionLabel}
+          </button>
+        ) : lockedByOther ? (
+          <Link href={`/agam/evaluate/${candidate.id}`} className={`${secondaryButtonClass} sm:min-w-[8.5rem]`}>
+            פרטי מועמד
+            <ChevronLeft size={14} />
+          </Link>
+        ) : (
+          <Link href={`/agam/evaluate/${candidate.id}`} className={`${secondaryButtonClass} sm:min-w-[8.5rem]`}>
+            פתיחה
+            <ChevronLeft size={14} />
+          </Link>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -237,7 +255,8 @@ export function AgamEvaluatorHomePage() {
   const [payload, setPayload] = useState<RosterPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
+  const [stage, setStage] = useState<EvaluatorEntryKind>("interview");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const load = useCallback(async () => {
     try {
@@ -254,18 +273,26 @@ export function AgamEvaluatorHomePage() {
   }, [load]);
 
   const candidates = useMemo(() => payload?.candidates ?? [], [payload]);
-  const touched = useMemo(() => candidates.filter(hasMine).length, [candidates]);
+  const activeMeta = EVALUATOR_ENTRIES.find((meta) => meta.kind === stage) ?? EVALUATOR_ENTRIES[0];
+
+  const stageStats = useMemo(() => {
+    const todo = candidates.filter((row) => isTodoForMe(activeMeta, row.entries[stage])).length;
+    const mine = candidates.filter((row) => isMine(row.entries[stage])).length;
+    return { todo, mine };
+  }, [candidates, activeMeta, stage]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return candidates.filter((row) => {
-      if (q && !`${row.full_name} ${row.personal_number} ${row.command ?? ""}`.toLowerCase().includes(q)) return false;
-      if (filter === "todo") return !hasMine(row);
-      if (filter === "mine") return hasMine(row);
-      if (filter === "no_interview") return !row.entries.interview.done;
+      if (q && !`${row.full_name} ${row.personal_number} ${row.command ?? ""}`.toLowerCase().includes(q)) {
+        return false;
+      }
+      const entry = row.entries[stage];
+      if (statusFilter === "todo") return isTodoForMe(activeMeta, entry);
+      if (statusFilter === "done") return isMine(entry);
       return true;
     });
-  }, [candidates, query, filter]);
+  }, [candidates, query, stage, statusFilter, activeMeta]);
 
   if (loading) {
     return <p className="p-6 text-sm text-text-muted">טוען…</p>;
@@ -291,7 +318,7 @@ export function AgamEvaluatorHomePage() {
             </h1>
             <p className="mt-1 text-sm text-text-secondary">
               {cycle
-                ? `${candidates.length} מועמדים · הערכת ${touched} מתוך ${candidates.length}`
+                ? `${candidates.length} מועמדים במחזור · בחרו מה למלא ועברו מועמד־מועמד`
                 : "כשצוות הקורס יפתח מחזור מיון, המועמדים שלו יופיעו כאן"}
             </p>
             {dates.length > 0 ? (
@@ -309,36 +336,15 @@ export function AgamEvaluatorHomePage() {
         </div>
 
         {cycle && candidates.length > 0 ? (
-          <div className={`mt-4 flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between ${dividerTopClass}`}>
-            <div className="relative sm:max-w-sm sm:flex-1">
-              <Search size={15} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-text-muted" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="חיפוש לפי שם, מספר אישי או פיקוד"
-                className={`${fieldClass} ps-9`}
-              />
-            </div>
-            <div className="flex gap-1 overflow-x-auto" role="tablist">
-              {FILTERS.map((item) => {
-                const active = filter === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setFilter(item.key)}
-                    className={active ? quietTabActiveClass : quietTabIdleClass}
-                  >
-                    {item.label}
-                    {active ? (
-                      <span className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full bg-text-primary" />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
+          <div className={`mt-4 pt-4 ${dividerTopClass}`}>
+            <StageTabs
+              active={stage}
+              onChange={(kind) => {
+                setStage(kind);
+                setStatusFilter("all");
+              }}
+              candidates={candidates}
+            />
           </div>
         ) : null}
       </header>
@@ -347,12 +353,75 @@ export function AgamEvaluatorHomePage() {
         <p className={`${panelClass} ${panelPadClass} text-center text-sm text-text-muted`}>
           עדיין אין מועמדים במחזור.
         </p>
-      ) : visible.length === 0 ? (
-        <p className={`${panelClass} ${panelPadClass} text-center text-sm text-text-muted`}>
-          לא נמצאו מועמדים.
-        </p>
       ) : (
-        <RosterTable candidates={visible} />
+        <section className="space-y-3">
+          <div className={`${panelClass} ${panelPadClass}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base font-extrabold text-text-primary">{activeMeta.title}</h2>
+                <p className="mt-0.5 text-xs font-semibold text-text-muted">
+                  {stageStats.todo > 0
+                    ? `${stageStats.todo} מועמדים ממתינים למילוי · ${stageStats.mine} כבר מילאת`
+                    : stageStats.mine > 0
+                      ? `מילאת את כל מה שנדרש בשלב הזה (${stageStats.mine})`
+                      : "אין פעילות בשלב הזה עדיין"}
+                  {activeMeta.date(cycle) ? ` · ${formatAgamDate(activeMeta.date(cycle))}` : ""}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative sm:max-w-sm sm:flex-1">
+                <Search size={15} className="pointer-events-none absolute inset-y-0 start-3 my-auto text-text-muted" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="חיפוש לפי שם, מספר אישי או פיקוד"
+                  className={`${fieldClass} ps-9`}
+                />
+              </div>
+              <div className="flex gap-1 overflow-x-auto rounded-xl bg-surface-2/70 p-1" role="tablist">
+                {STATUS_FILTERS.map((item) => {
+                  const active = statusFilter === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setStatusFilter(item.key)}
+                      className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                        active
+                          ? "bg-surface-1 text-text-primary shadow-sm"
+                          : "text-text-muted hover:text-text-primary"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {visible.length === 0 ? (
+            <p className={`${panelClass} ${panelPadClass} text-center text-sm text-text-muted`}>
+              לא נמצאו מועמדים לפי הסינון.
+            </p>
+          ) : (
+            <ul className="space-y-2.5">
+              {visible.map((candidate) => (
+                <li key={candidate.id}>
+                  <CandidateStageCard
+                    candidate={candidate}
+                    meta={activeMeta}
+                    canEvaluate={Boolean(payload?.canEvaluate)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </div>
   );

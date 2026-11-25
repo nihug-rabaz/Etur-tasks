@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Check, Lock, Pencil, Phone, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
@@ -31,11 +32,13 @@ type ViewPayload = EvaluatorCandidateView & {
   canEvaluate: boolean;
 };
 
+const FORM_KINDS = new Set<EvaluatorEntryKind>(["interview", "evaluation", "prep", "smach"]);
+
 const SCORE_LABEL: Record<EvaluatorEntryKind, string> = {
   interview: "",
   evaluation: "ציון",
   prep: "מקראות",
-  smach: "ציון משוקלל",
+  smach: "ציון ממוצע",
 };
 
 const RECOMMENDATION_DOT: Record<AgamRecommendation, string> = {
@@ -163,6 +166,7 @@ function BackLink() {
 }
 
 export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: string }) {
+  const searchParams = useSearchParams();
   const [payload, setPayload] = useState<ViewPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<EvaluatorEntryKind | null>(null);
@@ -180,8 +184,22 @@ export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: strin
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const requested = searchParams.get("form");
+    if (requested && FORM_KINDS.has(requested as EvaluatorEntryKind)) {
+      setForm(requested as EvaluatorEntryKind);
+    }
+  }, [searchParams]);
+
   const closeForm = (saved = false) => {
     setForm(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("form")) {
+        url.searchParams.delete("form");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}`);
+      }
+    }
     if (saved) void load();
   };
 
