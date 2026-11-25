@@ -308,8 +308,7 @@ export function AppShell({
     pathname === "/nagadim/admin/users";
   const canEditDovrut =
     moduleRoles.dovrut === "admin" || moduleRoles.dovrut === "user";
-  const canCreateAgam =
-    moduleRoles.agam === "admin" || moduleRoles.agam === "ramad" || moduleRoles.agam === "user";
+  const canCreateAgam = moduleRoles.agam === "admin" || moduleRoles.agam === "ramad";
   const canCreateTasksModule =
     canAccessModule("tasks", access) ||
     (Boolean(session?.user) && !moduleRolesLoaded);
