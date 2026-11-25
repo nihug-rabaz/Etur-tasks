@@ -253,14 +253,16 @@ export function ExamsBoard({
   renderCell,
   groupHeaderAction,
   className = "",
+  defaultOpen = true,
 }: {
   groups: ExamGroup[];
   action?: ReactNode;
   renderCell?: (cell: ExamCell) => ReactNode;
   groupHeaderAction?: (group: ExamGroup) => ReactNode;
   className?: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <section className={`${caseCardClass} ${className}`}>
       <CaseSectionHead

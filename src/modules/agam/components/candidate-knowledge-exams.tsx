@@ -261,6 +261,7 @@ export function CandidateKnowledgeExams({
   const [saving, setSaving] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [review, setReview] = useState<ReviewKey | null>(null);
+  const [sectionOpen, setSectionOpen] = useState(false);
 
   const loadBoard = useCallback(async () => {
     setLoadingList(true);
@@ -412,54 +413,58 @@ export function CandidateKnowledgeExams({
           icon={Sparkles}
           title="מבחני ידע"
           tone="emerald"
+          open={sectionOpen}
+          onToggle={() => setSectionOpen((current) => !current)}
           action={
             <span className="rounded-full bg-surface-1/80 px-2 py-0.5 text-[10px] font-bold tabular-nums text-text-muted">
               {exams.length}
             </span>
           }
         />
-        <div className="space-y-5 px-3.5 py-4 sm:px-4">
-          {loadingList ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-sm text-text-muted">
-              <Loader2 size={16} className="animate-spin" />
-              טוען מבחנים…
-            </div>
-          ) : (
-            <>
-              {officialExams.length > 0 ? (
-                <div>
-                  <ExamGroupHeader
-                    icon={ShieldCheck}
-                    title="מבחנים רשמיים"
-                    description="נפתחים במועד שנקבע למחזור שלכם. ניתן להגיש כל מבחן פעם אחת בלבד."
-                    tone="official"
-                  />
-                  <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    {officialExams.map((exam) => (
-                      <ExamCard key={exam.id} exam={exam} onOpen={() => void openExam(exam.id)} />
-                    ))}
+        {sectionOpen ? (
+          <div className="space-y-5 px-3.5 py-4 sm:px-4">
+            {loadingList ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-text-muted">
+                <Loader2 size={16} className="animate-spin" />
+                טוען מבחנים…
+              </div>
+            ) : (
+              <>
+                {officialExams.length > 0 ? (
+                  <div>
+                    <ExamGroupHeader
+                      icon={ShieldCheck}
+                      title="מבחנים רשמיים"
+                      description="נפתחים במועד שנקבע למחזור שלכם. ניתן להגיש כל מבחן פעם אחת בלבד."
+                      tone="official"
+                    />
+                    <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      {officialExams.map((exam) => (
+                        <ExamCard key={exam.id} exam={exam} onOpen={() => void openExam(exam.id)} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null}
+                ) : null}
 
-              {practiceExams.length > 0 ? (
-                <div>
-                  <ExamGroupHeader
-                    icon={Dumbbell}
-                    title="מבחני תרגול"
-                    description="להכנה עצמית לקראת המבחנים הרשמיים. פתוחים תמיד, ואפשר לחזור עליהם כמה פעמים שתרצו."
-                    tone="practice"
-                  />
-                  <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    {practiceExams.map((exam) => (
-                      <ExamCard key={exam.id} exam={exam} onOpen={() => void openExam(exam.id)} />
-                    ))}
+                {practiceExams.length > 0 ? (
+                  <div>
+                    <ExamGroupHeader
+                      icon={Dumbbell}
+                      title="מבחני תרגול"
+                      description="להכנה עצמית לקראת המבחנים הרשמיים. פתוחים תמיד, ואפשר לחזור עליהם כמה פעמים שתרצו."
+                      tone="practice"
+                    />
+                    <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                      {practiceExams.map((exam) => (
+                        <ExamCard key={exam.id} exam={exam} onOpen={() => void openExam(exam.id)} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
       </section>
 
       <Modal

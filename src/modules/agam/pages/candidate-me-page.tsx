@@ -330,7 +330,6 @@ export function AgamCandidateMePage() {
         icon={UserRound}
         title="פרטים אישיים"
         tone="sky"
-        defaultOpen
         badge={
           <span className="rounded-full bg-surface-1/80 px-2 py-0.5 text-[10px] font-bold tabular-nums text-text-muted">
             {personalDetails.reduce((sum, section) => sum + section.fields.length, 0)}
@@ -363,13 +362,12 @@ export function AgamCandidateMePage() {
 
       <CandidateKnowledgeExams initialExams={payload.knowledgeExams} />
 
-      <ExamsBoard groups={examGroups} />
+      <ExamsBoard groups={examGroups} defaultOpen={false} />
 
       <FileAccordion
         icon={GraduationCap}
         title="ציונים והערכות"
         tone="violet"
-        defaultOpen
         badge={
           <span className="rounded-full bg-surface-1/80 px-2 py-0.5 text-[10px] font-bold tabular-nums text-text-muted">
             {sportsResults.length > 0 ? `${sportsResults.length} תמונות` : "ספורט"}
@@ -517,7 +515,6 @@ export function AgamCandidateMePage() {
         icon={FileUp}
         title="מסמכים"
         tone="amber"
-        defaultOpen
         badge={
           <span className="flex items-center gap-1.5">
             <button
