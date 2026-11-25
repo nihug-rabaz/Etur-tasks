@@ -961,8 +961,7 @@ function Overview({
                 <>
                   <VerdictPill rows={payload.smach} />
                   <ScoreBadge
-                    value={smachWeighted ?? smachProfessional}
-                    suffix={smachWeighted == null && smachProfessional != null ? "/5" : undefined}
+                    value={smachWeighted ?? (smachProfessional != null ? Math.round(smachProfessional * 20) : null)}
                   />
                 </>
               ),

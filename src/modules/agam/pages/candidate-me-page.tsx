@@ -451,7 +451,7 @@ export function AgamCandidateMePage() {
                     <PassPill value={row.passed} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <FieldChip label="ציון משוקלל" value={<ScoreValue value={row.weighted_score} />} />
+                    <FieldChip label="ציון ממוצע" value={<ScoreValue value={row.weighted_score} />} />
                     <FieldChip label="המלצה" value={row.decision ?? "—"} />
                   </div>
                   {row.professional.some((item) => item.value != null) ? (

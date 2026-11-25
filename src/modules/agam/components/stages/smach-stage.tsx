@@ -10,6 +10,7 @@ import {
 } from "@/modules/agam/components/case-file-kit";
 import { PassFailBadge, PassFailPicker } from "@/modules/agam/components/pass-fail-picker";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
+import { ScoringEngine } from "@/modules/agam/lib/scoring";
 import {
   PROFESSIONAL_CRITERIA,
   SMACH_DECISIONS,
@@ -26,7 +27,6 @@ function averageScores(values: Array<number | null | undefined>): number | null 
 type SmachDraft = {
   professionalScores: Record<string, number>;
   professionalFeedback: Record<string, string>;
-  weightedScore: string;
   keyPoints: string;
   decision: AgamSmachDecision | "";
   decisionReasoning: string;
@@ -37,7 +37,6 @@ function draftFrom(evaluation: AgamSmachEvaluation | undefined): SmachDraft {
   return {
     professionalScores: evaluation?.professional_scores ?? {},
     professionalFeedback: evaluation?.professional_feedback ?? {},
-    weightedScore: evaluation?.weighted_score?.toString() ?? "",
     keyPoints: evaluation?.key_points ?? "",
     decision: evaluation?.decision ?? "",
     decisionReasoning: evaluation?.decision_reasoning ?? "",
@@ -47,6 +46,13 @@ function draftFrom(evaluation: AgamSmachEvaluation | undefined): SmachDraft {
 
 function professionalAverageOf(scores: Record<string, number>): number | null {
   return averageScores(PROFESSIONAL_CRITERIA.map((criterion) => scores[criterion.key]));
+}
+
+function professionalScoreOf(scores: Record<string, number>): number | null {
+  return ScoringEngine.calcAverageScore(
+    scores,
+    PROFESSIONAL_CRITERIA.map((criterion) => criterion.key),
+  );
 }
 
 const subtleDividerClass =
@@ -103,7 +109,6 @@ export function SmachStage({
           candidateId,
           professionalScores: draft.professionalScores,
           professionalFeedback: draft.professionalFeedback,
-          weightedScore: draft.weightedScore ? Number(draft.weightedScore) : null,
           keyPoints: draft.keyPoints,
           decision: draft.decision || null,
           decisionReasoning: draft.decisionReasoning,
@@ -142,7 +147,7 @@ export function SmachStage({
         <div className="flex flex-wrap items-center gap-2">
           {!editing ? (
             <>
-              <ScoreChip label="מקצועי" value={professionalAverage} suffix="/5" />
+              <ScoreChip label="ציון" value={professionalScoreOf(source.professionalScores)} suffix="/100" />
               <PassFailBadge value={mine?.passed} />
             </>
           ) : null}
@@ -295,7 +300,11 @@ function SmachEvaluationView({ evaluation, compact = false }: { evaluation: Agam
               </dd>
             </CaseRow>
             <CaseRow label="המלצה" value={evaluation.decision ?? ""} />
-            <CaseRow label="ציון משוקלל" value={evaluation.weighted_score ?? ""} emphasis />
+            <CaseRow
+              label="ציון ממוצע"
+              value={evaluation.weighted_score ?? professionalScoreOf(scores) ?? ""}
+              emphasis
+            />
           </dl>
           <div>
             <TextBlock label="נימוק להחלטה" text={evaluation.decision_reasoning} />
@@ -371,18 +380,6 @@ function SmachEditor({
                 ))}
               </div>
             </EditorField>
-            <EditorField label="ציון משוקלל (0–100)">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                dir="ltr"
-                className="ui-field h-11 w-32 rounded-xl bg-surface-1 px-3 text-center text-lg font-extrabold text-text-primary outline-none"
-                placeholder="—"
-                value={draft.weightedScore}
-                onChange={(event) => update("weightedScore", event.target.value)}
-              />
-            </EditorField>
           </div>
           <div className="space-y-4">
             <EditorField label="נימוק להחלטה">
@@ -407,7 +404,15 @@ function SmachEditor({
         </div>
       </section>
 
-      <AverageTile label="ממוצע הערכה מקצועית" hint="סולם 1–5" value={professionalAverage} />
+      <AverageTile
+        label="ציון ממוצע"
+        hint={
+          professionalAverage != null
+            ? `מחושב אוטומטית מההערכה המקצועית · ממוצע ${professionalAverage} מתוך 5`
+            : "מחושב אוטומטית מההערכה המקצועית"
+        }
+        value={professionalScoreOf(draft.professionalScores)}
+      />
     </div>
   );
 }
@@ -470,8 +475,6 @@ function Segmented({
 }
 
 export function SmachReadOnlyCard({ evaluation }: { evaluation: AgamSmachEvaluation }) {
-  const professionalAverage = professionalAverageOf(evaluation.professional_scores ?? {});
-
   return (
     <article className="space-y-3 rounded-2xl bg-surface-2/50 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
@@ -480,7 +483,11 @@ export function SmachReadOnlyCard({ evaluation }: { evaluation: AgamSmachEvaluat
           <p className="text-[11px] text-text-muted">{new Date(evaluation.created_at).toLocaleDateString("he-IL")}</p>
         </div>
         <div className="flex items-center gap-2">
-          <ScoreChip label="ממוצע" value={professionalAverage} suffix="/5" />
+          <ScoreChip
+            label="ציון"
+            value={evaluation.weighted_score ?? professionalScoreOf(evaluation.professional_scores ?? {})}
+            suffix="/100"
+          />
           <PassFailBadge value={evaluation.passed} />
         </div>
       </div>

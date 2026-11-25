@@ -3,12 +3,13 @@ import { z } from "zod";
 import { AgamAccessService } from "@/modules/agam/services/access.service";
 import { AgamCandidateService } from "@/modules/agam/services/candidate.service";
 import { AgamSmachService } from "@/modules/agam/services/smach.service";
+import { ScoringEngine } from "@/modules/agam/lib/scoring";
+import { PROFESSIONAL_CRITERIA } from "@/modules/agam/lib/stages";
 
 const bodySchema = z.object({
   candidateId: z.string().uuid(),
   professionalScores: z.record(z.string(), z.number()),
   professionalFeedback: z.record(z.string(), z.string()),
-  weightedScore: z.number().nullable(),
   keyPoints: z.string(),
   decision: z.enum(["מומלץ", "מומלץ בהסתייגות", "לא מומלץ"]).nullable(),
   decisionReasoning: z.string(),
@@ -37,7 +38,10 @@ export async function POST(request: Request) {
     evaluator_name: access.profile.name,
     professional_scores: parsed.data.professionalScores,
     professional_feedback: parsed.data.professionalFeedback,
-    weighted_score: parsed.data.weightedScore,
+    weighted_score: ScoringEngine.calcAverageScore(
+      parsed.data.professionalScores,
+      PROFESSIONAL_CRITERIA.map((criterion) => criterion.key),
+    ),
     key_points: parsed.data.keyPoints,
     decision: parsed.data.decision,
     decision_reasoning: parsed.data.decisionReasoning,

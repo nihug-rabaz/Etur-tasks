@@ -247,7 +247,7 @@ function SmachPanel({
             badge={<PassPill value={latest.passed} />}
           >
             <div className="grid grid-cols-2 gap-1.5">
-              <ScoreChip label="ציון משוקלל" value={latest.weighted_score} />
+              <ScoreChip label="ציון ממוצע" value={latest.weighted_score} />
               <ScoreChip label="המלצה" value={latest.decision} />
             </div>
             {latest.key_points ? (
