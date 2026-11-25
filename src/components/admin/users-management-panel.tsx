@@ -683,7 +683,14 @@ function DeleteUserModal({
     if (!target) return;
     setError(null);
     startTransition(async () => {
-      const result = await deleteAction(target.id);
+      let result: Awaited<ReturnType<typeof deleteAction>>;
+      try {
+        result = await deleteAction(target.id);
+      } catch (actionError) {
+        console.error("[admin-delete-user]", actionError);
+        setError("המחיקה נכשלה — רעננו את הדף ונסו שוב.");
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         return;
