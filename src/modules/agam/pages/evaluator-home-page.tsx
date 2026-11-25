@@ -229,9 +229,6 @@ function StageTile({
             ? "למילוי"
             : "להוספה";
 
-  const action =
-    tone === "mine" ? "עריכה" : lockedByOther ? "נעול" : meta.shared ? "מילוי" : "הוספה";
-
   const shellClass = `group flex h-full min-h-[5.75rem] flex-col justify-between rounded-2xl px-3.5 py-3 transition ${
     tone === "mine"
       ? "bg-emerald-500/[0.08] ring-1 ring-emerald-500/20 hover:bg-emerald-500/[0.12]"
@@ -239,6 +236,30 @@ function StageTile({
         ? "bg-surface-2/70 ring-1 ring-transparent"
         : "bg-surface-2/80 ring-1 ring-transparent hover:bg-accent-primary/10 hover:ring-accent-primary/20"
   }`;
+
+  const actionBadge =
+    tone === "mine" ? (
+      <span
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-700 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.18)] dark:text-emerald-300"
+        title="עריכה"
+      >
+        <Pencil size={14} strokeWidth={2.4} />
+      </span>
+    ) : lockedByOther ? (
+      <span
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-surface-1 text-text-muted shadow-[inset_0_0_0_1px_rgba(20,33,43,0.06)]"
+        title="נעול"
+      >
+        <Lock size={13} />
+      </span>
+    ) : (
+      <span
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-primary/12 text-accent-primary shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--accent-primary)_22%,transparent)] transition group-hover:bg-accent-primary group-hover:text-white group-hover:shadow-[0_8px_18px_-10px_color-mix(in_srgb,var(--accent-primary)_70%,transparent)]"
+        title={meta.shared ? "מילוי" : "הוספה"}
+      >
+        <Plus size={16} strokeWidth={2.6} />
+      </span>
+    );
 
   const inner = (
     <>
@@ -252,19 +273,9 @@ function StageTile({
                 : "bg-surface-1 text-accent-primary"
           }`}
         >
-          {tone === "mine" ? <Check size={15} strokeWidth={2.6} /> : lockedByOther ? <Lock size={14} /> : <Icon size={15} />}
+          {tone === "mine" ? <Check size={15} strokeWidth={2.6} /> : <Icon size={15} />}
         </span>
-        <span
-          className={`text-[10px] font-extrabold ${
-            tone === "mine"
-              ? "text-emerald-700 dark:text-emerald-300"
-              : lockedByOther
-                ? "text-text-muted"
-                : "text-accent-primary"
-          }`}
-        >
-          {action}
-        </span>
+        {actionBadge}
       </div>
       <div className="mt-3 min-w-0">
         <p className="truncate text-sm font-extrabold text-text-primary">{meta.short}</p>
