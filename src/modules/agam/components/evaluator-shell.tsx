@@ -24,13 +24,9 @@ export function EvaluatorShell({
   banner?: ReactNode;
 }) {
   return (
-    <div className="agam-scope relative flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[color-mix(in_srgb,var(--background)_90%,#e6ebf4)] text-text-primary dark:bg-background">
+    <div className="agam-scope relative flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-text-primary">
       {banner}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-72 bg-[radial-gradient(60%_100%_at_85%_0%,rgba(16,185,129,0.12),transparent_70%),radial-gradient(50%_90%_at_10%_0%,rgba(14,165,233,0.10),transparent_70%)]"
-      />
-      <header className="sticky top-0 z-30 border-b border-border-weak/40 bg-surface-1/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-border-weak/40 bg-surface-1/90 backdrop-blur-md">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center gap-3 px-3 sm:px-5">
           <Link href="/agam/evaluate" className="flex min-w-0 flex-1 items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -48,7 +44,7 @@ export function EvaluatorShell({
           </Link>
           {userLabel ? (
             <span className="hidden items-center gap-2 rounded-full bg-surface-2/80 py-1 pe-3 ps-1 sm:inline-flex">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-[11px] font-black text-white">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-surface-1 text-[11px] font-extrabold text-text-secondary">
                 {initialsOf(userLabel)}
               </span>
               <span className="max-w-[10rem] truncate text-[12px] font-bold text-text-secondary">{userLabel}</span>
@@ -66,7 +62,7 @@ export function EvaluatorShell({
           </button>
         </div>
       </header>
-      <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col px-3 pb-12 pt-4 sm:px-5 sm:pt-6">
+      <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col pb-10 pt-1">
         {children}
       </main>
       <footer className="shrink-0 px-4 py-3">

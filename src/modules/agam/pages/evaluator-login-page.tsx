@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { AlertCircle, CalendarRange, ClipboardCheck, Clock3, MessagesSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertCircle, CalendarRange, ClipboardCheck, Clock3, MessagesSquare, ShieldCheck } from "lucide-react";
 import { AgamPublicChrome } from "@/modules/agam/components/public-chrome";
 import { GoogleButton } from "@/modules/agam/pages/candidate-login-page";
 
@@ -86,19 +86,11 @@ export function AgamEvaluatorLoginPage({ state }: { state: EvaluatorLoginState }
     <AgamPublicChrome>
       <div className="w-full max-w-md pt-2 sm:pt-8">
         <section className="overflow-hidden rounded-[28px] bg-surface-1 shadow-[0_0_0_1px_rgba(22,24,29,0.05),0_24px_60px_-28px_rgba(22,24,29,0.35)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
-          <div className="relative overflow-hidden bg-gradient-to-bl from-emerald-500/20 via-teal-500/10 to-transparent px-6 pb-6 pt-7 text-center">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -left-10 -top-12 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl"
-            />
+          <div className="relative overflow-hidden bg-gradient-to-bl from-emerald-500/12 via-sky-500/8 to-transparent px-6 pb-6 pt-7 text-center">
             <span className="relative mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-1 text-emerald-700 shadow-sm dark:text-emerald-300">
               <ShieldCheck size={28} />
             </span>
-            <p className="relative mt-4 inline-flex items-center gap-1.5 rounded-full bg-surface-1/70 px-2.5 py-1 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">
-              <Sparkles size={12} />
-              צוות המיון
-            </p>
-            <h1 className="relative mt-2 text-[1.6rem] font-extrabold leading-tight tracking-tight text-text-primary">
+            <h1 className="relative mt-4 text-[1.6rem] font-extrabold leading-tight tracking-tight text-text-primary">
               כניסת מעריכים
             </h1>
             <p className="relative mt-1.5 text-sm text-text-secondary">קורס קציני דת · הרבנות הצבאית</p>

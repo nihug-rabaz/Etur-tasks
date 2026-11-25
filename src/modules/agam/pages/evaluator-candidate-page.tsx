@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ArrowRight, CalendarDays, Check, Lock, Pencil, Phone, Plus, ShieldAlert, UserRound } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ArrowRight, Check, Lock, Pencil, Phone, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { agamFetch } from "@/modules/agam/lib/agam-fetch";
 import { formatAgamDate } from "@/modules/agam/lib/date-format";
+import { EVALUATOR_ENTRIES, entryTone, type EvaluatorEntryMeta } from "@/modules/agam/lib/evaluator-entries";
 import {
-  EVALUATOR_ENTRIES,
-  avatarTone,
-  entryTone,
-  initials,
-  type EvaluatorEntryMeta,
-} from "@/modules/agam/lib/evaluator-entries";
+  pageShellClass,
+  panelClass,
+  panelPadClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from "@/modules/agam/lib/ui";
 import type {
   EvaluatorCandidateView,
   EvaluatorEntryKind,
@@ -37,25 +38,40 @@ const SCORE_LABEL: Record<EvaluatorEntryKind, string> = {
   smach: "ציון משוקלל",
 };
 
-const RECOMMENDATION_TONE: Record<AgamRecommendation, string> = {
-  ממליץ: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
-  "ממליץ בהסתייגות": "bg-amber-500/14 text-amber-700 dark:text-amber-300",
-  "לא ממליץ": "bg-rose-500/12 text-rose-700 dark:text-rose-300",
+const RECOMMENDATION_DOT: Record<AgamRecommendation, string> = {
+  ממליץ: "bg-emerald-500",
+  "ממליץ בהסתייגות": "bg-amber-500",
+  "לא ממליץ": "bg-rose-500",
 };
 
 function formatScore(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-function Pill({ className, children }: { className: string; children: ReactNode }) {
-  return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-[3px] text-[11px] font-extrabold ${className}`}>
-      {children}
-    </span>
-  );
+function entrySummary(
+  meta: EvaluatorEntryMeta,
+  entry: EvaluatorEntryState,
+  recommendation: AgamRecommendation | null,
+): { text: string; detail: string[] } {
+  const tone = entryTone(entry);
+  const detail: string[] = [];
+  if (meta.shared) {
+    if (tone === "empty") return { text: "טרם בוצע ראיון", detail };
+    if (recommendation) detail.push(recommendation);
+    if (entry.updatedAt) detail.push(`עודכן ${formatAgamDate(entry.updatedAt)}`);
+    return { text: tone === "mine" ? "מילאת את הראיון" : `בוצע ע״י ${entry.by ?? "מעריך אחר"}`, detail };
+  }
+  const others = entry.count - (entry.mineId ? 1 : 0);
+  if (tone === "mine") {
+    if (entry.score != null) detail.push(`${SCORE_LABEL[meta.kind]} ${formatScore(entry.score)}`);
+    if (entry.passed != null) detail.push(entry.passed ? "עבר" : "לא עבר");
+    if (entry.updatedAt) detail.push(`עודכן ${formatAgamDate(entry.updatedAt)}`);
+  }
+  if (others > 0) detail.push(others === 1 ? "מעריך נוסף מילא" : `${others} מעריכים נוספים מילאו`);
+  return { text: tone === "mine" ? "ההערכה שלך נשמרה" : "טרם הוספת הערכה", detail };
 }
 
-function EntryCard({
+function EntryRow({
   meta,
   entry,
   date,
@@ -73,124 +89,64 @@ function EntryCard({
   const tone = entryTone(entry);
   const Icon = meta.icon;
   const lockedByOther = meta.shared && tone === "others";
-  const others = meta.shared ? 0 : entry.count - (entry.mineId ? 1 : 0);
-
-  let headline: string;
-  if (tone === "mine") headline = meta.shared ? "מילאת את הראיון" : "ההערכה שלך נשמרה";
-  else if (lockedByOther) headline = `בוצע ע״י ${entry.by ?? "מעריך אחר"}`;
-  else headline = meta.shared ? "טרם בוצע ראיון" : "טרם הוספת הערכה";
+  const summary = entrySummary(meta, entry, recommendation);
 
   return (
-    <article
-      className={`relative flex flex-col overflow-hidden rounded-[22px] bg-surface-1 p-4 shadow-[0_0_0_1px_rgba(22,24,29,0.05),0_10px_30px_-24px_rgba(22,24,29,0.4)] transition dark:bg-[#1a1c24] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] sm:p-5 ${
-        tone === "mine" ? "ring-1 ring-emerald-500/30" : ""
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${meta.tile}`}>
-          <Icon size={20} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-[15px] font-extrabold text-text-primary">{meta.title}</h3>
-            {tone === "mine" ? (
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white">
-                <Check size={12} strokeWidth={3} />
-              </span>
-            ) : null}
-          </div>
-          {date ? (
-            <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-text-muted">
-              <CalendarDays size={11} />
-              <span className="tabular-nums">{formatAgamDate(date)}</span>
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-3.5 flex-1">
-        <p
-          className={`text-[13px] font-bold ${
-            tone === "mine" ? "text-emerald-700 dark:text-emerald-300" : "text-text-secondary"
+    <li className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-5 [&:not(:first-child)]:shadow-[inset_0_1px_0_rgba(20,33,43,0.06)] dark:[&:not(:first-child)]:shadow-[inset_0_1px_0_rgba(255,255,255,0.07)]">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        <span
+          className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            tone === "mine"
+              ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+              : "bg-surface-2 text-text-secondary"
           }`}
         >
-          {headline}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {meta.shared && recommendation && tone !== "empty" ? (
-            <Pill className={RECOMMENDATION_TONE[recommendation]}>{recommendation}</Pill>
-          ) : null}
-          {!meta.shared && tone === "mine" && entry.score != null ? (
-            <Pill className="bg-surface-2 text-text-primary">
-              {SCORE_LABEL[meta.kind]} <span className="tabular-nums">{formatScore(entry.score)}</span>
-            </Pill>
-          ) : null}
-          {!meta.shared && tone === "mine" && entry.passed != null ? (
-            <Pill
-              className={
-                entry.passed
-                  ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
-                  : "bg-rose-500/12 text-rose-700 dark:text-rose-300"
-              }
-            >
-              {entry.passed ? "עבר" : "לא עבר"}
-            </Pill>
-          ) : null}
-          {others > 0 ? (
-            <Pill className="bg-sky-500/10 text-sky-700 dark:text-sky-300">
-              {others === 1 ? "מעריך נוסף מילא" : `${others} מעריכים נוספים מילאו`}
-            </Pill>
-          ) : null}
-          {tone !== "empty" && entry.updatedAt && (tone === "mine" || meta.shared) ? (
-            <span className="self-center text-[11px] font-semibold text-text-muted">
-              עודכן {formatAgamDate(entry.updatedAt)}
-            </span>
+          {tone === "mine" ? <Check size={17} strokeWidth={2.5} /> : <Icon size={17} />}
+        </span>
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-extrabold text-text-primary">
+            {meta.title}
+            {date ? (
+              <span className="text-[11px] font-semibold tabular-nums text-text-muted">{formatAgamDate(date)}</span>
+            ) : null}
+          </p>
+          <p
+            className={`mt-0.5 text-xs font-bold ${
+              tone === "mine" ? "text-emerald-700 dark:text-emerald-300" : "text-text-secondary"
+            }`}
+          >
+            {summary.text}
+          </p>
+          {summary.detail.length > 0 ? (
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold text-text-muted">
+              {meta.shared && recommendation && tone !== "empty" ? (
+                <span className={`h-1.5 w-1.5 rounded-full ${RECOMMENDATION_DOT[recommendation]}`} />
+              ) : null}
+              {summary.detail.join(" · ")}
+            </p>
           ) : null}
         </div>
       </div>
 
       {canEvaluate ? (
         lockedByOther ? (
-          <p className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-surface-2/70 px-3 py-2.5 text-[12px] font-bold text-text-muted">
-            <Lock size={13} />
-            רק מי שכתב את הראיון יכול לערוך אותו
-          </p>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-text-muted sm:max-w-[11rem]">
+            <Lock size={12} className="shrink-0" />
+            רק כותב הראיון יכול לערוך
+          </span>
+        ) : tone === "mine" ? (
+          <button type="button" onClick={onOpen} className={`${secondaryButtonClass} shrink-0 sm:w-36`}>
+            <Pencil size={14} />
+            עריכה
+          </button>
         ) : (
-          <button
-            type="button"
-            onClick={onOpen}
-            className={`mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-[14px] font-extrabold transition ${
-              tone === "mine"
-                ? "bg-surface-2 text-text-primary hover:bg-surface-2/70"
-                : "bg-text-primary text-surface-1 shadow-[0_10px_24px_-14px_rgba(22,24,29,0.6)] hover:opacity-90"
-            }`}
-          >
-            {tone === "mine" ? <Pencil size={15} /> : <Plus size={16} />}
-            {tone === "mine"
-              ? meta.shared
-                ? "עריכת הראיון"
-                : "עריכת ההערכה שלי"
-              : meta.shared
-                ? "מילוי ראיון"
-                : "הוספת הערכה"}
+          <button type="button" onClick={onOpen} className={`${primaryButtonClass} shrink-0 sm:w-36`}>
+            <Plus size={15} />
+            {meta.shared ? "מילוי ראיון" : "הוספת הערכה"}
           </button>
         )
       ) : null}
-    </article>
-  );
-}
-
-function PageSkeleton() {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="h-5 w-28 animate-pulse rounded-full bg-surface-1/70" />
-      <div className="h-36 animate-pulse rounded-[28px] bg-surface-1/70" />
-      <div className="grid gap-3 sm:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-44 animate-pulse rounded-[22px] bg-surface-1/70" />
-        ))}
-      </div>
-    </div>
+    </li>
   );
 }
 
@@ -198,9 +154,9 @@ function BackLink() {
   return (
     <Link
       href="/agam/evaluate"
-      className="inline-flex w-fit items-center gap-1.5 rounded-full px-1 text-[13px] font-extrabold text-text-muted transition hover:text-text-primary"
+      className="inline-flex w-fit items-center gap-1.5 px-1 text-xs font-bold text-text-muted transition hover:text-text-primary"
     >
-      <ArrowRight size={15} />
+      <ArrowRight size={14} />
       חזרה למחזור
     </Link>
   );
@@ -231,100 +187,77 @@ export function AgamEvaluatorCandidatePage({ candidateId }: { candidateId: strin
 
   if (error) {
     return (
-      <div className="flex flex-col gap-4" dir="rtl">
+      <div className={pageShellClass} dir="rtl">
         <BackLink />
-        <div className="flex flex-col items-center rounded-[24px] bg-surface-1/80 px-6 py-14 text-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/12 text-amber-700 dark:text-amber-300">
-            <ShieldAlert size={26} />
-          </span>
-          <p className="mt-4 text-base font-extrabold text-text-primary">המועמד לא זמין</p>
-          <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-text-muted">{error}</p>
+        <div className={`${panelClass} ${panelPadClass} text-center`}>
+          <p className="text-sm font-extrabold text-text-primary">המועמד לא זמין</p>
+          <p className="mt-1 text-xs text-text-muted">{error}</p>
         </div>
       </div>
     );
   }
 
-  if (!payload) return <PageSkeleton />;
+  if (!payload) return <p className="p-6 text-sm text-text-muted">טוען…</p>;
 
   const { candidate, cycle, entries, me } = payload;
   const doneCount = EVALUATOR_ENTRIES.filter((meta) => entries[meta.kind].mineId).length;
-  const commander = [candidate.direct_commander_role, candidate.direct_commander_name].filter(Boolean).join(" · ");
+  const commander = [candidate.direct_commander_role, candidate.direct_commander_name].filter(Boolean).join(" ");
   const formMeta = form ? EVALUATOR_ENTRIES.find((meta) => meta.kind === form) ?? null : null;
+  const cycleName = cycle.cohort_year ? `${cycle.name} ${cycle.cohort_year}` : cycle.name;
 
   return (
-    <div className="flex flex-col gap-4" dir="rtl">
+    <div className={pageShellClass} dir="rtl">
       <BackLink />
 
-      <section className="relative overflow-hidden rounded-[28px] bg-surface-1 p-5 shadow-[0_0_0_1px_rgba(22,24,29,0.05),0_24px_60px_-34px_rgba(22,24,29,0.45)] dark:bg-[#1a1c24] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] sm:p-6">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-bl from-emerald-500/15 via-sky-500/10 to-transparent"
-        />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center">
-          <span
-            className={`inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] bg-gradient-to-br ${avatarTone(candidate.id)} text-xl font-black text-white shadow-md`}
-          >
-            {initials(candidate.full_name)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/12 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300">
-              מחזור {cycle.cohort_year ? `${cycle.name} ${cycle.cohort_year}` : cycle.name}
-            </span>
-            <h1 className="mt-1.5 truncate text-[1.6rem] font-black leading-tight tracking-tight text-text-primary">
+      <header className={`${panelClass} ${panelPadClass}`}>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+              מחזור {cycleName}
+            </p>
+            <h1 className="mt-1 truncate text-2xl font-extrabold tracking-tight text-text-primary sm:text-[1.85rem]">
               {candidate.full_name}
             </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-text-muted">
+            <p className="mt-1 flex flex-wrap gap-x-2 text-sm text-text-secondary">
               <span dir="ltr" className="tabular-nums">
                 {candidate.personal_number}
               </span>
-              {candidate.command ? <span>{candidate.command}</span> : null}
-              {commander ? (
-                <span className="inline-flex items-center gap-1">
-                  <UserRound size={12} />
-                  {commander}
-                </span>
-              ) : null}
-            </div>
+              {candidate.command ? <span>· {candidate.command}</span> : null}
+              {commander ? <span>· מפקד: {commander}</span> : null}
+            </p>
           </div>
           {candidate.phone ? (
-            <a
-              href={`tel:${candidate.phone}`}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-surface-2 px-4 text-[13px] font-extrabold text-text-primary transition hover:bg-surface-2/70"
-            >
-              <Phone size={15} />
+            <a href={`tel:${candidate.phone}`} className={secondaryButtonClass}>
+              <Phone size={14} />
               <span dir="ltr" className="tabular-nums">
                 {candidate.phone}
               </span>
             </a>
           ) : null}
         </div>
-      </section>
+      </header>
 
-      <div className="flex items-end justify-between gap-3 px-1 pt-1">
-        <div>
-          <h2 className="text-lg font-black tracking-tight text-text-primary">ההערכות שלי</h2>
-          <p className="text-[12px] font-semibold text-text-muted">
-            {payload.canEvaluate ? "הוסיפו או עדכנו את מה שמילאתם על המועמד" : "צפייה בלבד"}
-          </p>
+      <section className="overflow-hidden rounded-2xl bg-surface-1 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)]">
+        <div className="flex items-center justify-between gap-3 bg-surface-2/60 px-4 py-2.5 sm:px-5">
+          <h2 className="text-[11px] font-extrabold text-text-muted">ההערכות שלי</h2>
+          <span className="text-[11px] font-extrabold tabular-nums text-text-muted">
+            {doneCount} מתוך {EVALUATOR_ENTRIES.length}
+          </span>
         </div>
-        <span className="rounded-full bg-surface-1 px-2.5 py-1 text-[12px] font-extrabold tabular-nums text-text-secondary shadow-[0_0_0_1px_rgba(22,24,29,0.05)]">
-          {doneCount}/{EVALUATOR_ENTRIES.length}
-        </span>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {EVALUATOR_ENTRIES.map((meta) => (
-          <EntryCard
-            key={meta.kind}
-            meta={meta}
-            entry={entries[meta.kind]}
-            date={meta.date(cycle)}
-            recommendation={payload.interviewRecommendation}
-            canEvaluate={payload.canEvaluate}
-            onOpen={() => setForm(meta.kind)}
-          />
-        ))}
-      </div>
+        <ul>
+          {EVALUATOR_ENTRIES.map((meta) => (
+            <EntryRow
+              key={meta.kind}
+              meta={meta}
+              entry={entries[meta.kind]}
+              date={meta.date(cycle)}
+              recommendation={payload.interviewRecommendation}
+              canEvaluate={payload.canEvaluate}
+              onOpen={() => setForm(meta.kind)}
+            />
+          ))}
+        </ul>
+      </section>
 
       <Modal
         open={form != null}
