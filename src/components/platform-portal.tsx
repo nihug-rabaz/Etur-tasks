@@ -76,6 +76,7 @@ const SLOT_ORDER: PortalSlot[] = ["tl", "tr", "bl", "br", "tasks", "snacks"];
 
 function moduleEntryHref(moduleId: string, href: string, role?: ModuleRole): string {
   if (moduleId === "dovrut" && role === "approver") return "/dovrut/approvals";
+  if (moduleId === "agam" && role === "user") return "/agam/evaluate";
   return href;
 }
 

@@ -388,7 +388,9 @@ export function AppShell({
                   const href =
                     module.id === "dovrut" && moduleRoles.dovrut === "approver" && !isRealAdmin
                       ? "/dovrut/approvals"
-                      : module.href;
+                      : module.id === "agam" && moduleRoles.agam === "user" && !isRealAdmin
+                        ? "/agam/evaluate"
+                        : module.href;
                   return (
                     <Link
                       key={module.id}

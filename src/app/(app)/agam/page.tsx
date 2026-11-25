@@ -13,6 +13,9 @@ export default async function Page() {
   if ("error" in access) {
     redirect(access.status === 401 ? "/login" : "/");
   }
+  if (new AgamAccessService().canScreen(access.role)) {
+    redirect("/agam/evaluate");
+  }
 
   const [candidates, settings, generalTasks, cycles] = await Promise.all([
     new AgamCandidateService().list(false),
