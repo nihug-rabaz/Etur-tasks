@@ -196,7 +196,7 @@ function StageTabs({
   );
 }
 
-function StageChip({
+function StageTile({
   candidateId,
   meta,
   entry,
@@ -210,27 +210,86 @@ function StageChip({
   const tone = entryTone(entry);
   const lockedByOther = meta.shared && tone === "others";
   const href = `/agam/evaluate/${candidateId}?form=${meta.kind}`;
-  const className = `inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition ${
+  const Icon = meta.icon;
+
+  const status =
     tone === "mine"
-      ? "bg-emerald-500/12 text-emerald-800 dark:text-emerald-200"
-      : tone === "others"
-        ? "bg-surface-2 text-text-secondary"
-        : "bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/15"
+      ? entry.score != null
+        ? `מילאתי · ${entry.score}`
+        : "מילאתי"
+      : lockedByOther
+        ? entry.by
+          ? `ע״י ${entry.by}`
+          : "בוצע"
+        : tone === "others"
+          ? entry.count === 1
+            ? "מעריך אחד"
+            : `${entry.count} מעריכים`
+          : meta.shared
+            ? "למילוי"
+            : "להוספה";
+
+  const action =
+    tone === "mine" ? "עריכה" : lockedByOther ? "נעול" : meta.shared ? "מילוי" : "הוספה";
+
+  const shellClass = `group flex h-full min-h-[5.75rem] flex-col justify-between rounded-2xl px-3.5 py-3 transition ${
+    tone === "mine"
+      ? "bg-emerald-500/[0.08] ring-1 ring-emerald-500/20 hover:bg-emerald-500/[0.12]"
+      : lockedByOther
+        ? "bg-surface-2/70 ring-1 ring-transparent"
+        : "bg-surface-2/80 ring-1 ring-transparent hover:bg-accent-primary/10 hover:ring-accent-primary/20"
   }`;
+
+  const inner = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${
+            tone === "mine"
+              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+              : lockedByOther
+                ? "bg-surface-1 text-text-muted"
+                : "bg-surface-1 text-accent-primary"
+          }`}
+        >
+          {tone === "mine" ? <Check size={15} strokeWidth={2.6} /> : lockedByOther ? <Lock size={14} /> : <Icon size={15} />}
+        </span>
+        <span
+          className={`text-[10px] font-extrabold ${
+            tone === "mine"
+              ? "text-emerald-700 dark:text-emerald-300"
+              : lockedByOther
+                ? "text-text-muted"
+                : "text-accent-primary"
+          }`}
+        >
+          {action}
+        </span>
+      </div>
+      <div className="mt-3 min-w-0">
+        <p className="truncate text-sm font-extrabold text-text-primary">{meta.short}</p>
+        <p
+          className={`mt-0.5 truncate text-[11px] font-bold ${
+            tone === "mine" ? "text-emerald-700/90 dark:text-emerald-300/90" : "text-text-muted"
+          }`}
+        >
+          {status}
+        </p>
+      </div>
+    </>
+  );
 
   if (!canEvaluate || lockedByOther) {
     return (
-      <span className={className} title={lockedByOther ? `בוצע ע״י ${entry.by ?? "מעריך אחר"}` : undefined}>
-        {tone === "mine" ? <Check size={11} strokeWidth={3} /> : lockedByOther ? <Lock size={10} /> : null}
-        {meta.short}
-      </span>
+      <div className={`${shellClass} cursor-default opacity-90`} title={lockedByOther ? `בוצע ע״י ${entry.by ?? "מעריך אחר"}` : undefined}>
+        {inner}
+      </div>
     );
   }
 
   return (
-    <Link href={href} className={className} title={tone === "mine" ? "עריכה" : meta.shared ? "מילוי ראיון" : "הוספת הערכה"}>
-      {tone === "mine" ? <Check size={11} strokeWidth={3} /> : <Plus size={11} strokeWidth={3} />}
-      {meta.short}
+    <Link href={href} className={shellClass}>
+      {inner}
     </Link>
   );
 }
@@ -244,39 +303,42 @@ function CandidateOverviewCard({
 }) {
   const done = mineCount(candidate);
   return (
-    <article className="flex flex-col gap-3 rounded-2xl bg-surface-1 p-4 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] sm:flex-row sm:items-center sm:gap-4 sm:px-5">
-      <div className="min-w-0 flex-1">
-        <Link
-          href={`/agam/evaluate/${candidate.id}`}
-          className="block truncate text-base font-extrabold text-text-primary transition hover:text-accent-primary"
-        >
-          {candidate.full_name}
-        </Link>
-        <p className="mt-0.5 truncate text-[12px] font-semibold text-text-muted">
-          <span dir="ltr" className="tabular-nums">
-            {candidate.personal_number}
-          </span>
-          {candidate.command ? ` · ${candidate.command}` : ""}
-          <span className="ms-2 tabular-nums text-text-secondary">
-            · {done}/{EVALUATOR_ENTRIES.length} מילאתי
-          </span>
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {EVALUATOR_ENTRIES.map((meta) => (
-            <StageChip
-              key={meta.kind}
-              candidateId={candidate.id}
-              meta={meta}
-              entry={candidate.entries[meta.kind]}
-              canEvaluate={canEvaluate}
-            />
-          ))}
+    <article className="rounded-2xl bg-surface-1 p-4 shadow-[0_0_0_1px_rgba(20,33,43,0.07),0_8px_24px_rgba(20,33,43,0.04)] dark:bg-[#181a22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            href={`/agam/evaluate/${candidate.id}`}
+            className="block truncate text-base font-extrabold text-text-primary transition hover:text-accent-primary"
+          >
+            {candidate.full_name}
+          </Link>
+          <p className="mt-0.5 truncate text-[12px] font-semibold text-text-muted">
+            <span dir="ltr" className="tabular-nums">
+              {candidate.personal_number}
+            </span>
+            {candidate.command ? ` · ${candidate.command}` : ""}
+            <span className="ms-2 tabular-nums text-text-secondary">
+              · {done}/{EVALUATOR_ENTRIES.length} מילאתי
+            </span>
+          </p>
         </div>
+        <Link href={`/agam/evaluate/${candidate.id}`} className={`${secondaryButtonClass} shrink-0`}>
+          פתיחת תיק
+          <ChevronLeft size={14} />
+        </Link>
       </div>
-      <Link href={`/agam/evaluate/${candidate.id}`} className={`${secondaryButtonClass} shrink-0 sm:min-w-[8.5rem]`}>
-        פתיחת תיק
-        <ChevronLeft size={14} />
-      </Link>
+
+      <div className="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {EVALUATOR_ENTRIES.map((meta) => (
+          <StageTile
+            key={meta.kind}
+            candidateId={candidate.id}
+            meta={meta}
+            entry={candidate.entries[meta.kind]}
+            canEvaluate={canEvaluate}
+          />
+        ))}
+      </div>
     </article>
   );
 }
