@@ -13,7 +13,6 @@ import {
   pageShellClass,
   panelClass,
   panelPadClass,
-  primaryButtonClass,
   secondaryButtonClass,
 } from "@/modules/agam/lib/ui";
 import type {
