@@ -65,9 +65,9 @@ export class AuthorizationService extends BaseService {
         pathname.startsWith("/") &&
         !pathname.startsWith("/login") &&
         pathname !== "/"
-          ? `?callbackUrl=${encodeURIComponent(pathname)}`
+          ? `&callbackUrl=${encodeURIComponent(pathname)}`
           : "";
-      redirect(`/login${callback}`);
+      redirect(`/login?reason=stale${callback}`);
     }
     const realProfile = await this.getRealProfile();
     await this.ensureAnyAdminExists(realProfile?.id);
@@ -103,9 +103,9 @@ export class AuthorizationService extends BaseService {
         pathname.startsWith("/") &&
         !pathname.startsWith("/login") &&
         pathname !== "/"
-          ? `?callbackUrl=${encodeURIComponent(pathname)}`
+          ? `&callbackUrl=${encodeURIComponent(pathname)}`
           : "";
-      redirect(`/login${callback}`);
+      redirect(`/login?reason=stale${callback}`);
     }
     if (!profile.is_approved) {
       redirect("/pending-approval");

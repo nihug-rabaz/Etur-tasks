@@ -82,6 +82,15 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (pathname === "/login" && token && req.nextUrl.searchParams.get("reason") === "stale") {
+    // Session JWT points at a profile that no longer exists — drop it instead of bouncing back.
+    const response = NextResponse.next();
+    for (const name of ["next-auth.session-token", "__Secure-next-auth.session-token"]) {
+      response.cookies.delete(name);
+    }
+    return response;
+  }
+
   if (pathname === "/login" && token) {
     if (!isApproved && requestCallback.startsWith("/agam/me")) {
       return NextResponse.redirect(new URL("/agam/login", req.nextUrl.origin));

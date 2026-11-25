@@ -1119,6 +1119,7 @@ function CandidateProfileCard({
   const [directCommanderRole, setDirectCommanderRole] = useState(candidate.direct_commander_role ?? "");
   const [exemptions, setExemptions] = useState(candidate.exemptions ?? "");
   const [km, setKm] = useState(candidate.km ?? "");
+  const [gapsText, setGapsText] = useState(manualGaps(candidate).join("\n"));
   const [planningIndex, setPlanningIndex] = useState(candidate.planning_index?.toString() ?? "");
   const [dapar, setDapar] = useState(candidate.dapar?.toString() ?? "");
   const [releaseDate, setReleaseDate] = useState(candidate.release_date ? toDateInputValue(candidate.release_date) : "");
@@ -1145,6 +1146,7 @@ function CandidateProfileCard({
     setDirectCommanderRole(candidate.direct_commander_role ?? "");
     setExemptions(candidate.exemptions ?? "");
     setKm(candidate.km ?? "");
+    setGapsText(manualGaps(candidate).join("\n"));
     setPlanningIndex(candidate.planning_index?.toString() ?? "");
     setDapar(candidate.dapar?.toString() ?? "");
     setReleaseDate(candidate.release_date ? toDateInputValue(candidate.release_date) : "");
@@ -1172,6 +1174,7 @@ function CandidateProfileCard({
           direct_commander_role: directCommanderRole || null,
           exemptions: exemptions || null,
           km: km || null,
+          gaps: serializeManualGaps(gapsText.split("\n")),
           planning_index: planningIndex ? Number(planningIndex) : null,
           dapar: dapar ? Number(dapar) : null,
           release_date: releaseDate || null,
@@ -1250,6 +1253,13 @@ function CandidateProfileCard({
     { key: "exemptions", label: "פטורים", icon: ShieldCheck, tone: "slate" as const, value: exemptions, setter: setExemptions },
     { key: "km", label: "כ״מ", icon: FileText, tone: "violet" as const, value: km, setter: setKm },
   ];
+
+  const autoGaps = derivedGaps({
+    ...candidate,
+    planning_index: planningIndex ? Number(planningIndex) : null,
+    release_date: releaseDate || null,
+  });
+  const typedGaps = manualGaps({ gaps: gapsText }).filter((gap) => !autoGaps.includes(gap));
 
   const questionnaire = (candidate.questionnaire_data ?? {}) as Record<string, unknown>;
   const answerText = (key: string) => {
@@ -1509,7 +1519,46 @@ function CandidateProfileCard({
         </div>
       </div>
 
-      <div className="grid shadow-[inset_0_1px_0_rgba(22,24,29,0.06)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:grid-cols-2">
+      <div className="grid shadow-[inset_0_1px_0_rgba(22,24,29,0.06)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] lg:grid-cols-3">
+        <div className={blockDividerClass}>
+          <CaseSectionHead icon={AlertTriangle} title="פערים" tone="amber" centered />
+          <div className="space-y-2.5 px-4 py-3">
+            {autoGaps.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {autoGaps.map((gap) => (
+                  <span
+                    key={gap}
+                    title="פער שמחושב אוטומטית מנתוני המועמד"
+                    className="inline-flex items-center gap-1 rounded-full bg-amber-500/12 px-2.5 py-1 text-xs font-bold text-amber-800 dark:text-amber-200"
+                  >
+                    <AlertTriangle size={11} className="shrink-0" />
+                    {gap}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            {isEditing ? (
+              <textarea
+                className={fieldClass}
+                rows={3}
+                value={gapsText}
+                placeholder="פער אחד בכל שורה…"
+                onChange={(event) => setGapsText(event.target.value)}
+              />
+            ) : typedGaps.length > 0 ? (
+              <ul className="space-y-1">
+                {typedGaps.map((gap) => (
+                  <li key={gap} className="flex items-start gap-2 text-sm font-semibold leading-relaxed text-text-primary">
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    {gap}
+                  </li>
+                ))}
+              </ul>
+            ) : autoGaps.length === 0 ? (
+              <p className="text-sm text-text-muted/70">אין פערים</p>
+            ) : null}
+          </div>
+        </div>
         {notes.map((note) => (
           <div key={note.key} className={blockDividerClass}>
             <CaseSectionHead icon={note.icon} title={note.label} tone={note.tone} centered />
