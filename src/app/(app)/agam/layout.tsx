@@ -7,12 +7,11 @@ import { AgamAccessService } from "@/modules/agam/services/access.service";
 export default async function AgamLayout({ children }: { children: ReactNode }) {
   const accessService = new AgamAccessService();
   const access = await accessService.requireAnyAgamRole();
-  if ("error" in access) {
-    redirect(access.status === 401 ? "/login" : "/");
-  }
-
   const headerStore = await headers();
   const pathname = (headerStore.get("x-etur-pathname") ?? "/agam").split("?")[0];
+  if ("error" in access) {
+    redirect(access.status === 401 ? `/login?reason=stale&callbackUrl=${encodeURIComponent(pathname)}` : "/");
+  }
   const isCandidate = accessService.isCandidate(access.role);
 
   if (isCandidate && !pathname.startsWith("/agam/me")) {

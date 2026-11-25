@@ -32,6 +32,7 @@ export default async function PlatformHomePage({
   const q = searchParams ? await searchParams : {};
   const authorizationService = new AuthorizationService();
   const profile = await authorizationService.getCurrentProfile();
+  if (!profile) redirect("/login?reason=stale");
   const isPlatformAdmin = profile?.role === "admin";
 
   const roles = profile
